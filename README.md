@@ -13,6 +13,7 @@ Early product definition and design. This repository is private while the produc
 ## Start here
 
 - [Product definition](docs/product.md): what Satchel should do and how the main experiences should work.
+- [Build roadmap](docs/build-roadmap.md): system and user decisions, proposed stack and deployment, and staged deliverables.
 - [Documentation index](docs/README.md): projects, skills and installation, memory, tasks, architecture, decisions, migration, and discussion history.
 - [Design](design/README.md): the current visual direction, original interactive prototype, review notes, and earlier explorations.
 
