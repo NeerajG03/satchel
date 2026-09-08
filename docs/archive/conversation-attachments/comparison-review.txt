@@ -1,0 +1,51 @@
+I'll read the plan you pointed me to in full, then compare it against the porting map I wrote and the live JEFF state.
+
+Read the whole report and checked its inventory claims against the live system. Now verifying a few of its external source links, since a plan built on a bad citation is a plan built on sand.
+
+The plan is sound, and in a few places it is better than the one I gave you. Its citations are real, its inventory is right where mine was wrong, and it thinks harder about who owns what data. Its weakness is the opposite of mine: it never commits to a shape, and it front-loads the hardest test.
+
+**Fact check first.** I verified the four external sources it leans on hardest. All exist and say what the report says they say, including the ChatGPT docs domain I had doubts about. Its counts are correct: 7 personas including dickson, and 16 hooks once you count the ones baked into the Go binary. My map said 6 and 6, so it read the system more carefully than I did. The memory schema really does carry supersedes, superseded_by, valid_to, verifier, and provenance. The report uses those fields. I flattened them.
+
+## What it focused on
+
+The center of gravity is different from mine. I framed JEFF as a portable store any agent can reach. The report frames it as continuity between conversations, and then asks the harder question underneath: when a fact moves, who is allowed to see it, who is allowed to change it, and how does a new chat know it is current. So it spends its pages on ownership, permissions, correction, and proof. Roughly half the document is about how to know the design works, not what the design is.
+
+## What it added that my plan missed
+
+These are real gaps in my map, not style differences.
+
+- **Data has different owners and my one hub repo ignores that.** JEFF home mixes CBX1 code knowledge, your reimbursements and bank evidence, and interview and intern records. One private repo behind one MCP token collapses those three boundaries into one. The report's line is that a folder label does not enforce separation, the storage and connector permissions have to match it. I only said interviews stay private.
+- **The team tracker already exists and it is Notion.** Your gig tasks mirror CB tickets. I moved everything to GitHub Issues. The report says keep the team tracker authoritative for team work, link to it, and never create a second editable copy. One task, one status owner. That is right and I got it wrong.
+- **The phone does not have gh.** I wrote that every device already speaks GitHub. The report points out Claude's GitHub integration is file sync only, no issues, no PRs, manual refresh. Issues from the phone need an issue-capable connector, which exists but has to be verified per account. Correct catch.
+- **Native memory suppression is a choice to question, not a loss to mourn.** JEFF today edits the agent's settings to turn off Claude Code and Gemini memory. I treated losing that on the phone as a cost. The report says do not port it at all, let native memory coexist with clear ownership. I think that is the better call.
+- **Persona memory should be translated by meaning.** I said persona scopes stay exactly as they are. The report says a role is not a person with a private memory silo. Hardy's entry about your review format is a user preference. Hardy's entry about backend is repo knowledge. Marlowe's entry about queue machinery is archive. Better than mine.
+- **The handover is richer than done, next, blockers.** It adds decisions, validation actually run, code state as branch or commit or PR or patch, and a session link. And it names the thing memory can never do: move uncommitted files off a sleeping laptop. That becomes an acceptance test. I did not have it.
+- **Skills come in four classes.** Instructions only, connected service, local script, local app. A SKILL.md served over MCP is not an installed skill and does not make its script runnable. I hand-waved this. It also filed a disposition for all 25 skills, noted the notion skill marks itself deprecated, and said credentials never go in skills or memory.
+- **Correct, forget, and conflict have semantics.** Stop using this and erase every copy are different operations. Two simultaneous edits should surface a conflict, not last-write-wins. A write should come back as acknowledged, pending, or rejected. My plan said same frontmatter and moved on.
+- **Buy before build.** It treats a hosted memory service like Mem0 as an alternative to writing the MCP server, to be tested against the same scenarios. I jumped straight to building. Its strongest version, which it does not quite assemble, is a zero-code baseline: the official GitHub connector for issues, a hosted memory service for memory, and npx skills for skills. That is worth taking seriously before writing a server.
+- **Fifteen acceptance tests and a rollback rule.** Never restore an old gig snapshot over newer changes. Keep an old-ID to new-link map. Do not bulk-upload JEFF home. Measure missed saves and acknowledged-to-readable delay, not worker counts. I had one test.
+
+## What it missed or left open
+
+- **It never picks a shape.** After 635 lines you still do not know if there is an MCP server, which repo holds what, or what the tools are. Everything is deferred to a pilot. That is honest, but it is a decision framework, not a plan. You cannot start Monday from it without making the choices it declined to make.
+- **It does not mention the Jeff-Anywhere epic.** You have a partially executed roadmap pointing the opposite direction, with six prerequisite plans already closed. A rethink has to say what happens to that work. It is silent.
+- **It dilutes the single-writer idea.** Your current design's best feature is many proposers, one curator. The report says one authoritative memory source with review where needed, and explicit saves acknowledged promptly. Read together that means many writers touching canonical memory, which fights its own worry about unverified inference becoming preference. It never draws the pipeline.
+- **Curation has an obvious home it does not name.** It says use existing app scheduling and stops. Scheduled cloud routines exist today in Claude Code. Marlowe as a routine is concrete and cheap. It should have said so.
+- **No verdict on the backlog.** 99 proposals and 344 queued sessions get review selectively. That is not a decision.
+- **It adds a fifth continuity, across people, then never designs it.** Collaborator access changes the whole auth model. Either it is in scope and needs a section, or it is out and should say so.
+- **Phase one is the hardest thing.** It proves the phone to laptop write loop before anything ships. That is a fail-fast on the core bet, which I respect. But if it fails you have nothing. My order started with the skills repo because it is zero risk and deletes code on day one. That is a tradeoff, not a flaw, but it is worth seeing.
+- **It leans Codex.** Most product citations are ChatGPT docs and the headline test is Claude phone to Codex laptop. Claude Code's worktree isolation, Agent tool, cloud sessions, and routines get one sentence. Not wrong, just tilted.
+
+## Where the two plans actually disagree
+
+| Question | My map | Codex report | My honest read |
+|---|---|---|---|
+| Tasks | all to a GitHub hub repo | GitHub for personal, Notion stays for team | report is right |
+| Persona memory | keep persona scopes | translate by meaning | report is right |
+| Native memory | suppression is a loss | do not port suppression | report is right |
+| Memory writes | one curator routine | many acknowledged writers, review where needed | mine is right |
+| Server | build a small MCP | test a hosted service first | test first, then build only what is left |
+| First move | skills repo, zero risk | prove the phone loop | depends on whether you want a win or a verdict first |
+| Existing epic | shelve it, explained | not mentioned | mine |
+
+So the fair summary is this. Use the report as the guardrails and the acceptance tests. Use my map as the shape. And fix four things in my shape before anyone builds: Notion stays the status owner for team tickets, the hub splits along permission lines instead of being one repo, persona memory gets re-scoped by meaning, and the phone's path to Issues gets verified with a real connector before it is assumed.

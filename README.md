@@ -10,6 +10,14 @@ Satchel is the next direction for JEFF: a hosted service with companion interfac
 
 Early product definition and design. This repository is private while the product model and implementation are developed. No service or plugin is implemented yet.
 
+## Start here
+
+- [Product definition](docs/product.md): what Satchel should do and how the main experiences should work.
+- [Documentation index](docs/README.md): projects, skills and installation, memory, tasks, architecture, decisions, migration, and discussion history.
+- [Design](design/README.md): the current visual direction, original interactive prototype, review notes, and earlier explorations.
+
+Current docs distinguish agreed direction from proposed mechanisms and open choices. Historical reports and mockups are preserved unchanged; their older assumptions do not override the current product definition.
+
 ## Direction
 
 - Keep useful context available across supported apps and devices, with explicit control over what is saved and shared.

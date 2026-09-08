@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; background: #26231F; }
+    a { color: #B8420F; text-decoration: none; } a:hover { color: #8F3209; }
+    .serif { font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif; }
+    .sans { font-family: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; }
+    .mono { font-family: 'DM Mono', Menlo, Consolas, monospace; }
+    .paper { background-color: #F4F0E7; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.045 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>"); }
+    .key { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 14px; border: 1px solid #1F1B17; border-radius: 8px; background: #F8F5EE; color: #1F1B17; font: 500 13px/1 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; box-shadow: 0 2px 0 #1F1B17; white-space: nowrap; }
+    .key.ink { background: #1F1B17; color: #F4F0E7; border-color: #1F1B17; box-shadow: 0 2px 0 #000000; }
+    .key.quiet { border-color: #B9B1A2; box-shadow: 0 2px 0 #B9B1A2; color: #4A443B; }
+    .lbl { font: 500 11px/1 'DM Mono', Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; color: #6E665A; }
+    .meta { font: 400 11.5px/1.5 'DM Mono', Menlo, monospace; letter-spacing: .03em; color: #6E665A; }
+    .sw { position: relative; display: inline-block; width: 38px; height: 22px; border-radius: 11px; background: #CFC7B8; box-shadow: inset 0 1px 2px #00000022; flex: none; }
+    .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #8A8274; box-shadow: 0 1px 1px #00000033; }
+    .sw.on { background: #E4571E; box-shadow: inset 0 1px 2px #00000033; }
+    .sw.on::after { left: 19px; background: #F8F5EE; }
+    .led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #7B756B; flex: none; }
+    .led.ok { background: #3E9E62; box-shadow: 0 0 0 2px #3E9E6233, 0 0 8px #3E9E6299; }
+    .led.warn { background: #E2A11E; box-shadow: 0 0 0 2px #E2A11E33, 0 0 8px #E2A11E99; }
+    .tab { writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; width: 52px; height: 92px; border-radius: 0 8px 8px 0; background: #3A362F; color: #C9C1B2; font: 500 12px/1 'Instrument Sans', Arial, sans-serif; letter-spacing: .06em; }
+    .tab.on { background-color: #F4F0E7; color: #1F1B17; }
+    .ribbon { width: 10px; background: #E4571E; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 7px), 0 100%); flex: none; }
+    .ribbon.grey { background: #B9B1A2; }
+    .strike { color: #B4271B; text-decoration: line-through; text-decoration-color: #B4271B; text-decoration-thickness: 1.5px; }
+    .hwkey { display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 8px; background: #3A362F; color: #C9C1B2; font: 500 12px/1 'Instrument Sans', Arial, sans-serif; letter-spacing: .04em; flex: 1; }
+    .hwkey.on { background-color: #F4F0E7; color: #1F1B17; }
+  </style>
+</helmet>
+<div class="sans" style="width: 390px; height: 844px; box-sizing: border-box; background: #26231F; display: flex; flex-direction: column; color: #1F1B17;">
+  <div style="height: 54px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 18px;">
+    <span class="serif" style="font-style: italic; font-size: 23px; line-height: 1; color: #E9E3D6;">jeff</span>
+    <span class="mono" style="display: inline-flex; align-items: center; gap: 8px; font-size: 10.5px; letter-spacing: .1em; color: #B8B0A2;"><span class="led ok"></span>SAT 6 SEP · SYNCED</span>
+  </div>
+  <div class="paper" style="flex: 1; min-height: 0; border-radius: 14px 14px 0 0; box-shadow: inset 0 1px 0 #FFFFFFCC; padding: 22px 20px 16px; display: flex; flex-direction: column; overflow: hidden;">
+    <div class="lbl">Saturday, 6 September</div>
+    <h1 class="serif" style="font-weight: 400; font-size: 36px; line-height: 1.02; letter-spacing: -.015em; margin: 10px 0 0;">The book.</h1>
+    <div style="display: flex; align-items: flex-end; gap: 12px; border-bottom: 1.5px solid #1F1B17; padding: 6px 0 9px; margin-top: 16px;">
+      <span class="serif" style="font-size: 19px; line-height: 1.2; font-style: italic; color: #8F877A; flex: 1;">Write something down…</span>
+      <span class="key" style="min-height: 44px;">Save</span>
+    </div>
+    <div style="display: flex; flex-direction: column; margin-top: 14px;">
+      <div class="lbl" style="padding: 6px 0 2px; color: #8F877A;">Today</div>
+      <div style="display: flex; flex-direction: column; gap: 5px; padding: 11px 0; border-bottom: 1px solid #E3DCCD;">
+        <div class="lbl" style="font-size: 10px;">Project / JEFF v2</div>
+        <div class="serif" style="font-size: 19px; line-height: 1.3;">JEFF v2 has no personas and no curator in the initial version.</div>
+        <div class="meta">Said on this phone · 09:18</div>
+      </div>
+      <div class="lbl" style="padding: 14px 0 2px; color: #8F877A;">Friday, 5 September</div>
+      <div style="display: flex; flex-direction: column; gap: 5px; padding: 11px 0; border-bottom: 1px solid #E3DCCD;">
+        <div class="lbl" style="font-size: 10px;">You</div>
+        <div class="serif" style="font-size: 19px; line-height: 1.3;">Use plain language. Lead with the outcome and keep the explanation practical.</div>
+        <div class="serif strike" style="font-size: 16px; line-height: 1.3;">Keep answers short and skip the theory.</div>
+        <div class="meta" style="color: #B4271B;">Corrected 18:42 · earlier line kept in history</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 5px; padding: 11px 0; border-bottom: 1px solid #E3DCCD;">
+        <div class="lbl" style="font-size: 10px;">Project / Release</div>
+        <div class="serif" style="font-size: 19px; line-height: 1.3;">V1 uses GitHub Issues only. Third-party task sources come later.</div>
+        <div class="meta">Saved from Codex on your desktop · 17:06</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 5px; padding: 11px 0;">
+        <div class="lbl" style="font-size: 10px;">Repo / frontend</div>
+        <div class="serif" style="font-size: 19px; line-height: 1.3;">Run the existing frontend checks before preparing a release handover.</div>
+        <div class="meta">Said on your MacBook · 16:30</div>
+      </div>
+    </div>
+  </div>
+  <div style="flex: none; display: flex; gap: 6px; padding: 12px 12px 16px; background: #26231F;">
+    <div class="hwkey">Left off</div>
+    <div class="hwkey on paper">Book</div>
+    <div class="hwkey">Apps</div>
+    <div class="hwkey">More</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; background: #26231F; }
+    a { color: #B8420F; text-decoration: none; } a:hover { color: #8F3209; }
+    .serif { font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif; }
+    .sans { font-family: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; }
+    .mono { font-family: 'DM Mono', Menlo, Consolas, monospace; }
+    .paper { background-color: #F4F0E7; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.045 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>"); }
+    .key { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 14px; border: 1px solid #1F1B17; border-radius: 8px; background: #F8F5EE; color: #1F1B17; font: 500 13px/1 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; box-shadow: 0 2px 0 #1F1B17; white-space: nowrap; }
+    .key.ink { background: #1F1B17; color: #F4F0E7; border-color: #1F1B17; box-shadow: 0 2px 0 #000000; }
+    .key.quiet { border-color: #B9B1A2; box-shadow: 0 2px 0 #B9B1A2; color: #4A443B; }
+    .lbl { font: 500 11px/1 'DM Mono', Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; color: #6E665A; }
+    .meta { font: 400 11.5px/1.5 'DM Mono', Menlo, monospace; letter-spacing: .03em; color: #6E665A; }
+    .sw { position: relative; display: inline-block; width: 38px; height: 22px; border-radius: 11px; background: #CFC7B8; box-shadow: inset 0 1px 2px #00000022; flex: none; }
+    .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #8A8274; box-shadow: 0 1px 1px #00000033; }
+    .sw.on { background: #E4571E; box-shadow: inset 0 1px 2px #00000033; }
+    .sw.on::after { left: 19px; background: #F8F5EE; }
+    .led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #7B756B; flex: none; }
+    .led.ok { background: #3E9E62; box-shadow: 0 0 0 2px #3E9E6233, 0 0 8px #3E9E6299; }
+    .led.warn { background: #E2A11E; box-shadow: 0 0 0 2px #E2A11E33, 0 0 8px #E2A11E99; }
+    .tab { writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; width: 52px; height: 92px; border-radius: 0 8px 8px 0; background: #3A362F; color: #C9C1B2; font: 500 12px/1 'Instrument Sans', Arial, sans-serif; letter-spacing: .06em; }
+    .tab.on { background-color: #F4F0E7; color: #1F1B17; }
+    .ribbon { width: 10px; background: #E4571E; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 7px), 0 100%); flex: none; }
+    .ribbon.grey { background: #B9B1A2; }
+    .strike { color: #B4271B; text-decoration: line-through; text-decoration-color: #B4271B; text-decoration-thickness: 1.5px; }
+    .hwkey { display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 8px; background: #3A362F; color: #C9C1B2; font: 500 12px/1 'Instrument Sans', Arial, sans-serif; letter-spacing: .04em; flex: 1; }
+    .hwkey.on { background-color: #F4F0E7; color: #1F1B17; }
+  </style>
+</helmet>
+<div class="sans" style="width: 1280px; height: 860px; box-sizing: border-box; background: #26231F; border-radius: 18px; padding: 12px 12px 14px 12px; display: flex; flex-direction: column; gap: 10px; color: #1F1B17; box-shadow: inset 0 1px 0 #FFFFFF14, inset 0 -1px 0 #00000080;">
+  <div style="height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 14px;">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <span class="serif" style="font-style: italic; font-size: 27px; line-height: 1; color: #E9E3D6;">jeff</span>
+      <span class="mono" style="font-size: 10.5px; letter-spacing: .14em; color: #8F877A; text-transform: uppercase;">companion · option a</span>
+    </div>
+    <div class="mono" style="display: flex; align-items: center; gap: 22px; font-size: 11px; letter-spacing: .1em; color: #B8B0A2;">
+      <span>SAT 6 SEP</span>
+      <span>09:41</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px;"><span class="led ok"></span>SYNCED 2 MIN AGO</span>
+    </div>
+  </div>
+  <div style="flex: 1; display: flex; min-height: 0;">
+    <div style="width: 60px; display: flex; flex-direction: column; gap: 6px; padding: 30px 0 0 6px;">
+      <div class="tab on paper">Left off</div>
+      <div class="tab">Book</div>
+      <div class="tab">Projects</div>
+      <div class="tab">Apps</div>
+      <div class="tab">Skills</div>
+    </div>
+    <div class="paper" style="flex: 1; min-width: 0; border-radius: 0 12px 12px 0; box-shadow: inset 0 1px 0 #FFFFFFCC, inset -1px 0 0 #00000012; padding: 42px 48px 30px 44px; display: flex; gap: 48px; position: relative; overflow: hidden;">
+      <div style="flex: 1.5; min-width: 0; display: flex; flex-direction: column;">
+        <div class="lbl">Saturday, 6 September</div>
+        <h1 class="serif" style="font-weight: 400; font-size: 48px; line-height: 1.02; letter-spacing: -.015em; margin: 14px 0 0;">Where you left off.</h1>
+        <p style="font-size: 15px; line-height: 1.5; color: #6E665A; margin: 12px 0 0; max-width: 48ch;">Three projects have an open handover. Pick one up on this machine and it continues from the note, not from scratch.</p>
+        <div style="display: flex; flex-direction: column; gap: 20px; margin-top: 32px;">
+          <div style="display: flex; gap: 22px; align-items: stretch;">
+            <div class="ribbon" style="margin-bottom: -14px;"></div>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 9px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 13.5px; font-weight: 600;">JEFF v2</span>
+                <span class="lbl" style="color: #8F877A;">Personal</span>
+              </div>
+              <div class="serif" style="font-size: 23px; line-height: 1.3;">Rewrote the memory section: explicit saves, no curator, three scopes. Next is choosing between a hosted service and the git fallback.</div>
+              <div class="meta">Written from Claude Code on your MacBook · today, 09:41</div>
+              <div style="display: flex; gap: 10px; margin-top: 6px;">
+                <span class="key ink">Resume here</span>
+                <span class="key quiet">Open project</span>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 22px; align-items: stretch;">
+            <div class="ribbon grey" style="margin-bottom: -14px;"></div>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 9px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 13.5px; font-weight: 600;">Release workflow</span>
+                <span class="lbl" style="color: #8F877A;">Work</span>
+              </div>
+              <div class="serif" style="font-size: 22px; line-height: 1.3;">Frontend checks pass on the 5 Sep release branch. Next is opening the sync PR and pinging the release captain.</div>
+              <div class="meta">Written from Codex on your desktop · Fri, 17:06 · <a href="#">Resume here</a></div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 22px; align-items: stretch;">
+            <div class="ribbon grey" style="margin-bottom: -14px;"></div>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 9px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 13.5px; font-weight: 600;">Reimbursements</span>
+                <span class="lbl" style="color: #8F877A;">Personal</span>
+              </div>
+              <div class="serif" style="font-size: 22px; line-height: 1.3;">August receipts are matched to statement lines. Next is submitting the claim.</div>
+              <div class="meta">Written from Claude on your phone · Thu, 11:12 · <a href="#">Resume here</a></div>
+            </div>
+          </div>
+        </div>
+        <div style="flex: 1;"></div>
+        <div class="meta" style="margin-top: 24px;">Handover notes are written when you stop. Nothing here is guessed from a chat.</div>
+      </div>
+      <div style="width: 330px; flex: none; display: flex; flex-direction: column; gap: 30px; padding-top: 6px;">
+        <div>
+          <div class="lbl">Your apps</div>
+          <div style="display: flex; flex-direction: column; margin-top: 14px; border-top: 1px solid #D8D0C1;">
+            <div style="display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid #D8D0C1;">
+              <span class="led ok"></span>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 14px; font-weight: 500;">Codex</div>
+                <div class="meta">Desktop · your MacBook</div>
+              </div>
+              <div style="display: flex; gap: 14px;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;"><span class="lbl" style="font-size: 9.5px;">Read</span><span class="sw on"></span></div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;"><span class="lbl" style="font-size: 9.5px;">Save</span><span class="sw on"></span></div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid #D8D0C1;">
+              <span class="led warn"></span>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 14px; font-weight: 500;">Claude</div>
+                <div class="meta">Android · your phone</div>
+              </div>
+              <div style="display: flex; gap: 14px;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;"><span class="lbl" style="font-size: 9.5px;">Read</span><span class="sw on"></span></div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;"><span class="lbl" style="font-size: 9.5px;">Save</span><span class="sw"></span></div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid #D8D0C1;">
+              <span class="led"></span>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 14px; font-weight: 500;">ChatGPT</div>
+                <div class="meta">Web · not set up</div>
+              </div>
+              <div style="display: flex; gap: 14px;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;"><span class="lbl" style="font-size: 9.5px;">Read</span><span class="sw"></span></div>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;"><span class="lbl" style="font-size: 9.5px;">Save</span><span class="sw"></span></div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top: 14px; display: flex; align-items: center; gap: 14px;">
+            <div style="flex: 1; font-size: 13.5px; line-height: 1.5; color: #4A443B;">Claude on your phone can read the book but can't write in it yet.</div>
+            <span class="key">Allow saves</span>
+          </div>
+        </div>
+        <div>
+          <div class="lbl">Last thing saved</div>
+          <div class="serif" style="font-size: 20px; line-height: 1.35; margin-top: 12px;">“JEFF v2 has no personas and no curator in the initial version.”</div>
+          <div class="meta" style="margin-top: 8px;">Said on your phone · today, 09:18 · project / JEFF v2</div>
+          <div style="margin-top: 12px; display: flex; align-items: center; gap: 6px;">
+            <a href="#" style="font-size: 13px; font-weight: 500;">Open the book</a>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#B8420F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"></path></svg>
+          </div>
+        </div>
+      </div>
+      <div class="mono" style="position: absolute; right: 26px; bottom: 18px; font-size: 10.5px; letter-spacing: .1em; color: #8F877A;">P. 1 · 5 THINGS SAVED · 3 PROJECTS</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

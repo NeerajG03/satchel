@@ -1,0 +1,59 @@
+Here is what I would change in the Codex report, section by section. Two decisions drive most of it, no curator to start and no personas, and the rest comes from the facts we verified.
+
+## Rewrites
+
+**Section 1, purpose.** Add two constraints up front: memory is written directly by the session, with no curation stage at first, and there are no agent roles. Drop the "across people" row from the continuity table or mark it out of scope. It changes the whole access model and nothing later in the report designs for it.
+
+**Section 3, disposition table.** Three rows change and two are missing.
+
+| Row | Today it says | Should say |
+|---|---|---|
+| Personas and default models | roles may remain | Drop. Role text that is worth keeping becomes a skill. jeff-pr-review already is one. |
+| Memory curation and corrections | one authoritative source with review where needed | No curator at start. The session that hears a correction writes a superseding record itself. Only explicit user statements are written. |
+| Memory capture | explicit saves plus lifecycle integrations plus source events | Explicit saves only. No session-end capture, no proposals folder. |
+| Missing | | Python project in the JEFF root: the `api` CLI and the lyric-cli workspace member need a disposition. |
+| Missing | | Jeff-Anywhere epic: shelve. The six closed prerequisite plans stay useful only if gig lives on. |
+
+**Section 4, storage.** Commit to a shape instead of "logical boundaries." Split by who may read it, not by topic: one work-context repo for CBX1 repo knowledge, work project briefs, and Issues. One personal-context repo for preferences, reimbursement, personal projects. Interview and intern material in its own private repos, never indexed. Skills repo private, because several skills name internal hosts. And note that the separate canonical-memory repo is no longer needed. That existed only to give the curator a single-writer boundary.
+
+**Section 8, memory.** This is the biggest rewrite.
+
+- Scopes collapse to three: you, a repo, a project. No persona scope, no orchestrator scope.
+- Write path is one step. A save is one markdown file with scope, date, and provenance set to user-stated. A correction is a new file that names what it supersedes and flips the old one. No queue, no batch job.
+- The rule that makes this safe: agents never save their own inferences. Keep the section's warning about clerical burden, but reframe it as the accepted cost of this choice, and measure missed saves.
+- Translate the 68 entries by meaning. The repo-scoped ones move as they are. Hardy's 8 become your review preferences. The 7 orchestrator entries mostly archive. Marlowe's 1 archives.
+- The 99 proposals get one sitting of manual triage. The 344 queued sessions get deleted. The justification is not that curation never ran. It is marlowe's own finding that queue content is the same slug re-emitted every session, so it is noise by the system's own measure.
+- Do not port native memory suppression. Tell the session to check the shared store first and accept that this is a prompt, not a lock.
+- Forget means delete the file and accept git history keeps it. For anything where that is not acceptable, the answer is do not store it.
+
+**Section 9, GitHub versus a service versus custom.** Turn the options table into an order. First, the zero-code baseline: the official GitHub connector for Issues, one hosted memory service for save and search, npx skills for skills. Run the phone loop on that. Second, only if the service fails on scoping, provenance, or supersede, build the custom server. With no curator and no personas that server is three tools, save, search, and get context for a scope. It is the fallback, not the plan.
+
+**Section 11, agents.** Replace the persona-to-role table with one line: dropped. Update the hooks table: memory-session-start, memory-propose-nudge, and memory-session-end retire outright, since there is no suppression and no proposals. Checkpoint-nudge becomes a native hook. Add the Jeff-Anywhere paragraph here.
+
+**Section 13, migration.** Keep the phone loop as phase one, because that is the thing you actually want proven. But add the reversible skills-repo push alongside it, without deleting the registry. Then put a gate in front of every deletion. Skills are ported when a script runs from a fresh clone on a second machine. Tasks cut over when the ID map is verified and Notion pointers are in place. Memory moves when the 68 are re-scoped and the 99 triaged. The Go CLI, the Python CLI, and crew retire last, after active sessions end. Old phase five, deciding on a custom memory product, moves up to sit right after phase one as the fallback branch.
+
+## Additions
+
+**Section 6, tasks.** Four things are missing.
+
+- PRs must say "Part of hub#N", never "Closes". Any merged PR with a closing keyword closes the issue, so a three-repo task would close on the first merge. Closing is explicit, or when every linked PR has merged. Also note closing keywords only fire on PRs to the default branch.
+- The team tracker rule needs to be concrete. A CB ticket keeps its status in Notion. The hub issue for it is a pointer with a link and holds only the agent's checkpoints. Personal and agent-only work lives fully in Issues.
+- The phone needs create, update, dependency edit, and reopen, not just claim, checkpoint, and close. A desktop fills gaps with gh. A phone cannot.
+- Gig attrs are typed, string, boolean, JSON. They do not become labels. They become a YAML block in the issue body or a fixed first comment.
+
+**Section 7, skills.** Commit to npx skills by name instead of "for example." Then list the real porting work the report hand-waves: no skill has its own dependency file, all deps sit in the root pyproject, langfuse hardcodes the volume path in its env loader, and secrets come from a root .env. Each skill needs its own deps or a shared package, an env-var path instead of the hardcoded one, and a per-machine .env that never enters the repo. The gig_type and persona mappings in skills.json go away. The agent picks skills by description.
+
+**Section 10, sharing.** Add the point the Codex review made against my plan. Server instructions are hints and resources are client-controlled. Context delivery has to be a tool call the model is told to make, verified per client. And a home Mac behind a tunnel is not hosting independence, since Claude connects from Anthropic's cloud and the Mac has to be awake.
+
+**Section 12, scenarios.** Scenario C now works without a curator, so rewrite it: the session writes the superseding record and a fresh chat reads it immediately. Add a scenario that did not exist before: save on the phone, read on the laptop within a minute, no batch delay.
+
+**Section 14, acceptance tests.** Add four. An explicit correction on one device is visible on another within minutes. A multi-repo task does not close when its first PR merges. A skill script runs from a fresh clone on a second machine. After thirty days of explicit-only saves, the store is still mostly signal, counted by hand.
+
+## Fixes to stated facts
+
+- Section 2 hedges correctly on "last curation never," but should say plainly that it is a known bug: status reads a file no production code writes, and a first pass did run under gig-16bd.
+- Note that the installed gig is 0.6.2 while the source has the compare-and-swap claim. Anything that cites the race should say which one it means.
+- The persona count is seven, and the report has that right. Mine did not.
+- Section 15 defaults need updating to match: memory writes explicit and direct, curator none until noise shows, personas none, tasks in Issues for personal and agent work with Notion as status owner for team tickets.
+
+What I would keep untouched: the four kinds of information table, the handover template with validation and code state, the skill capability classes, the rollback rule about never restoring an old snapshot over new changes, and the do-not-bulk-upload warning. Those are the parts of that report that were better than mine.

@@ -1,0 +1,196 @@
+{
+  "collected": "2026-09-08",
+  "note": "Original files preserved byte-for-byte. Historical content is not the current specification. Local source paths document provenance; use repository paths to navigate.",
+  "files": [
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-rethinking/JEFF-portable-context-report.md",
+      "path": "docs/archive/jeff-rethinking/JEFF-portable-context-report.md",
+      "sha256": "f5dbf2306b2c2b8e90dfa2c6889178bbb9253ed86ce7c0c283b5d5044e5ba092"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-rethinking/JEFF-v1-visual-direction.md",
+      "path": "docs/archive/jeff-rethinking/JEFF-v1-visual-direction.md",
+      "sha256": "e1cf58d89221168de246cfcff892c5cabd55f51efe2d19f2ea716b1072095eec"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-rethinking/JEFF-v2-product-design.md",
+      "path": "docs/archive/jeff-rethinking/JEFF-v2-product-design.md",
+      "sha256": "0c094ea58ffdcc1cc3c5e8429e7717095b612fd6453d88798bb737979365f316"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-rethinking/JEFF-v2-task-source-plugins.md",
+      "path": "docs/archive/jeff-rethinking/JEFF-v2-task-source-plugins.md",
+      "sha256": "ae1a063d46e5bb30e2b2cbd27016c2efbf1fec1416840276e12defbf301aee81"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/reports/JEFF-portable-context-report.md",
+      "path": "docs/archive/jeff-handoff/reports/JEFF-portable-context-report.md",
+      "sha256": "f5dbf2306b2c2b8e90dfa2c6889178bbb9253ed86ce7c0c283b5d5044e5ba092"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/reports/JEFF-v1-visual-direction.md",
+      "path": "docs/archive/jeff-handoff/reports/JEFF-v1-visual-direction.md",
+      "sha256": "e1cf58d89221168de246cfcff892c5cabd55f51efe2d19f2ea716b1072095eec"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/reports/JEFF-v2-product-design.md",
+      "path": "docs/archive/jeff-handoff/reports/JEFF-v2-product-design.md",
+      "sha256": "0c094ea58ffdcc1cc3c5e8429e7717095b612fd6453d88798bb737979365f316"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/reports/JEFF-v2-task-source-plugins.md",
+      "path": "docs/archive/jeff-handoff/reports/JEFF-v2-task-source-plugins.md",
+      "sha256": "ae1a063d46e5bb30e2b2cbd27016c2efbf1fec1416840276e12defbf301aee81"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/reports/codex-mockup-android-dark.png",
+      "path": "docs/archive/jeff-handoff/reports/codex-mockup-android-dark.png",
+      "sha256": "59ca58b8f01bfb2fd21714b45e0db2463028a306b2e857d4bb32ec8c461ae5e8"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/reports/codex-mockup-web-light.png",
+      "path": "docs/archive/jeff-handoff/reports/codex-mockup-web-light.png",
+      "sha256": "506fc0b85ec26b6079e1b9113448f1a206804dc3edb56ab029a38fc82be49943"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/reports/jeff-porting-map.html",
+      "path": "docs/archive/jeff-handoff/reports/jeff-porting-map.html",
+      "sha256": "02d27a544ef9e39c3466749c27d21d0bbe24846a45e28341766029eee5283cdf"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/README.md",
+      "path": "docs/archive/jeff-handoff/README.md",
+      "sha256": "0f6120e934f8a695e05f1d5557b9fe0afcabcdcf22a8b710cbe12d67c9a38f81"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/DECISIONS.md",
+      "path": "docs/archive/jeff-handoff/DECISIONS.md",
+      "sha256": "1e0c8b453bd99703e947820a691f9b818e4e3d3d0f8044485407531e34453b4c"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/Direction.dc.html",
+      "path": "design/prototype/Direction.dc.html",
+      "sha256": "7e3d955c12f6a7381005524cf4ad12e858d83457ca43dd1cf5ea763a398cafe7"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/Main.dc.html",
+      "path": "design/prototype/Main.dc.html",
+      "sha256": "883a5b4a8b0e71d18d1f12d5d38b684d4c8af706ed2509518142821c88e9098c"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/_helmet.txt",
+      "path": "design/prototype/_helmet.txt",
+      "sha256": "cd75a1fa78f459850c64897b95aa762d3152f32d29ad9ba1cb770ad5307f32cd"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/archive/Direction-v1.dc.html",
+      "path": "design/prototype/archive/Direction-v1.dc.html",
+      "sha256": "829f48c30e361f2b3a88ebdccfab2ce979488ce989c52db03dab8fc9e00d875d"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/archive/Main-v1-optionA.dc.html",
+      "path": "design/prototype/archive/Main-v1-optionA.dc.html",
+      "sha256": "bfc3e4bd5b57962a38b0d7b60f9184ab866b843a1ea287987c2faf83c9bbf3f6"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/archive/Main-v2.dc.html",
+      "path": "design/prototype/archive/Main-v2.dc.html",
+      "sha256": "1a837b39a4f68b1ffed02a56ef650819948fc9d68344fdf6c359d9b2032e9d81"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/archive/Main-v3.dc.html",
+      "path": "design/prototype/archive/Main-v3.dc.html",
+      "sha256": "195c53d48797175bbb09426f0a9763d9847cc14ce3b08c43da3485cc21d7c18b"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/archive/Main-v4.dc.html",
+      "path": "design/prototype/archive/Main-v4.dc.html",
+      "sha256": "3386f9523a5f506d685ee684ffa45936ca10563d502f5a4d64dc5fb732ee4134"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/archive/OptionB.dc.html",
+      "path": "design/prototype/archive/OptionB.dc.html",
+      "sha256": "34bb01d7dad8eb3b593e659be9a345b433015f14f85a2b0d907a4b7a66d56b0c"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/archive/PhoneApps.dc.html",
+      "path": "design/prototype/archive/PhoneApps.dc.html",
+      "sha256": "ba1fef96e9377e50d5f043fd2f315ec56502940f3f9270bc37519276572c81a2"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/archive/PhoneBook.dc.html",
+      "path": "design/prototype/archive/PhoneBook.dc.html",
+      "sha256": "86820785a632666d2e25566d765ee97345e40e55a4ddd642ce1dc78cf81a43a9"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/canvas.json",
+      "path": "design/prototype/canvas.json",
+      "sha256": "432e773494cbdbfe41721b407ec28fd6b554437603bbde1e2665fe36b621efbc"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/jeff-companion.html",
+      "path": "design/prototype/jeff-companion.html",
+      "sha256": "f5afae3eaf646444115e843686f80090287f9cfacdcaccd413faebb45a1cbf63"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/preview.png",
+      "path": "design/prototype/preview.png",
+      "sha256": "b0a6de866edd81355eaa36aef179744069ab3619b7a2b4e5726e7cf6b8306441"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/tests/pw-hist.cjs",
+      "path": "design/prototype/tests/pw-hist.cjs",
+      "sha256": "ba8e5353180ba7907fedaeb789f3a3d5b3713963756e1f9bc2d5c4b0fd77ed17"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/tests/pw-repo.cjs",
+      "path": "design/prototype/tests/pw-repo.cjs",
+      "sha256": "91e2c85e6443126bb986b9c1c5a6217d76d095e3020a7b1853e3fcf5d081389c"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/tests/pw-resume.cjs",
+      "path": "design/prototype/tests/pw-resume.cjs",
+      "sha256": "b76c8f5ef6de21ae87ab27582bcf7750024c9a0dd5b3019d8f995dbf23154f27"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/tests/pw-test.cjs",
+      "path": "design/prototype/tests/pw-test.cjs",
+      "sha256": "5535f02c9d466270a04d551fb36e8da6eb2ad122c1b7fd98a4b0d836a928fa5f"
+    },
+    {
+      "source": "/Volumes/Casesensitive/jeff/exports/jeff-handoff/design/tests/pw-test2.cjs",
+      "path": "design/prototype/tests/pw-test2.cjs",
+      "sha256": "4022c00aa323ef0531e24582042c1df85d964f1cef55f9c2c2f6aaae0d3033e3"
+    },
+    {
+      "source": "/Users/neerajgopalakrishnan/.codex/attachments/cbb363cf-1660-40ee-84f5-3150d303311b/pasted-text.txt",
+      "path": "docs/archive/conversation-attachments/comparison-review.txt",
+      "sha256": "a7ec70676e5498ff4928329a1df0c4b99818dff242acd02a5f80103893e7e853"
+    },
+    {
+      "source": "/Users/neerajgopalakrishnan/.codex/attachments/869d90f7-8234-410b-ba8a-d4fd1c202b19/pasted-text.txt",
+      "path": "docs/archive/conversation-attachments/section-by-section-revision.txt",
+      "sha256": "86df61137136fa9dbffab03a97d73736debb3d29ac0f3fc57a0b2ca317ee2556"
+    },
+    {
+      "source": "/Users/neerajgopalakrishnan/.codex/visualizations/2026/09/05/01a07004-9d51-7f01-b3d0-c52c2cd676c4/jeff-studio-android.html",
+      "path": "design/archive/early-codex-mockups/jeff-studio-android.html",
+      "sha256": "95349db08f2c4f0a5403cd90b0256f1f39d2b9aa4ed2a08e7dd7c1de5bd0c081"
+    },
+    {
+      "source": "/Users/neerajgopalakrishnan/.codex/visualizations/2026/09/05/01a07004-9d51-7f01-b3d0-c52c2cd676c4/jeff-studio-web.html",
+      "path": "design/archive/early-codex-mockups/jeff-studio-web.html",
+      "sha256": "49757bb02aaeae4740301e92683ef569e5e2146a1dadafc39a5003cc3c919583"
+    },
+    {
+      "source": "/Users/neerajgopalakrishnan/.codex/visualizations/2026/09/05/01a07004-9d51-7f01-b3d0-c52c2cd676c4/jeff-v2-android.html",
+      "path": "design/archive/early-codex-mockups/jeff-v2-android.html",
+      "sha256": "92850152a234d78a314f542dd40f9687f377abb80e145d6eb3761b2630393f82"
+    },
+    {
+      "source": "/Users/neerajgopalakrishnan/.codex/visualizations/2026/09/05/01a07004-9d51-7f01-b3d0-c52c2cd676c4/jeff-v2-web.html",
+      "path": "design/archive/early-codex-mockups/jeff-v2-web.html",
+      "sha256": "a9c688da6915bb5c6e0beed67b2d9587653669e352bb14a2bbc6b311fc972ae9"
+    }
+  ]
+}

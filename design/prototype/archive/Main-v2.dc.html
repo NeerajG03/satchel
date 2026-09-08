@@ -1,0 +1,348 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&amp;family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;1,400&amp;family=Courier+Prime:ital,wght@0,400;0,700;1,400&amp;family=Instrument+Sans:wght@400;500;600&amp;family=DM+Mono:wght@400;500&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+    body { margin: 0; background: #DED8CC; }
+    a { color: #1F1B17; text-decoration: underline; text-decoration-color: #B9B1A2; text-underline-offset: 3px; } a:hover { text-decoration-color: #1F1B17; }
+    .t-serif { font-family: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; }
+    .t-serif .words { font-family: 'Newsreader', Georgia, 'Times New Roman', serif; }
+    .t-serif .mono, .t-serif .lbl, .t-serif .meta { font-family: 'DM Mono', Menlo, Consolas, monospace; }
+    .t-grot { font-family: 'Schibsted Grotesk', 'Helvetica Neue', Arial, sans-serif; }
+    .t-grot .words { font-family: 'Schibsted Grotesk', 'Helvetica Neue', Arial, sans-serif; letter-spacing: -.01em; }
+    .t-grot .mono, .t-grot .lbl, .t-grot .meta { font-family: 'JetBrains Mono', Menlo, Consolas, monospace; }
+    .t-type { font-family: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; }
+    .t-type .words { font-family: 'Courier Prime', 'Courier New', monospace; }
+    .t-type .mono, .t-type .lbl, .t-type .meta { font-family: 'DM Mono', Menlo, Consolas, monospace; }
+    .hw { background: #26231F; box-shadow: inset 0 1px 0 #FFFFFF14, inset 0 -1px 0 #00000080, 0 24px 60px #00000033; }
+    .paper { background-color: #F4F0E7; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.045 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>"); }
+    .act { cursor: pointer; user-select: none; }
+    .key { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; height: 36px; border: 1px solid #1F1B17; border-radius: 8px; background: #F8F5EE; color: #1F1B17; font-size: 13px; font-weight: 500; line-height: 1; box-shadow: 0 2px 0 #1F1B17; white-space: nowrap; }
+    .key.ink { background: #1F1B17; color: #F4F0E7; box-shadow: 0 2px 0 #000000; }
+    .key.quiet { border-color: #B9B1A2; box-shadow: 0 2px 0 #B9B1A2; color: #4A443B; }
+    .key.act:active { transform: translateY(2px); box-shadow: none; }
+    .lbl { font-size: 10.5px; font-weight: 500; line-height: 1; letter-spacing: .12em; text-transform: uppercase; color: #6E665A; }
+    .meta { font-size: 11px; line-height: 1.5; letter-spacing: .03em; color: #6E665A; }
+    .meta.new { color: #B8420F; }
+    .sw { position: relative; display: inline-block; width: 38px; height: 22px; border-radius: 11px; background: #CFC7B8; box-shadow: inset 0 1px 2px #00000022; flex: none; transition: background .15s; }
+    .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #8A8274; box-shadow: 0 1px 1px #00000033; transition: left .15s, background .15s; }
+    .sw.on { background: #E4571E; }
+    .sw.on::after { left: 19px; background: #F8F5EE; }
+    .led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #7B756B; flex: none; }
+    .led.ok { background: #3E9E62; box-shadow: 0 0 0 2px #3E9E6233, 0 0 8px #3E9E6299; }
+    .led.warn { background: #E2A11E; box-shadow: 0 0 0 2px #E2A11E33, 0 0 8px #E2A11E99; }
+    .tab { writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; width: 50px; height: 88px; border-radius: 0 8px 8px 0; background: #3A362F; color: #C9C1B2; font-size: 12px; font-weight: 500; letter-spacing: .06em; }
+    .tab.on { background-color: #F4F0E7; color: #1F1B17; }
+    .ribbon { width: 10px; background: #E4571E; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 7px), 0 100%); flex: none; }
+    .ribbon.grey { background: #B9B1A2; }
+    .strike { color: #B4271B; text-decoration: line-through; text-decoration-color: #B4271B; text-decoration-thickness: 1.5px; }
+    .hwkey { display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 8px; background: #3A362F; color: #C9C1B2; font-size: 12px; font-weight: 500; letter-spacing: .04em; flex: 1; }
+    .hwkey.on { background-color: #F4F0E7; color: #1F1B17; }
+    .line { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #1F1B17; font-size: 20px; line-height: 1.3; padding: 0; }
+    .line::placeholder { color: #A39B8C; font-style: italic; }
+    .line.small { font-size: 18px; }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .entry { display: flex; flex-direction: column; gap: 5px; padding: 11px 0; border-bottom: 1px solid #E3DCCD; }
+    .h1 { font-weight: 400; font-size: 40px; line-height: 1.02; letter-spacing: -.015em; margin: 10px 0 0; }
+    .h1.small { font-size: 32px; }
+  </style>
+</helmet>
+<div class="{{typeCls}}" style="width: 1640px; height: 900px; box-sizing: border-box; background: #DED8CC; padding: 60px 50px; display: flex; gap: 60px; align-items: flex-start; color: #1F1B17;">
+
+  <!-- LAPTOP -->
+  <div class="hw" style="width: 1120px; height: 780px; box-sizing: border-box; border-radius: 18px; padding: 12px 12px 14px 12px; display: flex; flex-direction: column; gap: 10px;">
+    <div style="height: 36px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 14px;">
+      <div style="display: flex; align-items: baseline; gap: 12px;">
+        <span class="words" style="font-style: italic; font-size: 26px; line-height: 1; color: #E9E3D6;">jeff</span>
+        <span class="mono" style="font-size: 10px; letter-spacing: .14em; color: #8F877A;">MACBOOK</span>
+      </div>
+      <div class="mono" style="display: flex; align-items: center; gap: 20px; font-size: 10.5px; letter-spacing: .1em; color: #B8B0A2;">
+        <span>SAT 6 SEP</span>
+        <span style="display: inline-flex; align-items: center; gap: 8px;"><span class="led ok"></span>SYNCED</span>
+      </div>
+    </div>
+    <div style="flex: 1; display: flex; min-height: 0;">
+      <div style="width: 58px; display: flex; flex-direction: column; gap: 6px; padding: 26px 0 0 6px;">
+        <div class="{{leftTabCls}}" onClick="{{goLeft}}">Left off</div>
+        <div class="{{bookTabCls}}" onClick="{{goBook}}">Book</div>
+        <div class="{{appsTabCls}}" onClick="{{goApps}}">Apps</div>
+      </div>
+      <div class="paper" style="flex: 1; min-width: 0; border-radius: 0 12px 12px 0; box-shadow: inset 0 1px 0 #FFFFFFCC; padding: 36px 44px 28px 40px; display: flex; gap: 44px; position: relative; overflow: hidden;">
+
+        <!-- laptop: LEFT OFF -->
+        <sc-if value="{{lt.left}}" hint-placeholder-val="{{ true }}">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+            <div class="lbl">Saturday, 6 September</div>
+            <h1 class="words h1">Where you left off.</h1>
+            <div style="display: flex; flex-direction: column; gap: 22px; margin-top: 30px;">
+              <sc-for list="{{handovers}}" as="h" hint-placeholder-count="3">
+                <div style="display: flex; gap: 20px; align-items: stretch;">
+                  <div class="{{h.ribbonCls}}" style="margin-bottom: -14px;"></div>
+                  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+                    <div class="row"><span style="font-size: 13.5px; font-weight: 600;">{{h.project}}</span><span class="lbl" style="color: #8F877A;">{{h.kind}}</span></div>
+                    <div class="words" style="font-size: 23px; line-height: 1.3;">{{h.text}}</div>
+                    <div class="meta">{{h.from}}</div>
+                    <div class="row" style="margin-top: 4px;">
+                      <span class="key ink act" onClick="{{h.resume}}">Resume here</span>
+                      <sc-if value="{{h.resumed}}" hint-placeholder-val="{{ false }}"><span class="meta new">{{h.resumedAt}}</span></sc-if>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="width: 300px; flex: none; display: flex; flex-direction: column; gap: 26px; padding-top: 4px;">
+            <div>
+              <div class="lbl">Last thing saved</div>
+              <div class="words" style="font-size: 20px; line-height: 1.35; margin-top: 12px;">“{{latest.text}}”</div>
+              <div class="{{latest.newCls}}" style="margin-top: 8px;">{{latest.src}} · {{latest.time}}</div>
+            </div>
+            <div>
+              <div class="lbl">Your apps</div>
+              <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 12px;">
+                <sc-for list="{{apps}}" as="a" hint-placeholder-count="3">
+                  <div class="row" style="font-size: 14px;"><span class="{{a.ledCls}}"></span><span style="font-weight: 500;">{{a.name}}</span><span class="meta" style="margin-left: auto;">{{a.stateText}}</span></div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- laptop: BOOK -->
+        <sc-if value="{{lt.book}}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+            <div class="lbl">Saturday, 6 September</div>
+            <h1 class="words h1">The book.</h1>
+            <div style="display: flex; align-items: center; gap: 14px; border-bottom: 1.5px solid #1F1B17; padding: 8px 0 10px; margin-top: 18px;">
+              <input class="line words" value="{{draft}}" onChange="{{setDraft}}" onKeyDown="{{laptopKey}}" placeholder="Write something down…">
+              <span class="lbl" style="color: #8F877A;">Project / JEFF v2</span>
+              <span class="key act" onClick="{{saveLaptop}}">Save</span>
+            </div>
+            <div style="display: flex; flex-direction: column; margin-top: 10px;">
+              <sc-for list="{{memories}}" as="m" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; padding: 11px 0; border-bottom: 1px solid #E3DCCD;">
+                  <div class="lbl" style="font-size: 10px; padding-top: 6px; line-height: 1.5;">{{m.scope}}</div>
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <sc-if value="{{m.notEditing}}" hint-placeholder-val="{{ true }}">
+                      <div class="words" style="font-size: 20px; line-height: 1.3;">{{m.text}}</div>
+                    </sc-if>
+                    <sc-if value="{{m.editing}}" hint-placeholder-val="{{ false }}">
+                      <div class="row" style="border-bottom: 1.5px solid #B4271B; padding-bottom: 6px;">
+                        <input class="line words" value="{{editDraft}}" onChange="{{setEdit}}" onKeyDown="{{editKey}}">
+                        <span class="key act" onClick="{{m.commit}}">Correct</span>
+                        <span class="key quiet act" onClick="{{m.cancel}}">Cancel</span>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{m.hasOld}}" hint-placeholder-val="{{ false }}">
+                      <div class="words strike" style="font-size: 16px; line-height: 1.3;">{{m.old}}</div>
+                    </sc-if>
+                    <div class="row" style="gap: 10px;">
+                      <span class="{{m.newCls}}">{{m.src}} · {{m.time}}</span>
+                      <sc-if value="{{m.hasOld}}" hint-placeholder-val="{{ false }}"><span class="meta" style="color: #B4271B;">Corrected {{m.corrected}}</span></sc-if>
+                      <sc-if value="{{m.notEditing}}" hint-placeholder-val="{{ true }}"><span class="meta act" style="color: #1F1B17; text-decoration: underline; text-decoration-color: #B9B1A2; text-underline-offset: 3px;" onClick="{{m.correct}}">Correct</span></sc-if>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- laptop: APPS -->
+        <sc-if value="{{lt.apps}}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+            <div class="lbl">Saturday, 6 September</div>
+            <h1 class="words h1">Your apps.</h1>
+            <div style="display: flex; flex-direction: column; margin-top: 26px; border-top: 1px solid #D8D0C1; max-width: 640px;">
+              <sc-for list="{{apps}}" as="a" hint-placeholder-count="3">
+                <div class="row" style="gap: 16px; padding: 18px 0; border-bottom: 1px solid #D8D0C1;">
+                  <span class="{{a.ledCls}}"></span>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 16px; font-weight: 500;">{{a.name}}</div>
+                    <div class="meta">{{a.dev}} · {{a.stateText}}</div>
+                  </div>
+                  <div class="row" style="gap: 22px;">
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 7px;"><span class="lbl" style="font-size: 9.5px;">Read</span><span class="{{a.readCls}}" onClick="{{a.toggleRead}}"></span></div>
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 7px;"><span class="lbl" style="font-size: 9.5px;">Save</span><span class="{{a.saveCls}}" onClick="{{a.toggleSave}}"></span></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <div class="mono" style="position: absolute; right: 24px; bottom: 16px; font-size: 10px; letter-spacing: .1em; color: #8F877A;">{{count}} SAVED · EXPLICIT SAVES ONLY</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHONE -->
+  <div class="hw" style="width: 360px; height: 780px; box-sizing: border-box; border-radius: 28px; padding: 10px; display: flex; flex-direction: column;">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
+      <span class="words" style="font-style: italic; font-size: 22px; line-height: 1; color: #E9E3D6;">jeff</span>
+      <span class="mono" style="display: inline-flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: .1em; color: #B8B0A2;"><span class="{{phoneLedCls}}"></span>PHONE</span>
+    </div>
+    <div class="paper" style="flex: 1; min-height: 0; border-radius: 18px; box-shadow: inset 0 1px 0 #FFFFFFCC; padding: 20px 18px 14px; display: flex; flex-direction: column; overflow: hidden;">
+
+      <!-- phone: BOOK -->
+      <sc-if value="{{pt.book}}" hint-placeholder-val="{{ true }}">
+        <div class="lbl">Saturday, 6 September</div>
+        <h1 class="words h1 small">The book.</h1>
+        <div style="display: flex; align-items: center; gap: 10px; border-bottom: 1.5px solid #1F1B17; padding: 6px 0 8px; margin-top: 14px;">
+          <input class="line words small" value="{{pdraft}}" onChange="{{setPDraft}}" onKeyDown="{{phoneKey}}" placeholder="Write something down…">
+          <span class="key act" style="height: 40px;" onClick="{{savePhone}}">Save</span>
+        </div>
+        <sc-if value="{{phoneCannotSave}}" hint-placeholder-val="{{ false }}">
+          <div class="row" style="margin-top: 10px; gap: 10px; align-items: flex-start;">
+            <div style="flex: 1; font-size: 13px; line-height: 1.45; color: #B4271B;">This phone can read the book but can't write in it yet.</div>
+            <span class="key quiet act" style="height: 34px; font-size: 12px;" onClick="{{allowPhoneSaves}}">Allow saves</span>
+          </div>
+        </sc-if>
+        <div style="display: flex; flex-direction: column; margin-top: 8px;">
+          <sc-for list="{{phoneMemories}}" as="m" hint-placeholder-count="4">
+            <div class="entry">
+              <div class="lbl" style="font-size: 9.5px;">{{m.scope}}</div>
+              <div class="words" style="font-size: 18px; line-height: 1.3;">{{m.text}}</div>
+              <sc-if value="{{m.hasOld}}" hint-placeholder-val="{{ false }}"><div class="words strike" style="font-size: 15px; line-height: 1.3;">{{m.old}}</div></sc-if>
+              <div class="{{m.newCls}}">{{m.src}} · {{m.time}}</div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- phone: APPS -->
+      <sc-if value="{{pt.apps}}" hint-placeholder-val="{{ false }}">
+        <div class="lbl">Saturday, 6 September</div>
+        <h1 class="words h1 small">Your apps.</h1>
+        <div style="display: flex; flex-direction: column; margin-top: 20px; border-top: 1px solid #D8D0C1;">
+          <sc-for list="{{apps}}" as="a" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 12px; padding: 16px 0; border-bottom: 1px solid #D8D0C1;">
+              <div class="row">
+                <span class="{{a.ledCls}}"></span>
+                <span style="font-size: 16px; font-weight: 500;">{{a.name}}</span>
+                <span class="meta" style="margin-left: auto;">{{a.dev}}</span>
+              </div>
+              <div class="row" style="gap: 20px; padding-left: 20px;">
+                <div class="row" style="gap: 9px;"><span class="{{a.readCls}}" onClick="{{a.toggleRead}}"></span><span class="lbl" style="font-size: 9.5px;">Read</span></div>
+                <div class="row" style="gap: 9px;"><span class="{{a.saveCls}}" onClick="{{a.toggleSave}}"></span><span class="lbl" style="font-size: 9.5px;">Save</span></div>
+                <span style="margin-left: auto; font-size: 13px; color: #4A443B;">{{a.stateText}}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- phone: LEFT OFF -->
+      <sc-if value="{{pt.left}}" hint-placeholder-val="{{ false }}">
+        <div class="lbl">Saturday, 6 September</div>
+        <h1 class="words h1 small">Where you left off.</h1>
+        <div style="display: flex; flex-direction: column; gap: 18px; margin-top: 22px;">
+          <sc-for list="{{handovers}}" as="h" hint-placeholder-count="3">
+            <div style="display: flex; gap: 14px;">
+              <div class="{{h.ribbonCls}}" style="margin-bottom: -12px;"></div>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+                <div style="font-size: 13px; font-weight: 600;">{{h.project}}</div>
+                <div class="words" style="font-size: 18px; line-height: 1.3;">{{h.text}}</div>
+                <div class="meta">{{h.from}}</div>
+                <sc-if value="{{h.resumed}}" hint-placeholder-val="{{ false }}"><div class="meta new">{{h.resumedAt}}</div></sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+    </div>
+    <div style="flex: none; display: flex; gap: 6px; padding: 10px 2px 4px;">
+      <div class="{{leftKeyCls}}" onClick="{{pLeft}}">Left off</div>
+      <div class="{{bookKeyCls}}" onClick="{{pBook}}">Book</div>
+      <div class="{{appsKeyCls}}" onClick="{{pApps}}">Apps</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"type":{"editor":"enum","default":"Serif book","options":["Serif book","Grotesk","Typewriter"],"section":"Look"},"start":{"editor":"enum","default":"Left off","options":["Left off","Book"],"section":"Laptop opens on"},"$preview":{"width":1640,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      laptopTab: null, phoneTab: 'book', draft: '', pdraft: '', editingId: null, editDraft: '', resumed: {},
+      apps: { codex: { read: true, save: true }, claude: { read: true, save: false }, chatgpt: { read: false, save: false } },
+      memories: [
+        { id: 1, scope: 'Project / JEFF v2', text: 'JEFF v2 has no personas and no curator in the first version.', src: 'Said on your phone', time: 'today 09:18', old: null },
+        { id: 2, scope: 'You', text: 'Use plain language. Lead with the outcome.', src: 'Said on your MacBook', time: 'Fri 18:42', old: 'Keep answers short and skip the theory.', corrected: 'Fri 18:42' },
+        { id: 3, scope: 'Project / Release', text: 'V1 uses GitHub Issues only.', src: 'Said from Codex', time: 'Fri 17:06', old: null },
+        { id: 4, scope: 'Repo / frontend', text: 'Run the frontend checks before a release handover.', src: 'Said on your MacBook', time: 'Fri 16:30', old: null },
+        { id: 5, scope: 'Project / Reimbursements', text: 'Keep bank statements out of the shared store.', src: 'Said on your phone', time: 'Thu 11:12', old: null }
+      ],
+      handovers: [
+        { id: 'jeff', project: 'JEFF v2', kind: 'Personal', text: 'Next: choose hosted memory or the git fallback.', from: 'Claude Code · MacBook · today 09:41' },
+        { id: 'rel', project: 'Release workflow', kind: 'Work', text: 'Next: open the sync PR.', from: 'Codex · desktop · Fri 17:06' },
+        { id: 'reim', project: 'Reimbursements', kind: 'Personal', text: 'Next: submit the August claim.', from: 'Claude · phone · Thu 11:12' }
+      ]
+    };
+  }
+  now() { const d = new Date(); const h = String(d.getHours()).padStart(2, '0'); const m = String(d.getMinutes()).padStart(2, '0'); return h + ':' + m; }
+  save(text, src) {
+    text = (text || '').trim(); if (!text) return;
+    const entry = { id: Date.now(), scope: 'Project / JEFF v2', text: text, src: src, time: 'just now ' + this.now(), old: null, isNew: true };
+    this.setState({ memories: [entry].concat(this.state.memories.map(x => Object.assign({}, x, { isNew: false }))), draft: '', pdraft: '' });
+  }
+  commit(id) {
+    const t = (this.state.editDraft || '').trim(); if (!t) { this.setState({ editingId: null }); return; }
+    const when = 'today ' + this.now();
+    this.setState({ editingId: null, memories: this.state.memories.map(m => m.id === id ? Object.assign({}, m, { old: m.text, text: t, corrected: when, src: 'Corrected on your MacBook', time: when, isNew: true }) : Object.assign({}, m, { isNew: false })) });
+  }
+  toggle(id, key) {
+    const apps = Object.assign({}, this.state.apps); apps[id] = Object.assign({}, apps[id]); apps[id][key] = !apps[id][key];
+    if (key === 'read' && !apps[id].read) apps[id].save = false;
+    if (key === 'save' && apps[id].save) apps[id].read = true;
+    this.setState({ apps: apps });
+  }
+  renderVals() {
+    const s = this.state, p = this.props;
+    const typeMap = { 'Serif book': 't-serif', 'Grotesk': 't-grot', 'Typewriter': 't-type' };
+    const typeCls = typeMap[p.type] || 't-serif';
+    const laptopTab = s.laptopTab || (p.start === 'Book' ? 'book' : 'left');
+    const lt = { left: laptopTab === 'left', book: laptopTab === 'book', apps: laptopTab === 'apps' };
+    const pt = { left: s.phoneTab === 'left', book: s.phoneTab === 'book', apps: s.phoneTab === 'apps' };
+    const tabCls = on => on ? 'tab on paper act' : 'tab act';
+    const keyCls = on => on ? 'hwkey on paper act' : 'hwkey act';
+    const defs = [{ id: 'codex', name: 'Codex', dev: 'Desktop · MacBook' }, { id: 'claude', name: 'Claude', dev: 'Android · phone' }, { id: 'chatgpt', name: 'ChatGPT', dev: 'Web' }];
+    const apps = defs.map(a => { const st = s.apps[a.id]; const both = st.read && st.save; return Object.assign({}, a, {
+      readCls: st.read ? 'sw on act' : 'sw act', saveCls: st.save ? 'sw on act' : 'sw act',
+      ledCls: both ? 'led ok' : st.read ? 'led warn' : 'led', stateText: both ? 'reads and saves' : st.read ? 'reads only' : 'not set up',
+      toggleRead: () => this.toggle(a.id, 'read'), toggleSave: () => this.toggle(a.id, 'save') }); });
+    const phoneCanSave = !!s.apps.claude.save;
+    const memories = s.memories.map(m => Object.assign({}, m, {
+      hasOld: !!m.old, editing: s.editingId === m.id, notEditing: s.editingId !== m.id, newCls: m.isNew ? 'meta new' : 'meta',
+      correct: () => this.setState({ editingId: m.id, editDraft: m.text }), cancel: () => this.setState({ editingId: null }), commit: () => this.commit(m.id) }));
+    const handovers = s.handovers.map((h, i) => Object.assign({}, h, { ribbonCls: i === 0 ? 'ribbon' : 'ribbon grey', resumed: !!s.resumed[h.id], resumedAt: s.resumed[h.id] || '',
+      resume: () => { const r = Object.assign({}, s.resumed); r[h.id] = 'Opened here · ' + this.now(); this.setState({ resumed: r }); } }));
+    const latest = memories[0] || { text: '', src: '', time: '', newCls: 'meta' };
+    return {
+      typeCls, lt, pt, apps, memories, phoneMemories: memories.slice(0, 4), handovers, latest, count: memories.length,
+      phoneCanSave, phoneCannotSave: !phoneCanSave, phoneLedCls: phoneCanSave ? 'led ok' : 'led warn',
+      draft: s.draft, pdraft: s.pdraft, editDraft: s.editDraft,
+      leftTabCls: tabCls(lt.left), bookTabCls: tabCls(lt.book), appsTabCls: tabCls(lt.apps),
+      leftKeyCls: keyCls(pt.left), bookKeyCls: keyCls(pt.book), appsKeyCls: keyCls(pt.apps),
+      goLeft: () => this.setState({ laptopTab: 'left' }), goBook: () => this.setState({ laptopTab: 'book' }), goApps: () => this.setState({ laptopTab: 'apps' }),
+      pLeft: () => this.setState({ phoneTab: 'left' }), pBook: () => this.setState({ phoneTab: 'book' }), pApps: () => this.setState({ phoneTab: 'apps' }),
+      setDraft: e => this.setState({ draft: e.target.value }), setPDraft: e => this.setState({ pdraft: e.target.value }), setEdit: e => this.setState({ editDraft: e.target.value }),
+      saveLaptop: () => this.save(this.state.draft, 'Said on your MacBook'),
+      savePhone: () => { if (this.state.apps.claude.save) this.save(this.state.pdraft, 'Said on your phone'); },
+      allowPhoneSaves: () => this.toggle('claude', 'save'),
+      laptopKey: e => { if (e.key === 'Enter') this.save(this.state.draft, 'Said on your MacBook'); },
+      phoneKey: e => { if (e.key === 'Enter' && this.state.apps.claude.save) this.save(this.state.pdraft, 'Said on your phone'); },
+      editKey: e => { if (e.key === 'Enter') this.commit(this.state.editingId); if (e.key === 'Escape') this.setState({ editingId: null }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

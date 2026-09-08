@@ -1,0 +1,723 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&amp;family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;1,400&amp;family=Courier+Prime:ital,wght@0,400;0,700;1,400&amp;family=Instrument+Sans:wght@400;500;600&amp;family=DM+Mono:wght@400;500&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+    body { margin: 0; background: #DED8CC; }
+    a { color: #1F1B17; text-decoration: underline; text-decoration-color: #B9B1A2; text-underline-offset: 3px; } a:hover { text-decoration-color: #1F1B17; }
+    .t-serif { font-family: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; }
+    .t-serif .words { font-family: 'Newsreader', Georgia, 'Times New Roman', serif; }
+    .t-serif .mono, .t-serif .lbl, .t-serif .meta { font-family: 'DM Mono', Menlo, Consolas, monospace; }
+    .t-grot { font-family: 'Schibsted Grotesk', 'Helvetica Neue', Arial, sans-serif; }
+    .t-grot .words { font-family: 'Schibsted Grotesk', 'Helvetica Neue', Arial, sans-serif; letter-spacing: -.01em; }
+    .t-grot .mono, .t-grot .lbl, .t-grot .meta { font-family: 'JetBrains Mono', Menlo, Consolas, monospace; }
+    .t-type { font-family: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; }
+    .t-type .words { font-family: 'Courier Prime', 'Courier New', monospace; }
+    .t-type .mono, .t-type .lbl, .t-type .meta { font-family: 'DM Mono', Menlo, Consolas, monospace; }
+    .hw { background: #26231F; box-shadow: inset 0 1px 0 #FFFFFF14, inset 0 -1px 0 #00000080, 0 24px 60px #00000033; }
+    .paper { background-color: #F4F0E7; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.045 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>"); }
+    .act { cursor: pointer; user-select: none; }
+    .key { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; height: 36px; border: 1px solid #1F1B17; border-radius: 8px; background: #F8F5EE; color: #1F1B17; font-size: 13px; font-weight: 500; line-height: 1; box-shadow: 0 2px 0 #1F1B17; white-space: nowrap; }
+    .key.ink { background: #1F1B17; color: #F4F0E7; box-shadow: 0 2px 0 #000000; }
+    .key.quiet { border-color: #B9B1A2; box-shadow: 0 2px 0 #B9B1A2; color: #4A443B; }
+    .key.act:active { transform: translateY(2px); box-shadow: none; }
+    .lbl { font-size: 10.5px; font-weight: 500; line-height: 1; letter-spacing: .12em; text-transform: uppercase; color: #6E665A; }
+    .meta { font-size: 11px; line-height: 1.5; letter-spacing: .03em; color: #6E665A; }
+    .meta.new { color: #B8420F; }
+    .sw { position: relative; display: inline-block; width: 38px; height: 22px; border-radius: 11px; background: #CFC7B8; box-shadow: inset 0 1px 2px #00000022; flex: none; transition: background .15s; }
+    .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #8A8274; box-shadow: 0 1px 1px #00000033; transition: left .15s, background .15s; }
+    .sw.on { background: #E4571E; }
+    .sw.on::after { left: 19px; background: #F8F5EE; }
+    .led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #7B756B; flex: none; }
+    .led.ok { background: #3E9E62; box-shadow: 0 0 0 2px #3E9E6233, 0 0 8px #3E9E6299; }
+    .led.warn { background: #E2A11E; box-shadow: 0 0 0 2px #E2A11E33, 0 0 8px #E2A11E99; }
+    .tab { writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; width: 50px; height: 88px; border-radius: 0 8px 8px 0; background: #3A362F; color: #C9C1B2; font-size: 12px; font-weight: 500; letter-spacing: .06em; }
+    .tab.on { background-color: #F4F0E7; color: #1F1B17; }
+    .ribbon { width: 10px; background: #E4571E; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 7px), 0 100%); flex: none; }
+    .ribbon.grey { background: #B9B1A2; }
+    .strike { color: #B4271B; text-decoration: line-through; text-decoration-color: #B4271B; text-decoration-thickness: 1.5px; }
+    .hwkey { display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 8px; background: #3A362F; color: #C9C1B2; font-size: 12px; font-weight: 500; letter-spacing: .04em; flex: 1; }
+    .hwkey.on { background-color: #F4F0E7; color: #1F1B17; }
+    .line { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #1F1B17; font-size: 20px; line-height: 1.3; padding: 0; }
+    .line::placeholder { color: #A39B8C; font-style: italic; }
+    .line.small { font-size: 18px; }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .entry { display: flex; flex-direction: column; gap: 5px; padding: 11px 0; border-bottom: 1px solid #E3DCCD; }
+    .h1 { font-weight: 400; font-size: 40px; line-height: 1.02; letter-spacing: -.015em; margin: 10px 0 0; }
+    .h1.small { font-size: 32px; }
+    .chip { display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 14px; border: 1px solid #CFC7B8; color: #4A443B; font-size: 12px; font-weight: 500; white-space: nowrap; }
+    .chip.on { background: #1F1B17; color: #F4F0E7; border-color: #1F1B17; }
+    .pre { white-space: pre-wrap; font-size: 11.5px; line-height: 1.6; color: #1F1B17; background: #ECE6DA; border-radius: 8px; padding: 12px 14px; border: 1px solid #DCD5C7; }
+    .tab { height: 76px; width: 48px; font-size: 11.5px; }
+    .scroll { overflow-y: auto; }
+    .red { color: #B4271B; }
+    .search { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #1F1B17; font-size: 14px; padding: 0; }
+    .search::placeholder { color: #A39B8C; }
+    .sel { background: #ECE6DA; border-radius: 8px; }
+    .rowbtn { display: flex; align-items: center; gap: 12px; padding: 14px 4px; border-bottom: 1px solid #E3DCCD; font-size: 15px; font-weight: 500; }
+  </style>
+</helmet>
+<div class="{{typeCls}}" style="width: 1640px; height: 900px; box-sizing: border-box; background: #DED8CC; padding: 60px 50px; display: flex; gap: 60px; align-items: flex-start; color: #1F1B17;">
+
+  <!-- LAPTOP -->
+  <div class="hw" style="width: 1120px; height: 780px; box-sizing: border-box; border-radius: 18px; padding: 12px 12px 14px 12px; display: flex; flex-direction: column; gap: 10px;">
+    <div style="height: 36px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 14px;">
+      <div style="display: flex; align-items: baseline; gap: 12px;">
+        <span class="words" style="font-style: italic; font-size: 26px; line-height: 1; color: #E9E3D6;">jeff</span>
+        <span class="mono" style="font-size: 10px; letter-spacing: .14em; color: #8F877A;">MACBOOK</span>
+      </div>
+      <div class="mono" style="display: flex; align-items: center; gap: 20px; font-size: 10.5px; letter-spacing: .1em; color: #B8B0A2;">
+        <span class="act" style="display: inline-flex; align-items: center; gap: 8px; color: #E9E3D6;" onClick="{{goPreview}}">PREVIEW CONTEXT</span>
+        <span>SAT 6 SEP</span>
+        <span style="display: inline-flex; align-items: center; gap: 8px;"><span class="{{syncLedCls}}"></span>{{syncText}}</span>
+      </div>
+    </div>
+    <div style="flex: 1; display: flex; min-height: 0;">
+      <div style="width: 56px; display: flex; flex-direction: column; gap: 6px; padding: 22px 0 0 6px;">
+        <div class="{{tabs.left}}" onClick="{{goLeft}}">Left off</div>
+        <div class="{{tabs.book}}" onClick="{{goBook}}">Book</div>
+        <div class="{{tabs.projects}}" onClick="{{goProjects}}">Projects</div>
+        <div class="{{tabs.apps}}" onClick="{{goApps}}">Apps</div>
+        <div class="{{tabs.skills}}" onClick="{{goSkills}}">Skills</div>
+        <div class="{{tabs.settings}}" onClick="{{goSettings}}">Settings</div>
+      </div>
+      <div class="paper scroll" style="flex: 1; min-width: 0; border-radius: 0 12px 12px 0; box-shadow: inset 0 1px 0 #FFFFFFCC; padding: 34px 44px 28px 40px; display: flex; gap: 44px; position: relative;">
+
+        <!-- LEFT OFF -->
+        <sc-if value="{{lt.left}}" hint-placeholder-val="{{ true }}">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+            <div class="lbl">Saturday, 6 September</div>
+            <h1 class="words h1">Where you left off.</h1>
+            <div style="display: flex; flex-direction: column; gap: 20px; margin-top: 28px;">
+              <sc-for list="{{handovers}}" as="h" hint-placeholder-count="3">
+                <div style="display: flex; gap: 20px; align-items: stretch;">
+                  <div class="{{h.ribbonCls}}" style="margin-bottom: -14px;"></div>
+                  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+                    <div class="row"><span style="font-size: 13.5px; font-weight: 600;">{{h.project}}</span><span class="lbl" style="color: #8F877A;">{{h.kind}}</span></div>
+                    <div class="words" style="font-size: 22px; line-height: 1.3;">{{h.text}}</div>
+                    <div class="meta">{{h.from}}</div>
+                    <div class="row" style="margin-top: 2px;">
+                      <span class="key ink act" onClick="{{h.resume}}">Resume here</span>
+                      <sc-if value="{{h.resumed}}" hint-placeholder-val="{{ false }}"><span class="meta new">{{h.resumedAt}}</span></sc-if>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="width: 300px; flex: none; display: flex; flex-direction: column; gap: 26px; padding-top: 4px;">
+            <div>
+              <div class="lbl">Last thing saved</div>
+              <div class="words" style="font-size: 20px; line-height: 1.35; margin-top: 12px;">“{{latest.text}}”</div>
+              <div class="{{latest.newCls}}" style="margin-top: 8px;">{{latest.src}} · {{latest.time}}</div>
+            </div>
+            <div>
+              <div class="lbl">Your apps</div>
+              <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 12px;">
+                <sc-for list="{{apps}}" as="a" hint-placeholder-count="3">
+                  <div class="row" style="font-size: 14px;"><span class="{{a.ledCls}}"></span><span style="font-weight: 500;">{{a.name}}</span><span class="meta" style="margin-left: auto;">{{a.stateText}}</span></div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- BOOK -->
+        <sc-if value="{{lt.book}}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+            <div class="row" style="justify-content: space-between;">
+              <div class="lbl">Saturday, 6 September</div>
+              <div class="row" style="gap: 8px; border-bottom: 1px solid #CFC7B8; padding-bottom: 4px; width: 260px;">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8F877A" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5L14 14"></path></svg>
+                <input class="search" value="{{q}}" onInput="{{setQ}}" placeholder="Search the book">
+              </div>
+            </div>
+            <h1 class="words h1">The book.</h1>
+            <sc-if value="{{notConnected}}" hint-placeholder-val="{{ false }}"><div class="row" style="gap: 12px; margin-top: 14px;"><span class="red" style="font-size: 14px;">No repo connected. Nothing is saved anywhere yet.</span><span class="key quiet act" style="height: 30px; font-size: 12px;" onClick="{{goSettings}}">Connect a repo</span></div></sc-if>
+            <div style="display: flex; align-items: center; gap: 14px; border-bottom: 1.5px solid #1F1B17; padding: 8px 0 10px; margin-top: 16px;">
+              <input class="line words" value="{{draft}}" onInput="{{setDraft}}" onKeyDown="{{laptopKey}}" placeholder="Write something down…">
+              <span class="key act" onClick="{{saveLaptop}}">Save</span>
+            </div>
+            <div class="row" style="gap: 8px; margin-top: 10px;">
+              <span class="lbl" style="margin-right: 4px;">Save to</span>
+              <sc-for list="{{scopeChips}}" as="c" hint-placeholder-count="4"><span class="{{c.cls}}" onClick="{{c.pick}}">{{c.label}}</span></sc-for>
+            </div>
+            <sc-if value="{{saveFailed}}" hint-placeholder-val="{{ false }}">
+              <div class="red" style="font-size: 13px; margin-top: 10px;">Couldn't reach GitHub. Your line is kept here. Try again when it is back.</div>
+            </sc-if>
+            <div class="row" style="gap: 8px; margin-top: 16px;">
+              <sc-for list="{{filterChips}}" as="c" hint-placeholder-count="4"><span class="{{c.cls}}" onClick="{{c.pick}}">{{c.label}}</span></sc-for>
+              <sc-if value="{{forgotNote}}" hint-placeholder-val="{{ false }}"><span class="meta" style="margin-left: auto;">{{forgotNote}}</span></sc-if>
+            </div>
+            <div style="display: flex; flex-direction: column; margin-top: 6px;">
+              <sc-for list="{{memories}}" as="m" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; padding: 11px 0; border-bottom: 1px solid #E3DCCD;">
+                  <div class="lbl" style="font-size: 10px; padding-top: 6px; line-height: 1.5;">{{m.scope}}</div>
+                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <sc-if value="{{m.notEditing}}" hint-placeholder-val="{{ true }}">
+                      <div class="words" style="font-size: 20px; line-height: 1.3;">{{m.text}}</div>
+                    </sc-if>
+                    <sc-if value="{{m.editing}}" hint-placeholder-val="{{ false }}">
+                      <div class="row" style="border-bottom: 1.5px solid #B4271B; padding-bottom: 6px;">
+                        <input class="line words" value="{{editDraft}}" onInput="{{setEdit}}" onKeyDown="{{editKey}}">
+                        <span class="key act" onClick="{{m.commit}}">Correct</span>
+                        <span class="key quiet act" onClick="{{m.cancel}}">Cancel</span>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{m.hasOld}}" hint-placeholder-val="{{ false }}">
+                      <div class="words strike" style="font-size: 16px; line-height: 1.3;">{{m.old}}</div>
+                    </sc-if>
+                    <div class="row" style="gap: 12px;">
+                      <span class="{{m.newCls}}">{{m.src}} · {{m.time}} · {{m.sha}}</span>
+                      <sc-if value="{{m.hasOld}}" hint-placeholder-val="{{ false }}"><span class="meta red">Corrected {{m.corrected}}</span></sc-if>
+                      <sc-if value="{{m.quiet}}" hint-placeholder-val="{{ true }}">
+                        <span class="meta act" style="color: #1F1B17; text-decoration: underline; text-decoration-color: #B9B1A2; text-underline-offset: 3px;" onClick="{{m.correct}}">Correct</span>
+                        <span class="meta act" style="color: #1F1B17; text-decoration: underline; text-decoration-color: #B9B1A2; text-underline-offset: 3px;" onClick="{{m.history}}">History</span>
+                        <span class="meta act" style="color: #1F1B17; text-decoration: underline; text-decoration-color: #B9B1A2; text-underline-offset: 3px;" onClick="{{m.askForget}}">Forget</span>
+                      </sc-if>
+                    </div>
+                    <sc-if value="{{m.showHistory}}" hint-placeholder-val="{{ false }}">
+                      <div class="sel" style="padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+                        <div class="meta">{{m.sha}} · current · {{m.time}} · memory/{{m.file}}</div>
+                        <sc-if value="{{m.hasOld}}" hint-placeholder-val="{{ false }}"><div class="meta">{{m.oldSha}} · superseded · {{m.corrected}} · “{{m.old}}”</div></sc-if>
+                        <sc-if value="{{m.noOld}}" hint-placeholder-val="{{ true }}"><div class="meta">One commit. No earlier versions.</div></sc-if>
+                        <span class="meta act" style="color: #1F1B17; text-decoration: underline; text-decoration-color: #B9B1A2; text-underline-offset: 3px;" onClick="{{m.history}}">Close</span>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{m.forgetting}}" hint-placeholder-val="{{ false }}">
+                      <div class="row" style="gap: 12px; margin-top: 4px;">
+                        <span class="red" style="font-size: 13px; flex: 1;">Forget this line? The file is deleted and committed. The commit history keeps the old text.</span>
+                        <span class="key act" style="border-color: #B4271B; box-shadow: 0 2px 0 #B4271B; color: #B4271B;" onClick="{{m.forget}}">Forget</span>
+                        <span class="key quiet act" onClick="{{m.cancel}}">Keep</span>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-if value="{{noMatches}}" hint-placeholder-val="{{ false }}"><div class="meta" style="padding: 14px 0;">Nothing matches.</div></sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- PROJECTS -->
+        <sc-if value="{{lt.projects}}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+            <div class="lbl">Saturday, 6 September</div>
+            <h1 class="words h1">Projects.</h1>
+            <div style="display: flex; flex-direction: column; margin-top: 22px; border-top: 1px solid #D8D0C1;">
+              <sc-for list="{{projects}}" as="p" hint-placeholder-count="3">
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 20px; padding: 16px 0; border-bottom: 1px solid #D8D0C1;">
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <div class="row"><span style="font-size: 15px; font-weight: 600;">{{p.name}}</span><span class="lbl" style="color: #8F877A;">{{p.kind}}</span></div>
+                    <div class="words" style="font-size: 18px; line-height: 1.3;">{{p.brief}}</div>
+                    <div class="meta">{{p.sources}}</div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end; text-align: right;">
+                    <div class="row" style="gap: 6px;"><span class="led ok"></span><span class="mono" style="font-size: 12px;">{{p.repo}}</span></div>
+                    <div class="meta">private · {{p.tasks}}</div>
+                    <div class="meta">{{p.lines}} lines in the book</div>
+                    <span class="key quiet act" style="height: 30px; font-size: 12px;" onClick="{{p.preview}}">Preview</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="width: 300px; flex: none; display: flex; flex-direction: column; gap: 14px; padding-top: 4px;">
+            <div class="lbl">Add a project</div>
+            <div style="border-bottom: 1.5px solid #1F1B17; padding: 6px 0 8px;"><input class="line words" style="font-size: 18px;" value="{{newProject}}" onInput="{{setNewProject}}" onKeyDown="{{projectKey}}" placeholder="Project name"></div>
+            <div style="border-bottom: 1px solid #CFC7B8; padding: 6px 0 8px;"><input class="line mono" style="font-size: 13px;" value="{{newRepo}}" onInput="{{setNewRepo}}" onKeyDown="{{projectKey}}" placeholder="{{newRepoHint}}"></div>
+            <div class="row" style="gap: 8px;"><span class="{{kindChips.personal}}" onClick="{{pickPersonal}}">Personal</span><span class="{{kindChips.work}}" onClick="{{pickWork}}">Work</span></div>
+            <div class="meta">Each project is its own private repo. Its brief, documents, and Issues live there. The book stays in {{repo}}.</div>
+            <div><span class="key ink act" onClick="{{addProject}}">Add project</span></div>
+          </div>
+        </sc-if>
+
+        <!-- APPS -->
+        <sc-if value="{{lt.apps}}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+            <div class="lbl">Saturday, 6 September</div>
+            <h1 class="words h1">Your apps.</h1>
+            <div style="display: flex; flex-direction: column; margin-top: 22px; border-top: 1px solid #D8D0C1;">
+              <sc-for list="{{apps}}" as="a" hint-placeholder-count="3">
+                <div class="row" style="gap: 16px; padding: 16px 0; border-bottom: 1px solid #D8D0C1;">
+                  <span class="{{a.ledCls}}"></span>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 16px; font-weight: 500;">{{a.name}}</div>
+                    <div class="meta">{{a.dev}} · {{a.stateText}}</div>
+                  </div>
+                  <div class="row" style="gap: 22px;">
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 7px;"><span class="lbl" style="font-size: 9.5px;">Read</span><span class="{{a.readCls}}" onClick="{{a.toggleRead}}"></span></div>
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 7px;"><span class="lbl" style="font-size: 9.5px;">Save</span><span class="{{a.saveCls}}" onClick="{{a.toggleSave}}"></span></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <div class="meta" style="margin-top: 14px;">Read gives the app a token that can pull {{repo}}. Save lets it commit to memory/. Each app still needs its own setup step.</div>
+          </div>
+          <div style="width: 300px; flex: none; display: flex; flex-direction: column; gap: 14px; padding-top: 4px;">
+            <div class="lbl">Check the handoff</div>
+            <div style="font-size: 14px; line-height: 1.5; color: #4A443B;">Commits a test line from the phone and pulls it here.</div>
+            <div><span class="key ink act" onClick="{{runCheck}}">Run the check</span></div>
+            <sc-if value="{{checkRan}}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #D8D0C1; padding-top: 12px;">
+                <sc-for list="{{checks}}" as="c" hint-placeholder-count="4">
+                  <div class="row" style="gap: 10px; align-items: flex-start;"><span class="{{c.ledCls}}" style="margin-top: 5px;"></span><div style="flex: 1;"><div style="font-size: 13.5px;">{{c.label}}</div><div class="meta">{{c.detail}}</div></div></div>
+                </sc-for>
+                <div class="{{checkSummaryCls}}" style="font-size: 13px; margin-top: 2px;">{{checkSummary}}</div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- SKILLS -->
+        <sc-if value="{{lt.skills}}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+            <div class="lbl">Saturday, 6 September</div>
+            <h1 class="words h1">Skills.</h1>
+            <div style="display: flex; flex-direction: column; margin-top: 22px; border-top: 1px solid #D8D0C1;">
+              <sc-for list="{{skills}}" as="k" hint-placeholder-count="5">
+                <div class="{{k.rowCls}}" style="display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 16px; padding: 13px 8px; border-bottom: 1px solid #D8D0C1; margin: 0 -8px;" onClick="{{k.open}}">
+                  <div style="display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 15px; font-weight: 600;">{{k.name}}</span><span style="font-size: 13.5px; color: #4A443B;">{{k.purpose}}</span></div>
+                  <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end; text-align: right;"><span class="lbl" style="font-size: 9.5px;">{{k.cls}}</span><span class="row" style="gap: 6px;"><span class="{{k.ledCls}}"></span><span class="meta">{{k.state}}</span></span></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="width: 300px; flex: none; display: flex; flex-direction: column; gap: 14px; padding-top: 4px;">
+            <div class="lbl">{{skill.name}}</div>
+            <div class="words" style="font-size: 20px; line-height: 1.3;">{{skill.purpose}}</div>
+            <div class="meta">{{skill.cls}} · {{skill.source}}</div>
+            <div style="border-top: 1px solid #D8D0C1; padding-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+              <div class="lbl">Needs</div>
+              <div style="font-size: 13.5px; line-height: 1.5; color: #4A443B;">{{skill.needs}}</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div class="lbl">On this MacBook</div>
+              <div class="row" style="gap: 8px;"><span class="{{skill.ledCls}}"></span><span style="font-size: 13.5px;">{{skill.state}}</span></div>
+              <sc-if value="{{skill.needsSetup}}" hint-placeholder-val="{{ false }}"><div class="pre">{{skill.setup}}</div></sc-if>
+            </div>
+            <div class="meta">From skills/ in {{repo}}. On the phone: read the steps, can't run the script.</div>
+          </div>
+        </sc-if>
+
+        <!-- SETTINGS -->
+        <sc-if value="{{lt.settings}}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; max-width: 560px;">
+            <div class="lbl">Saturday, 6 September</div>
+            <h1 class="words h1">Settings.</h1>
+            <div style="display: flex; flex-direction: column; gap: 22px; margin-top: 24px;">
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div class="lbl">The repo</div>
+                <sc-if value="{{connected}}" hint-placeholder-val="{{ true }}">
+                  <div class="row" style="gap: 12px;"><span class="led ok"></span><span class="mono" style="font-size: 15px;">{{repo}}</span><span class="meta">private · default branch main</span><span class="key quiet act" style="margin-left: auto; height: 30px; font-size: 12px;" onClick="{{disconnect}}">Disconnect</span></div>
+                  <div class="meta">Access granted: contents read and write, issues read and write. Nothing else.</div>
+                </sc-if>
+                <sc-if value="{{notConnected}}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size: 14px; line-height: 1.5; color: #4A443B;">Everything lives in one GitHub repo you own. Name it, then grant access.</div>
+                  <div style="border-bottom: 1.5px solid #1F1B17; padding: 6px 0 8px;"><input class="line mono" style="font-size: 16px;" value="{{repoDraft}}" onInput="{{setRepoDraft}}" onKeyDown="{{repoKey}}" placeholder="owner/repo"></div>
+                  <div class="row" style="gap: 12px;"><span class="key ink act" onClick="{{connect}}">Grant access on GitHub</span><span class="meta">contents · issues</span></div>
+                </sc-if>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #D8D0C1; padding-top: 18px;">
+                <div class="lbl">What goes where</div>
+                <div class="pre">memory/        the book, one markdown file per line
+skills/        installed with  npx skills add {{repo}}
+projects.yaml  one line per project, pointing at its repo
+
+each project    its own private repo
+  brief.md      purpose, sources, stage
+  Issues        tasks and handovers</div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #D8D0C1; padding-top: 18px;">
+                <div class="lbl">GitHub</div>
+                <div class="row" style="gap: 14px;"><span class="{{onlineSwCls}}" onClick="{{toggleOnline}}"></span><span style="font-size: 14px;">{{onlineText}}</span><span class="meta" style="margin-left: auto;">prototype control</span></div>
+                <div class="meta">Turn it off, then try a save on either device.</div>
+              </div>
+            </div>
+          </div>
+          <div style="width: 300px; flex: none; display: flex; flex-direction: column; gap: 14px; padding-top: 4px;">
+            <div class="lbl">Forgetting</div>
+            <div style="font-size: 13.5px; line-height: 1.5; color: #4A443B;">Forget deletes the file and commits. The commit history keeps the old text. Earlier chats keep their copies too.</div>
+            <div class="lbl" style="margin-top: 10px;">Taking it with you</div>
+            <div style="font-size: 13.5px; line-height: 1.5; color: #4A443B;">The repo is the export. Clone it and you have everything.</div>
+            <div class="pre">git clone github.com/{{repo}}</div>
+            <div><span class="key act" onClick="{{doExport}}">Show the book as text</span></div>
+            <sc-if value="{{exported}}" hint-placeholder-val="{{ false }}"><div class="pre">{{exportText}}</div></sc-if>
+          </div>
+        </sc-if>
+
+        <!-- PREVIEW -->
+        <sc-if value="{{lt.preview}}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+            <div class="lbl">Context preview</div>
+            <h1 class="words h1">What {{pv.appName}} sees.</h1>
+            <div class="row" style="gap: 8px; margin-top: 18px;"><span class="lbl" style="margin-right: 4px;">App</span><sc-for list="{{pv.appChips}}" as="c" hint-placeholder-count="3"><span class="{{c.cls}}" onClick="{{c.pick}}">{{c.label}}</span></sc-for></div>
+            <div class="row" style="gap: 8px; margin-top: 10px;"><span class="lbl" style="margin-right: 4px;">Project</span><sc-for list="{{pv.projectChips}}" as="c" hint-placeholder-count="3"><span class="{{c.cls}}" onClick="{{c.pick}}">{{c.label}}</span></sc-for></div>
+            <sc-if value="{{pv.blocked}}" hint-placeholder-val="{{ false }}">
+              <div class="red" style="font-size: 16px; margin-top: 26px;">Nothing. {{pv.appName}} can't read the book yet. Turn on Read under Apps.</div>
+            </sc-if>
+            <sc-if value="{{pv.offline}}" hint-placeholder-val="{{ false }}">
+              <div class="red" style="font-size: 16px; margin-top: 26px;">Unavailable. GitHub can't be reached, so there is no preview to trust.</div>
+            </sc-if>
+            <sc-if value="{{pv.ok}}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; flex-direction: column; margin-top: 20px;">
+                <div class="lbl" style="padding: 8px 0 4px; color: #8F877A;">Handover</div>
+                <div class="words" style="font-size: 18px; line-height: 1.3; padding: 6px 0 12px; border-bottom: 1px solid #E3DCCD;">{{pv.handover}}</div>
+                <div class="lbl" style="padding: 14px 0 4px; color: #8F877A;">Lines this app may read</div>
+                <sc-for list="{{pv.lines}}" as="m" hint-placeholder-count="3">
+                  <div style="display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; padding: 9px 0; border-bottom: 1px solid #E3DCCD;">
+                    <div class="lbl" style="font-size: 10px; padding-top: 5px; line-height: 1.5;">{{m.scope}}</div>
+                    <div style="display: flex; flex-direction: column; gap: 3px;"><div class="words" style="font-size: 18px; line-height: 1.3;">{{m.text}}</div><div class="meta">{{m.src}} · {{m.time}} · {{m.sha}}</div></div>
+                  </div>
+                </sc-for>
+                <div class="meta" style="padding: 10px 0;">Read from {{repo}} at {{headSha}}. Superseded lines and other projects are left out. {{pv.skillsLine}}</div>
+              </div>
+            </sc-if>
+          </div>
+          <div style="width: 300px; flex: none; display: flex; flex-direction: column; gap: 14px; padding-top: 4px;">
+            <div class="lbl">Prepare a handoff</div>
+            <div style="font-size: 13.5px; line-height: 1.5; color: #4A443B;">For an app that can't reach the repo. Copy this into the chat by hand.</div>
+            <div><span class="key act" onClick="{{prepareHandoff}}">Prepare handoff</span></div>
+            <sc-if value="{{pv.handoffReady}}" hint-placeholder-val="{{ false }}"><div class="pre">{{pv.handoffText}}</div></sc-if>
+            <div class="meta">Nothing here runs a model or moves unsaved code.</div>
+          </div>
+        </sc-if>
+
+        <div class="mono" style="position: absolute; right: 24px; bottom: 14px; font-size: 10px; letter-spacing: .1em; color: #8F877A;">{{count}} IN THE BOOK · EXPLICIT SAVES ONLY</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHONE -->
+  <div class="hw" style="width: 360px; height: 780px; box-sizing: border-box; border-radius: 28px; padding: 10px; display: flex; flex-direction: column;">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 12px;">
+      <span class="words" style="font-style: italic; font-size: 22px; line-height: 1; color: #E9E3D6;">jeff</span>
+      <span class="mono" style="display: inline-flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: .1em; color: #B8B0A2;"><span class="{{phoneLedCls}}"></span>{{phoneLedText}}</span>
+    </div>
+    <div class="paper scroll" style="flex: 1; min-height: 0; border-radius: 18px; box-shadow: inset 0 1px 0 #FFFFFFCC; padding: 20px 18px 14px; display: flex; flex-direction: column;">
+
+      <sc-if value="{{pt.book}}" hint-placeholder-val="{{ true }}">
+        <div class="lbl">Saturday, 6 September</div>
+        <h1 class="words h1 small">The book.</h1>
+        <div style="display: flex; align-items: center; gap: 10px; border-bottom: 1.5px solid #1F1B17; padding: 6px 0 8px; margin-top: 14px;">
+          <input class="line words small" value="{{pdraft}}" onInput="{{setPDraft}}" onKeyDown="{{phoneKey}}" placeholder="Write something down…">
+          <span class="key act" style="height: 40px;" onClick="{{savePhone}}">Save</span>
+        </div>
+        <div class="row" style="gap: 6px; margin-top: 10px; flex-wrap: wrap;"><sc-for list="{{scopeChips}}" as="c" hint-placeholder-count="4"><span class="{{c.cls}}" style="height: 26px; font-size: 11px; padding: 0 9px;" onClick="{{c.pick}}">{{c.label}}</span></sc-for></div>
+        <sc-if value="{{phoneCannotSave}}" hint-placeholder-val="{{ false }}">
+          <div class="row" style="margin-top: 10px; gap: 10px; align-items: flex-start;">
+            <div class="red" style="flex: 1; font-size: 13px; line-height: 1.45;">This phone can read the book but can't write in it yet.</div>
+            <span class="key quiet act" style="height: 34px; font-size: 12px;" onClick="{{allowPhoneSaves}}">Allow saves</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{psaveFailed}}" hint-placeholder-val="{{ false }}">
+          <div class="red" style="font-size: 13px; margin-top: 10px; line-height: 1.45;">Couldn't reach GitHub. Your line is kept here.</div>
+        </sc-if>
+        <div style="display: flex; flex-direction: column; margin-top: 8px;">
+          <sc-for list="{{phoneMemories}}" as="m" hint-placeholder-count="4">
+            <div class="entry">
+              <div class="lbl" style="font-size: 9.5px;">{{m.scope}}</div>
+              <div class="words" style="font-size: 18px; line-height: 1.3;">{{m.text}}</div>
+              <sc-if value="{{m.hasOld}}" hint-placeholder-val="{{ false }}"><div class="words strike" style="font-size: 15px; line-height: 1.3;">{{m.old}}</div></sc-if>
+              <div class="{{m.newCls}}">{{m.src}} · {{m.time}}</div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pt.apps}}" hint-placeholder-val="{{ false }}">
+        <div class="lbl">Saturday, 6 September</div>
+        <h1 class="words h1 small">Your apps.</h1>
+        <div style="display: flex; flex-direction: column; margin-top: 18px; border-top: 1px solid #D8D0C1;">
+          <sc-for list="{{apps}}" as="a" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 12px; padding: 14px 0; border-bottom: 1px solid #D8D0C1;">
+              <div class="row"><span class="{{a.ledCls}}"></span><span style="font-size: 16px; font-weight: 500;">{{a.name}}</span><span class="meta" style="margin-left: auto;">{{a.dev}}</span></div>
+              <div class="row" style="gap: 20px; padding-left: 20px;">
+                <div class="row" style="gap: 9px;"><span class="{{a.readCls}}" onClick="{{a.toggleRead}}"></span><span class="lbl" style="font-size: 9.5px;">Read</span></div>
+                <div class="row" style="gap: 9px;"><span class="{{a.saveCls}}" onClick="{{a.toggleSave}}"></span><span class="lbl" style="font-size: 9.5px;">Save</span></div>
+                <span style="margin-left: auto; font-size: 13px; color: #4A443B;">{{a.stateText}}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top: 18px; display: flex; flex-direction: column; gap: 10px;">
+          <div class="lbl">Check the handoff</div>
+          <div><span class="key ink act" style="height: 44px; padding: 0 18px;" onClick="{{runCheck}}">Run the check</span></div>
+          <sc-if value="{{checkRan}}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <sc-for list="{{checks}}" as="c" hint-placeholder-count="4"><div class="row" style="gap: 10px;"><span class="{{c.ledCls}}"></span><span style="font-size: 13px;">{{c.label}}</span></div></sc-for>
+              <div class="{{checkSummaryCls}}" style="font-size: 13px;">{{checkSummary}}</div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pt.left}}" hint-placeholder-val="{{ false }}">
+        <div class="lbl">Saturday, 6 September</div>
+        <h1 class="words h1 small">Where you left off.</h1>
+        <div style="display: flex; flex-direction: column; gap: 18px; margin-top: 20px;">
+          <sc-for list="{{handovers}}" as="h" hint-placeholder-count="3">
+            <div style="display: flex; gap: 14px;">
+              <div class="{{h.ribbonCls}}" style="margin-bottom: -12px;"></div>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+                <div style="font-size: 13px; font-weight: 600;">{{h.project}}</div>
+                <div class="words" style="font-size: 18px; line-height: 1.3;">{{h.text}}</div>
+                <div class="meta">{{h.from}}</div>
+                <sc-if value="{{h.resumed}}" hint-placeholder-val="{{ false }}"><div class="meta new">{{h.resumedAt}}</div></sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pt.more}}" hint-placeholder-val="{{ false }}">
+        <div class="lbl">Saturday, 6 September</div>
+        <h1 class="words h1 small">More.</h1>
+        <div style="display: flex; flex-direction: column; margin-top: 16px; border-top: 1px solid #D8D0C1;">
+          <div class="rowbtn act" onClick="{{pProjects}}"><span style="flex: 1;">Projects</span><span class="meta">{{projectCount}}</span></div>
+          <div class="rowbtn act" onClick="{{pSkills}}"><span style="flex: 1;">Skills</span><span class="meta">{{skillCount}}</span></div>
+          <div class="rowbtn act" onClick="{{pPreview}}"><span style="flex: 1;">Preview context</span></div>
+          <div class="rowbtn act" onClick="{{pSettings}}"><span style="flex: 1;">Settings</span></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pt.projects}}" hint-placeholder-val="{{ false }}">
+        <div class="meta act" onClick="{{pMore}}">‹ More</div>
+        <h1 class="words h1 small">Projects.</h1>
+        <div style="display: flex; flex-direction: column; margin-top: 14px; border-top: 1px solid #D8D0C1;">
+          <sc-for list="{{projects}}" as="p" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 5px; padding: 13px 0; border-bottom: 1px solid #D8D0C1;">
+              <div class="row"><span style="font-size: 15px; font-weight: 600;">{{p.name}}</span><span class="lbl" style="color: #8F877A;">{{p.kind}}</span></div>
+              <div class="words" style="font-size: 17px; line-height: 1.3;">{{p.brief}}</div>
+              <div class="meta">{{p.repo}} · {{p.tasks}}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 16px;">
+          <div style="border-bottom: 1.5px solid #1F1B17; padding: 4px 0 6px;"><input class="line words small" value="{{newProject}}" onInput="{{setNewProject}}" onKeyDown="{{projectKey}}" placeholder="New project"></div>
+          <div class="row" style="gap: 8px;"><span class="{{kindChips.personal}}" onClick="{{pickPersonal}}">Personal</span><span class="{{kindChips.work}}" onClick="{{pickWork}}">Work</span><span class="key act" style="margin-left: auto; height: 34px;" onClick="{{addProject}}">Add</span></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pt.skills}}" hint-placeholder-val="{{ false }}">
+        <div class="meta act" onClick="{{pMore}}">‹ More</div>
+        <h1 class="words h1 small">Skills.</h1>
+        <div style="display: flex; flex-direction: column; margin-top: 14px; border-top: 1px solid #D8D0C1;">
+          <sc-for list="{{skills}}" as="k" hint-placeholder-count="5">
+            <div class="act" style="display: flex; flex-direction: column; gap: 4px; padding: 12px 0; border-bottom: 1px solid #D8D0C1;" onClick="{{k.open}}">
+              <div class="row"><span style="font-size: 15px; font-weight: 600;">{{k.name}}</span><span class="lbl" style="margin-left: auto; font-size: 9.5px;">{{k.cls}}</span></div>
+              <sc-if value="{{k.selected}}" hint-placeholder-val="{{ false }}">
+                <div style="font-size: 13.5px; line-height: 1.45; color: #4A443B;">{{k.purpose}}</div>
+                <div class="meta">{{k.needs}}</div>
+                <div class="meta red">{{k.phoneNote}}</div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pt.settings}}" hint-placeholder-val="{{ false }}">
+        <div class="meta act" onClick="{{pMore}}">‹ More</div>
+        <h1 class="words h1 small">Settings.</h1>
+        <div style="display: flex; flex-direction: column; gap: 18px; margin-top: 18px;">
+          <div style="display: flex; flex-direction: column; gap: 10px;"><div class="lbl">The repo</div>
+            <sc-if value="{{connected}}" hint-placeholder-val="{{ true }}"><div class="row" style="gap: 10px;"><span class="led ok"></span><span class="mono" style="font-size: 14px;">{{repo}}</span></div><div class="meta">contents · issues · read and write</div></sc-if>
+            <sc-if value="{{notConnected}}" hint-placeholder-val="{{ false }}"><div style="border-bottom: 1.5px solid #1F1B17; padding: 4px 0 6px;"><input class="line mono small" value="{{repoDraft}}" onInput="{{setRepoDraft}}" onKeyDown="{{repoKey}}" placeholder="owner/repo"></div><div><span class="key ink act" style="height: 40px;" onClick="{{connect}}">Grant access</span></div></sc-if>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #D8D0C1; padding-top: 14px;"><div class="lbl">GitHub</div><div class="row" style="gap: 12px;"><span class="{{onlineSwCls}}" onClick="{{toggleOnline}}"></span><span style="font-size: 14px;">{{onlineText}}</span></div></div>
+          <div style="display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #D8D0C1; padding-top: 14px;"><div class="lbl">Taking it with you</div><div class="pre" style="font-size: 10.5px;">git clone github.com/{{repo}}</div></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{pt.preview}}" hint-placeholder-val="{{ false }}">
+        <div class="meta act" onClick="{{pMore}}">‹ More</div>
+        <h1 class="words h1 small">What {{pv.appName}} sees.</h1>
+        <div class="row" style="gap: 6px; margin-top: 14px; flex-wrap: wrap;"><sc-for list="{{pv.appChips}}" as="c" hint-placeholder-count="3"><span class="{{c.cls}}" style="height: 26px; font-size: 11px; padding: 0 9px;" onClick="{{c.pick}}">{{c.label}}</span></sc-for></div>
+        <div class="row" style="gap: 6px; margin-top: 8px; flex-wrap: wrap;"><sc-for list="{{pv.projectChips}}" as="c" hint-placeholder-count="3"><span class="{{c.cls}}" style="height: 26px; font-size: 11px; padding: 0 9px;" onClick="{{c.pick}}">{{c.label}}</span></sc-for></div>
+        <sc-if value="{{pv.blocked}}" hint-placeholder-val="{{ false }}"><div class="red" style="font-size: 15px; margin-top: 20px; line-height: 1.4;">Nothing. {{pv.appName}} can't read the book yet.</div></sc-if>
+        <sc-if value="{{pv.offline}}" hint-placeholder-val="{{ false }}"><div class="red" style="font-size: 15px; margin-top: 20px; line-height: 1.4;">Unavailable. GitHub can't be reached.</div></sc-if>
+        <sc-if value="{{pv.ok}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; margin-top: 12px;">
+            <div class="words" style="font-size: 17px; line-height: 1.3; padding: 8px 0 10px; border-bottom: 1px solid #E3DCCD;">{{pv.handover}}</div>
+            <sc-for list="{{pv.lines}}" as="m" hint-placeholder-count="3">
+              <div class="entry" style="padding: 9px 0;"><div class="lbl" style="font-size: 9.5px;">{{m.scope}}</div><div class="words" style="font-size: 17px; line-height: 1.3;">{{m.text}}</div></div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </sc-if>
+
+    </div>
+    <div style="flex: none; display: flex; gap: 6px; padding: 10px 2px 4px;">
+      <div class="{{keys.left}}" onClick="{{pLeft}}">Left off</div>
+      <div class="{{keys.book}}" onClick="{{pBook}}">Book</div>
+      <div class="{{keys.apps}}" onClick="{{pApps}}">Apps</div>
+      <div class="{{keys.more}}" onClick="{{pMore}}">More</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"type":{"editor":"enum","default":"Serif book","options":["Serif book","Grotesk","Typewriter"],"section":"Look"},"start":{"editor":"enum","default":"Left off","options":["Left off","Book"],"section":"Laptop opens on"},"$preview":{"width":1640,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      laptopTab: null, phoneTab: 'book', draft: '', pdraft: '', editingId: null, editDraft: '', histId: null, forgetId: null, resumed: {},
+      q: '', filter: 'all', saveScope: 'Project / JEFF v2', saveFailed: false, psaveFailed: false, forgotNote: '',
+      online: true, connected: true, repo: 'neerajg03/hub', repoDraft: '', exported: false, checkRan: false, checks: [],
+      newProject: '', newRepo: '', newKind: 'Personal', skillId: 'release', pvApp: 'codex', pvProject: 'JEFF v2', handoffReady: false,
+      apps: { codex: { read: true, save: true }, claude: { read: true, save: false }, chatgpt: { read: false, save: false } },
+      projects: [
+        { id: 'jeff', name: 'JEFF v2', kind: 'Personal', repo: 'neerajg03/jeff-v2', brief: 'The companion for the shared book.', sources: 'Code: jeff, gig', tasks: '3 open issues' },
+        { id: 'rel', name: 'Release workflow', kind: 'Work', repo: 'neerajg03/release-workflow', brief: 'Weekly release, sync PRs, captain approvals.', sources: 'Code: backend, frontend · linked to CB-17295', tasks: '2 open issues' },
+        { id: 'reim', name: 'Reimbursements', kind: 'Personal', repo: 'neerajg03/reimbursements', brief: 'Monthly claim from receipts and statements.', sources: 'Receipts folder, statements stay out of the book', tasks: '1 open issue' }
+      ],
+      skills: [
+        { id: 'release', name: 'release', cls: 'Connected service', purpose: 'Run the weekly release with Slack approvals.', source: 'skills/ @ a1f3c9', needs: 'Slack and GitHub access. No local scripts.', state: 'Ready', setup: '' },
+        { id: 'langfuse', name: 'langfuse', cls: 'Local script', purpose: 'Pull and compare LLM traces.', source: 'skills/ @ a1f3c9', needs: 'uv, a .env with the Langfuse keys.', state: 'Setup required', setup: 'npx skills add neerajg03/hub --skill langfuse\ncp .env.example ~/.config/jeff/langfuse.env' },
+        { id: 'mongodb', name: 'mongodb', cls: 'Local script', purpose: 'Query the app databases for debugging.', source: 'skills/ @ a1f3c9', needs: 'uv, network access to the cluster.', state: 'Ready', setup: '' },
+        { id: 'pr-review', name: 'jeff-pr-review', cls: 'Instructions', purpose: 'Review a PR the way you review one.', source: 'skills/ @ a1f3c9', needs: 'Nothing. It is a procedure.', state: 'Ready everywhere', setup: '' },
+        { id: 'reimb', name: 'reimbursement', cls: 'Local script', purpose: 'Match receipts to statement lines.', source: 'skills/ @ 8d02e1', needs: 'uv, the receipts folder on this Mac.', state: 'Ready', setup: '' }
+      ],
+      memories: [
+        { id: 1, rev: 1, sha: 'c41e9b2', file: 'jeff-v2/no-personas-no-curator.md', scope: 'Project / JEFF v2', text: 'JEFF v2 has no personas and no curator in the first version.', src: 'Said on your phone', time: 'today 09:18', old: null },
+        { id: 2, rev: 2, sha: 'a1f3c9d', oldSha: '7b02e10', file: 'you/plain-language.md', scope: 'You', text: 'Use plain language. Lead with the outcome.', src: 'Said on your MacBook', time: 'Fri 18:42', old: 'Keep answers short and skip the theory.', corrected: 'Fri 18:42' },
+        { id: 3, rev: 1, sha: '9d7710f', file: 'release-workflow/github-issues-only.md', scope: 'Project / Release workflow', text: 'V1 uses GitHub Issues only.', src: 'Said from Codex', time: 'Fri 17:06', old: null },
+        { id: 4, rev: 1, sha: '5e2ac44', file: 'frontend/checks-before-handover.md', scope: 'Repo / frontend', text: 'Run the frontend checks before a release handover.', src: 'Said on your MacBook', time: 'Fri 16:30', old: null },
+        { id: 5, rev: 1, sha: '2f8b0c7', file: 'reimbursements/no-bank-statements.md', scope: 'Project / Reimbursements', text: 'Keep bank statements out of the shared store.', src: 'Said on your phone', time: 'Thu 11:12', old: null }
+      ],
+      handovers: [
+        { id: 'jeff', project: 'JEFF v2', kind: 'Personal', text: 'Next: choose hosted memory or the git fallback.', from: 'jeff-v2#12 · Claude Code · MacBook · today 09:41' },
+        { id: 'rel', project: 'Release workflow', kind: 'Work', text: 'Next: open the sync PR.', from: 'release-workflow#9 · Codex · desktop · Fri 17:06' },
+        { id: 'reim', project: 'Reimbursements', kind: 'Personal', text: 'Next: submit the August claim.', from: 'reimbursements#4 · Claude · phone · Thu 11:12' }
+      ]
+    };
+  }
+  sha() { return Math.floor(Math.random() * 0xfffffff).toString(16).padStart(7, '0'); }
+  slug(t) { return t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) + '.md'; }
+  now() { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+  save(text, src, fromPhone) {
+    text = (text || '').trim(); if (!text) return;
+    if (!this.state.online || !this.state.connected) { this.setState(fromPhone ? { psaveFailed: true } : { saveFailed: true }); return; }
+    const entry = { id: Date.now(), rev: 1, sha: this.sha(), file: this.state.saveScope.toLowerCase().replace(/^(project|repo) \/ /, '').replace(/[^a-z0-9]+/g, '-') + '/' + this.slug(text), scope: this.state.saveScope, text: text, src: src, time: 'just now ' + this.now(), old: null, isNew: true };
+    this.setState({ memories: [entry].concat(this.state.memories.map(x => Object.assign({}, x, { isNew: false }))), draft: fromPhone ? this.state.draft : '', pdraft: fromPhone ? '' : this.state.pdraft, saveFailed: false, psaveFailed: false, forgotNote: '' });
+  }
+  commit(id) {
+    const t = (this.state.editDraft || '').trim(); if (!t) { this.setState({ editingId: null }); return; }
+    const when = 'today ' + this.now();
+    this.setState({ editingId: null, memories: this.state.memories.map(m => m.id === id ? Object.assign({}, m, { old: m.text, oldSha: m.sha, sha: this.sha(), text: t, rev: (m.rev || 1) + 1, corrected: when, src: 'Corrected on your MacBook', time: when, isNew: true }) : Object.assign({}, m, { isNew: false })) });
+  }
+  toggle(id, key) {
+    const apps = Object.assign({}, this.state.apps); apps[id] = Object.assign({}, apps[id]); apps[id][key] = !apps[id][key];
+    if (key === 'read' && !apps[id].read) apps[id].save = false;
+    if (key === 'save' && apps[id].save) apps[id].read = true;
+    this.setState({ apps: apps, checkRan: false });
+  }
+  runCheck() {
+    const s = this.state, on = s.online, a = s.apps;
+    const checks = [
+      { label: 'GitHub reachable', ok: on, detail: on ? s.repo + ' answered in 140 ms' : 'No answer' },
+      { label: 'Phone can commit', ok: on && a.claude.save, detail: a.claude.save ? 'Claude on your phone can write to memory/' : 'Claude on your phone has a read-only token' },
+      { label: 'MacBook can pull it', ok: on && a.codex.read, detail: a.codex.read ? 'Codex pulled the test commit' : 'Codex has Read off' },
+      { label: 'Same commit on both', ok: on && a.claude.save && a.codex.read, detail: on && a.claude.save && a.codex.read ? 'HEAD matches, 2 s apart' : 'Not checked' }
+    ].map(c => Object.assign(c, { ledCls: c.ok ? 'led ok' : 'led warn' }));
+    this.setState({ checkRan: true, checks: checks });
+  }
+  addProject() {
+    const name = (this.state.newProject || '').trim(); if (!name) return;
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const repo = (this.state.newRepo || '').trim() || (this.state.repo.split('/')[0] + '/' + slug);
+    const p = { id: 'p' + Date.now(), name: name, kind: this.state.newKind, repo: repo, brief: 'No brief yet. Add brief.md to the repo.', sources: 'Nothing linked yet', tasks: 'No issues yet' };
+    this.setState({ projects: this.state.projects.concat([p]), newProject: '', newRepo: '', saveScope: 'Project / ' + name });
+  }
+  renderVals() {
+    const s = this.state, p = this.props;
+    const typeMap = { 'Serif book': 't-serif', 'Grotesk': 't-grot', 'Typewriter': 't-type' };
+    const typeCls = typeMap[p.type] || 't-serif';
+    const laptopTab = s.laptopTab || (p.start === 'Book' ? 'book' : 'left');
+    const views = ['left', 'book', 'projects', 'apps', 'skills', 'settings', 'preview'];
+    const lt = {}; views.forEach(v => { lt[v] = laptopTab === v; });
+    const tabs = {}; views.forEach(v => { tabs[v] = laptopTab === v ? 'tab on paper act' : 'tab act'; });
+    const pt = {}; ['book', 'apps', 'left', 'more', 'projects', 'skills', 'settings', 'preview'].forEach(v => { pt[v] = s.phoneTab === v; });
+    const moreOn = ['more', 'projects', 'skills', 'settings', 'preview'].indexOf(s.phoneTab) >= 0;
+    const keyCls = on => on ? 'hwkey on paper act' : 'hwkey act';
+    const keys = { left: keyCls(pt.left), book: keyCls(pt.book), apps: keyCls(pt.apps), more: keyCls(moreOn) };
+    const defs = [{ id: 'codex', name: 'Codex', dev: 'Desktop · MacBook' }, { id: 'claude', name: 'Claude', dev: 'Android · phone' }, { id: 'chatgpt', name: 'ChatGPT', dev: 'Web' }];
+    const apps = defs.map(a => { const st = s.apps[a.id]; const both = st.read && st.save; return Object.assign({}, a, {
+      readCls: st.read ? 'sw on act' : 'sw act', saveCls: st.save ? 'sw on act' : 'sw act',
+      ledCls: both ? 'led ok' : st.read ? 'led warn' : 'led', stateText: both ? 'reads and saves' : st.read ? 'reads only' : 'not set up',
+      toggleRead: () => this.toggle(a.id, 'read'), toggleSave: () => this.toggle(a.id, 'save') }); });
+    const phoneCanSave = !!s.apps.claude.save;
+    const q = (s.q || '').toLowerCase();
+    const matchesFilter = m => s.filter === 'all' || (s.filter === 'you' && m.scope === 'You') || (s.filter === 'project' && m.scope.indexOf('Project') === 0) || (s.filter === 'repo' && m.scope.indexOf('Repo') === 0);
+    const allMem = s.memories.map(m => Object.assign({}, m, {
+      hasOld: !!m.old, noOld: !m.old, editing: s.editingId === m.id, notEditing: s.editingId !== m.id, newCls: m.isNew ? 'meta new' : 'meta',
+      showHistory: s.histId === m.id, forgetting: s.forgetId === m.id, quiet: s.editingId !== m.id && s.forgetId !== m.id,
+      correct: () => this.setState({ editingId: m.id, editDraft: m.text, forgetId: null }), cancel: () => this.setState({ editingId: null, forgetId: null }),
+      commit: () => this.commit(m.id), history: () => this.setState({ histId: s.histId === m.id ? null : m.id }),
+      askForget: () => this.setState({ forgetId: m.id, editingId: null }),
+      forget: () => this.setState({ forgetId: null, memories: this.state.memories.filter(x => x.id !== m.id), forgotNote: '1 line left the book. History and backups keep a copy.' }) }));
+    const memories = allMem.filter(m => matchesFilter(m) && (!q || m.text.toLowerCase().indexOf(q) >= 0 || m.scope.toLowerCase().indexOf(q) >= 0));
+    const handovers = s.handovers.map((h, i) => Object.assign({}, h, { ribbonCls: i === 0 ? 'ribbon' : 'ribbon grey', resumed: !!s.resumed[h.id], resumedAt: s.resumed[h.id] || '',
+      resume: () => { const r = Object.assign({}, s.resumed); r[h.id] = 'Opened here · ' + this.now(); this.setState({ resumed: r }); } }));
+    const latest = allMem[0] || { text: '', src: '', time: '', newCls: 'meta' };
+    const chip = (label, on, pick) => ({ label: label, cls: on ? 'chip on act' : 'chip act', pick: pick });
+    const scopeOptions = ['You'].concat(s.projects.map(x => 'Project / ' + x.name)).concat(['Repo / frontend']);
+    const scopeChips = scopeOptions.map(o => chip(o, s.saveScope === o, () => this.setState({ saveScope: o })));
+    const filterChips = [['all', 'All'], ['you', 'You'], ['project', 'Projects'], ['repo', 'Repos']].map(f => chip(f[1], s.filter === f[0], () => this.setState({ filter: f[0] })));
+    const projects = s.projects.map(x => Object.assign({}, x, { lines: s.memories.filter(m => m.scope === 'Project / ' + x.name).length, preview: () => this.setState({ laptopTab: 'preview', pvProject: x.name }) }));
+    const skills = s.skills.map(k => Object.assign({}, k, { selected: s.skillId === k.id, rowCls: s.skillId === k.id ? 'sel act' : 'act', ledCls: k.state === 'Setup required' ? 'led warn' : 'led ok', needsSetup: k.state === 'Setup required',
+      phoneNote: k.cls === 'Local script' ? 'Read only here. The script runs on your MacBook.' : 'Works from this phone.', open: () => this.setState({ skillId: s.skillId === k.id && s.phoneTab === 'skills' ? null : k.id }) }));
+    const skill = skills.find(k => k.id === s.skillId) || skills[0];
+    const pvAppDef = defs.find(a => a.id === s.pvApp) || defs[0];
+    const pvCanRead = !!s.apps[pvAppDef.id].read;
+    const pvLines = allMem.filter(m => m.scope === 'You' || m.scope === 'Project / ' + s.pvProject);
+    const pvHand = s.handovers.find(h => h.project === s.pvProject);
+    const pv = {
+      appName: pvAppDef.name, blocked: !pvCanRead && s.online, offline: !s.online, ok: pvCanRead && s.online,
+      appChips: defs.map(a => chip(a.name, s.pvApp === a.id, () => this.setState({ pvApp: a.id, handoffReady: false }))),
+      projectChips: s.projects.map(x => chip(x.name, s.pvProject === x.name, () => this.setState({ pvProject: x.name, handoffReady: false }))),
+      lines: pvLines, handover: pvHand ? pvHand.text + ' (' + pvHand.from + ')' : 'No handover for this project yet.',
+      skillsLine: 'Skills available to ' + pvAppDef.name + ': ' + (pvAppDef.id === 'claude' ? 'instructions only' : s.skills.length + ' installed') + '.',
+      handoffReady: s.handoffReady,
+      handoffText: 'JEFF handoff · ' + s.pvProject + ' · ' + this.now() + '\n\nWhere you left off:\n' + (pvHand ? pvHand.text : 'none') + '\n\nWhat to remember:\n' + pvLines.map(m => '- [' + m.scope + '] ' + m.text).join('\n') + '\n\nSource: ' + s.repo + ' at ' + ((allMem[0] && allMem[0].sha) || 'HEAD') + '. Do not treat older chats as current.'
+    };
+    const exportText = s.repo + ' · memory/ · ' + s.memories.length + ' files\n' + s.memories.map(m => 'memory/' + m.file + '  ' + m.sha + '\n  ' + m.text + '\n  ' + m.scope + ' · ' + m.src + ' · ' + m.time + (m.old ? '\n  superseded ' + m.oldSha + ': ' + m.old : '')).join('\n') + '\n\nno credentials in the repo';
+    const passed = s.checks.length && s.checks.every(c => c.ok);
+    return {
+      typeCls, lt, tabs, pt, keys, apps, memories, phoneMemories: memories.slice(0, 4), handovers, latest, count: s.memories.length,
+      scopeChips, filterChips, noMatches: memories.length === 0, forgotNote: s.forgotNote, saveFailed: s.saveFailed, psaveFailed: s.psaveFailed,
+      phoneCannotSave: !phoneCanSave, phoneLedCls: !s.online ? 'led' : phoneCanSave ? 'led ok' : 'led warn', phoneLedText: s.online ? 'PHONE' : 'OFFLINE',
+      syncLedCls: !s.connected ? 'led warn' : s.online ? 'led ok' : 'led', syncText: !s.connected ? 'NO REPO' : s.online ? 'SYNCED · ' + s.repo.toUpperCase() : 'OFFLINE',
+      draft: s.draft, pdraft: s.pdraft, editDraft: s.editDraft, q: s.q,
+      projects, projectCount: s.projects.length, newProject: s.newProject, newRepo: s.newRepo, kindChips: { personal: s.newKind === 'Personal' ? 'chip on act' : 'chip act', work: s.newKind === 'Work' ? 'chip on act' : 'chip act' },
+      skills, skill, skillCount: s.skills.length,
+      onlineSwCls: s.online ? 'sw on act' : 'sw act', onlineText: s.online ? 'Reachable' : 'Unreachable',
+      exported: s.exported, exportText, connected: s.connected, notConnected: !s.connected, repo: s.repo, repoDraft: s.repoDraft, headSha: (allMem[0] && allMem[0].sha) || 'c41e9b2', checkRan: s.checkRan, checks: s.checks, checkSummary: s.checks.length ? (passed ? 'Handoff works both ways.' : 'Fix the amber steps, then run again.') : '', checkSummaryCls: passed ? 'meta' : 'red',
+      pv, phoneLedText2: '',
+      goLeft: () => this.setState({ laptopTab: 'left' }), goBook: () => this.setState({ laptopTab: 'book' }), goProjects: () => this.setState({ laptopTab: 'projects' }), goApps: () => this.setState({ laptopTab: 'apps' }),
+      goSkills: () => this.setState({ laptopTab: 'skills', skillId: s.skillId || 'release' }), goSettings: () => this.setState({ laptopTab: 'settings' }), goPreview: () => this.setState({ laptopTab: 'preview' }),
+      pLeft: () => this.setState({ phoneTab: 'left' }), pBook: () => this.setState({ phoneTab: 'book' }), pApps: () => this.setState({ phoneTab: 'apps' }), pMore: () => this.setState({ phoneTab: 'more' }),
+      pProjects: () => this.setState({ phoneTab: 'projects' }), pSkills: () => this.setState({ phoneTab: 'skills', skillId: null }), pSettings: () => this.setState({ phoneTab: 'settings' }), pPreview: () => this.setState({ phoneTab: 'preview', pvApp: 'claude' }),
+      setDraft: e => this.setState({ draft: e.target.value, saveFailed: false }), setPDraft: e => this.setState({ pdraft: e.target.value, psaveFailed: false }), setEdit: e => this.setState({ editDraft: e.target.value }), setQ: e => this.setState({ q: e.target.value }),
+      setNewProject: e => this.setState({ newProject: e.target.value }), setNewRepo: e => this.setState({ newRepo: e.target.value }), newRepoHint: (s.repo.split('/')[0] + '/' + ((s.newProject || 'project-name').toLowerCase().replace(/[^a-z0-9]+/g, '-'))), pickPersonal: () => this.setState({ newKind: 'Personal' }), pickWork: () => this.setState({ newKind: 'Work' }), addProject: () => this.addProject(), projectKey: e => { if (e.key === 'Enter') this.addProject(); },
+      saveLaptop: () => this.save(this.state.draft, 'Said on your MacBook', false),
+      savePhone: () => { if (this.state.apps.claude.save) this.save(this.state.pdraft, 'Said on your phone', true); },
+      allowPhoneSaves: () => this.toggle('claude', 'save'),
+      laptopKey: e => { if (e.key === 'Enter') this.save(this.state.draft, 'Said on your MacBook', false); },
+      phoneKey: e => { if (e.key === 'Enter' && this.state.apps.claude.save) this.save(this.state.pdraft, 'Said on your phone', true); },
+      editKey: e => { if (e.key === 'Enter') this.commit(this.state.editingId); if (e.key === 'Escape') this.setState({ editingId: null }); },
+      runCheck: () => this.runCheck(), setRepoDraft: e => this.setState({ repoDraft: e.target.value }), connect: () => { const r = (this.state.repoDraft || '').trim(); if (r.indexOf('/') > 0) this.setState({ connected: true, repo: r, repoDraft: '' }); }, repoKey: e => { if (e.key === 'Enter') { const r = (this.state.repoDraft || '').trim(); if (r.indexOf('/') > 0) this.setState({ connected: true, repo: r, repoDraft: '' }); } }, disconnect: () => this.setState({ connected: false, checkRan: false }),
+      toggleOnline: () => this.setState({ online: !s.online, checkRan: false, saveFailed: false, psaveFailed: false }), doExport: () => this.setState({ exported: !s.exported }),
+      prepareHandoff: () => this.setState({ handoffReady: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

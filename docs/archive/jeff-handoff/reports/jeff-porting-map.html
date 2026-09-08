@@ -1,0 +1,730 @@
+<title>JEFF Porting Map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #F2F4F7;
+    --surface: #FFFFFF;
+    --surface-2: #E9EDF2;
+    --ink: #1A2130;
+    --muted: #5B6577;
+    --rule: #D7DDE6;
+    --rule-strong: #B9C2CF;
+    --accent: #4A4E69;
+    --keep: #1B7A5A;      --keep-bg: #E3F3EC;
+    --move: #3A63B8;      --move-bg: #E5ECF9;
+    --replace: #B5730F;   --replace-bg: #FAEFD9;
+    --drop: #A6432B;      --drop-bg: #F8E4DE;
+    --code-bg: #EEF1F5;
+    --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161D; --surface: #1A2029; --surface-2: #222A35;
+      --ink: #E6EAF0; --muted: #98A3B3; --rule: #2B3340; --rule-strong: #3B4554;
+      --accent: #B7BBD6;
+      --keep: #5FCFA3; --keep-bg: #14322A;
+      --move: #8FB0E8; --move-bg: #1B2A45;
+      --replace: #E8B45A; --replace-bg: #3A2C12;
+      --drop: #EE8A6E; --drop-bg: #3E1F17;
+      --code-bg: #10141A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161D; --surface: #1A2029; --surface-2: #222A35;
+    --ink: #E6EAF0; --muted: #98A3B3; --rule: #2B3340; --rule-strong: #3B4554;
+    --accent: #B7BBD6;
+    --keep: #5FCFA3; --keep-bg: #14322A;
+    --move: #8FB0E8; --move-bg: #1B2A45;
+    --replace: #E8B45A; --replace-bg: #3A2C12;
+    --drop: #EE8A6E; --drop-bg: #3E1F17;
+    --code-bg: #10141A;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.6;
+    margin: 0;
+  }
+  a { color: var(--move); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--move); outline-offset: 2px; }
+  code, pre { font-family: var(--mono); font-size: 0.86em; }
+  code { background: var(--code-bg); padding: 0.08em 0.35em; border-radius: 3px; }
+  pre { background: var(--code-bg); padding: 14px 16px; border-radius: 6px; overflow-x: auto; line-height: 1.5; margin: 0; border: 1px solid var(--rule); }
+  pre code { background: none; padding: 0; }
+
+  .page { display: grid; grid-template-columns: 1fr; max-width: 1180px; margin: 0 auto; padding: 0 20px 80px; }
+  @media (min-width: 980px) {
+    .page { grid-template-columns: 220px minmax(0, 720px); gap: 56px; justify-content: center; }
+    nav.toc { position: sticky; top: 24px; align-self: start; padding-top: 74px; }
+  }
+  nav.toc { display: none; }
+  @media (min-width: 980px) { nav.toc { display: block; } }
+  nav.toc .eyebrow { margin-bottom: 10px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--rule); }
+  nav.toc li a { display: block; padding: 5px 0 5px 14px; margin-left: -1px; color: var(--muted); text-decoration: none; font-family: var(--display); font-size: 13.5px; border-left: 2px solid transparent; }
+  nav.toc li a:hover { color: var(--ink); border-left-color: var(--rule-strong); }
+  nav.toc li.group { padding: 12px 0 4px 14px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+  main { min-width: 0; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  header.title { padding: 56px 0 28px; border-bottom: 1px solid var(--rule-strong); margin-bottom: 36px; }
+  header.title h1 { font-family: var(--display); font-weight: 800; font-size: clamp(38px, 6vw, 58px); line-height: 1.0; letter-spacing: -0.02em; margin: 10px 0 18px; text-wrap: balance; }
+  header.title p.lede { font-size: 20px; line-height: 1.5; margin: 0; max-width: 62ch; color: var(--ink); }
+  header.title .meta { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 22px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+
+  h2 { font-family: var(--display); font-weight: 700; font-size: 30px; letter-spacing: -0.015em; line-height: 1.15; margin: 60px 0 14px; text-wrap: balance; }
+  h3 { font-family: var(--display); font-weight: 700; font-size: 21px; letter-spacing: -0.01em; line-height: 1.25; margin: 0 0 6px; text-wrap: balance; }
+  p { margin: 0 0 14px; max-width: 68ch; }
+  ul, ol { padding-left: 22px; margin: 0 0 14px; max-width: 66ch; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 600; }
+
+  /* verdict chips */
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--display); font-weight: 700; font-size: 12.5px; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+  .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .chip.keep { color: var(--keep); background: var(--keep-bg); }
+  .chip.move { color: var(--move); background: var(--move-bg); }
+  .chip.replace { color: var(--replace); background: var(--replace-bg); }
+  .chip.drop { color: var(--drop); background: var(--drop-bg); }
+
+  .legend { display: flex; gap: 10px 18px; flex-wrap: wrap; align-items: center; margin: 18px 0 8px; font-size: 14.5px; color: var(--muted); }
+
+  /* summary table */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+  table.summary { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14.5px; }
+  table.summary th { text-align: left; font-family: var(--mono); font-weight: 500; font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--rule-strong); background: var(--surface-2); }
+  table.summary td { padding: 10px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  table.summary tr:last-child td { border-bottom: none; }
+  table.summary td.name { font-family: var(--display); font-weight: 700; white-space: nowrap; }
+  table.summary td.name a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--rule-strong); }
+  table.summary td.today, table.summary td.next { color: var(--ink); }
+  table.summary td.today { color: var(--muted); }
+
+  /* aspect sections */
+  section.aspect { padding: 28px 0 8px; border-top: 1px solid var(--rule); }
+  section.aspect .head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+  .ledger { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin: 12px 0 18px; }
+  @media (max-width: 640px) { .ledger { grid-template-columns: 1fr; } }
+  .ledger > div { background: var(--surface); padding: 14px 16px; font-size: 15px; line-height: 1.5; }
+  .ledger .lbl { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 6px; }
+  .ledger .today .lbl { color: var(--muted); }
+  .ledger .next .lbl { color: var(--move); }
+  .ledger ul { margin: 0; padding-left: 18px; }
+  .ledger li { margin-bottom: 3px; }
+
+  /* flow strip: today -> new home */
+  .flow { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; margin: 6px 0 18px; font-family: var(--display); font-size: 13.5px; }
+  .flow .node { border: 1px solid var(--rule-strong); background: var(--surface); padding: 8px 12px; border-radius: 6px; line-height: 1.35; min-width: 120px; }
+  .flow .node .sub { display: block; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .flow .node.gone { border-style: dashed; color: var(--muted); }
+  .flow .node.hub { border-color: var(--move); background: var(--move-bg); }
+  .flow .arrow { align-self: center; padding: 0 10px; color: var(--muted); font-family: var(--mono); }
+
+  /* big before/after diagram */
+  .diagram { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 18px 0 8px; }
+  @media (max-width: 760px) { .diagram { grid-template-columns: 1fr; } }
+  .box { border: 1px solid var(--rule-strong); border-radius: 8px; background: var(--surface); padding: 14px 16px; }
+  .box .lbl { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 8px; }
+  .box .title { font-family: var(--display); font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+  .stack { display: flex; flex-direction: column; gap: 6px; }
+  .cell { border: 1px solid var(--rule); border-radius: 5px; padding: 7px 10px; font-family: var(--display); font-size: 13.5px; line-height: 1.35; background: var(--bg); }
+  .cell .sub { display: block; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .cell.dim { color: var(--muted); border-style: dashed; }
+  .cell.hub { border-color: var(--move); background: var(--move-bg); }
+  .cell.ext { border-color: var(--keep); background: var(--keep-bg); }
+  .clients { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; margin-top: 8px; }
+  .connector { text-align: center; color: var(--muted); font-family: var(--mono); font-size: 12px; padding: 4px 0; }
+
+  .callout { border-left: 3px solid var(--replace); background: var(--surface); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 18px 0; font-size: 15.5px; }
+  .callout.cool { border-left-color: var(--move); }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .repo-tree { font-family: var(--mono); font-size: 13.5px; line-height: 1.55; }
+  .repo-tree .c { color: var(--muted); }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 14px 0 18px; }
+  @media (max-width: 640px) { .two { grid-template-columns: 1fr; } }
+  .two .box p { font-size: 15px; margin-bottom: 8px; }
+  .two .box p:last-child { margin-bottom: 0; }
+
+  ol.order { counter-reset: step; list-style: none; padding-left: 0; max-width: 68ch; }
+  ol.order li { counter-increment: step; display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--rule); margin: 0; }
+  ol.order li::before { content: counter(step); font-family: var(--display); font-weight: 800; font-size: 20px; color: var(--muted); line-height: 1.2; }
+  ol.order li strong { font-family: var(--display); }
+
+  footer.end { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--rule-strong); font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+</style>
+
+<div class="page">
+<nav class="toc" aria-label="Sections">
+  <div class="eyebrow">Contents</div>
+  <ol>
+    <li><a href="#shape">The new shape</a></li>
+    <li><a href="#summary">All 15 at a glance</a></li>
+    <li class="group">Work</li>
+    <li><a href="#tasks">Tasks</a></li>
+    <li><a href="#repos">Repo registry</a></li>
+    <li><a href="#worktrees">Worktrees</a></li>
+    <li><a href="#lifecycle">Pickup, work, done</a></li>
+    <li><a href="#checkpoints">Checkpoints</a></li>
+    <li><a href="#ship">Ship</a></li>
+    <li class="group">Context</li>
+    <li><a href="#hooks">Hooks</a></li>
+    <li><a href="#skills">Skills</a></li>
+    <li><a href="#personas">Personas</a></li>
+    <li><a href="#memory">Memory</a></li>
+    <li><a href="#projects">Projects</a></li>
+    <li class="group">Running</li>
+    <li><a href="#crew">Crew and orchestrator</a></li>
+    <li><a href="#providers">Providers</a></li>
+    <li><a href="#config">Config and tooling</a></li>
+    <li><a href="#loose">Loose folders</a></li>
+    <li class="group">Then</li>
+    <li><a href="#lose">What you lose</a></li>
+    <li><a href="#epic">Versus Jeff-Anywhere</a></li>
+    <li><a href="#order">Order of moves</a></li>
+    <li><a href="#questions">Your calls</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="title">
+  <div class="eyebrow">Design note · JEFF rethink</div>
+  <h1>Where each piece of JEFF goes</h1>
+  <p class="lede">JEFF today is a Go CLI on one Mac that runs agents. The rethink is one portable store of tasks, memory, skills, and personas that any agent on any device can reach. This note takes every piece JEFF has right now and says where it lands.</p>
+  <div class="meta">
+    <span>15 pieces mapped</span>
+    <span>4 verdicts: keep · move · replace · drop</span>
+    <span>written for Neeraj, 2026-09-05</span>
+  </div>
+</header>
+
+<p>I want to be upfront about the test I used for every piece. It is the phone test you gave me. If I open Claude on my phone, or a fresh laptop, or a cloud session, does this piece still exist and still help? If yes, it stays. If it only exists because a Go binary on one volume created it, it has to move or go.</p>
+
+<p>And one more thing I kept coming back to. A lot of JEFF is plumbing that Claude Code and Codex now do natively, and a smaller part is the idea nobody else will build for you. The idea is the store. The plumbing is everything that runs an agent. So the pattern below repeats a lot: content stays, storage moves to git, the CLI dies.</p>
+
+<h2 id="shape">The new shape in one picture</h2>
+
+<div class="diagram">
+  <div class="box">
+    <span class="lbl">Today</span>
+    <div class="title">Everything lives on one Mac</div>
+    <div class="stack">
+      <div class="cell"><strong>~/.gig/gig.db</strong><span class="sub">tasks · SQLite · one machine</span></div>
+      <div class="cell"><strong>jeff/memory, proposals, queue</strong><span class="sub">68 canonical · 99 proposals · 344 queued sessions</span></div>
+      <div class="cell"><strong>jeff/.skills + skills.json</strong><span class="sub">25 skills · registry · inject/eject</span></div>
+      <div class="cell"><strong>jeff/personas</strong><span class="sub">6 personas · model · skill list</span></div>
+      <div class="cell"><strong>jeff/projects</strong><span class="sub">10 non-repo folders</span></div>
+      <div class="cell dim"><strong>jeff CLI</strong><span class="sub">pickup · worktrees · hooks · crew · tmux · ship</span></div>
+    </div>
+    <div class="connector">reachable from: this Mac only</div>
+  </div>
+  <div class="box">
+    <span class="lbl">After</span>
+    <div class="title">One git store, one small server, vendors run the agents</div>
+    <div class="stack">
+      <div class="cell hub"><strong>github.com/you/hub</strong><span class="sub">Issues = tasks · memory/ · personas/ · repos.yaml</span></div>
+      <div class="cell hub"><strong>github.com/you/skills</strong><span class="sub">npx skills add you/skills</span></div>
+      <div class="cell hub"><strong>hub MCP server</strong><span class="sub">search_memory · propose · tasks r/w · ~7 tools</span></div>
+      <div class="cell ext"><strong>curation routine</strong><span class="sub">marlowe as a scheduled cloud job</span></div>
+    </div>
+    <div class="connector">↓ MCP + git + gh ↓</div>
+    <div class="clients">
+      <div class="cell ext">Claude Code<span class="sub">any Mac</span></div>
+      <div class="cell ext">Claude mobile<span class="sub">remote MCP</span></div>
+      <div class="cell ext">Codex<span class="sub">MCP + skills</span></div>
+      <div class="cell ext">Cloud sessions<span class="sub">routines</span></div>
+    </div>
+  </div>
+</div>
+
+<p>The right-hand box has three things you own: a git repo for the store, a skills repo, and a small hosted MCP server. Everything else is a vendor product you already pay for.</p>
+
+<h2 id="summary">All 15 pieces at a glance</h2>
+
+<div class="legend">
+  <span class="chip keep">Keep</span> content and shape stay as they are
+  <span class="chip move">Move</span> same thing, new storage
+  <span class="chip replace">Replace</span> same job, a different tool does it
+  <span class="chip drop">Drop</span> vendor apps already do this
+</div>
+
+<div class="tablewrap">
+<table class="summary">
+  <thead><tr><th>Piece</th><th>Today</th><th>After</th><th>Verdict</th></tr></thead>
+  <tbody>
+    <tr><td class="name"><a href="#tasks">Tasks</a></td><td class="today">gig, SQLite on one Mac</td><td class="next">GitHub Issues on a hub repo</td><td><span class="chip move">Move</span></td></tr>
+    <tr><td class="name"><a href="#repos">Repo registry</a></td><td class="today">jeff.json, branch and setup scripts</td><td class="next">repos.yaml for descriptions, setup lives in each repo</td><td><span class="chip move">Move</span></td></tr>
+    <tr><td class="name"><a href="#worktrees">Worktrees</a></td><td class="today">jeff worktree, tasks/ symlinks</td><td class="next">Claude Code and Codex do this per session</td><td><span class="chip drop">Drop</span></td></tr>
+    <tr><td class="name"><a href="#lifecycle">Pickup, work, done</a></td><td class="today">jeff pickup / work / done</td><td class="next">open a session, name the issue, MCP claims it</td><td><span class="chip replace">Replace</span></td></tr>
+    <tr><td class="name"><a href="#checkpoints">Checkpoints</a></td><td class="today">gig checkpoint, done/next/blockers</td><td class="next">same template as an issue comment via MCP</td><td><span class="chip keep">Keep</span></td></tr>
+    <tr><td class="name"><a href="#ship">Ship</a></td><td class="today">jeff ship, PRs for all repos</td><td class="next">vendor apps open PRs, body says Closes hub#N</td><td><span class="chip drop">Drop</span></td></tr>
+    <tr><td class="name"><a href="#hooks">Hooks</a></td><td class="today">6 SessionStart scripts inject context</td><td class="next">MCP server instructions plus native hooks</td><td><span class="chip replace">Replace</span></td></tr>
+    <tr><td class="name"><a href="#skills">Skills</a></td><td class="today">.skills registry, inject/eject, lock file</td><td class="next">skills repo, npx skills add</td><td><span class="chip replace">Replace</span></td></tr>
+    <tr><td class="name"><a href="#personas">Personas</a></td><td class="today">PERSONA.md, model, skill list, own memory</td><td class="next">personas/*.md in hub, mapped to subagents</td><td><span class="chip keep">Keep</span></td></tr>
+    <tr><td class="name"><a href="#memory">Memory</a></td><td class="today">proposals → queue → curate → memory/</td><td class="next">same files in hub, MCP for read and write, routine curates</td><td><span class="chip move">Move</span></td></tr>
+    <tr><td class="name"><a href="#projects">Projects</a></td><td class="today">projects/&lt;name&gt;/CLAUDE.md folders</td><td class="next">each becomes its own small repo</td><td><span class="chip move">Move</span></td></tr>
+    <tr><td class="name"><a href="#crew">Crew, orchestrator</a></td><td class="today">tmux workers, crew.db, messaging, dashboard</td><td class="next">vendor multi-session, issues as the shared board</td><td><span class="chip drop">Drop</span></td></tr>
+    <tr><td class="name"><a href="#providers">Providers</a></td><td class="today">--agent flag, opencode model map</td><td class="next">MCP is the cross-provider layer</td><td><span class="chip drop">Drop</span></td></tr>
+    <tr><td class="name"><a href="#config">Config, doctor, stats</a></td><td class="today">jeff.json, doctor, stats, cleanup, notify</td><td class="next">mostly gone, stats from Issues</td><td><span class="chip drop">Drop</span></td></tr>
+    <tr><td class="name"><a href="#loose">Loose folders</a></td><td class="today">learnings, research, exports, transcripts</td><td class="next">fold into memory or a notes repo, stop keeping transcripts</td><td><span class="chip move">Move</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<p style="margin-top:14px">Five drops, four moves, three replaces, two keeps, and one hybrid. So about a third of JEFF simply disappears, and nothing you actually wrote as content is lost.</p>
+
+<!-- ============ WORK ============ -->
+<h2>Work</h2>
+
+<section class="aspect" id="tasks">
+  <div class="head"><h3>Tasks</h3><span class="chip move">Move</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li><code>gig</code> CLI over SQLite at <code>~/.gig/gig.db</code></li>
+        <li>tasks, subtasks, deps, comments, checkpoints, events, attrs</li>
+        <li>about 25 open tasks, 6-char IDs like <code>gig-58bc</code></li>
+        <li>fails the phone test by construction</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li>GitHub Issues on one private hub repo, not on the code repos</li>
+        <li>subtasks become sub-issues, deps become blocked-by links</li>
+        <li>comments and checkpoints are issue comments</li>
+        <li>every device and every agent already speaks <code>gh</code></li>
+      </ul>
+    </div>
+  </div>
+  <div class="flow">
+    <div class="node gone">gig.db<span class="sub">SQLite, one Mac</span></div>
+    <div class="arrow">→</div>
+    <div class="node">gig export<span class="sub">JSONL, already exists</span></div>
+    <div class="arrow">→</div>
+    <div class="node hub">hub repo Issues<span class="sub">one issue per task</span></div>
+  </div>
+  <p>The gig data model is good. I would keep the shape and change only where it is written. GitHub Issues gives me almost every field gig has, and the two it does not have, checkpoints and attrs, fit as a templated comment and as labels.</p>
+  <p>Why a separate hub repo and not the code repos? Because your tasks span backend, frontend, and api-automation at once. If the issue lives on backend, the frontend PR has nowhere natural to point. One hub repo means one issue, and each code repo's PR says <code>Closes you/hub#123</code>.</p>
+  <p>The gig CLI itself can go two ways. It can die, and you use <code>gh issue</code> directly. Or it stays as a thin wrapper that talks to the GitHub API but keeps the commands you have muscle memory for. I lean to letting it die. The MCP server covers the agent side, and <code>gh</code> covers you.</p>
+  <div class="callout">
+    <p><strong>The one thing to check first.</strong> The Jeff-Anywhere epic found that gig's claim is get-then-update, so two agents can both "win" a claim. GitHub's assignee field has the same problem in theory. But in practice one person plus a few agents on one board rarely collide, and the MCP <code>claim_task</code> tool can check assignee before setting it. I feel that is good enough. If it is not, that is the one reason to keep a tiny hub server owning the claim.</p>
+  </div>
+</section>
+
+<section class="aspect" id="repos">
+  <div class="head"><h3>Repo registry</h3><span class="chip move">Move</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li><code>jeff.json</code> lists 10 repos with url and description</li>
+        <li>per-repo <code>base_branch</code>, a <code>branch-name.sh</code>, and <code>post_setup</code> scripts</li>
+        <li>a SessionStart hook prints the list into every agent's context</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li><code>repos.yaml</code> in the hub repo: name, url, one-line description</li>
+        <li>MCP exposes it as a resource so any agent can ask "what repos exist"</li>
+        <li>branch naming and post-setup move into each code repo itself</li>
+      </ul>
+    </div>
+  </div>
+  <p>The descriptions are worth keeping. They are the thing that lets an agent on your phone say "that sounds like a python-backend change." The scripts are not worth keeping in JEFF. A repo's own setup belongs in that repo, in a <code>CLAUDE.md</code> or <code>AGENTS.md</code> plus a setup script, where every tool that clones it will find it. Codex and Claude Code both run repo setup from the repo now.</p>
+</section>
+
+<section class="aspect" id="worktrees">
+  <div class="head"><h3>Worktrees and task workspaces</h3><span class="chip drop">Drop</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li><code>jeff worktree add</code>, <code>worktrees/</code> on disk</li>
+        <li><code>tasks/&lt;id&gt;-slug/</code> desks with symlinks into worktrees</li>
+        <li><code>jeff cleanup</code> sweeps retired desks, about 20 desks right now</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li>Claude Code gives a session its own worktree on request</li>
+        <li>Codex gives each thread a worktree</li>
+        <li>cloud sessions clone fresh, nothing to clean up</li>
+      </ul>
+    </div>
+  </div>
+  <p>This is the clearest drop. Isolation per task is now a checkbox in the vendor app. The one thing you lose is the multi-repo desk, one folder with three worktrees in it. I cover that under <a href="#lose">what you lose</a>. Short version: one issue, several sessions, PRs link back.</p>
+</section>
+
+<section class="aspect" id="lifecycle">
+  <div class="head"><h3>Pickup, work, done</h3><span class="chip replace">Replace</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li><code>jeff pickup</code> claims, builds the desk, injects hooks, skills, memory, launches the agent</li>
+        <li><code>jeff work</code> resumes from the last checkpoint</li>
+        <li><code>jeff done</code> closes the task and tears down the desk</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li>open any session, say "pick up hub#123"</li>
+        <li>MCP <code>claim_task</code> sets assignee, returns the last checkpoint and scoped memory</li>
+        <li>done is <code>close_task</code> or the PR merging with <code>Closes</code></li>
+      </ul>
+    </div>
+  </div>
+  <div class="flow">
+    <div class="node gone">jeff pickup gig-58bc<span class="sub">one Mac, one binary</span></div>
+    <div class="arrow">→</div>
+    <div class="node hub">"pick up hub#58"<span class="sub">any client, MCP does the rest</span></div>
+  </div>
+  <p>Pickup is really three things glued together: claim the task, load the right context, start an agent. In the new shape the agent is already started, that is the session you are typing into. Claim and load context become one MCP tool call that any client can make. So the command becomes a sentence.</p>
+</section>
+
+<section class="aspect" id="checkpoints">
+  <div class="head"><h3>Checkpoints</h3><span class="chip keep">Keep</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li><code>gig checkpoint --done --next --blockers</code></li>
+        <li>a nudge hook fires after <code>git commit</code>, <code>gh pr create</code>, <code>jeff ship</code></li>
+        <li>injected on resume so the agent knows where it stopped</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li>same three fields, written as an issue comment with a fixed header</li>
+        <li>MCP <code>checkpoint</code> tool, so the phone can write one too</li>
+        <li>nudge stays a native Claude Code hook in your user settings</li>
+      </ul>
+    </div>
+  </div>
+  <p>This is the piece I would protect most. Vendor sessions are machine-local. The checkpoint is the only thing that lets a session on your laptop tomorrow continue what a session on your phone did tonight. It seems to be the real cross-device resume story, more than any memory system. Keep the template exactly, just change where it is written.</p>
+</section>
+
+<section class="aspect" id="ship">
+  <div class="head"><h3>Ship</h3><span class="chip drop">Drop</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li><code>jeff ship</code> pushes every branch on the task and opens PRs in every repo</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li>the session opens its own PR, both apps do this in one prompt</li>
+        <li>convention: PR body ends with <code>Closes you/hub#123</code></li>
+        <li>the hub issue shows all linked PRs across repos automatically</li>
+      </ul>
+    </div>
+  </div>
+  <p>Ship was a loop over repos calling <code>gh pr create</code>. Each session now does its one repo. The cross-repo view you had from ship, "three PRs for this task", GitHub gives you on the issue page for free once the PRs reference it.</p>
+</section>
+
+<!-- ============ CONTEXT ============ -->
+<h2>Context</h2>
+
+<section class="aspect" id="hooks">
+  <div class="head"><h3>Hooks</h3><span class="chip replace">Replace</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li>6 shell scripts on SessionStart: gig instructions, ready tasks, jeff instructions, repo list, task context, crew inbox</li>
+        <li>PostToolUse checkpoint nudge</li>
+        <li>only run where the jeff binary installed them</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li>an MCP server sends instructions to every client that connects, so that replaces the "here is how to use gig" text</li>
+        <li>ready tasks, repo list, task context become MCP resources or tool results</li>
+        <li>checkpoint nudge stays a native hook in <code>~/.claude/settings.json</code>, synced with your dotfiles</li>
+      </ul>
+    </div>
+  </div>
+  <p>Almost all your hooks do one job: paste text into the agent's context at start. MCP has a built-in way to do that. When a client connects to a server, the server can hand over instructions and a list of resources. So the hook scripts become a few strings inside the server, and they show up on the phone too, which the scripts never could.</p>
+  <p>The crew inbox hook goes away with crew. The nudge hook is the one real hook left, and Claude Code hooks are the right home for it.</p>
+</section>
+
+<section class="aspect" id="skills">
+  <div class="head"><h3>Skills</h3><span class="chip replace">Replace</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li>25 skills under <code>.skills/</code>, each a SKILL.md plus scripts</li>
+        <li><code>skills.json</code> registry with tags and persona lists</li>
+        <li><code>jeff skill add / inject / eject / tag / new</code>, a lock file</li>
+        <li>a uv venv so skill scripts run</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li>one git repo, <code>you/skills</code>, same folders, same SKILL.md files</li>
+        <li><code>npx skills add you/skills</code> installs into Claude Code, Codex, Cursor, Gemini, opencode in one go</li>
+        <li><code>npx skills update</code> and <code>check</code> replace the lock file</li>
+        <li>MCP exposes the same SKILL.md files as resources for the phone</li>
+      </ul>
+    </div>
+  </div>
+  <div class="flow">
+    <div class="node gone">jeff skill inject<span class="sub">copies into one task dir</span></div>
+    <div class="arrow">→</div>
+    <div class="node hub">npx skills add you/skills<span class="sub">any agent, any machine</span></div>
+  </div>
+  <p>Yes, <code>npx skills</code> is simpler and I think it is the right call. It does the exact thing your registry did, install the same skill folder into several agents' skill directories, and it is maintained by someone else. The 25 skills are the asset. The registry, the inject and eject commands, and the lock file were only there because there was no shared installer. Now there is.</p>
+  <p>Two things I would keep from your side. First, the skills that need Python keep their <code>pyproject.toml</code> in the skill folder so <code>uv run</code> works after install. Second, the persona-to-skill mapping in <code>skills.json</code> moves into each persona file, as a plain list. That is the only bit of the registry with real information in it.</p>
+  <div class="callout">
+    <p><strong>Where npx skills stops.</strong> It installs into a filesystem. Your phone has none. So on Claude mobile the skills do not "install." Two honest options: the MCP server serves SKILL.md as a readable resource so the agent can still read the procedure, or you upload the same skills to claude.ai's own skills feature and accept a second copy to keep in sync. I would start with the MCP resource and see if it is enough. Scripts will not run on the phone either way, and I think that is fine, the phone is for thinking and small edits, not for running Langfuse queries.</p>
+  </div>
+</section>
+
+<section class="aspect" id="personas">
+  <div class="head"><h3>Personas</h3><span class="chip keep">Keep</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li>6 personas: doug, eric, hardy, jenko, marlowe, schmidt</li>
+        <li>each has a PERSONA.md, a preferred model, a memory hint, and a list of skills</li>
+        <li>each has its own memory scope, hardy has 8 entries</li>
+        <li>picked at pickup time with <code>--persona</code></li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li><code>personas/&lt;name&gt;.md</code> in the hub repo, frontmatter carries model and skills</li>
+        <li>in Claude Code they map one-to-one onto subagent definitions</li>
+        <li>MCP serves them as prompts, so "review this as hardy" works on the phone</li>
+        <li>persona memory scope stays exactly as it is</li>
+      </ul>
+    </div>
+  </div>
+  <p>Personas are pure content, so they survive whole. What changes is only how they get applied. Claude Code has subagents with a name, a model, a tool list, and a system prompt in a markdown file. That is a persona. A short script can generate <code>.claude/agents/hardy.md</code> from <code>personas/hardy.md</code> so you keep one source. Codex and opencode have their own profile files and the same generator can write those.</p>
+  <p>Marlowe is special. It is not a worker persona, it is the curator, and it becomes the scheduled routine under <a href="#memory">memory</a>.</p>
+</section>
+
+<section class="aspect" id="memory">
+  <div class="head"><h3>Memory</h3><span class="chip move">Move</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li>workers write to <code>proposals/</code>, session-end copies transcripts to <code>queue/</code></li>
+        <li>marlowe is the only writer to <code>memory/**</code>, via <code>jeff memory curate</code></li>
+        <li>68 canonical entries, markdown with frontmatter: scope, status, provenance, valid_from</li>
+        <li>scopes: repo, persona, project, orchestrator</li>
+        <li>session-start injects an addendum and turns off the agent's native memory</li>
+        <li>status right now: 99 proposals pending, 344 sessions queued, last curation never</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li><code>memory/</code> and <code>proposals/</code> move into the hub repo, same files, same frontmatter</li>
+        <li>read path: MCP <code>search_memory</code> and <code>get_context(scope)</code>, plus the server's connect instructions</li>
+        <li>write path: MCP <code>propose_memory</code> from any client, including the phone</li>
+        <li>curation: marlowe runs as a scheduled cloud routine and is the only thing that commits to <code>memory/</code></li>
+        <li>drop the transcript queue</li>
+      </ul>
+    </div>
+  </div>
+  <div class="flow">
+    <div class="node">any session<span class="sub">phone, Mac, cloud</span></div>
+    <div class="arrow">→</div>
+    <div class="node hub">propose_memory<span class="sub">MCP, writes proposals/</span></div>
+    <div class="arrow">→</div>
+    <div class="node hub">marlowe routine<span class="sub">scheduled, commits memory/</span></div>
+    <div class="arrow">→</div>
+    <div class="node hub">search_memory<span class="sub">MCP, read anywhere</span></div>
+  </div>
+  <p>This is the piece the whole rethink is for, so I want to be careful. The design you already have is right: proposals from many, one curator, canonical entries with scope and provenance. All of that survives. What was wrong is only that it lived on a volume, and that the write path needed a shell hook.</p>
+  <p>MCP fixes both paths at once. Any client that can connect to the server can search memory and propose memory. That is the phone. That is a cloud session. That is Codex. And the single-writer rule survives because the routine is the only thing with a token that can push to <code>memory/</code>.</p>
+  <div class="two">
+    <div class="box">
+      <span class="lbl">What I would drop</span>
+      <p><strong>The transcript queue.</strong> 344 sessions waiting and no curation has ever run. Transcripts are big, machine-local, and mostly noise. I feel the honest move is to keep only explicit proposals. If an agent learned something, it says so with one tool call. If it did not say so, it is gone, and that is okay.</p>
+    </div>
+    <div class="box">
+      <span class="lbl">What I would test before building</span>
+      <p><strong>Whether curated memory changes anything.</strong> You have 68 entries. Before writing the server, take ten real tasks and check if any of those entries would have changed the outcome. If the answer is mostly no, build the task side first and the memory side later. If yes, memory goes first.</p>
+    </div>
+  </div>
+  <p>One limit I cannot design around. claude.ai and Claude Code each have their own memory, and I cannot write into them from outside. So your store wins only if the session is told to check it first. In Claude Code that is one line in <code>CLAUDE.md</code>. On the phone it is the server's connect instructions. It is a prompt, not a guarantee, and I would rather say that plainly than pretend.</p>
+</section>
+
+<section class="aspect" id="projects">
+  <div class="head"><h3>Projects</h3><span class="chip move">Move</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li>10 folders under <code>projects/</code>: interviews, feedback-review, intern_logs, reimbursement, artifact-agent, and so on</li>
+        <li>each is a CLAUDE.md plus files, work that is not a code repo</li>
+        <li><code>jeff project init / list / open</code></li>
+        <li>a project memory scope exists but has no entries yet</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li>each project becomes its own small private git repo</li>
+        <li>listed in <code>repos.yaml</code> next to the code repos, tagged <code>kind: project</code></li>
+        <li>open it the way you open any repo, in Claude Code or on the web</li>
+        <li>tasks about a project are hub issues with a project label</li>
+      </ul>
+    </div>
+  </div>
+  <p>A project is a folder with a CLAUDE.md. Git is the way to make a folder exist on more than one machine, so each one becomes a repo. Small, private, boring. Interviews and intern logs have people's information in them, so those stay private and I would not put them in the hub repo itself, just link them from it.</p>
+  <p>The one thing this loses is the single list. <code>jeff project list</code> showed them all. <code>repos.yaml</code> with a kind field gives that back, and the MCP resource reads the same file.</p>
+</section>
+
+<!-- ============ RUNNING ============ -->
+<h2>Running</h2>
+
+<section class="aspect" id="crew">
+  <div class="head"><h3>Crew and orchestrator</h3><span class="chip drop">Drop</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li>workers in tmux windows, an orchestrator session, <code>crew.db</code></li>
+        <li>send, ack, interrupt, events, a live dashboard</li>
+        <li>a good share of your open tasks are about keeping this working</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li>parallel work: Claude Code fleet view, the Agent tool, cloud sessions, Codex threads</li>
+        <li>the shared board: hub issues, assignee, and comments</li>
+        <li>talking to a running agent: the vendor's own UI, or Slack via Claude in Slack</li>
+      </ul>
+    </div>
+  </div>
+  <p>This is the hardest one to say and I think it is right. Crew was built when there was no way to run several agents and see them in one place. Now there is. And crew is the part of JEFF that generates the most bugs about itself: liveness, tmux windows closing, hooks emitting empty output, a stub provider.</p>
+  <p>What crew really gave you, underneath tmux, was a shared task board that several agents read and write. That is exactly what hub issues are. Two agents on two machines both see the same issue, the same assignee, the same last comment. The messaging layer, send and ack, becomes an issue comment mentioning the assignee, which is slower but works from a phone.</p>
+  <p>I would keep the crew-orchestrator skill's behavioral guidance, the part about assessing tasks and coordinating. That is a persona for whoever runs the board. The Go code goes.</p>
+</section>
+
+<section class="aspect" id="providers">
+  <div class="head"><h3>Providers and agent backends</h3><span class="chip drop">Drop</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li><code>--agent claude | codex | gemini | opencode</code></li>
+        <li>a provider registry in Go that knows how to launch each</li>
+        <li>a 22-model map for opencode in <code>jeff.json</code></li>
+        <li>session-start knows how to edit each agent's settings file</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li>the cross-provider layer is MCP, every client speaks it</li>
+        <li>skills cross providers through <code>npx skills</code></li>
+        <li>instructions cross through <code>CLAUDE.md</code> and <code>AGENTS.md</code> in each repo</li>
+        <li>the opencode model map moves into opencode's own config</li>
+      </ul>
+    </div>
+  </div>
+  <p>The provider flag existed so one launcher could start any brain with the same context. In the new shape you never launch anything. You open the vendor's app and it connects to your store. Being provider-neutral stops being code you maintain and becomes a property of the protocols you picked.</p>
+</section>
+
+<section class="aspect" id="config">
+  <div class="head"><h3>Config, doctor, stats, cleanup, notify, open</h3><span class="chip drop">Drop</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li><code>jeff.json</code>, <code>jeff config</code>, <code>jeff home</code>, <code>jeff init</code></li>
+        <li><code>jeff doctor</code> checks deps, <code>jeff stats</code> over closed tasks</li>
+        <li><code>jeff cleanup</code>, <code>jeff notify</code>, <code>jeff open</code> in nvim</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li>config collapses to <code>repos.yaml</code> plus the MCP server's own config</li>
+        <li>stats come from GitHub Issues insights or a 30-line script over the API</li>
+        <li>cleanup, notify, open are all native to the apps or the OS now</li>
+      </ul>
+    </div>
+  </div>
+  <p>All of this exists to support a binary that no longer exists. The only thing with information in it is the repo list, and that moved already.</p>
+</section>
+
+<section class="aspect" id="loose">
+  <div class="head"><h3>Loose folders</h3><span class="chip move">Move</span></div>
+  <div class="ledger">
+    <div class="today"><span class="lbl">Today</span>
+      <ul>
+        <li><code>learnings/</code> per repo, the thing that came before memory</li>
+        <li><code>research/</code> and <code>exports/</code>, notes and generated artifacts</li>
+        <li><code>transcripts/</code>, 157 saved sessions</li>
+        <li>a dozen one-off scripts and reports in the JEFF root</li>
+      </ul>
+    </div>
+    <div class="next"><span class="lbl">After</span>
+      <ul>
+        <li>learnings get read once and either become memory proposals or get deleted</li>
+        <li>research and exports go to a notes repo, or to Notion where the team already looks</li>
+        <li>transcripts stay local and stop being collected</li>
+        <li>the one-off scripts that matter become skills, the rest go</li>
+      </ul>
+    </div>
+  </div>
+  <p>None of this needs a design. It needs an afternoon with a bin. The learnings are the only ones I would read before deleting, because they are the raw material memory was supposed to be built from.</p>
+</section>
+
+<!-- ============ THEN ============ -->
+<h2 id="lose">What you lose, honestly</h2>
+
+<ul>
+  <li><strong>The multi-repo desk.</strong> One folder with three worktrees in it, one agent touching all three. In the new shape that is one issue and three sessions, or one session that clones two repos side by side. It is a little more clicking. I think it is worth it, but it is a real loss.</li>
+  <li><strong>Fast agent-to-agent messaging.</strong> Crew send and ack were near-instant. Issue comments are slower and rely on the agent checking. If you truly run five agents that need to talk to each other in real time, the vendor tools are not there yet either.</li>
+  <li><strong>Memory injection you control fully.</strong> Today session-start edits the agent's settings and turns off native memory. You will not be able to do that on the phone. Your store is a strong suggestion, not the only voice.</li>
+  <li><strong>Skills scripts on the phone.</strong> The phone can read a skill but not run its script. Phone sessions become thinking and small edits.</li>
+  <li><strong>A small always-on server.</strong> The MCP server has to run somewhere with a public URL and auth. It is far less code than JEFF today, but it is ops, and ops is a kind of maintenance too.</li>
+</ul>
+
+<h2 id="epic">This is not the Jeff-Anywhere epic</h2>
+
+<p>You already have an epic filed for making JEFF work from anywhere. I read it, and I want to be clear that this note points a different way, so you can pick one and not drift between them.</p>
+
+<div class="two">
+  <div class="box">
+    <span class="lbl">Jeff-Anywhere epic</span>
+    <p><strong>JEFF becomes the fleet.</strong> A hub owns the gig store and hands out claims. Headless <code>jeff worker</code> processes on several machines dial in, build workspaces, run agents with <code>-p</code>, and stream back. Slack is the chat client. Five phases.</p>
+    <p>You own the hub, the workers, the protocol, the leases, the context packs, and the Slack app.</p>
+  </div>
+  <div class="box">
+    <span class="lbl">This note</span>
+    <p><strong>Vendors are the fleet.</strong> A git repo owns the store. A small MCP server exposes it. Claude Code, Claude mobile, Codex, and cloud routines are the workers, and they already exist and already have chat UIs.</p>
+    <p>You own a repo, a skills repo, and one small server with about seven tools.</p>
+  </div>
+</div>
+
+<p>The epic was written when the vendor apps could not do multi-session, remote, or scheduled work. They can now. So most of what the epic builds, the hub, the worker daemon, the WebSocket protocol, the context packs, is the same plumbing this note says to drop. The one idea from the epic I would keep is the single writer for memory, and it lands as the curation routine.</p>
+
+<h2 id="order">Order of moves, not dates</h2>
+
+<p>Each step is useful on its own, and each one lets you delete something. I put the cheapest and most certain first.</p>
+
+<ol class="order">
+  <li><div><strong>Skills repo plus npx skills.</strong> Push <code>.skills/</code> to <code>you/skills</code>, run <code>npx skills add you/skills</code> on this Mac and one other. Delete the registry, inject, eject, and lock file. Zero risk, immediate win, and it proves the multi-agent install works.</div></li>
+  <li><div><strong>Tasks to GitHub Issues.</strong> <code>gig export</code> to JSONL, a short script creates one issue per open task on a new private hub repo with sub-issues and labels. Keep closed tasks as a JSONL file in the repo for history. Point your PRs at <code>Closes you/hub#N</code>. Stop using gig.</div></li>
+  <li><div><strong>Memory, personas, repos.yaml into the hub repo.</strong> Straight file moves. Fold <code>learnings/</code> in or delete it. Drop the transcript queue. Generate <code>.claude/agents/*.md</code> from <code>personas/</code>.</div></li>
+  <li><div><strong>MCP server, read only.</strong> <code>search_memory</code>, <code>get_context</code>, <code>list_ready_tasks</code>, <code>get_task</code>, and connect instructions. Host it, connect Claude Code and Claude mobile. This is the first moment the phone test passes.</div></li>
+  <li><div><strong>MCP server, writes.</strong> <code>propose_memory</code>, <code>claim_task</code>, <code>checkpoint</code>, <code>close_task</code>. Now a phone session can pick up work and leave a checkpoint.</div></li>
+  <li><div><strong>Curation as a routine.</strong> Marlowe runs on a schedule in a cloud session, reads <code>proposals/</code>, commits to <code>memory/</code>. First curation ever runs.</div></li>
+  <li><div><strong>Retire the Go CLI.</strong> Pickup, worktree, crew, orchestrator, ship, doctor, config. Archive the repo. Close the JEFF-on-JEFF tasks.</div></li>
+</ol>
+
+<h2 id="questions">The calls only you can make</h2>
+
+<ul>
+  <li><strong>Issues or files for tasks?</strong> I lean Issues. Files in git are simpler to own but worse for many writers and have no UI on the phone. Issues have both.</li>
+  <li><strong>Public or private skills repo?</strong> Some skills name internal systems, Langfuse hosts, MongoDB, Temporal. Private unless you scrub them.</li>
+  <li><strong>Where the server runs.</strong> A home Mac with a tunnel, a small VPS, or a serverless host. Any works. Pick the one you will not forget about.</li>
+  <li><strong>Whether memory goes before or after tasks.</strong> Depends on the ten-task test under memory. I would run it before deciding.</li>
+  <li><strong>Whether to keep gig as a thin CLI.</strong> Muscle memory versus one fewer thing to maintain. I lean to letting it go.</li>
+</ul>
+
+<footer class="end">Drawn from the live JEFF home on 2026-09-05: jeff.json, .skills/skills.json, memory status, personas, projects, hooks, and roadmaps/EPIC-Jeff-Anywhere.md. Counts are as of that read.</footer>
+</main>
+</div>

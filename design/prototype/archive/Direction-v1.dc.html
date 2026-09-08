@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; background: #26231F; }
+    a { color: #B8420F; text-decoration: none; } a:hover { color: #8F3209; }
+    .serif { font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif; }
+    .sans { font-family: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; }
+    .mono { font-family: 'DM Mono', Menlo, Consolas, monospace; }
+    .paper { background-color: #F4F0E7; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.045 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>"); }
+    .key { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 14px; border: 1px solid #1F1B17; border-radius: 8px; background: #F8F5EE; color: #1F1B17; font: 500 13px/1 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; box-shadow: 0 2px 0 #1F1B17; white-space: nowrap; }
+    .key.ink { background: #1F1B17; color: #F4F0E7; border-color: #1F1B17; box-shadow: 0 2px 0 #000000; }
+    .key.quiet { border-color: #B9B1A2; box-shadow: 0 2px 0 #B9B1A2; color: #4A443B; }
+    .lbl { font: 500 11px/1 'DM Mono', Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; color: #6E665A; }
+    .meta { font: 400 11.5px/1.5 'DM Mono', Menlo, monospace; letter-spacing: .03em; color: #6E665A; }
+    .sw { position: relative; display: inline-block; width: 38px; height: 22px; border-radius: 11px; background: #CFC7B8; box-shadow: inset 0 1px 2px #00000022; flex: none; }
+    .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #8A8274; box-shadow: 0 1px 1px #00000033; }
+    .sw.on { background: #E4571E; box-shadow: inset 0 1px 2px #00000033; }
+    .sw.on::after { left: 19px; background: #F8F5EE; }
+    .led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #7B756B; flex: none; }
+    .led.ok { background: #3E9E62; box-shadow: 0 0 0 2px #3E9E6233, 0 0 8px #3E9E6299; }
+    .led.warn { background: #E2A11E; box-shadow: 0 0 0 2px #E2A11E33, 0 0 8px #E2A11E99; }
+    .tab { writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; width: 52px; height: 92px; border-radius: 0 8px 8px 0; background: #3A362F; color: #C9C1B2; font: 500 12px/1 'Instrument Sans', Arial, sans-serif; letter-spacing: .06em; }
+    .tab.on { background-color: #F4F0E7; color: #1F1B17; }
+    .ribbon { width: 10px; background: #E4571E; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 7px), 0 100%); flex: none; }
+    .ribbon.grey { background: #B9B1A2; }
+    .strike { color: #B4271B; text-decoration: line-through; text-decoration-color: #B4271B; text-decoration-thickness: 1.5px; }
+    .hwkey { display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 8px; background: #3A362F; color: #C9C1B2; font: 500 12px/1 'Instrument Sans', Arial, sans-serif; letter-spacing: .04em; flex: 1; }
+    .hwkey.on { background-color: #F4F0E7; color: #1F1B17; }
+  </style>
+</helmet>
+<div class="sans" style="width: 1280px; height: 400px; box-sizing: border-box; background: #26231F; border-radius: 18px; padding: 12px; display: flex; color: #1F1B17;">
+  <div class="paper" style="flex: 1; border-radius: 10px; box-shadow: inset 0 1px 0 #FFFFFFCC; padding: 28px 36px 24px; display: flex; flex-direction: column; gap: 22px;">
+    <div style="display: flex; align-items: baseline; gap: 18px;">
+      <span class="serif" style="font-style: italic; font-size: 34px; line-height: 1;">jeff</span>
+      <span style="font-size: 16px; color: #4A443B;">A well-made notebook with hardware on it. Paper is for what you wrote down. Hardware is for what the apps may do.</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; flex: 1;">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="lbl">Palette</div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 8px;"><div style="height: 44px; border-radius: 8px; background: #F4F0E7; border: 1px solid #D8D0C1;"></div><span class="meta">Paper F4F0E7</span></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><div style="height: 44px; border-radius: 8px; background: #1F1B17;"></div><span class="meta">Ink 1F1B17</span></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><div style="height: 44px; border-radius: 8px; background: #26231F; box-shadow: inset 0 1px 0 #FFFFFF14;"></div><span class="meta">Hardware 26231F</span></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><div style="height: 44px; border-radius: 8px; background: #E4571E;"></div><span class="meta">Switch E4571E</span></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><div style="height: 44px; border-radius: 8px; background: #B4271B;"></div><span class="meta">Red ink B4271B</span></div>
+          <div style="display: flex; flex-direction: column; gap: 8px;"><div style="height: 44px; border-radius: 8px; background: #3E9E62;"></div><span class="meta">LED 3E9E62</span></div>
+        </div>
+        <div style="font-size: 13px; line-height: 1.5; color: #6E665A;">One accent, spent only on the hardware. Red is reserved for corrections.</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="lbl">Type</div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div class="serif" style="font-size: 24px; line-height: 1.25;">Keep bank statements outside the shared store.</div>
+          <span class="meta">Instrument Serif · your words, headlines</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 15px; font-weight: 500;">Resume here · Allow saves · Open project</div>
+          <span class="meta">Instrument Sans · the interface</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div class="mono" style="font-size: 12px; letter-spacing: .06em;">SAID ON YOUR PHONE · 09:18 · REV 2</div>
+          <span class="meta">DM Mono · the machine's readouts</span>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="lbl">Objects</div>
+        <div style="display: flex; align-items: center; gap: 22px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 8px;"><span class="sw on"></span><span class="sw"></span></div>
+          <div style="display: flex; align-items: center; gap: 10px;"><span class="led ok"></span><span class="led warn"></span><span class="led"></span></div>
+          <span class="key ink">Resume here</span>
+          <span class="key">Allow saves</span>
+          <span class="key quiet">Open</span>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 22px;">
+          <div style="display: flex; gap: 10px; height: 64px;"><div class="ribbon"></div><div class="ribbon grey"></div></div>
+          <div style="display: flex; gap: 6px; background: #26231F; padding: 8px 8px 8px 0; border-radius: 0 10px 10px 0;">
+            <div class="tab on paper" style="height: 64px; width: 40px; font-size: 11px;">Book</div>
+            <div class="tab" style="height: 64px; width: 40px; font-size: 11px;">Apps</div>
+          </div>
+          <div style="font-size: 13px; line-height: 1.5; color: #6E665A; flex: 1;">Switches for read and save. LEDs for state. Keys with a hard drop. A ribbon for where you left off. Index tabs on the spine.</div>
+        </div>
+        <div style="font-size: 13px; line-height: 1.5; color: #6E665A;">Voice: plain sentences to you, never “I”. “Said on your phone,” not “saved by user.”</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
