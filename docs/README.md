@@ -1,6 +1,6 @@
 # Satchel documentation
 
-Updated 9 September 2026. Satchel is in product definition; these documents do not describe a shipped service.
+Updated 11 September 2026. Satchel has a browser-tested local web pilot; the broader product and agent integrations remain in development.
 
 Start with [The product](product.md). It explains what Satchel is for, what someone should be able to do, and the intended experience.
 
@@ -10,6 +10,7 @@ Start with [The product](product.md). It explains what Satchel is for, what some
 |---|---|
 | [Product](product.md) | What is Satchel, who is it for, and what should it do? |
 | [Development setup](development.md) | How do we run, configure and verify the first web foundation? |
+| [Web pilot checkpoint](checkpoints/web-memory-pilot-1.md) | What works in the real browser, what was fixed, and where can development resume? |
 | [Build roadmap](build-roadmap.md) | What must we decide, how do we build and deploy it, and how do users install, onboard and use it? |
 | [Projects](projects.md) | What is a project, and how do repositories, documents, tasks, and native app projects relate? |
 | [Skills and plugins](skills-and-plugins.md) | What is shared, what is installed, and what can actually run on each platform? |

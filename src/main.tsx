@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { User } from '@supabase/supabase-js';
 import { client, errorMessage, type Project, type Memory, type MemorySummary } from './client';
+import { requestWithTimeout } from './request.mjs';
 import './style.css';
 
 function App() {
@@ -9,9 +10,18 @@ function App() {
   const [ready, setReady] = useState(!client);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      const saved = localStorage.getItem('satchel-theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch { /* Device preference still works when storage is unavailable. */ }
+    return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
 
-  useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem('satchel-theme', theme); } catch { /* Theme remains usable for this page. */ }
+  }, [theme]);
   useEffect(() => {
     if (!client) return;
     let active = true;
@@ -96,23 +106,23 @@ function Book() {
 
   useEffect(() => {
     let active = true;
-    db.from('projects').select('id,name,brief').order('created_at').then(({ data, error }) => {
+    requestWithTimeout(signal => db.from('projects').select('id,name,brief').order('created_at').abortSignal(signal)).then(({ data, error }) => {
       if (!active) return;
       if (error) setError(errorMessage(error, 'load'));
       else { setProjects(data ?? []); setSelected(current => current || data?.[0]?.id || ''); }
       setLoading(false);
-    });
+    }).catch(error => { if (active) { setError(errorMessage(error, 'load')); setLoading(false); } });
     return () => { active = false; };
   }, [db, refresh]);
   useEffect(() => {
     if (!selected) return;
     let active = true;
     setMemories([]); setExpanded(null); setLoading(true);
-    db.rpc('list_memories', { p_project_id: selected }).then(({ data, error }) => {
+    requestWithTimeout(signal => db.rpc('list_memories', { p_project_id: selected }).abortSignal(signal)).then(({ data, error }) => {
       if (!active) return;
       if (error) setError(errorMessage(error, 'load')); else setMemories(data ?? []);
       setLoading(false);
-    });
+    }).catch(error => { if (active) { setError(errorMessage(error, 'load')); setLoading(false); } });
     return () => { active = false; };
   }, [db, selected, refresh]);
 
@@ -125,7 +135,7 @@ function Book() {
   function clearDraft() { setDraft(''); setMemoryName(''); setDescription(''); setEditing(null); setDraftId(crypto.randomUUID()); }
   async function readMemory(memory: MemorySummary, edit = false) {
     await run(async () => {
-      const { data, error } = await db.rpc('read_memory', { p_project_id: memory.project_id, p_name: memory.name }).single<Memory>();
+      const { data, error } = await requestWithTimeout(signal => db.rpc('read_memory', { p_project_id: memory.project_id, p_name: memory.name }).abortSignal(signal).single<Memory>());
       if (error) throw error;
       if (!data || data.id !== memory.id) throw { code: 'P0002' };
       setExpanded(data);
@@ -136,7 +146,7 @@ function Book() {
   async function createProject(event: React.FormEvent) {
     event.preventDefault();
     await run(async () => {
-      const { data, error } = await db.rpc('create_project', { p_id: projectId, p_name: name.trim(), p_brief: brief.trim() }).single<Project>();
+      const { data, error } = await requestWithTimeout(signal => db.rpc('create_project', { p_id: projectId, p_name: name.trim(), p_brief: brief.trim() }).abortSignal(signal).single<Project>());
       if (error) throw error;
       if (!data) throw new Error('Missing project');
       setProjects(current => [...current.filter(p => p.id !== data.id), data]); setSelected(data.id);
@@ -146,9 +156,9 @@ function Book() {
   async function save(event: React.FormEvent) {
     event.preventDefault();
     await run(async () => {
-      const result = editing
-        ? await db.rpc('correct_memory', { p_id: editing.id, p_revision: editing.revision, p_name: memoryName.trim(), p_description: description.trim(), p_more_info: draft }).single<Memory>()
-        : await db.rpc('save_memory', { p_id: draftId, p_project_id: selected, p_name: memoryName.trim(), p_description: description.trim(), p_more_info: draft }).single<Memory>();
+      const result = await requestWithTimeout(signal => editing
+        ? db.rpc('correct_memory', { p_id: editing.id, p_revision: editing.revision, p_name: memoryName.trim(), p_description: description.trim(), p_more_info: draft }).abortSignal(signal).single<Memory>()
+        : db.rpc('save_memory', { p_id: draftId, p_project_id: selected, p_name: memoryName.trim(), p_description: description.trim(), p_more_info: draft }).abortSignal(signal).single<Memory>());
       if (result.error) throw result.error;
       if (!result.data) throw new Error('Missing memory');
       setMemories(current => [result.data!, ...current.filter(m => m.id !== result.data!.id)]);
@@ -157,9 +167,9 @@ function Book() {
   }
   async function remove(memory: MemorySummary) {
     await run(async () => {
-      const { data, error } = await db.from('memories').delete().eq('id', memory.id).eq('revision', memory.revision).select('id');
+      const { data, error } = await requestWithTimeout(signal => db.from('memories').delete().eq('id', memory.id).eq('revision', memory.revision).select('id').abortSignal(signal));
       if (error) throw error;
-      if (!data?.length) throw { code: '40001' };
+      if (!data?.length) throw { code: 'PT409' };
       setMemories(current => current.filter(m => m.id !== memory.id)); setDeleteTarget(null);
       if (editing?.id === memory.id) clearDraft();
       if (expanded?.id === memory.id) setExpanded(null);
@@ -187,7 +197,7 @@ function Book() {
           <label>More info <span className="muted">(optional)</span><textarea maxLength={40000} value={draft} disabled={busy} onChange={e => changeDraft(e.target.value)} placeholder="Add the full context, decisions, examples or references." /></label>
           <div className="compose-actions"><span className="muted fine">{draft.length}/40000 · Explicit saves only</span><div>{(editing || hasDraft) && <button type="button" className="quiet" disabled={busy} onClick={clearDraft}>Discard draft</button>}<button className="primary" disabled={busy || !memoryName.trim() || !description.trim()}>{busy ? 'Working…' : editing ? 'Save correction' : 'Save memory'}</button></div></div>
         </form></>}
-      {loading ? <p role="status">Loading your book…</p> : !selected ? <div className="empty"><h2>Begin with a project.</h2><p>Give an ongoing effort a name, then save its first decision. A repository is optional.</p></div> : memories.length === 0 ? <div className="empty"><h2>A fresh page.</h2><p>Only what you choose to save belongs here.</p></div> : <div>{memories.map(memory => <article key={memory.id}>
+      {loading ? <p role="status">Loading your book…</p> : error && memories.length === 0 ? null : !selected ? <div className="empty"><h2>Begin with a project.</h2><p>Give an ongoing effort a name, then save its first decision. A repository is optional.</p></div> : memories.length === 0 ? <div className="empty"><h2>A fresh page.</h2><p>Only what you choose to save belongs here.</p></div> : <div>{memories.map(memory => <article key={memory.id}>
         <h2 className="memory-name">{memory.name}</h2><p className="memory-description">{memory.description}</p>
         <button className="quiet" disabled={busy} aria-expanded={expanded?.id === memory.id} onClick={() => expanded?.id === memory.id ? setExpanded(null) : void readMemory(memory)}>{expanded?.id === memory.id ? 'Hide more info' : 'Read more info'}</button>
         {expanded?.id === memory.id && <p className="memory-body">{expanded.more_info || 'No additional details.'}</p>}

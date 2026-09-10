@@ -41,6 +41,7 @@ test('named memories preserve content and separate discovery from detail retriev
     await asUser(bob, 'select * from create_project($1,$2,$3)', [bobProject, 'Separate owner', '']);
     const [legacy] = await asUser(alice, 'select * from save_memory($1,$2,$3)', [legacyId, project, legacyBody]);
     await db.exec(await readFile(new URL('../supabase/migrations/202609100002_named_memories.sql', import.meta.url), 'utf8'));
+    await db.exec(await readFile(new URL('../supabase/migrations/202609110001_conflict_responses.sql', import.meta.url), 'utf8'));
 
     await t.test('migration preserves existing IDs, scopes and complete text', async () => {
       const [row] = await asUser(alice, 'select * from read_memory($1,$2)', [project, `memory-${legacyId}`]);
@@ -69,14 +70,14 @@ test('named memories preserve content and separate discovery from detail retriev
       for (const [id, client] of [[bob, undefined], [alice, 'unapproved-agent']]) {
         assert.deepEqual(await asUser(id, 'select * from list_memories($1)', [project], client), []);
         await assert.rejects(asUser(id, 'select * from read_memory($1,$2)', [project, 'Interview preparation'], client), { code: 'P0002' });
-        await assert.rejects(asUser(id, 'select * from correct_memory($1,1,$2,$3,$4)', [memory, 'Tampered', 'Tampered', 'Tampered'], client), { code: '40001' });
+        await assert.rejects(asUser(id, 'select * from correct_memory($1,1,$2,$3,$4)', [memory, 'Tampered', 'Tampered', 'Tampered'], client), { code: 'PT409' });
       }
       await assert.rejects(asUser(alice, 'select * from save_memory($1,$2,$3,$4,$5)', [crypto.randomUUID(), project, 'Agent write', 'Denied', ''], 'unapproved-agent'), { code: '42501' });
     });
     await t.test('retry conflicts include all three content fields', async () => {
-      await assert.rejects(save(memory, project, 'Different name'), { code: '40001' });
-      await assert.rejects(save(memory, project, 'Interview preparation', 'Different description'), { code: '40001' });
-      await assert.rejects(save(memory, project, 'Interview preparation', 'Read before planning interview practice.', 'Different info'), { code: '40001' });
+      await assert.rejects(save(memory, project, 'Different name'), { code: 'PT409' });
+      await assert.rejects(save(memory, project, 'Interview preparation', 'Different description'), { code: 'PT409' });
+      await assert.rejects(save(memory, project, 'Interview preparation', 'Read before planning interview practice.', 'Different info'), { code: 'PT409' });
     });
     await t.test('name and description are required, more info is optional and bounded', async () => {
       await assert.rejects(save(crypto.randomUUID(), project, '  '), { code: '23514' });
@@ -95,7 +96,7 @@ test('named memories preserve content and separate discovery from detail retriev
       await assert.rejects(asUser(alice, 'select * from read_memory($1,$2)', [project, 'Interview preparation']), { code: 'P0002' });
       assert.equal((await asUser(alice, 'select * from read_memory($1,$2)', [project, 'Practice plan']))[0].more_info, 'Updated details');
       assert.equal((await asUser(alice, 'select * from list_memories($1)', [project])).find(m => m.id === memory).description, 'Updated summary');
-      await assert.rejects(asUser(alice, 'select * from correct_memory($1,1,$2,$3,$4)', [memory, 'Stale', 'Stale', 'Stale']), { code: '40001' });
+      await assert.rejects(asUser(alice, 'select * from correct_memory($1,1,$2,$3,$4)', [memory, 'Stale', 'Stale', 'Stale']), { code: 'PT409' });
     });
     await t.test('anonymous access is denied at both retrieval functions', async () => {
       for (const sql of [`select * from list_memories('${project}')`, `select * from read_memory('${project}', 'Practice plan')`]) {
