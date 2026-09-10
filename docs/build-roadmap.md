@@ -246,6 +246,8 @@ These phases express dependency order. Their checkboxes track future work; writi
 
 10 September progress (`gig-27f1`): web foundation implemented using Supabase Auth/PostgreSQL and Vite/React, with Vercel as the deployment target. The owner supplied a project URL and publishable key, stored in ignored local environment configuration. Local SQL tests and build pass. GitHub login is working, the hosted migration is applied, and the companion loads projects successfully. Hosted project creation and memory save/correction/deletion passed a rollback-only database check. Full browser write testing, Vercel deployment and all agent integration tests remain pending. See [setup and implementation limits](development.md).
 
+Named-memory follow-up (`gig-27f1.1`): name, description and optional More info replace the single text field. The pilot migration preserves existing text; summary-only listing and scoped name reads are implemented, with browser save/read/correction/deletion verification. The user requires hooks to load the authorized memory index and agents to fetch details by name as needed. Hook delivery, agent authorization, non-project scopes and cross-app verification remain pending. See [the updated memory contract](memory-and-storage.md).
+
 ### Phase 2: Build the durable service [PENDING]
 
 - [ ] 2.1 Scaffold the selected stack and local/staging environments with repeatable setup and CI.

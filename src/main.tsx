@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { User } from '@supabase/supabase-js';
-import { client, errorMessage, type Project, type Memory } from './client';
+import { client, errorMessage, type Project, type Memory, type MemorySummary } from './client';
 import './style.css';
 
 function App() {
@@ -76,13 +76,17 @@ function Book() {
   const db = client!;
   const [projects, setProjects] = useState<Project[]>([]);
   const [selected, setSelected] = useState('');
-  const [memories, setMemories] = useState<Memory[]>([]);
+  const [memories, setMemories] = useState<MemorySummary[]>([]);
+  const [expanded, setExpanded] = useState<Memory | null>(null);
   const [name, setName] = useState('');
   const [brief, setBrief] = useState('');
   const [draft, setDraft] = useState('');
+  const [memoryName, setMemoryName] = useState('');
+  const [description, setDescription] = useState('');
+  const hasDraft = Boolean(draft || memoryName || description);
   const [draftId, setDraftId] = useState(() => crypto.randomUUID());
   const [editing, setEditing] = useState<Memory | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Memory | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MemorySummary | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -103,8 +107,8 @@ function Book() {
   useEffect(() => {
     if (!selected) return;
     let active = true;
-    setMemories([]); setLoading(true);
-    db.from('memories').select('id,project_id,body,revision,created_at,updated_at').eq('project_id', selected).order('updated_at', { ascending: false }).then(({ data, error }) => {
+    setMemories([]); setExpanded(null); setLoading(true);
+    db.rpc('list_memories', { p_project_id: selected }).then(({ data, error }) => {
       if (!active) return;
       if (error) setError(errorMessage(error, 'load')); else setMemories(data ?? []);
       setLoading(false);
@@ -118,6 +122,17 @@ function Book() {
     finally { setBusy(false); }
   }
   function changeDraft(value: string) { setDraft(value); setDraftId(crypto.randomUUID()); }
+  function clearDraft() { setDraft(''); setMemoryName(''); setDescription(''); setEditing(null); setDraftId(crypto.randomUUID()); }
+  async function readMemory(memory: MemorySummary, edit = false) {
+    await run(async () => {
+      const { data, error } = await db.rpc('read_memory', { p_project_id: memory.project_id, p_name: memory.name }).single<Memory>();
+      if (error) throw error;
+      if (!data || data.id !== memory.id) throw { code: 'P0002' };
+      setExpanded(data);
+      setMemories(current => current.map(m => m.id === data.id ? data : m));
+      if (edit) { setEditing(data); setMemoryName(data.name); setDescription(data.description); setDraft(data.more_info); }
+    });
+  }
   async function createProject(event: React.FormEvent) {
     event.preventDefault();
     await run(async () => {
@@ -132,42 +147,51 @@ function Book() {
     event.preventDefault();
     await run(async () => {
       const result = editing
-        ? await db.rpc('correct_memory', { p_id: editing.id, p_revision: editing.revision, p_body: draft.trim() }).single<Memory>()
-        : await db.rpc('save_memory', { p_id: draftId, p_project_id: selected, p_body: draft.trim() }).single<Memory>();
+        ? await db.rpc('correct_memory', { p_id: editing.id, p_revision: editing.revision, p_name: memoryName.trim(), p_description: description.trim(), p_more_info: draft }).single<Memory>()
+        : await db.rpc('save_memory', { p_id: draftId, p_project_id: selected, p_name: memoryName.trim(), p_description: description.trim(), p_more_info: draft }).single<Memory>();
       if (result.error) throw result.error;
       if (!result.data) throw new Error('Missing memory');
       setMemories(current => [result.data!, ...current.filter(m => m.id !== result.data!.id)]);
-      setDraft(''); setDraftId(crypto.randomUUID()); setEditing(null); setNotice('Saved to your book.');
+      setExpanded(null); clearDraft(); setNotice('Saved to your book.');
     });
   }
-  async function remove(memory: Memory) {
+  async function remove(memory: MemorySummary) {
     await run(async () => {
       const { data, error } = await db.from('memories').delete().eq('id', memory.id).eq('revision', memory.revision).select('id');
       if (error) throw error;
       if (!data?.length) throw { code: '40001' };
       setMemories(current => current.filter(m => m.id !== memory.id)); setDeleteTarget(null);
-      if (editing?.id === memory.id) { setEditing(null); setDraft(''); }
+      if (editing?.id === memory.id) clearDraft();
+      if (expanded?.id === memory.id) setExpanded(null);
       setNotice('Deleted from your book.');
     });
   }
   return <div className="book-layout">
     <aside><div className="eyebrow">YOUR PROJECTS</div>
-      <nav aria-label="Projects">{projects.map(project => <button key={project.id} aria-current={selected === project.id ? 'page' : undefined} disabled={busy || Boolean(draft)} onClick={() => { setSelected(project.id); setEditing(null); setDeleteTarget(null); setNotice(''); setError(''); }}>{project.name}</button>)}</nav>
+      <nav aria-label="Projects">{projects.map(project => <button key={project.id} aria-current={selected === project.id ? 'page' : undefined} disabled={busy || hasDraft} onClick={() => { setSelected(project.id); setEditing(null); setDeleteTarget(null); setNotice(''); setError(''); }}>{project.name}</button>)}</nav>
       <details><summary>New project</summary><form onSubmit={createProject}>
         <label>Project name<input required maxLength={100} value={name} disabled={busy} onChange={e => { setName(e.target.value); setProjectId(crypto.randomUUID()); }} /></label>
         <label>Brief <span className="muted">(optional)</span><textarea maxLength={1000} value={brief} disabled={busy} onChange={e => { setBrief(e.target.value); setProjectId(crypto.randomUUID()); }} /></label>
-        <button className="primary" disabled={busy || !name.trim() || Boolean(draft)}>Create project</button>
+        <button className="primary" disabled={busy || !name.trim() || hasDraft}>Create project</button>
       </form></details>
     </aside>
     <section className="book"><div className="book-heading"><div><div className="eyebrow">{projects.find(p => p.id === selected)?.name ?? 'YOUR FIRST PAGE'}</div><h1>The book.</h1></div><button className="quiet" disabled={busy || loading} onClick={() => { setError(''); setRefresh(n => n + 1); }}>Reload</button></div>
       {error && <p role="alert" className="notice error">{error}</p>}
       {notice && <p role="status" className="notice">{notice}</p>}
       {selected && <><p className="muted">{projects.find(p => p.id === selected)?.brief || 'Decisions and details worth carrying forward.'}</p>
-        <form className="composer" onSubmit={save}><label>{editing ? 'Correct this memory' : 'Write something down'}<textarea required maxLength={4000} value={draft} disabled={busy} onChange={e => changeDraft(e.target.value)} placeholder="What should your next session know?" /></label>
-          <div className="compose-actions"><span className="muted fine">{draft.length}/4000 · Explicit saves only</span><div>{(editing || draft) && <button type="button" className="quiet" disabled={busy} onClick={() => { setEditing(null); changeDraft(''); }}>Discard draft</button>}<button className="primary" disabled={busy || !draft.trim()}>{busy ? 'Working…' : editing ? 'Save correction' : 'Save memory'}</button></div></div>
+        <form className="composer" onSubmit={save}>
+          <h2>{editing ? 'Correct this memory' : 'Write something down'}</h2>
+          <label>Name<input required maxLength={100} value={memoryName} disabled={busy} onChange={e => { setMemoryName(e.target.value); setDraftId(crypto.randomUUID()); }} placeholder="interview-preparation" /></label>
+          <label>Description<textarea className="description-input" required maxLength={280} value={description} disabled={busy} onChange={e => { setDescription(e.target.value); setDraftId(crypto.randomUUID()); }} placeholder="What this memory covers and when to read it." /></label>
+          <p className="muted fine">Name and description form the memory index. More info is read separately when needed.</p>
+          <label>More info <span className="muted">(optional)</span><textarea maxLength={40000} value={draft} disabled={busy} onChange={e => changeDraft(e.target.value)} placeholder="Add the full context, decisions, examples or references." /></label>
+          <div className="compose-actions"><span className="muted fine">{draft.length}/40000 · Explicit saves only</span><div>{(editing || hasDraft) && <button type="button" className="quiet" disabled={busy} onClick={clearDraft}>Discard draft</button>}<button className="primary" disabled={busy || !memoryName.trim() || !description.trim()}>{busy ? 'Working…' : editing ? 'Save correction' : 'Save memory'}</button></div></div>
         </form></>}
       {loading ? <p role="status">Loading your book…</p> : !selected ? <div className="empty"><h2>Begin with a project.</h2><p>Give an ongoing effort a name, then save its first decision. A repository is optional.</p></div> : memories.length === 0 ? <div className="empty"><h2>A fresh page.</h2><p>Only what you choose to save belongs here.</p></div> : <div>{memories.map(memory => <article key={memory.id}>
-        <p className="memory-body">{memory.body}</p><div className="memory-meta"><span className="muted fine">Revision {memory.revision} · {new Date(memory.updated_at).toLocaleString()}</span><div><button className="quiet" disabled={busy || Boolean(draft)} onClick={() => { setEditing(memory); setDraft(memory.body); setError(''); }}>Correct</button><button className="quiet" disabled={busy} onClick={() => setDeleteTarget(memory)}>Delete</button></div></div>
+        <h2 className="memory-name">{memory.name}</h2><p className="memory-description">{memory.description}</p>
+        <button className="quiet" disabled={busy} aria-expanded={expanded?.id === memory.id} onClick={() => expanded?.id === memory.id ? setExpanded(null) : void readMemory(memory)}>{expanded?.id === memory.id ? 'Hide more info' : 'Read more info'}</button>
+        {expanded?.id === memory.id && <p className="memory-body">{expanded.more_info || 'No additional details.'}</p>}
+        <div className="memory-meta"><span className="muted fine">Revision {memory.revision} · {new Date(memory.updated_at).toLocaleString()}</span><div><button className="quiet" disabled={busy || hasDraft} onClick={() => void readMemory(memory, true)}>Correct</button><button className="quiet" disabled={busy} onClick={() => setDeleteTarget(memory)}>Delete</button></div></div>
         {deleteTarget?.id === memory.id && <div className="notice" role="group" aria-label="Confirm deletion"><p>Delete this memory from Satchel? Copies in previous chats or exports are unaffected.</p><button className="danger" disabled={busy} onClick={() => remove(memory)}>Delete memory</button> <button className="quiet" disabled={busy} onClick={() => setDeleteTarget(null)}>Keep it</button></div>}
       </article>)}</div>}
     </section>

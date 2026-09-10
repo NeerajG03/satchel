@@ -47,6 +47,9 @@ textarea { resize:vertical; min-height:100px; line-height:1.5; }
 .book h1 { margin:16px 0; }
 .composer { border-bottom:1px solid var(--line); padding-bottom:24px; margin-top:30px; }
 .composer textarea { font:22px/1.5 'Newsreader',Georgia,serif; min-height:130px; }
+.composer .description-input { font:inherit; line-height:1.5; min-height:85px; }
+.memory-name,.memory-description { overflow-wrap:anywhere; }
+.memory-description { line-height:1.6; white-space:pre-wrap; }
 .compose-actions,.memory-meta { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
 article { padding:28px 0 20px; border-bottom:1px solid var(--line); }
 .memory-body { font:25px/1.45 'Newsreader',Georgia,serif; white-space:pre-wrap; overflow-wrap:anywhere; margin:0 0 12px; }

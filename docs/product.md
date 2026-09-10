@@ -40,7 +40,7 @@ The design should be judged by reduced repetition and reliable handoffs. Merely 
 |---|---|
 | Project | An ongoing effort with a purpose, context, resources, decisions, and tasks |
 | Repository | A source location that can belong to one or more efforts; not the definition of a project |
-| Memory | A deliberately saved statement or confirmed decision, with scope and provenance |
+| Memory | A deliberately saved record with a name, description and on-demand details, with scope and provenance |
 | Skill | A reusable procedure, optionally with scripts, references, templates, and dependencies |
 | Plugin | An installable package for an AI platform that can expose workflows and a connection to Satchel |
 | Installation | A particular plugin or skill version made available in a particular host environment |
@@ -71,6 +71,8 @@ A native Claude or Codex project can refer to the Satchel project. Its chats and
 ### 3. Save something worth remembering
 
 Write in the companion or explicitly tell a connected agent to remember a statement. Choose or resolve whether it applies to you, a repository, or a project. Receive an acknowledgement only after the shared source accepts it.
+
+Each memory has a name and short description that a supported integration's hook should always include in the authorized context's memory index. The agent reads More info by name and scope when needed, rather than loading every full record up front. The companion and database implement the named format and separate index/detail reads; native hooks and scopes beyond projects are still pending. See [the memory contract](memory-and-storage.md).
 
 An example is: “Remember for Satchel: no personas and no curator in the first version.” The record should preserve what was stated, its source, relevant scope, writer, and revision. The agent should not convert brainstorming or its own guesses into confirmed preferences.
 

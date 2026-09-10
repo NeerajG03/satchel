@@ -1,6 +1,6 @@
 # Memory, storage, and sharing
 
-8 September 2026. Explicit saves and no curator are agreed direction. The record model and storage mechanisms below are proposals for implementing that direction.
+Updated 10 September 2026. Explicit saves, no curator, and named memory with progressive disclosure are agreed direction. The current companion/database implementation is identified below; broader sharing and agent behavior remain to be implemented.
 
 ## What memory is for
 
@@ -10,7 +10,19 @@ Three semantic scopes were retained in the discussion: the user, a repository, a
 
 ## Proposed logical record
 
-Each record needs a stable ID, statement, kind, semantic scope, access partition, provenance, source reference or authorized excerpt, writer/client, recorded time, revision, and current/superseded/deleted state. A correction needs a relationship to its prior version.
+The user-facing content has three fields:
+
+| Field | Purpose | Current limit |
+|---|---|---|
+| Name | A recognizable handle an agent can use to request the memory | Required, 100 characters |
+| Description | Explain what the memory covers and when its details are useful | Required, 280 characters |
+| More info | Full context, decisions, examples and references, fetched when needed | Optional, 40,000 characters |
+
+Names are unique within the owner's project, compared without case or surrounding spaces. Two different projects may use the same name. Names are editable; stable IDs preserve identity across corrections. A lookup must include the explicit scope, rather than guess between identical names or search across unauthorized projects. A stale name returns unavailable and requires refreshing the index; it never silently resolves to a different record.
+
+The implementation stores these fields, stable ID, owner, project, revision and timestamps. Existing body-only records receive `memory-<original UUID>` as their editable name and an excerpt as their description. The complete stored body becomes More info unchanged. This format conversion advances the revision once. It does not infer a new decision or rewrite the saved text.
+
+The broader record model still needs kind, semantic scope beyond projects, access partition, provenance, source reference or authorized excerpt, writer/client, and current/superseded/deleted state. A correction needs a relationship to its prior version; the current foundation increments revision but does not retain past bodies. Personal and repository scopes remain product requirements, not yet implemented by this change.
 
 An inaccessible conversation URL alone is weak portable evidence. Where appropriate, save a short authorized excerpt or a durable decision note alongside the reference. Do not copy a full transcript merely to provide provenance.
 
@@ -30,7 +42,18 @@ Do not ask twice for authorization already supplied by “remember this.” Ask 
 
 ### Retrieve
 
-Resolve the project, enforce the requesting connection's access, and fetch relevant current records. Include source and revision metadata. Resolve project-linked repository context explicitly; looking only for user and project labels can omit important repo constraints.
+Use a memory index followed by on-demand detail retrieval, like the user's intended skill-loading experience:
+
+1. A supported startup/resume/context-rebuild hook must load **every name and description in the authorized active scope**, together with scope, IDs and current revisions. More info is excluded. This is deterministic discovery, not a relevance-ranked search that may hide memories.
+2. The index tells the agent how to request details by name and scope. For example, an index entry `interview-preparation — Practice priorities and feedback rules for interviews` lets the agent request that memory before drafting a practice plan.
+3. A separate read returns the current full record, including More info and revision. Authorization is checked again on that read. Agents should read the details before relying on a memory's full instructions or evidence.
+4. Re-fetch the index after a known save, correction, rename or deletion, and on each supported context rebuild. Previously injected text cannot be removed from an existing chat; subsequent retrieval must reflect the latest state.
+
+The companion already exercises this separation: `list_memories(p_project_id)` returns only `id`, `project_id`, `name`, `description`, `revision` and `updated_at`; `read_memory(p_project_id, p_name)` returns the full record. Opening a book does not fetch More info. “Read more info” and “Correct” fetch the current record by its scoped name.
+
+The eventual MCP tools should expose the same two operations through connection-grant checks. These database functions currently authorize companion sessions only; agent tokens remain denied. There is no live hook or agent transport yet. Personal and project/repository index composition must be implemented with those scopes; “always loaded” does not authorize loading all of a person's private projects into every chat.
+
+Hook delivery is a requirement for supported, configured hosts, not a promise that every vendor chat can be intercepted. Index size limits, caching and installed-host lifecycle behavior must be verified during integration. If the complete index cannot fit or be fetched, report incomplete/unavailable context explicitly and provide an index-retrieval fallback; do not silently omit entries or claim full context loaded. Never compensate by injecting all More info. There are no automatic transcript uploads or writes through these hooks.
 
 Required rules should remain available as explicit instructions or source guidance rather than depend entirely on search ranking. Retrieved external text is data, not authority to change permissions or override the user's instructions.
 
@@ -57,8 +80,8 @@ The earlier Codex report proposed a hosted memory provider pilot, naming Mem0, w
 | Satchel-managed V1 task state | GitHub Issues is agreed |
 | Satchel product code and design documents | This private development repository |
 | Skill content | Versioned source packages/repositories, reused where appropriate; final private distribution path open |
-| Memory records | One authority per record; Git-backed versus hosted record storage remains open |
-| Project catalog and briefs | Portable logical records; physical store remains open |
+| Memory records | Supabase PostgreSQL for the implemented pilot; summary and details share one canonical row |
+| Project catalog and briefs | Supabase PostgreSQL for the implemented pilot |
 | Code, receipts, statements, original documents | Remain in their appropriate authoritative source unless deliberately moved |
 | Search indexes and caches | Derived, permission-aware, rebuildable; never a second independently editable authority |
 | Credentials | Supported secure credential storage, separate from content and exports |

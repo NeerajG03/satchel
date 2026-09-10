@@ -4,7 +4,7 @@
 
 The repository now contains a React/TypeScript web foundation: GitHub sign-in through Supabase, projects, explicit memory saves, corrections with revision checks, and deletion. It uses the existing notebook palette and typography with responsive light/dark themes. The preserved mockup remains a separate artifact.
 
-This is not the completed cross-agent feature. Native plugins, agent grants, MCP transport, hook-assisted retrieval, export/recovery, and revision-history viewing still require implementation. Database corrections replace the current body and increment its revision; this foundation does not retain past bodies. The database deliberately denies tokens containing an OAuth `client_id` until agent authorization is ready.
+This is not the completed cross-agent feature. Native plugins, agent grants, MCP transport, hook-assisted retrieval, export/recovery, and revision-history viewing still require implementation. Database corrections replace the current content and increment its revision; this foundation does not retain past versions. The database deliberately denies tokens containing an OAuth `client_id` until agent authorization is ready.
 
 ## Local setup
 
@@ -24,7 +24,7 @@ Without configuration, the app shows a setup-pending state and disables login. T
 
 Use a dedicated Supabase Free project with synthetic records first. Needed from the owner: project URL and publishable key, Vercel personal account/team, repository access, and the preferred region before creating any project. No billing upgrade is required by this foundation.
 
-1. Apply [the migration](../supabase/migrations/202609100001_foundation.sql) to a new Supabase project using the SQL editor or the Supabase migration tooling. It is a one-time migration, not a repeatable reset script.
+1. Apply all files in `supabase/migrations` in filename order, beginning with [the foundation](../supabase/migrations/202609100001_foundation.sql) and then [named memories](../supabase/migrations/202609100002_named_memories.sql), using the SQL editor or Supabase migration tooling. These are one-time migrations, not repeatable reset scripts. Existing installations apply only migrations not already applied. The named-memory migration replaces the old write-function signatures, so reload older companion tabs after applying it.
 2. Register a GitHub OAuth App. The callback is `https://<project-ref>.supabase.co/auth/v1/callback` (copy the real value from Supabase). Set its homepage to the stable Satchel deployment URL.
 3. Enable GitHub in Supabase Authentication → Providers. Enter the GitHub client ID and secret directly in that dashboard. Satchel does not request repository scopes.
 4. In Supabase URL Configuration, set the Site URL to the stable deployed app origin. Allow that exact origin and `http://127.0.0.1:5173` for development (the origin used by `npm run dev`). Avoid a wildcard authorizing arbitrary preview origins.
@@ -56,3 +56,7 @@ npm run build
 Tests execute the actual migration in PGlite's PostgreSQL engine with test equivalents of Supabase's identity functions. They check account isolation, foreign-project writes, anonymous/agent denial, safe save retries, immutable metadata, conflicting corrections and deletion. They do not replace hosted Supabase or real GitHub OAuth tests. Docker is not needed for these checks.
 
 CI runs the same tests and build. No cloud credentials are required for CI, and CI does not deploy or migrate the database.
+
+Named-memory checks additionally apply both migrations over an existing body-only record, verify text preservation, case-insensitive names within a project, metadata-only listing, scoped detail retrieval, optional/bounded details, rename/delete behavior, retry conflicts and authorization. The companion exposes separate Name, Description and More info fields; it fetches details only when reading or correcting a memory. The future hook/MCP contract is in [memory and storage](memory-and-storage.md).
+
+The named-memory migration was also applied through the pilot's SQL editor on 10 September 2026. The existing saved memory remained readable, and a temporary record exercised the new browser save/read/correct/delete flow. Both manually applied migrations need their CLI history reconciled before switching to CLI deployment. Personal memory without a project remains unimplemented.
