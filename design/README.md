@@ -7,15 +7,17 @@ The current direction is **a personal notebook with physical controls**. This fo
 - [Visual direction](visual-direction.md): palette, typography options, material treatment, copy, and unresolved choices.
 - [Screen map](screen-map.md): the purpose of each surface and what still needs product definition.
 - [Review notes](review-notes.md): findings from the latest review and the user's clarification.
-- [Assembled prototype](prototype/jeff-companion.html): open in a browser, then use “Play interactive artboard.”
-- [Preview image](prototype/preview.png): the handoff's saved screenshot.
-- [Main source](prototype/Main.dc.html), [direction board](prototype/Direction.dc.html), and [canvas layout](prototype/canvas.json).
+- [Interactive Satchel mockup](mockup/satchel-companion.html): open in a browser, then use “Play interactive artboard.”
+- [Preview image](mockup/preview.png): the current Satchel mockup.
+- [Main source](mockup/Main.dc.html), [direction board](mockup/Direction.dc.html), and [canvas layout](mockup/canvas.json).
 
-![Historical notebook and hardware prototype](prototype/preview.png)
+![Satchel notebook and hardware mockup](mockup/preview.png)
+
+`mockup/` is the active design copy. On 10 September 2026, its title, device headers, sample project references, and handoff branding were renamed from JEFF to Satchel. Layout and interaction behavior are unchanged. All records and installation examples remain sample data, not working service or package configuration.
 
 ## What is preserved
 
-`prototype/` is an unchanged copy of the supplied Claude design bundle, including earlier artboards under `prototype/archive/`, shared style text, and browser scripts under `prototype/tests/`. The visible product name is still JEFF because these are source snapshots. Renaming every artboard or rewriting interactions was not part of this collection.
+`prototype/` is an unchanged copy of the supplied Claude design bundle, including earlier artboards under `prototype/archive/`, shared style text, and browser scripts under `prototype/tests/`. Its visible product name remains JEFF as historical evidence. Use the active Satchel mockup above for testing; the [original assembled prototype](prototype/jeff-companion.html) and [original preview](prototype/preview.png) remain available for comparison.
 
 `archive/early-codex-mockups/` contains the rejected forest and cobalt explorations. Their companion reports and screenshots are in the [document archive](../docs/archive/). They are historical references, not competing current directions.
 
@@ -23,7 +25,7 @@ The assembled HTML embeds the canvas runtime; opening `Main.dc.html` alone is no
 
 ## Inspection and editing
 
-The supplied standalone HTML can be opened locally. For HTTP inspection, serve `design/prototype/` with a local static server and open `jeff-companion.html`. The historical test scripts expect `http://localhost:8765/jeff-companion.html` and contain an author-machine Playwright path. They require environment adjustments elsewhere and are not a portable test suite or integration certification.
+The assembled HTML can be opened locally. For HTTP inspection of the current mockup, serve `design/mockup/` with a local static server and open `satchel-companion.html`. The historical test scripts expect `http://localhost:8765/jeff-companion.html` and contain an author-machine Playwright path. They require environment adjustments elsewhere and are not a portable test suite or integration certification.
 
 The handoff describes rebuilding through Claude Design using the artboard sources. No reproducible build pipeline is included here, and this collection does not republish the original cloud artifact.
 

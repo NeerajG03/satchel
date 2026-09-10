@@ -1,0 +1,33 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1640,
+      "h": 900,
+      "title": "Try it · one book, two devices",
+      "is_interactive": true
+    },
+    {
+      "file": "Direction.dc.html",
+      "x": 0,
+      "y": 1040,
+      "w": 1280,
+      "h": 300,
+      "title": "Look · palette and three type pairings"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "how",
+      "x": 1720,
+      "y": 20,
+      "w": 380,
+      "text": "Try it\n\n1. Phone: write a line, Save. It can't yet. Allow saves, Save again. It lands on the laptop.\n2. Laptop, Left off: Resume here. See what opens, and what the phone now shows.\n3. Laptop, Book: Correct, History, Forget on any line.\n4. Settings: Disconnect the repo, then reconnect one.\n\nChips above the frame: Look switches the font. Laptop opens on picks the first screen."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

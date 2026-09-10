@@ -1,0 +1,57 @@
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&amp;family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;1,400&amp;family=Courier+Prime:ital,wght@0,400;0,700;1,400&amp;family=Instrument+Sans:wght@400;500;600&amp;family=DM+Mono:wght@400;500&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+    body { margin: 0; background: #DED8CC; }
+    a { color: #1F1B17; text-decoration: underline; text-decoration-color: #B9B1A2; text-underline-offset: 3px; } a:hover { text-decoration-color: #1F1B17; }
+    .t-serif { font-family: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; }
+    .t-serif .words { font-family: 'Newsreader', Georgia, 'Times New Roman', serif; }
+    .t-serif .mono, .t-serif .lbl, .t-serif .meta { font-family: 'DM Mono', Menlo, Consolas, monospace; }
+    .t-grot { font-family: 'Schibsted Grotesk', 'Helvetica Neue', Arial, sans-serif; }
+    .t-grot .words { font-family: 'Schibsted Grotesk', 'Helvetica Neue', Arial, sans-serif; letter-spacing: -.01em; }
+    .t-grot .mono, .t-grot .lbl, .t-grot .meta { font-family: 'JetBrains Mono', Menlo, Consolas, monospace; }
+    .t-type { font-family: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; }
+    .t-type .words { font-family: 'Courier Prime', 'Courier New', monospace; }
+    .t-type .mono, .t-type .lbl, .t-type .meta { font-family: 'DM Mono', Menlo, Consolas, monospace; }
+    .hw { background: #26231F; box-shadow: inset 0 1px 0 #FFFFFF14, inset 0 -1px 0 #00000080, 0 24px 60px #00000033; }
+    .paper { background-color: #F4F0E7; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.045 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>"); }
+    .act { cursor: pointer; user-select: none; }
+    .key { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; height: 36px; border: 1px solid #1F1B17; border-radius: 8px; background: #F8F5EE; color: #1F1B17; font-size: 13px; font-weight: 500; line-height: 1; box-shadow: 0 2px 0 #1F1B17; white-space: nowrap; }
+    .key.ink { background: #1F1B17; color: #F4F0E7; box-shadow: 0 2px 0 #000000; }
+    .key.quiet { border-color: #B9B1A2; box-shadow: 0 2px 0 #B9B1A2; color: #4A443B; }
+    .key.act:active { transform: translateY(2px); box-shadow: none; }
+    .lbl { font-size: 10.5px; font-weight: 500; line-height: 1; letter-spacing: .12em; text-transform: uppercase; color: #6E665A; }
+    .meta { font-size: 11px; line-height: 1.5; letter-spacing: .03em; color: #6E665A; }
+    .meta.new { color: #B8420F; }
+    .sw { position: relative; display: inline-block; width: 38px; height: 22px; border-radius: 11px; background: #CFC7B8; box-shadow: inset 0 1px 2px #00000022; flex: none; transition: background .15s; }
+    .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #8A8274; box-shadow: 0 1px 1px #00000033; transition: left .15s, background .15s; }
+    .sw.on { background: #E4571E; }
+    .sw.on::after { left: 19px; background: #F8F5EE; }
+    .led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #7B756B; flex: none; }
+    .led.ok { background: #3E9E62; box-shadow: 0 0 0 2px #3E9E6233, 0 0 8px #3E9E6299; }
+    .led.warn { background: #E2A11E; box-shadow: 0 0 0 2px #E2A11E33, 0 0 8px #E2A11E99; }
+    .tab { writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: center; width: 50px; height: 88px; border-radius: 0 8px 8px 0; background: #3A362F; color: #C9C1B2; font-size: 12px; font-weight: 500; letter-spacing: .06em; }
+    .tab.on { background-color: #F4F0E7; color: #1F1B17; }
+    .ribbon { width: 10px; background: #E4571E; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 7px), 0 100%); flex: none; }
+    .ribbon.grey { background: #B9B1A2; }
+    .strike { color: #B4271B; text-decoration: line-through; text-decoration-color: #B4271B; text-decoration-thickness: 1.5px; }
+    .hwkey { display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 8px; background: #3A362F; color: #C9C1B2; font-size: 12px; font-weight: 500; letter-spacing: .04em; flex: 1; }
+    .hwkey.on { background-color: #F4F0E7; color: #1F1B17; }
+    .line { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #1F1B17; font-size: 20px; line-height: 1.3; padding: 0; }
+    .line::placeholder { color: #A39B8C; font-style: italic; }
+    .line.small { font-size: 18px; }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .entry { display: flex; flex-direction: column; gap: 5px; padding: 11px 0; border-bottom: 1px solid #E3DCCD; }
+    .h1 { font-weight: 400; font-size: 40px; line-height: 1.02; letter-spacing: -.015em; margin: 10px 0 0; }
+    .h1.small { font-size: 32px; }
+    .chip { display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 14px; border: 1px solid #CFC7B8; color: #4A443B; font-size: 12px; font-weight: 500; white-space: nowrap; }
+    .chip.on { background: #1F1B17; color: #F4F0E7; border-color: #1F1B17; }
+    .pre { white-space: pre-wrap; font-size: 11.5px; line-height: 1.6; color: #1F1B17; background: #ECE6DA; border-radius: 8px; padding: 12px 14px; border: 1px solid #DCD5C7; }
+    .tab { height: 76px; width: 48px; font-size: 11.5px; }
+    .scroll { overflow-y: auto; }
+    .red { color: #B4271B; }
+    .search { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: #1F1B17; font-size: 14px; padding: 0; }
+    .search::placeholder { color: #A39B8C; }
+    .sel { background: #ECE6DA; border-radius: 8px; }
+    .rowbtn { display: flex; align-items: center; gap: 12px; padding: 14px 4px; border-bottom: 1px solid #E3DCCD; font-size: 15px; font-weight: 500; }
+  </style>
+</helmet>
