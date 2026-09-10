@@ -94,7 +94,7 @@ function Book() {
     let active = true;
     db.from('projects').select('id,name,brief').order('created_at').then(({ data, error }) => {
       if (!active) return;
-      if (error) setError(errorMessage(error));
+      if (error) setError(errorMessage(error, 'load'));
       else { setProjects(data ?? []); setSelected(current => current || data?.[0]?.id || ''); }
       setLoading(false);
     });
@@ -106,7 +106,7 @@ function Book() {
     setMemories([]); setLoading(true);
     db.from('memories').select('id,project_id,body,revision,created_at,updated_at').eq('project_id', selected).order('updated_at', { ascending: false }).then(({ data, error }) => {
       if (!active) return;
-      if (error) setError(errorMessage(error)); else setMemories(data ?? []);
+      if (error) setError(errorMessage(error, 'load')); else setMemories(data ?? []);
       setLoading(false);
     });
     return () => { active = false; };

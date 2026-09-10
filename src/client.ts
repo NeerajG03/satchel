@@ -14,10 +14,13 @@ export type Memory = {
   created_at: string; updated_at: string;
 };
 
-export function errorMessage(error: unknown): string {
+export function errorMessage(error: unknown, operation: 'load' | 'save' = 'save'): string {
   const code = error && typeof error === 'object' && 'code' in error ? error.code : '';
+  if (code === 'PGRST205' || code === 'PGRST202' || code === '42P01') return 'This Satchel instance needs its database setup completed. Contact the instance owner, then reload.';
   if (code === '40001') return 'This memory changed elsewhere. Reload the book before editing again. Your draft is still here.';
   if (code === '23514') return 'Check the text length and try again.';
   if (code === '42501' || code === 'PGRST301') return 'Your access could not be verified. Sign in again and retry.';
-  return 'Satchel could not complete that request. Check your connection and retry. Your draft is still here.';
+  return operation === 'load'
+    ? 'Your book could not be loaded. Check your connection and reload.'
+    : 'Satchel could not complete that request. Check your connection and retry. Your draft is still here.';
 }

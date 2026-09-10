@@ -27,7 +27,7 @@ Use a dedicated Supabase Free project with synthetic records first. Needed from 
 1. Apply [the migration](../supabase/migrations/202609100001_foundation.sql) to a new Supabase project using the SQL editor or the Supabase migration tooling. It is a one-time migration, not a repeatable reset script.
 2. Register a GitHub OAuth App. The callback is `https://<project-ref>.supabase.co/auth/v1/callback` (copy the real value from Supabase). Set its homepage to the stable Satchel deployment URL.
 3. Enable GitHub in Supabase Authentication → Providers. Enter the GitHub client ID and secret directly in that dashboard. Satchel does not request repository scopes.
-4. In Supabase URL Configuration, set the Site URL to the stable deployed app origin. Allow that exact origin and `http://localhost:5173` for development. Avoid a wildcard authorizing arbitrary preview origins.
+4. In Supabase URL Configuration, set the Site URL to the stable deployed app origin. Allow that exact origin and `http://127.0.0.1:5173` for development (the origin used by `npm run dev`). Avoid a wildcard authorizing arbitrary preview origins.
 5. In Vercel, import the private `NeerajG03/satchel` repository with repository access granted. Root is the repository root; framework is Vite. Set the two public environment values for the intended environment, then deploy. The checked-in Vercel configuration builds `dist/`.
 6. Use a consistent URL for sign-in tests. OAuth uses PKCE and returns to the origin that started the flow. Do not copy the callback into a different browser/device.
 7. Verify sign-in, refresh, sign-out and declined login in a real browser. Then test separate accounts, cross-device reads, failed writes and stale corrections against the hosted project.
@@ -45,6 +45,8 @@ Vercel Hobby is intended for personal, non-commercial use. Supabase Free include
 Supabase documents an OAuth 2.1 server and MCP integration path. That is a candidate for the agent phase, not proof that the actual Codex/Claude connections work. [OAuth server](https://supabase.com/docs/guides/auth/oauth-server).
 
 ## Checks
+
+Pilot verification on 10 September 2026: GitHub login succeeded in the local companion. A project-load failure (`PGRST205`) revealed that the initial schema had not been applied. The foundation migration was then applied once through the hosted Supabase SQL editor, and the authenticated companion loaded successfully. A separate transaction verified project creation, memory saving, correction and deletion under the `authenticated` database role with the pilot user's JWT claims; all test data was rolled back. This verifies hosted database behavior, not a complete browser write flow or cross-device/agent integration. Dashboard application does not register the migration in CLI migration history; reconcile that history before adopting CLI-driven deployments, rather than applying this migration again.
 
 ```sh
 npm test

@@ -8,7 +8,7 @@ Satchel is the next direction for JEFF: a hosted service with companion interfac
 
 ## Status
 
-Early implementation. A web foundation for GitHub sign-in, projects and explicit memory is present; cloud configuration and real OAuth verification are pending. Native agent integrations are not implemented yet. See [development setup](docs/development.md).
+Early implementation. GitHub sign-in works in the local web companion against hosted Supabase. The foundation schema is applied, and project creation plus memory save, correction and deletion passed a rollback-only hosted database check. Deployment to Vercel and native agent integrations are still pending. See [development setup](docs/development.md).
 
 ## Start here
 
