@@ -8,7 +8,7 @@ Satchel is the next direction for JEFF: a hosted service with companion interfac
 
 ## Status
 
-Early product definition and design. This repository is private while the product model and implementation are developed. No service or plugin is implemented yet.
+Early implementation. A web foundation for GitHub sign-in, projects and explicit memory is present; cloud configuration and real OAuth verification are pending. Native agent integrations are not implemented yet. See [development setup](docs/development.md).
 
 ## Start here
 

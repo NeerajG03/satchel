@@ -1,5 +1,5 @@
 ---
-status: not-started
+status: in-progress
 phase: 1
 updated: 2026-09-10
 ---
@@ -234,15 +234,17 @@ The hosted search design must state who can read server-side data. Encryption in
 
 These phases express dependency order. Their checkboxes track future work; writing this roadmap does not complete them. `CURRENT` marks the proposed next item, not work already underway. Dates and effort estimates should follow the platform experiment and a known team/capacity.
 
-### Phase 1: Define and test feasibility [PENDING]
+### Phase 1: Define and test feasibility [IN PROGRESS]
 
-- [ ] **1.1 Choose the first app pair, actual devices and continuity scenarios** ← CURRENT
+- [x] 1.1 Choose the first app pair, actual devices and continuity scenarios: Codex, Claude Code and the web companion for the initial experiment.
 - [ ] 1.2 Fill the support matrix from current documentation and account access; choose a bounded memory/project contract.
-- [ ] 1.3 Build a throwaway or reusable authenticated service experiment with synthetic records and a provisional store; exercise consent, save, retrieve, correction and revocation.
+- [ ] **1.3 Build a throwaway or reusable authenticated service experiment with synthetic records and a provisional store; exercise consent, save, retrieve, correction and revocation.** ← CURRENT
 - [ ] 1.4 Run fresh-chat tests across the two hosts and the phone companion with the laptop off; record failed ordinary retrieval separately from tool errors.
 - [ ] 1.5 Record storage/auth/hosting choices from the results and define the first release contract.
 
 **Deliverable:** working continuity demonstration, compatibility evidence, initial contracts and short architecture decisions. **Exit:** real cross-provider continuity, current corrections and enforced access. Phone companion success is recorded separately from native phone-chat success. If phone-chat access is unavailable, agree on the limited supported promise before broadening implementation.
+
+10 September progress (`gig-27f1`): web foundation implemented using Supabase Auth/PostgreSQL and Vite/React, with Vercel as the deployment target. The owner supplied a project URL and publishable key, stored in ignored local environment configuration. Local SQL tests and build pass; GitHub provider configuration, applying the hosted migration, live sign-in and all agent integration tests remain pending. See [setup and implementation limits](development.md).
 
 ### Phase 2: Build the durable service [PENDING]
 
