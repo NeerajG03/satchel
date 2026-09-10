@@ -1,7 +1,7 @@
 ---
 status: not-started
 phase: 1
-updated: 2026-09-09
+updated: 2026-09-10
 ---
 
 # Satchel: decisions and build roadmap
@@ -11,6 +11,8 @@ updated: 2026-09-09
 Deliver a hosted companion and native AI integrations that let a person carry useful, explicitly saved context, projects, tasks, and reusable workflows between supported apps and devices.
 
 This is a proposed roadmap and decision checklist, not a finalized stack, delivery commitment, or claim that integrations have been tested. It adds an implementation sequence to the existing product documents. It does not change agreed scope. Checklist completion means the named decision or evidence exists; it does not mean a mockup control has been built.
+
+10 September clarification: start with a web companion, make sign-in simple (GitHub-first recommended), target a zero-cost personal pilot, and test native plugin hooks for context delivery. These supersede the earlier Android-packaging gate and Render-first hosting preference. See [D13–D16 and current findings](decisions.md). No hosting provider or authentication implementation has been selected.
 
 ## Where to start
 
@@ -30,7 +32,7 @@ We should settle enough to build this experiment, then make larger commitments f
 | Preserve the visual direction, implement both themes, vet broad visual changes | Agreed boundary | [D09–D11](decisions.md), [Design review](../design/review-notes.md) |
 | Projects, skills, installation and access are distinct concepts | Working model to specify | [Projects](projects.md), [Skills](skills-and-plugins.md) |
 | TypeScript, React, one backend and PostgreSQL | New recommendation for evaluation | Stack rationale below; not a user-approved selection |
-| Responsive web first; Android packaging follows device testing | Recommendation, not cancellation of Android | [Open decisions](decisions.md), [Installable web apps](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable) |
+| Web companion first; native Android deferred | Agreed initial scope | [D13](decisions.md) |
 
 ## Proposed starting stack
 
@@ -47,11 +49,11 @@ I recommend one code repository, one small application service, and one managed 
 | Identity | Established authentication implementation plus a compatible OAuth authorization server for AI connections | Select a provider/library only after the MCP authorization experiment; website login alone does not implement agent authorization |
 | Tasks | Internal TaskService with a GitHub Issues implementation | GitHub App versus another supported authorization route; selected repositories, attributable writes and recovery |
 | Skill sources | Versioned existing source repositories/packages; Satchel stores references and configuration intent | Private source access, install paths, version pinning and evidence per target |
-| Hosting | Evaluate Render first: an application service and managed Postgres in an appropriate region | Current cost, region, streamable HTTP behavior, backup tier and deployment controls; no purchase or deployment selected yet |
+| Hosting | Evaluate a complete free-tier deployment; Vercel and Firebase are candidates raised by the user | Web/API/MCP/auth/storage fit, usage limits, region, billing requirements and recovery; no purchase or deployment selected yet |
 | Delivery | GitHub CI checks, reproducible container build, staging before production, separately versioned native packages | Release promotion, schema compatibility, rollback and plugin review/update delays |
 | Operations | Structured operational logs, errors, latency/cost counters and backup/restore procedure | Redaction, retention, alerts and ownership; memory text is not default telemetry |
 
-Render supports Git-backed or Docker-image web deployments and private service networking. Its PostgreSQL service supports internal connections and configurable external access. This makes it a plausible first candidate, not a completed hosting comparison. [Web services](https://render.com/docs/web-services), [PostgreSQL connections](https://render.com/docs/postgresql-creating-connecting).
+The earlier Render example supports Git-backed or Docker-image web deployments, private networking and managed PostgreSQL. It remains an architecture reference; the user's zero-cost pilot target now governs provider selection. A serverless free-tier deployment may change the proposed container/process layout. [Web services](https://render.com/docs/web-services), [PostgreSQL connections](https://render.com/docs/postgresql-creating-connecting).
 
 **Storage recommendation:** use GitHub as the authority for tasks and versioned skill sources; evaluate PostgreSQL as the authority for memory and the catalog. My reasoning is that concurrent correction, scoped reads and explicit record lifecycle fit a transactional service well. Keep a readable export so portability does not depend on Git being the live database. This recommendation does not silently settle the earlier Git-backed-versus-hosted-memory debate; the storage decision must record its tradeoffs.
 
@@ -187,13 +189,13 @@ OpenAI documents testing the MCP connection before the complete packaged plugin,
 
 ### U08 — Android and another device
 
-- [ ] Test the responsive companion in the user's actual Android browser before selecting packaging.
-- [ ] Decide whether home-screen installation is sufficient for the first release or whether an Android package is required.
+- [ ] Test the responsive web companion in the user's actual Android browser.
+- [ ] Keep native Android packaging deferred; evaluate home-screen installation only as an optional web enhancement.
 - [ ] Test share-to-save, sign-in return, deep links, local drafts, app updates and logout data clearing.
 - [ ] Decide which offline behavior is promised; pending local content must not display as remotely saved.
 - [ ] Specify what a new laptop inherits and what must be installed or authorized again.
 
-**Output:** device acceptance results and an explicit Android delivery decision. If web delivery misses a required device capability, evaluate an Android wrapper or native implementation against that specific gap.
+**Output:** web-on-phone acceptance results. Reopen Android packaging later only for a demonstrated requirement; it is not an initial release gate.
 
 Web installation varies by platform/browser and is separate from app-store distribution. A web manifest and HTTPS are part of the installable-web route; neither proves offline synchronization or Android share-target behavior. [Installable web apps](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable).
 
@@ -256,7 +258,7 @@ These phases express dependency order. Their checkboxes track future work; writi
 - [ ] 3.1 Resolve the first-use flows and review necessary design changes with the user.
 - [ ] 3.2 Implement responsive companion screens, both themes, onboarding, memory/project management and connection diagnostics.
 - [ ] 3.3 Package and version the native integrations, document prerequisites and verify fresh installs.
-- [ ] 3.4 Test Android delivery, new-device setup, recovery and offboarding; decide packaging from observed requirements.
+- [ ] 3.4 Test web-on-phone delivery, new-device setup, recovery and offboarding.
 
 **Deliverable:** usable private alpha: one companion, hosted service, and verified integration packages for the named hosts. **Exit:** a fresh user can achieve a cross-app save/retrieve/correct loop without developer intervention. Hosted alpha users do not deploy the backend.
 
@@ -281,7 +283,7 @@ These phases express dependency order. Their checkboxes track future work; writi
 ### Phase 6: Release V1 [PENDING]
 
 - [ ] 6.1 Finalize supported-surface documentation, onboarding/support content, budget/limits and public policies appropriate to the release.
-- [ ] 6.2 Complete required package distribution reviews and any selected Android distribution work.
+- [ ] 6.2 Complete required native AI integration package distribution reviews; Android app-store distribution is deferred.
 - [ ] 6.3 Release versioned service and integrations with monitoring, support ownership and rollback procedures.
 
 **Deliverable:** a reachable product URL, repeatable installation routes, supported-device list, user documentation, export path and operating ownership. **Exit:** an eligible user can discover, install/connect, use, troubleshoot and leave Satchel through documented flows. Public listing or paid launch is a separate release choice.
@@ -294,8 +296,8 @@ These phases express dependency order. Their checkboxes track future work; writi
 | Minimal record/project contract | Full project/grant schema | Support and privacy documentation | Built-in Notion or other task adapters |
 | Supported connection path | Correct/delete/export semantics | Cost limits and any billing | Collaborative memory/workspaces |
 | Synthetic fixture and pass/fail tests | Reviewed first-use UX and both themes | Proven restore/incident process | Self-host installation product |
-| Provisional auth/hosting and budget | Android packaging decision | Selected migration/cutover | Remote execution and worker fleets |
+| Provisional auth/hosting under the zero-cost pilot target | Web-on-phone acceptance | Selected migration/cutover | Native Android packaging; remote execution and worker fleets |
 
-The highest-priority next discussion is the first supported app/device pair and what successful continuity looks like for it. My candidate is Codex and Claude Code on the laptop, plus Satchel in the Android browser, with native phone-chat integration tested explicitly as a separate capability. If direct Claude-on-phone continuity is essential to the first release, it belongs in the feasibility gate immediately.
+The proposed first pair remains Codex and Claude Code on the laptop, plus Satchel in the phone browser. Initial companion delivery is now web-only. Next, verify hook-assisted retrieval and agent authorization against a complete free-tier deployment candidate. Direct phone-chat integration remains a later, separately tested capability.
 
 This work creates a roadmap document only. No hosting resources, accounts, plugin installations, issue backlog, source migration or visual overhaul are performed by it. When implementation starts, use the existing task authority until a deliberate cutover; this document is not a second live task tracker.
