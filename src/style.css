@@ -36,6 +36,7 @@ footer { border-top:1px solid var(--line); padding:20px 32px; font:10px 'DM Mono
 .book-layout { display:grid; grid-template-columns:250px minmax(0,1fr); }
 aside { padding:35px 24px; border-right:1px solid var(--line); }
 nav { margin:22px 0; display:grid; gap:8px; }
+nav .scope-label { flex-basis:100%; margin-top:12px; }
 nav button { text-align:left; overflow-wrap:anywhere; color:var(--ink); background:transparent; }
 nav button[aria-current=page] { background:var(--field); border-left:3px solid var(--accent); border-radius:0 6px 6px 0; }
 summary { cursor:pointer; padding:12px 0; }

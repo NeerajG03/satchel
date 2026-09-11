@@ -8,7 +8,7 @@ Satchel is the next direction for JEFF: a hosted service with companion interfac
 
 ## Status
 
-Browser-tested local web pilot: GitHub sign-in, projects, named memory, on-demand details, corrections and deletion work against hosted Supabase. Two-tab testing caught and fixed a stale-write retry loop. See the [usable checkpoint and acceptance results](docs/checkpoints/web-memory-pilot-1.md). Vercel deployment, personal memory without a project and native agent integrations remain pending. See [development setup](docs/development.md).
+Browser-tested local web pilot: GitHub sign-in, personal memory in **For me**, optional projects, named memory, on-demand details, corrections and deletion work against hosted Supabase. The shared editor and data-access modules support both memory scopes. See the [current checkpoint](docs/checkpoints/web-memory-pilot-2.md). Vercel deployment and native agent integrations remain pending. See [development setup](docs/development.md).
 
 ## Start here
 

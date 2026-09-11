@@ -2,6 +2,24 @@
 
 8 September 2026. This is a conceptual boundary map, not an implementation plan or selected technology stack.
 
+## Implemented companion structure — 11 September 2026
+
+The pilot uses React/TypeScript with Vite and Supabase Auth/PostgreSQL. `src/main.tsx` owns application startup, authentication and the outer frame. `src/Workspace.tsx` coordinates the active scope and draft lifecycle. Feature modules own their domain responsibilities:
+
+| Module | Responsibility |
+|---|---|
+| `features/memories/model.ts` | Explicit personal/project scope union, content types, field limits and summary projections |
+| `features/memories/repository.ts` | List/read/save/correct/delete operations, scoped lookup, timeout use and stable-ID checks |
+| `features/memories/MemoryEditor.tsx` | One controlled editor for all implemented scopes, with a visible destination |
+| `features/memories/MemoryList.tsx` | Summary display, on-demand details and correction/deletion controls |
+| `features/projects/repository.ts` | Project listing and creation |
+| `features/projects/ScopeSidebar.tsx` | Personal/project navigation and project creation form |
+| `request.mjs` | Bounded request execution shared by the repositories |
+
+The UI never builds database queries. Repositories receive their Supabase client explicitly. Adding another supported memory scope starts with the domain union and an intentional database migration; unknown scopes must not default to personal. Shared editor/list components remain independent of the storage representation. The current database boundary maps personal to a null project ID and project scope to a real project ID, with owner policies and separate uniqueness constraints enforcing the meaning.
+
+Future agent transports must enforce their own connection grants against the same database authority. Do not reuse a companion session as agent authorization. There is no speculative source-plugin registry or generic entity framework in this structure; those systems remain deferred until concrete features require them.
+
 ## Intended shape
 
 ```mermaid

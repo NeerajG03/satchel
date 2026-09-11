@@ -248,6 +248,8 @@ These phases express dependency order. Their checkboxes track future work; writi
 
 Named-memory follow-up (`gig-27f1.1`): name, description and optional More info replace the single text field. The pilot migration preserves existing text; summary-only listing and scoped name reads are implemented, with browser save/read/correction/deletion verification. The user requires hooks to load the authorized memory index and agents to fetch details by name as needed. Hook delivery, agent authorization, non-project scopes and cross-app verification remain pending. See [the updated memory contract](memory-and-storage.md).
 
+11 September follow-up (`gig-27f1.3`): personal memory is now implemented as For me, without requiring or creating a project. Personal and project scopes share feature components and data-access operations; their names and reads remain separate. The fourth migration preserves project records and adds personal uniqueness. See [current checkpoint](checkpoints/web-memory-pilot-2.md). Deployment, repository scope and authorized hook/MCP integration remain pending.
+
 ### Phase 2: Build the durable service [PENDING]
 
 - [ ] 2.1 Scaffold the selected stack and local/staging environments with repeatable setup and CI.

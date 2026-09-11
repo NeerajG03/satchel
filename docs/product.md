@@ -72,7 +72,7 @@ A native Claude or Codex project can refer to the Satchel project. Its chats and
 
 Write in the companion or explicitly tell a connected agent to remember a statement. Choose or resolve whether it applies to you, a repository, or a project. Receive an acknowledgement only after the shared source accepts it.
 
-Each memory has a name and short description that a supported integration's hook should always include in the authorized context's memory index. The agent reads More info by name and scope when needed, rather than loading every full record up front. The companion and database implement the named format and separate index/detail reads; native hooks and scopes beyond projects are still pending. See [the memory contract](memory-and-storage.md).
+Each memory has a name and short description that a supported integration's hook should always include in the authorized context's memory index. The agent reads More info by name and scope when needed, rather than loading every full record up front. The companion and database implement personal (**For me**) and project memory with separate index/detail reads. A project is optional; the same editor serves both destinations. Native hooks and repository scope remain pending. See [the memory contract](memory-and-storage.md).
 
 An example is: “Remember for Satchel: no personas and no curator in the first version.” The record should preserve what was stated, its source, relevant scope, writer, and revision. The agent should not convert brainstorming or its own guesses into confirmed preferences.
 
