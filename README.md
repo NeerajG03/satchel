@@ -8,7 +8,7 @@ Satchel is the next direction for JEFF: a hosted service with companion interfac
 
 ## Status
 
-The web pilot is live at [satchel-pi.vercel.app](https://satchel-pi.vercel.app). GitHub sign-in, personal memory in **For me**, optional projects, named memory, on-demand details, corrections and deletion work against hosted Supabase. The shared editor and data-access modules support both memory scopes. See the [hosted checkpoint](docs/checkpoints/hosted-web-pilot.md) and [feature checkpoint](docs/checkpoints/web-memory-pilot-2.md). The user has confirmed phone sign-in and use. Native agent integrations remain pending. See [development setup](docs/development.md).
+The web pilot is live at [satchel-pi.vercel.app](https://satchel-pi.vercel.app). GitHub sign-in, personal memory in **For me**, optional projects, named memory, on-demand details, corrections and deletion work against hosted Supabase. Codex and Claude Code plugins now connect to a scoped OAuth MCP service with explicit writes and revocation. See [agent setup and limits](docs/agent-setup.md), [native runtime evidence](docs/checkpoints/native-agent-pilot.md), and the [hosted web checkpoint](docs/checkpoints/hosted-web-pilot.md). The user has confirmed phone sign-in and use. See [development setup](docs/development.md).
 
 ## Start here
 
@@ -24,7 +24,7 @@ Current docs distinguish agreed direction from proposed mechanisms and open choi
 - Keep useful context available across supported apps and devices, with explicit control over what is saved and shared.
 - Treat projects as ongoing efforts with context, resources, and tasks; repositories are resources a project can reference.
 - Treat skills as reusable instructions and, where needed, scripts and dependencies. Library membership, installation, authorization, and execution readiness are distinct.
-- Explore plugin packages for ChatGPT/Codex and Claude Code connected to one hosted service. Platform support and installation mechanisms still need validation.
+- Native Codex and Claude Code packages connect to one hosted service. General ChatGPT/Claude mobile chat integration and remote package releases remain unvalidated.
 - Start with GitHub Issues as the task source. A Satchel extension system for additional task sources is deferred; consuming existing AI plugin platforms is a separate decision.
 - Use explicit memory saves and corrections. Personas and a curator are outside the initial scope.
 

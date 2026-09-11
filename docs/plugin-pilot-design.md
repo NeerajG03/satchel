@@ -1,6 +1,6 @@
 # Plugin pilot: distribution and acceptance design
 
-11 September 2026. Research and proposed experiment, not an implemented integration. No plugin was generated, installed or published during this investigation. The hosted web pilot remains unchanged.
+11 September 2026. This document preserves the original research and acceptance proposal. Implementation has since begun: the hosted MCP endpoint, scoped OAuth grants, connection UI, explicit writes, and both native packages now exist. See [installation and operation](agent-setup.md) and [runtime evidence](checkpoints/native-agent-pilot.md) for current facts; future-tense passages below describe the original proposal, not current deployment status.
 
 ## What we should prove
 

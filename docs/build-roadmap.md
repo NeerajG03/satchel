@@ -1,7 +1,7 @@
 ---
 status: in-progress
 phase: 1
-updated: 2026-09-10
+updated: 2026-09-11
 ---
 
 # Satchel: decisions and build roadmap
@@ -15,6 +15,8 @@ This is a proposed roadmap and decision checklist, not a finalized stack, delive
 10 September clarification: start with a web companion, make sign-in simple (GitHub-first recommended), target a zero-cost personal pilot, and test native plugin hooks for context delivery. These supersede the earlier Android-packaging gate and Render-first hosting preference. See [D13–D16 and current findings](decisions.md). No hosting provider or authentication implementation has been selected.
 
 ## Where to start
+
+**Implementation update, 11 September:** the web pilot uses React/Vite on Vercel and Supabase for auth/PostgreSQL. Native OAuth MCP and scoped explicit writes are implemented as Vercel Node functions; Fastify and a separate container were not needed. Both host packages are installed locally. [Agent setup](agent-setup.md) and [native runtime evidence](checkpoints/native-agent-pilot.md) supersede earlier unselected-provider and pending-integration statements below. The remaining tables retain the broader product roadmap, not a claim that all listed features exist.
 
 Start with a small, real continuity experiment. Save a project decision in one connected AI app, retrieve it in a fresh conversation in another, correct it through Satchel on a phone, and retrieve the corrected version. Run the service independently of the laptop. Then revoke one connection and verify it loses access.
 

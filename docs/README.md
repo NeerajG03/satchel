@@ -12,6 +12,8 @@ Start with [The product](product.md). It explains what Satchel is for, what some
 | [Development setup](development.md) | How do we run, configure and verify the first web foundation? |
 | [Hosted web pilot](checkpoints/hosted-web-pilot.md) | Where is the app deployed, how is login configured, and what was verified on production? |
 | [Plugin pilot design](plugin-pilot-design.md) | How should the Codex/Claude packages be distributed, connected, and tested before claiming automatic memory loading? |
+| [Agent setup](agent-setup.md) | How are the installed plugins connected, served, updated and revoked? What are the startup limits? |
+| [Native agent evidence](checkpoints/native-agent-pilot.md) | Which real-client behaviors passed and what still needs release validation? |
 | [Current web pilot checkpoint](checkpoints/web-memory-pilot-2.md) | What works in the real browser, including personal memory, and where can development resume? |
 | [Build roadmap](build-roadmap.md) | What must we decide, how do we build and deploy it, and how do users install, onboard and use it? |
 | [Projects](projects.md) | What is a project, and how do repositories, documents, tasks, and native app projects relate? |

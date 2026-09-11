@@ -4,6 +4,15 @@
       {
         "hooks": [
           {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
             "type": "mcp_tool",
             "server": "plugin:satchel:satchel",
             "tool": "load_memory_context",
@@ -20,6 +29,15 @@
       {
         "hooks": [
           {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
             "type": "mcp_tool",
             "server": "plugin:satchel:satchel",
             "tool": "load_memory_context",
@@ -29,7 +47,8 @@
             },
             "timeout": 10
           }
-        ]
+        ],
+        "matcher": "clear|compact"
       }
     ]
   }
