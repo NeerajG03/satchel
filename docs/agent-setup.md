@@ -21,15 +21,15 @@ Run Claude login in an interactive terminal. In Satchel's consent page, select p
 
 - Personal memory needs no project. Ask the agent to remember something **in personal memory**, with a name, description and optional more info.
 - For project work, ask the agent to list allowed projects and select one for this conversation. Selection never expands its grant and never changes another conversation's selection.
-- Names/descriptions are fetched before prompts when the host's MCP connection is ready. Relevant details are fetched with `read_memory` using the index's name and stable ID.
+- Names/descriptions load on a new conversation (including clear) and after compaction. There is no per-message refresh or resume hook. Relevant details are fetched with `read_memory` using the index's name and stable ID.
 - Explicit saves use an idempotency UUID; corrections and deletions require the current revision. Hooks never write memory or collect transcripts.
-- A web/phone edit becomes available on the next turn or retrieval. Existing chat text does not disappear. Ask for a refresh after a correction.
+- A web/phone edit enters the index on the next lifecycle load or explicit refresh request, not automatically on the next ordinary turn. Existing chat text does not disappear. Ask for a refresh after a correction.
 
 ## Startup behavior and limits
 
-Claude starts `SessionStart` before MCP is available. Its startup hook therefore emits static retrieval guidance, with no network or credentials. The MCP `SessionStart` hook is restricted to `clear|compact`. `UserPromptSubmit` fetches metadata normally; if the connection is late, the bootstrap tells the agent to retrieve the index through MCP before answering, or clearly report unavailability. This fallback worked in a real cold `claude -p` run. It is agent-executed retrieval, **not proof of direct hook injection on every cold launch**.
+Claude starts `SessionStart` before MCP is available. Its startup hook therefore emits static retrieval guidance, with no network or credentials. The MCP `SessionStart` hook is restricted to `clear|compact`. The bootstrap requests one fallback attempt for that lifecycle event before the next answer, then no further automatic checks on ordinary turns. The fallback mechanism worked in a real cold `claude -p` run under the previous event configuration. It is agent-executed retrieval, **not proof of direct hook injection on every cold launch**.
 
-Codex uses the same fallback plus `SessionStart`, `UserPromptSubmit` and `PostCompact` MCP hooks. Hooks remain subject to host trust/settings and connection availability. No universal first-turn guarantee is claimed.
+Codex uses the same fallback plus `SessionStart` for startup/clear and `PostCompact`. Both hosts exclude resume and have no `UserPromptSubmit` hook. Hooks remain subject to host trust/settings and connection availability. No universal first-turn guarantee is claimed. See [current event behavior](memory-hooks.md).
 
 The hook includes authorized personal memory plus the conversation's explicitly selected project. Its serialized index budget is 1,800 UTF-8 bytes, deliberately conservative relative to host context limits. If the index exceeds that budget, or database pagination is incomplete, it reports incomplete loading and directs explicit scoped retrieval. Full detail is never automatically injected. This pilot limit needs usability testing with larger memory collections.
 

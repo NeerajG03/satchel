@@ -22,10 +22,9 @@ for(const host of ['codex','claude']) {
   const makeHook=event=>[{hooks:[{type:'mcp_tool',server:host==='claude'?'plugin:satchel:satchel':'satchel',tool:'load_memory_context',input:{session_key:'${session_id}',event},timeout:10}]}];
   const bootstrap={hooks:[{type:'command',command:'node "${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs"',timeout:5}]};
   const sessionHooks=makeHook('SessionStart');
-  if(host==='claude')sessionHooks[0].matcher='clear|compact';
+  sessionHooks[0].matcher=host==='claude'?'^(clear|compact)$':'^(startup|clear)$';
   await writeFile(join(target,'hooks','hooks.json'),JSON.stringify({hooks:{
-    UserPromptSubmit:[bootstrap,...makeHook('UserPromptSubmit')],
-    SessionStart:[bootstrap,...sessionHooks],
+    SessionStart:[{...bootstrap,matcher:host==='claude'?'^(startup|clear|compact)$':'^(startup|clear)$'},...sessionHooks],
     ...(host==='codex'?{PostCompact:[bootstrap,...makeHook('PostCompact')]}:{}),
   }},null,2)+'\n');
   await writeFile(join(target,'skills','memory','SKILL.md'),await readFile(join(root,'integrations/shared/memory/SKILL.md')));

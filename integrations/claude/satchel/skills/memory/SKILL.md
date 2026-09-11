@@ -18,6 +18,6 @@ Satchel is the authoritative hosted store for memories the user explicitly saves
 - Delete only the memory the user explicitly asked to forget, with ID, scope and current revision. Explain that earlier chat copies are unaffected.
 - Personal vs project destination should be explicit in the request or established conversation. Ask briefly if genuinely ambiguous. Do not silently copy a project secret into personal memory.
 - Respect server-side read/write grants. A denied write is not permission to use browser sessions, environment secrets, direct SQL, or another connection.
-- Phone edits are fetched on a subsequent refresh/turn; stale text already present in a chat is not automatically erased. Re-read when the user reports a correction.
+- Automatic index loading happens only for a new conversation (including clear) or after compaction, not on ordinary messages or resume. Use the loaded index between those events; do not add per-turn freshness checks. Phone edits appear on the next lifecycle load or explicit user-requested refresh. Stale text already present in a chat is not automatically erased. Re-read when the user reports a correction.
 - If index output is incomplete, say so and use explicit scoped retrieval. Do not claim all names/descriptions are in context.
 - After every successful mutation, report the actual saved name and scope. A timeout is an uncertain outcome, not success.

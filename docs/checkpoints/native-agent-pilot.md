@@ -2,6 +2,8 @@
 
 This is a working developer pilot, not a completed public-release certification. The original broader [acceptance matrix](../plugin-pilot-design.md) remains useful; unperformed rows below must not be treated as passes.
 
+**Later user decision, 11 September:** per-message loading has been removed. Current packages load only on new conversations/clear and after compaction; resume does not refresh. Bootstrap guidance now requests one fallback attempt per lifecycle event. The runtime evidence below records the earlier configuration; see [current hooks](../memory-hooks.md) for the updated event contract. Cross-client next-turn freshness is no longer promised; use explicit refresh or the next lifecycle load.
+
 ## Implemented
 
 - Production MCP at `https://satchel-pi.vercel.app/api/mcp`, with resource discovery, Supabase OAuth/PKCE, scoped consent and revocation.

@@ -57,6 +57,10 @@ The notebook/hardware style is the current user-supplied visual direction. The p
 
 ## Open decisions
 
+11 September — **current hook frequency:** the user chose automatic memory-index loading only on new conversations (including clear) and after compaction. Per-message loading/freshness checks are removed; ordinary resume does not refresh. A missing startup index may trigger one read-only fallback attempt. Explicit retrieval and memory writes remain available. This supersedes the earlier per-prompt pilot behavior; see [current hooks](memory-hooks.md).
+
+11 September — **skills management deferred:** preserve the [personalized skills-management direction](skills-management-direction.md) for later; do not start implementing it as part of the hook changes.
+
 - Memory/project storage, schema, retention, export, and hosting operations.
 - Exact supported platform/account matrix; direct phone-chat integration is a later capability question.
 - Private skill package distribution, dependencies, updates, and verification signals.

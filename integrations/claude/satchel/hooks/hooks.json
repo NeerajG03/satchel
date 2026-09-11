@@ -1,30 +1,5 @@
 {
   "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs\"",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "mcp_tool",
-            "server": "plugin:satchel:satchel",
-            "tool": "load_memory_context",
-            "input": {
-              "session_key": "${session_id}",
-              "event": "UserPromptSubmit"
-            },
-            "timeout": 10
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "hooks": [
@@ -33,7 +8,8 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs\"",
             "timeout": 5
           }
-        ]
+        ],
+        "matcher": "^(startup|clear|compact)$"
       },
       {
         "hooks": [
@@ -48,7 +24,7 @@
             "timeout": 10
           }
         ],
-        "matcher": "clear|compact"
+        "matcher": "^(clear|compact)$"
       }
     ]
   }

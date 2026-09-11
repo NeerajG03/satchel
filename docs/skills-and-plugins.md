@@ -1,6 +1,6 @@
 # Skills, plugins, and installation
 
-8 September 2026. Product mechanisms below are proposals. Official host behavior is cited separately; no Satchel package has been built or installed.
+Original product proposals: 8 September 2026. Update, 11 September: the shared memory integration is now installed and tested in the native clients; see [agent setup](agent-setup.md). Personalized skill selection and delivery remain unimplemented. The user asked to [park the skills-management direction](skills-management-direction.md) and return to it later. Historical future-tense installation passages below are superseded by those current implementation documents.
 
 ## Four different objects
 
