@@ -9,7 +9,7 @@ import './style.css';
 function App() {
   const [authorizationId] = useState(() => {
     const value=new URLSearchParams(location.search).get('authorization_id');
-    if(value && /^[0-9a-f-]{36}$/i.test(value)) {sessionStorage.setItem('satchel-authorization',value);return value;}
+    if(value && /^[a-z0-9_-]{1,200}$/i.test(value)) {sessionStorage.setItem('satchel-authorization',value);return value;}
     return sessionStorage.getItem('satchel-authorization')??undefined;
   });
   const [connectionsOpen,setConnectionsOpen]=useState(!!authorizationId);
