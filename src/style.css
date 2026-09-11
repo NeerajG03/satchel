@@ -57,3 +57,10 @@ article { padding:28px 0 20px; border-bottom:1px solid var(--line); }
 .empty { padding:50px 0; max-width:430px; line-height:1.6; }
 .danger { background:var(--error); color:var(--paper); }
 @media(max-width:760px) { .shell { margin:12px; border-width:8px; } header { padding:6px 8px 14px; } .wordmark { font-size:28px; } .welcome { padding:50px 24px; } main { min-height:570px; } .book-layout { grid-template-columns:1fr; } aside { border-right:0; border-bottom:1px solid var(--line); padding:24px; } nav { display:flex; flex-wrap:wrap; margin:15px 0; } .book { padding:30px 24px; } footer { padding:20px; flex-direction:column; } .header-actions { gap:0; } .header-actions button { padding:10px; } }
+/* Connection controls share the notebook's typography and spacing. */
+.connections { max-width: 850px; margin: 0 auto; }
+.connections fieldset { border: 1px solid currentColor; padding: 1.2rem; margin: 1.5rem 0; }
+.connections .choice { display:flex; gap:.8rem; align-items:flex-start; margin:1rem 0; }
+.connections .choice input { width:auto; margin:.3rem 0 0; }
+.connections article { border-top:1px solid currentColor; padding:1.5rem 0; }
+.connections .fine { overflow-wrap:anywhere; }

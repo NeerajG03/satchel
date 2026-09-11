@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "satchel",
+            "tool": "load_memory_context",
+            "input": {
+              "session_key": "${session_id}",
+              "event": "UserPromptSubmit"
+            },
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "satchel",
+            "tool": "load_memory_context",
+            "input": {
+              "session_key": "${session_id}",
+              "event": "SessionStart"
+            },
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

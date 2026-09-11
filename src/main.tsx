@@ -3,9 +3,16 @@ import { createRoot } from 'react-dom/client';
 import type { User } from '@supabase/supabase-js';
 import { client } from './client';
 import { Workspace } from './Workspace';
+import { Connections } from './features/connections/Connections';
 import './style.css';
 
 function App() {
+  const [authorizationId] = useState(() => {
+    const value=new URLSearchParams(location.search).get('authorization_id');
+    if(value && /^[0-9a-f-]{36}$/i.test(value)) {sessionStorage.setItem('satchel-authorization',value);return value;}
+    return sessionStorage.getItem('satchel-authorization')??undefined;
+  });
+  const [connectionsOpen,setConnectionsOpen]=useState(!!authorizationId);
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(!client);
   const [error, setError] = useState('');
@@ -64,11 +71,15 @@ function App() {
   return <div className="shell">
     <header><a className="wordmark" href="/">satchel</a><div className="header-actions">
       <button className="quiet" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>{theme === 'light' ? 'Dark' : 'Light'} mode</button>
+      {user&&!authorizationId&&<button className="quiet" onClick={()=>setConnectionsOpen(!connectionsOpen)}>{connectionsOpen?'Your book':'Connections'}</button>}
       {user && <button className="quiet" disabled={busy} onClick={signOut}>Sign out</button>}
     </div></header>
     <main>
       {error && <p className="notice error" role="alert">{error}</p>}
-      {!ready ? <p role="status">Opening your Satchel…</p> : user ? <Workspace key={user.id} db={client!} /> :
+      {!ready ? <p role="status">Opening your Satchel…</p> : user ? <>
+        <div hidden={connectionsOpen}><Workspace key={user.id} db={client!} /></div>
+        {connectionsOpen&&<Connections key={user.id} db={client!} authorizationId={authorizationId}/>}
+      </> :
         <section className="welcome">
           <div className="eyebrow">YOUR WORK, WITH YOU</div>
           <h1>A place for what<br />you want to remember.</h1>

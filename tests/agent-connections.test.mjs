@@ -1,0 +1,91 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile,readdir} from 'node:fs/promises';
+import {PGlite} from '@electric-sql/pglite';
+
+test('agent grants enforce isolation, writes, revocation and generation at the database boundary',async t=>{
+  const db=new PGlite();
+  const owner=crypto.randomUUID(), other=crypto.randomUUID(), a=crypto.randomUUID(),b=crypto.randomUUID();
+  const ca='codex-fixture',cb='claude-fixture';
+  async function call(claims,sql,params=[]) {
+    await db.exec('begin; set local role authenticated;');
+    try {
+      await db.query("select set_config('request.jwt.claims',$1,true)",[JSON.stringify(claims)]);
+      const result=await db.query(sql,params);await db.exec('commit');return result.rows;
+    }catch(e){await db.exec('rollback');throw e;}
+  }
+  const user={sub:owner};let codex,claude;
+  const authorize=(client,personal,projects,write)=>call(user,'select authorize_agent($1,$1,$2,$3,$4)',[client,personal,projects,write]);
+  async function claims(client) {
+    const {rows}=await db.query('select satchel_access_token_hook($1) result',[
+      {user_id:owner,client_id:client,claims:{sub:owner,client_id:client,aud:'authenticated'}}]);
+    return rows[0].result.claims;
+  }
+  try {
+    await db.exec(`create role anon;create role authenticated;create role supabase_auth_admin;
+      create schema auth;create table auth.users(id uuid primary key);
+      create function auth.jwt() returns jsonb language sql stable as $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
+      create function auth.uid() returns uuid language sql stable as $$select (auth.jwt()->>'sub')::uuid$$;
+      grant usage on schema auth,public to authenticated,anon;
+      insert into auth.users values('${owner}'),('${other}');`);
+    const dir=new URL('../supabase/migrations/',import.meta.url);
+    for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')).sort()) await db.exec(await readFile(new URL(f,dir),'utf8'));
+    for(const id of [a,b]) await call(user,'select create_project($1,$2,$3)',[id,id,'']);
+    for(const id of [null,a,b]) await call(user,'select save_memory($1,$2,$3,$4,$5)',[crypto.randomUUID(),id,'same-name','Summary','PRIVATE DETAILS']);
+    await authorize(ca,true,[a],false);await authorize(cb,false,[b],true);
+    codex=await claims(ca);claude=await claims(cb);
+    await t.test('token hook leaves companion unchanged and binds OAuth grants/audience',async()=>{
+      const event={user_id:owner,claims:{sub:owner,aud:'authenticated'}};
+      assert.deepEqual((await db.query('select satchel_access_token_hook($1) result',[event])).rows[0].result,event);
+      assert.ok(codex.aud.includes('https://satchel-pi.vercel.app/api/mcp'));
+      assert.ok(codex.satchel_grant_id);
+      await assert.rejects(call(user,'select satchel_access_token_hook($1)',[event]),{code:'42501'});
+    });
+    await t.test('only authorized scopes and metadata are returned; foreign owners remain hidden',async()=>{
+      assert.equal((await call(codex,'select * from list_memories(null)')).length,1);
+      assert.equal((await call(codex,'select * from list_memories($1)',[a])).length,1);
+      assert.deepEqual(await call(codex,'select * from list_memories($1)',[b]),[]);
+      assert.deepEqual((await call(codex,'select id from projects')).map(p=>p.id),[a]);
+      assert.ok(!('more_info' in (await call(codex,'select * from list_memories(null)'))[0]));
+      assert.deepEqual(await call({...codex,sub:other},'select * from memories'),[]);
+      assert.deepEqual(await call({...codex,satchel_grant_id:crypto.randomUUID()},'select * from memories'),[]);
+    });
+    await t.test('read-only tokens cannot write through RPC or direct table operations',async()=>{
+      await assert.rejects(call(codex,'select save_memory($1,null,$2,$3,$4)',[crypto.randomUUID(),'new','summary','']),{code:'42501'});
+      assert.deepEqual(await call(codex,"update memories set description='hacked' returning id"),[]);
+      assert.deepEqual(await call(codex,'delete from memories returning id'),[]);
+      await assert.rejects(call(codex,'select authorize_agent($1,$1,true,$2,true)',[ca,[a,b]]),{code:'42501'});
+      await assert.rejects(call(codex,'update agent_connections set can_write=true'),{code:'42501'});
+    });
+    await t.test('authorized writes retain idempotent saves and revision conflicts',async()=>{
+      const id=crypto.randomUUID();const args=[id,b,'new','summary','detail'];
+      const first=await call(claude,'select * from save_memory($1,$2,$3,$4,$5)',args);
+      assert.equal((await call(claude,'select * from save_memory($1,$2,$3,$4,$5)',args))[0].revision,1);
+      assert.equal(first[0].project_id,b);
+      assert.equal((await call(claude,'select * from correct_memory($1,1,$2,$3,$4)',[id,'new','corrected','detail']))[0].revision,2);
+      await assert.rejects(call(claude,'select correct_memory($1,1,$2,$3,$4)',[id,'new','stale','detail']),{code:'PT409'});
+      assert.deepEqual(await call(claude,'delete from memories where id=$1 and revision=1 returning id',[id]),[]);
+      assert.equal((await call(claude,'delete from memories where id=$1 and revision=2 returning id',[id])).length,1);
+      await assert.rejects(call(claude,'select save_memory($1,null,$2,$3,$4)',[crypto.randomUUID(),'denied','summary','']),{code:'42501'});
+    });
+    await t.test('active scopes belong to one client and conversation, never a global project',async()=>{
+      await call(codex,'select select_agent_project($1,$2)',['session-one',a]);
+      assert.equal((await call(codex,'select agent_active_project($1) id',['session-one']))[0].id,a);
+      assert.equal((await call(codex,'select agent_active_project($1) id',['session-two']))[0].id,null);
+      assert.equal((await call(claude,'select agent_active_project($1) id',['session-one']))[0].id,null);
+      await assert.rejects(call(codex,'select select_agent_project($1,$2)',['session-one',b]),{code:'42501'});
+    });
+    await t.test('revoke blocks an unexpired token immediately and re-consent cannot revive it',async()=>{
+      await call(user,'select revoke_agent($1)',[ca]);
+      assert.deepEqual(await call(codex,'select * from memories'),[]);
+      assert.equal((await call(codex,'select agent_connection_status() status'))[0].status,null);
+      assert.equal((await call(claude,'select * from list_memories($1)',[b])).length,1);
+      await authorize(ca,true,[a],true);
+      assert.deepEqual(await call(codex,'select * from memories'),[]);
+      assert.equal((await call(await claims(ca),'select * from list_memories(null)')).length,1);
+    });
+    await t.test('grant creation cannot authorize a different owner project',async()=>{
+      await assert.rejects(call({sub:other},'select authorize_agent($1,$1,false,$2,true)',[ca,[a]]),{code:'42501'});
+    });
+  }finally{await db.close();}
+});

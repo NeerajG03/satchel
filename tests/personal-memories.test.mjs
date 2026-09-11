@@ -24,7 +24,7 @@ test('personal and project memories share operations without mixing scopes or ow
     asUser(owner, 'select * from save_memory($1,$2,$3,$4,$5)', [id, scope, name, description, details]);
   try {
     await db.exec(`
-      create role anon; create role authenticated;
+      create role anon; create role authenticated; create role supabase_auth_admin;
       create schema auth; create table auth.users(id uuid primary key);
       create function auth.jwt() returns jsonb language sql stable as
         $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;

@@ -1,6 +1,6 @@
 # Satchel documentation
 
-Updated 11 September 2026. Satchel has a browser-tested local web pilot; the broader product and agent integrations remain in development.
+Updated 11 September 2026. Satchel has a browser-tested hosted web pilot at [satchel-pi.vercel.app](https://satchel-pi.vercel.app); the broader product and agent integrations remain in development.
 
 Start with [The product](product.md). It explains what Satchel is for, what someone should be able to do, and the intended experience.
 
@@ -10,6 +10,8 @@ Start with [The product](product.md). It explains what Satchel is for, what some
 |---|---|
 | [Product](product.md) | What is Satchel, who is it for, and what should it do? |
 | [Development setup](development.md) | How do we run, configure and verify the first web foundation? |
+| [Hosted web pilot](checkpoints/hosted-web-pilot.md) | Where is the app deployed, how is login configured, and what was verified on production? |
+| [Plugin pilot design](plugin-pilot-design.md) | How should the Codex/Claude packages be distributed, connected, and tested before claiming automatic memory loading? |
 | [Current web pilot checkpoint](checkpoints/web-memory-pilot-2.md) | What works in the real browser, including personal memory, and where can development resume? |
 | [Build roadmap](build-roadmap.md) | What must we decide, how do we build and deploy it, and how do users install, onboard and use it? |
 | [Projects](projects.md) | What is a project, and how do repositories, documents, tasks, and native app projects relate? |

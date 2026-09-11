@@ -1,0 +1,9 @@
+{
+  "name": "satchel",
+  "version": "0.1.0",
+  "description": "Personal and project memory across your agents.",
+  "author": {
+    "name": "Satchel"
+  },
+  "repository": "https://github.com/NeerajG03/satchel"
+}

@@ -1,0 +1,23 @@
+{
+  "name": "satchel",
+  "version": "0.1.0",
+  "description": "Personal and project memory across your agents.",
+  "author": {
+    "name": "Satchel"
+  },
+  "repository": "https://github.com/NeerajG03/satchel",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Satchel",
+    "shortDescription": "Your memory, across your agents.",
+    "longDescription": "Load memory summaries automatically, read details on demand, and explicitly save or revise memories with scoped access.",
+    "developerName": "Satchel",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": "Use my Satchel memory for this task."
+  }
+}

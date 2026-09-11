@@ -2,6 +2,11 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "rewrites": [
+    {"source":"/.well-known/oauth-protected-resource","destination":"/api/resource-metadata"},
+    {"source":"/.well-known/oauth-protected-resource/api/mcp","destination":"/api/resource-metadata"},
+    {"source":"/authorize","destination":"/index.html"}
+  ],
   "headers": [{
     "source": "/(.*)",
     "headers": [

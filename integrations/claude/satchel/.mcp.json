@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "satchel": {
+      "type": "http",
+      "url": "https://satchel-pi.vercel.app/api/mcp"
+    }
+  }
+}
