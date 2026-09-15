@@ -256,7 +256,7 @@ New deployment values, none of them `VITE_` prefixed, because `VITE_` variables 
 
 | Name | Purpose |
 |---|---|
-| `SATCHEL_GITHUB_APP_ID` | App identifier for the JWT `iss` |
+| `SATCHEL_GITHUB_APP_ID` | The JWT `iss`. GitHub's App page now says "Using your App ID to get installation tokens? You can now use your Client ID instead", and either value works here because the signer only stringifies it. Prefer the Client ID, since that is the direction GitHub is steering |
 | `SATCHEL_GITHUB_APP_PRIVATE_KEY` | RS256 signing key. Server only, never logged. GitHub issues PKCS#1 (`BEGIN RSA PRIVATE KEY`); `createPrivateKey` accepts that and PKCS#8, so either works |
 | `SATCHEL_GITHUB_APP_SLUG` | Builds the install URL shown in the companion |
 
