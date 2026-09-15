@@ -15,6 +15,8 @@ Start with [The product](product.md). It explains what Satchel is for, what some
 | [Agent setup](agent-setup.md) | How are the installed plugins connected, served, updated and revoked? What are the startup limits? |
 | [Current memory hooks](memory-hooks.md) | Which events run, what is injected, and what repeats on each prompt? |
 | [Skills management — parked direction](skills-management-direction.md) | What user-specific skill selection and delivery experience should we return to later? |
+| [Skills delivery requirements](skills-delivery.md) | How does the user’s skill selection reach their agents, on which surfaces, and what may we claim? |
+| [Skills delivery design](skills-delivery-lld.md) | How is skill packaging and private Git delivery actually built, tested and configured? |
 | [Native agent evidence](checkpoints/native-agent-pilot.md) | Which real-client behaviors passed and what still needs release validation? |
 | [Current web pilot checkpoint](checkpoints/web-memory-pilot-2.md) | What works in the real browser, including personal memory, and where can development resume? |
 | [Build roadmap](build-roadmap.md) | What must we decide, how do we build and deploy it, and how do users install, onboard and use it? |

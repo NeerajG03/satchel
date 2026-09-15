@@ -61,6 +61,8 @@ The notebook/hardware style is the current user-supplied visual direction. The p
 
 11 September — **current hook frequency:** the user chose automatic memory-index loading only on new conversations (including clear) and after compaction. Per-message loading/freshness checks are removed; ordinary resume does not refresh. A missing startup index may trigger one read-only fallback attempt. Explicit retrieval and memory writes remain available. This supersedes the earlier per-prompt pilot behavior; see [current hooks](memory-hooks.md).
 
+15 September — **skills management resumed:** the user asked to design and build skill packaging and delivery. Vendor documentation shows a Git repository is the only delivery mechanism both Claude Code and Codex read natively, so delivery uses one private Git repository per user written by Satchel through a GitHub App installed on that repository. This satisfies the parked document’s condition against requiring an extra user-owned repository. Claude Code cloud and Codex cloud have no verified route and are not promised. See [skills delivery requirements](skills-delivery.md). This supersedes the deferral below.
+
 11 September — **skills management deferred:** preserve the [personalized skills-management direction](skills-management-direction.md) for later; do not start implementing it as part of the hook changes.
 
 - Memory/project storage, schema, retention, export, and hosting operations.

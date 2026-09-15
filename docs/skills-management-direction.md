@@ -1,5 +1,7 @@
 # Skills management: direction parked for later
 
+**Resumed 15 September 2026.** The user asked to build this. Host capability evidence, the decisions taken, and the acceptance test now live in [skills delivery requirements](skills-delivery.md). The statement below that this is not authorization to implement is superseded; the rest of this document remains the direction it records, and its resume point is the acceptance test.
+
 11 September 2026. The user asked to document this discussion and return to it later. This is product direction and unresolved design, not authorization to start implementing skill distribution now. The active discussion returns to the existing memory hooks.
 
 ## Intended experience

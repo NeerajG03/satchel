@@ -4,7 +4,10 @@ import type { User } from '@supabase/supabase-js';
 import { client } from './client';
 import { Workspace } from './Workspace';
 import { Connections } from './features/connections/Connections';
+import { Shelf } from './Shelf';
 import './style.css';
+
+const appSlug=import.meta.env.VITE_SATCHEL_GITHUB_APP_SLUG||'satchel-git';
 
 function App() {
   const [authorizationId] = useState(() => {
@@ -12,7 +15,13 @@ function App() {
     if(value && /^[a-z0-9_-]{1,200}$/i.test(value)) {sessionStorage.setItem('satchel-authorization',value);return value;}
     return sessionStorage.getItem('satchel-authorization')??undefined;
   });
-  const [connectionsOpen,setConnectionsOpen]=useState(!!authorizationId);
+  // GitHub returns here after an app install with ?installation_id=N.
+  const [installationId]=useState(()=>{
+    const value=new URLSearchParams(location.search).get('installation_id');
+    return value&&/^[0-9]{1,15}$/.test(value)?Number(value):undefined;
+  });
+  const [view,setView]=useState<'book'|'shelf'|'connections'>(
+    authorizationId?'connections':installationId?'shelf':'book');
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(!client);
   const [error, setError] = useState('');
@@ -71,14 +80,19 @@ function App() {
   return <div className="shell">
     <header><a className="wordmark" href="/">satchel</a><div className="header-actions">
       <button className="quiet" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>{theme === 'light' ? 'Dark' : 'Light'} mode</button>
-      {user&&!authorizationId&&<button className="quiet" onClick={()=>setConnectionsOpen(!connectionsOpen)}>{connectionsOpen?'Your book':'Connections'}</button>}
+      {user&&!authorizationId&&<>
+        <button className="quiet" aria-current={view==='book'?'page':undefined} onClick={()=>setView('book')}>Your book</button>
+        <button className="quiet" aria-current={view==='shelf'?'page':undefined} onClick={()=>setView('shelf')}>Your skills</button>
+        <button className="quiet" aria-current={view==='connections'?'page':undefined} onClick={()=>setView('connections')}>Connections</button>
+      </>}
       {user && <button className="quiet" disabled={busy} onClick={signOut}>Sign out</button>}
     </div></header>
     <main>
       {error && <p className="notice error" role="alert">{error}</p>}
       {!ready ? <p role="status">Opening your Satchel…</p> : user ? <>
-        <div hidden={connectionsOpen}><Workspace key={user.id} db={client!} /></div>
-        {connectionsOpen&&<Connections key={user.id} db={client!} authorizationId={authorizationId}/>}
+        <div hidden={view!=='book'}><Workspace key={user.id} db={client!} /></div>
+        {view==='shelf'&&<Shelf key={user.id} db={client!} slug={appSlug} installationId={installationId}/>}
+        {view==='connections'&&<Connections key={user.id} db={client!} authorizationId={authorizationId}/>}
       </> :
         <section className="welcome">
           <div className="eyebrow">YOUR WORK, WITH YOU</div>
