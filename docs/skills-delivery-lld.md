@@ -258,7 +258,7 @@ New deployment values, none of them `VITE_` prefixed, because `VITE_` variables 
 |---|---|
 | `SATCHEL_GITHUB_APP_ID` | The JWT `iss`. GitHub's App page now says "Using your App ID to get installation tokens? You can now use your Client ID instead", and either value works here because the signer only stringifies it. Prefer the Client ID, since that is the direction GitHub is steering |
 | `SATCHEL_GITHUB_APP_PRIVATE_KEY` | RS256 signing key. Server only, never logged. GitHub issues PKCS#1 (`BEGIN RSA PRIVATE KEY`); `createPrivateKey` accepts that and PKCS#8, so either works |
-| `SATCHEL_GITHUB_APP_SLUG` | Builds the install URL shown in the companion |
+| `VITE_SATCHEL_GITHUB_APP_SLUG` | Builds the install URL shown in the companion. `VITE_` on purpose: the browser renders that link, and a slug is public, not a secret. The server never reads it |
 
 ### Registering the App
 
@@ -274,7 +274,7 @@ A one-time owner action. Under **GitHub → Settings → Developer settings → 
 | Account permissions | None |
 | Where can this be installed | Only on this account |
 
-Then generate a private key, which downloads a `.pem`, and set the three values above in Vercel deployment configuration. The key is a secret: it is never `VITE_` prefixed, never committed, and never logged.
+Then generate a private key, which downloads a `.pem`, and set the values above in Vercel deployment configuration. The key is a secret: it is never `VITE_` prefixed, never committed, and never logged.
 
 The user installs it themselves on **one repository they created**, which is why Satchel needs no repository-creation permission. `https://github.com/apps/<slug>/installations/new` is the link the companion shows.
 
