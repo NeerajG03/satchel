@@ -89,10 +89,15 @@ my-skills/
 │   ├── .claude-plugin/plugin.json
 │   └── skills/<name>/SKILL.md         ← real copy, deduplicated to one Git blob
 └── codex/                             ← generated
-    ├── plugin.json
-    ├── .claude-plugin/plugin.json
+    ├── plugin.json                     (portable manifest, the only one)
     └── skills/<name>/SKILL.md
 ```
+
+Two refinements settled while building this:
+
+**Each marketplace file lists only its own host's plugin.** Claude's names `./claude-code`, Codex's names `./codex`. Listing both in each would let a host install the other host's subset. A target that has never been published is left out of its marketplace entirely, because an entry pointing at a missing directory is at best skipped by Codex and unspecified for Claude.
+
+**Codex gets one manifest, not two.** The portable root `plugin.json` is OpenAI's documented preferred form, and its rule is that an inline `extensions.com.openai` object *replaces* rather than merges a `.codex-plugin/plugin.json` overlay. A second Claude-compatible manifest in the same directory would add ambiguity for no gain, so it is not written.
 
 `skills/<name>/SKILL.md` is the layout `npx skills add <owner/repo> --skill <name>` consumes, so the source half of this repository stays usable by other tools and by the user directly if Satchel is not involved. The exact layout the Vercel CLI expects is worth confirming from `vercel-labs/skills` before the first release, since its documentation gives the commands but not the directory contract.
 
@@ -163,17 +168,24 @@ PATCH /repos/{o}/{r}/git/refs/heads/{branch}        fast-forward
 POST /repos/{o}/{r}/git/refs                        refs/tags/<target>-v<version>
 ```
 
-`base_tree` is the important detail, and it is the opposite of what a dedicated delivery repository would want. Here the repository also holds the user's `skills/` source, so the commit **must** start from the current tree and change only Satchel's own paths:
+`base_tree` is the important detail, and it is the opposite of what a dedicated delivery repository would want. Here the repository also holds the user's `skills/` source, so the commit **must** start from the current tree and change only Satchel's own paths.
+
+Generated paths split in two, which is what makes the deletion rule safe:
+
+| Class | Paths | Rule |
+|---|---|---|
+| Shared | `README.md`, both `marketplace.json` files | Rewritten on every publish. **Never deleted**, because neither target owns them |
+| Target-owned | everything under `<target>/` | Rewritten, and a path the previous release of *this* target had but this one does not is deleted |
+| Everything else | `skills/`, `LICENSE`, the user's own files | Never written, never deleted, never consulted |
 
 ```
 base_tree   = current head tree
 write       = every path in this release's generated_paths
-delete      = previous release's generated_paths minus this release's
-              (a tree entry with sha null removes the path)
-never touch = anything not in either list
+delete      = previous generated_paths, filtered to this target's prefix,
+              minus this release's paths   (tree entry with sha null)
 ```
 
-That is how unticking a skill removes its generated copy while `skills/` is left exactly as the user left it. Getting this backwards would delete the user's source, so `tests/release-builder.test.mjs` and `tests/github-app.test.mjs` both pin it.
+Filtering deletions to the target prefix is the whole safety property. Without it, publishing the Claude kit could delete Codex's directory, or worse, a shared path or the user's `skills/`. `tests/release-builder.test.mjs` asserts directly that a previous path list containing `skills/**`, `LICENSE` and the other target's files yields no deletions at all.
 
 ## 7. Publish endpoint
 
@@ -220,7 +232,7 @@ Following the existing PGlite plus `node --test` harness, which runs the real mi
 | File | Covers |
 |---|---|
 | `tests/skills-database.test.mjs` | Owner isolation, agent-token denial, kebab and length constraints, unique names, kit ticking, revision stamping, conflicting corrections, release immutability, version allocation under a concurrent insert, safe publish retry |
-| `tests/release-builder.test.mjs` | Byte-identical output for the same selection, checksum stability, both marketplace shapes, version bump, and that unticking removes files from the tree |
+| `tests/release-builder.test.mjs` | Byte-identical output for the same selection, checksum path/length sensitivity and key-order insensitivity, both marketplace shapes, omission of an unpublished target, version bump, verbatim skill content, absence of any MCP or app declaration, and that a deletion can never escape the target prefix |
 | `tests/github-app.test.mjs` | JWT claims, token exchange, the tree/commit/tag call sequence, empty-repository first commit, existing-tag retry, all against an injected fetch |
 | `tests/skills-handler.test.mjs` | Companion token accepted, agent token rejected, installation-ownership check rejecting a mismatched login and a repository outside the installation, uncertain-commit reported as uncertain |
 
