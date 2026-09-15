@@ -41,6 +41,8 @@ test('startup detects a GitHub origin without exposing remote credentials',()=>{
 });
 test('installed package definitions load only at new conversation or compaction',()=>{
   for(const host of ['codex','claude']) {
+    const {mcpServers}=JSON.parse(readFileSync(new URL(`../integrations/${host}/satchel/.mcp.json`,import.meta.url)));
+    assert.equal(mcpServers.satchel.required,host==='codex'?true:undefined);
     const {hooks}=JSON.parse(readFileSync(new URL(`../integrations/${host}/satchel/hooks/hooks.json`,import.meta.url)));
     assert.equal(hooks.UserPromptSubmit,undefined);
     const handlers=source=>hooks.SessionStart.filter(entry=>new RegExp(entry.matcher).test(source)).flatMap(entry=>entry.hooks);

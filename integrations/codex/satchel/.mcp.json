@@ -2,7 +2,9 @@
   "mcpServers": {
     "satchel": {
       "type": "http",
-      "url": "https://satchel-pi.vercel.app/api/mcp"
+      "url": "https://satchel-pi.vercel.app/api/mcp",
+      "required": true,
+      "startup_timeout_sec": 10
     }
   }
 }

@@ -8,6 +8,8 @@
 
 **MCP tool handler:** calls `load_memory_context` on `satchel` in Codex or `plugin:satchel:satchel` in Claude (10-second timeout). Arguments are `session_key: ${session_id}` and the event name. The host uses its authenticated connection to consume any short-lived repository hint, select only an already-granted linked project, and retrieve the allowed index. No transcript or prompt is a tool argument.
 
+The Codex package marks Satchel as a required MCP server with a 10-second startup timeout. Codex therefore establishes the authenticated connection before its `SessionStart` MCP hook; without that setting, official Codex behavior permits the hook to be skipped when an optional server is not ready. Claude retains its separate cold-start fallback because its package/runtime lifecycle differs.
+
 Both emit `hookSpecificOutput.hookEventName` and `hookSpecificOutput.additionalContext`, which the host can add to model context. The repository hint expires after five minutes, carries no project or memory data, and is consumed only once by an authenticated agent connection.
 
 ## Configured events

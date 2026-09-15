@@ -18,7 +18,9 @@ for(const host of ['codex','claude']) {
     developerName:'Satchel',category:'Productivity',capabilities:['Read','Write'],defaultPrompt:'Use my Satchel memory for this task.',
   }}:common;
   await writeFile(join(target,`.${host}-plugin`,'plugin.json'),JSON.stringify(manifest,null,2)+'\n');
-  await writeFile(join(target,'.mcp.json'),JSON.stringify({mcpServers:{satchel:{type:'http',url:'https://satchel-pi.vercel.app/api/mcp'}}},null,2)+'\n');
+  const mcp={type:'http',url:'https://satchel-pi.vercel.app/api/mcp',
+    ...(host==='codex'?{required:true,startup_timeout_sec:10}:{})};
+  await writeFile(join(target,'.mcp.json'),JSON.stringify({mcpServers:{satchel:mcp}},null,2)+'\n');
   const makeHook=event=>[{hooks:[{type:'mcp_tool',server:host==='claude'?'plugin:satchel:satchel':'satchel',tool:'load_memory_context',input:{session_key:'${session_id}',event},timeout:10}]}];
   const bootstrap={hooks:[{type:'command',command:'node "${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs"',timeout:5}]};
   const sessionHooks=makeHook('SessionStart');
