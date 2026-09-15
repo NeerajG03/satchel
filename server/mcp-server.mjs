@@ -20,7 +20,7 @@ const errorText=error=>({
 export function createMemoryServer(service) {
   const server=new McpServer({name:'satchel',version:'0.1.0'});
   async function consumeLifecycleHint(sessionKey,event) {
-    if(!['SessionStart','PostCompact'].includes(event))return {staged:false};
+    if(!['SessionStart','PostCompact','UserPromptSubmit'].includes(event))return {staged:false};
     for(let attempt=0;attempt<13;attempt++) {
       if(await service.repositoryHintExists(sessionKey))
         return {staged:true,project:await service.activateRepositoryHint(sessionKey)};
@@ -36,6 +36,12 @@ export function createMemoryServer(service) {
       let project=selectedProject;
       if(project===undefined) {
         const hint=await consumeLifecycleHint(sessionKey,event);
+        // SessionStart/PostCompact may run before a remote MCP server is ready in
+        // Codex Desktop. UserPromptSubmit is a one-shot fallback: only inject when
+        // the local bootstrap left an unconsumed repository hint. Once another
+        // lifecycle hook consumes it, ordinary prompts add no duplicate context.
+        if(event==='UserPromptSubmit'&&!hint.staged)
+          return textResult({hookSpecificOutput:{hookEventName:event,additionalContext:''}});
         project=hint.staged?hint.project:await service.activeProject(sessionKey);
       }
       const indexes=[];

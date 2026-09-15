@@ -25,17 +25,19 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.equal(tools.find(t=>t.name==='load_memory_context').annotations.readOnlyHint,true);
     assert.equal(tools.find(t=>t.name==='save_memory').annotations.readOnlyHint,false);
     assert.equal(tools.find(t=>t.name==='activate_repository').annotations.readOnlyHint,false);
-    let result=await call('load_memory_context',{session_key:'one',event:'UserPromptSubmit'});
+    let result=await call('load_memory_context',{session_key:'one',event:'SessionStart'});
     const hook=JSON.parse(result.content[0].text);
-    assert.equal(hook.hookSpecificOutput.hookEventName,'UserPromptSubmit');
+    assert.equal(hook.hookSpecificOutput.hookEventName,'SessionStart');
     assert.ok(hook.hookSpecificOutput.additionalContext.includes('fixture'));
     assert.ok(!hook.hookSpecificOutput.additionalContext.includes('amber'));
     assert.equal(detailReads,0);assert.equal(writes,0);
     hintedProject=projectId;
-    result=await call('load_memory_context',{session_key:'staged-session',event:'SessionStart'});
+    result=await call('load_memory_context',{session_key:'staged-session',event:'UserPromptSubmit'});
     assert.match(result.content[0].text,/project-fixture/);
     assert.match(result.content[0].text,new RegExp(projectId));
     hintedProject=null;
+    result=await call('load_memory_context',{session_key:'staged-session',event:'UserPromptSubmit'});
+    assert.equal(JSON.parse(result.content[0].text).hookSpecificOutput.additionalContext,'');
     result=await call('activate_repository',{session_key:'one',event:'SessionStart',provider:'github',repository:'neerajg03/satchel'});
     assert.equal(activations,1);
     assert.match(result.content[0].text,/project-fixture/);
@@ -46,9 +48,9 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.equal(writes,1);
     const invalid=await call('save_memory',{project_id:null,name:'missing-id',description:'summary'});
     assert.ok(invalid.isError);assert.equal(writes,1);
-    oversized=true;result=await call('load_memory_context',{session_key:'one',event:'UserPromptSubmit'});
+    oversized=true;result=await call('load_memory_context',{session_key:'one',event:'SessionStart'});
     assert.ok(result.content[0].text.includes('NOT loaded completely'));
-    revoked=true;result=await call('load_memory_context',{session_key:'one',event:'UserPromptSubmit'});
+    revoked=true;result=await call('load_memory_context',{session_key:'one',event:'SessionStart'});
     assert.ok(result.content[0].text.includes('unavailable'));
     assert.ok((await call('read_memory',{project_id:null,name:'fixture',expected_id:id})).isError);
   }finally{await client.close();await server.close();}

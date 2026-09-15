@@ -22,12 +22,16 @@ for(const host of ['codex','claude']) {
     ...(host==='codex'?{required:true,startup_timeout_sec:10}:{})};
   await writeFile(join(target,'.mcp.json'),JSON.stringify({mcpServers:{satchel:mcp}},null,2)+'\n');
   const makeHook=event=>[{hooks:[{type:'mcp_tool',server:host==='claude'?'plugin:satchel:satchel':'satchel',tool:'load_memory_context',input:{session_key:'${session_id}',event},timeout:10}]}];
-  const bootstrap={hooks:[{type:'command',command:'node "${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs"',timeout:5}]};
+  const pluginRoot=host==='codex'?'PLUGIN_ROOT':'CLAUDE_PLUGIN_ROOT';
+  const bootstrap={hooks:[{type:'command',command:`node "\${${pluginRoot}}/scripts/bootstrap.mjs"`,timeout:5}]};
   const sessionHooks=makeHook('SessionStart');
   sessionHooks[0].matcher=host==='claude'?'^(clear|compact)$':'^(startup|clear)$';
   await writeFile(join(target,'hooks','hooks.json'),JSON.stringify({hooks:{
     SessionStart:[{...bootstrap,matcher:host==='claude'?'^(startup|clear|compact)$':'^(startup|clear)$'},...sessionHooks],
-    ...(host==='codex'?{PostCompact:[bootstrap,...makeHook('PostCompact')]}:{}),
+    ...(host==='codex'?{
+      UserPromptSubmit:makeHook('UserPromptSubmit'),
+      PostCompact:[bootstrap,...makeHook('PostCompact')],
+    }:{}),
   }},null,2)+'\n');
   await writeFile(join(target,'skills','memory','SKILL.md'),await readFile(join(root,'integrations/shared/memory/SKILL.md')));
 }
