@@ -8,7 +8,7 @@ Satchel runs at https://satchel-pi.vercel.app. The MCP service is https://satche
 
 Codex: `satchel@personal`, generated from `integrations/codex/satchel` and installed through the plugin-creator personal marketplace. Open a fresh task after plugin updates. Review Satchel's hooks in `/hooks`: the command only emits bootstrap guidance; the MCP hook only retrieves metadata. Installing does not automatically trust hooks.
 
-Claude Code: `satchel@satchel-dev`, from the local catalog under `integrations/claude`. Restart Claude after updates. Both hosts have completed their native OAuth login against production. Credentials live in each host's own OAuth storage, never in the package.
+Claude Code: `satchel@satchel-dev`, from the local catalog under `integrations/claude`. Reload or restart Claude after updates. Both hosts have completed their native OAuth login against production. Credentials live in each host's own OAuth storage, never in the package.
 
 Login commands:
 
@@ -40,9 +40,9 @@ Cloud OAuth, actual Code-session plugin delivery, startup/compaction execution, 
 
 ## Startup behavior and limits
 
-Claude starts `SessionStart` before MCP is available. Its startup hook therefore emits static retrieval guidance, with no network or credentials. The MCP `SessionStart` hook is restricted to `clear|compact`. The bootstrap requests one fallback attempt for that lifecycle event before the next answer, then no further automatic checks on ordinary turns. The fallback mechanism worked in a real cold `claude -p` run under the previous event configuration. It is agent-executed retrieval, **not proof of direct hook injection on every cold launch**.
+Claude can start `SessionStart` before MCP is available. Its command hook stages the normalized repository without credentials, while the MCP `SessionStart` hook remains restricted to `clear|compact`. A `UserPromptSubmit` MCP hook consumes an unhandled staged hint on the first prompt; if another lifecycle hook already consumed it, the server returns no duplicate context. This provides direct cold-launch injection without a model-issued tool call when the plugin MCP connection is healthy.
 
-Codex uses the same fallback plus `SessionStart` for startup/clear and `PostCompact`. Both hosts exclude resume and have no `UserPromptSubmit` hook. Hooks remain subject to host trust/settings and connection availability. No universal first-turn guarantee is claimed. See [current event behavior](memory-hooks.md).
+Codex uses the same first-prompt fallback plus `SessionStart` for startup/clear and `PostCompact`. Both hosts exclude resume. Their `UserPromptSubmit` hooks are one-shot in effect because the server returns context only while a staged lifecycle hint remains unconsumed. Hooks remain subject to host trust/settings and connection availability. See [current event behavior](memory-hooks.md).
 
 The hook includes authorized personal memory plus the conversation's explicitly selected project. Its serialized index budget is 1,800 UTF-8 bytes, deliberately conservative relative to host context limits. If the index exceeds that budget, or database pagination is incomplete, it reports incomplete loading and directs explicit scoped retrieval. Full detail is never automatically injected. This pilot limit needs usability testing with larger memory collections.
 

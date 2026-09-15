@@ -44,7 +44,7 @@ test('installed package definitions load only at new conversation or compaction'
     const {mcpServers}=JSON.parse(readFileSync(new URL(`../integrations/${host}/satchel/.mcp.json`,import.meta.url)));
     assert.equal(mcpServers.satchel.required,host==='codex'?true:undefined);
     const {hooks}=JSON.parse(readFileSync(new URL(`../integrations/${host}/satchel/hooks/hooks.json`,import.meta.url)));
-    assert.equal(Boolean(hooks.UserPromptSubmit),host==='codex');
+    assert.equal(Boolean(hooks.UserPromptSubmit),true);
     const handlers=source=>hooks.SessionStart.filter(entry=>new RegExp(entry.matcher).test(source)).flatMap(entry=>entry.hooks);
     assert.equal(handlers('resume').length,0);
     assert.ok(handlers('startup').some(h=>h.type==='command'));
@@ -52,6 +52,7 @@ test('installed package definitions load only at new conversation or compaction'
     if(host==='claude') {
       assert.ok(!handlers('startup').some(h=>h.type==='mcp_tool'));
       assert.ok(handlers('compact').some(h=>h.type==='mcp_tool'));
+      assert.ok(hooks.UserPromptSubmit.some(entry=>entry.hooks.some(h=>h.type==='mcp_tool')));
     } else {
       assert.equal(handlers('compact').length,0);
       assert.ok(hooks.SessionStart.some(entry=>entry.hooks.some(h=>h.type==='command'&&h.command.includes('${PLUGIN_ROOT}'))));
