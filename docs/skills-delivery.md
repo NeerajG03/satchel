@@ -107,7 +107,8 @@ A passing loop covers local surfaces only. It is not evidence for any cloud surf
 
 ## 6. Open
 
-- **Claude Code cloud delivery.** Three candidate routes, none verified. First, skills committed to a project repository's `.claude/skills/`, which should load because project scope is not excluded from cloud the way `~/.claude/skills` is, but which writes into a repository the user may share. Second, `extraKnownMarketplaces` plus `enabledPlugins` in a committed `.claude/settings.json`, which requires the cloud sandbox to authenticate to a second private repository while the documentation states git credentials stay outside the sandbox behind a scoped-credential proxy. Third, the claude.ai account plugin upload, which [agent setup](agent-setup.md) records as already accepted for the memory package, and which is manual with no automation path.
+- **Claude Code cloud delivery.** Research on 15 September narrowed this considerably. Now documented: a committed `.claude/settings.json` is read in cloud sessions because it is part of the clone, and `extraKnownMarketplaces` is explicitly one of the keys that applies there once the folder is trusted; `github.com`, `api.github.com`, `codeload.github.com` and `raw.githubusercontent.com` are all in the default allowed domains for Trusted network access; and project-scope `.claude/skills/` loads in cloud while personal `~/.claude/skills` does not. Now documented as unavailable: `--plugin-dir` and `--plugin-url` are sideload flags that cloud sessions drop. Still unresolved, and the one thing that decides this route: whether the cloud sandbox can clone a **second** private repository that is not the session's own, given that git credentials stay outside the sandbox behind a proxy with scoped credentials, and whether `enabledPlugins` in project settings installs a plugin or only enables an already-installed one. Both need a real cloud session to answer.
+- **Claude Code cloud, admin route.** Distributing through claude.ai **Organization settings > Plugins** removes the credential problem outright, because organization sync reads the marketplace repository through the organization's own GitHub connection rather than the user's. It is Team or Enterprise, admin-only, and organization-wide, which makes it the wrong shape for private personal skills. Recorded because it exists, not because it is wanted.
 - **Codex cloud.** Whether plugins or skills load at all. Setup scripts run with internet access, and `AGENTS.md` is the documented repository customization, so a route may exist.
 - **Private repo sources on Codex.** Credential behavior is undocumented.
 - **Repo sources generally.** Skill-folder discovery, support-file copying, sha pinning, and what Satchel should do when an upstream source moves.
@@ -115,6 +116,24 @@ A passing loop covers local surfaces only. It is not evidence for any cloud surf
 - **Name collisions** between a Satchel source and a repo source, and between kits.
 - **Release retention.** How many releases to keep, and whether the delivery repository is squashed.
 - **Installation evidence.** Whether the generated kit should carry an opt-in lifecycle hook that reports its installed release version back to Satchel. That is the only way to turn R13’s fourth question into real evidence, and the memory package already POSTs to an unauthenticated staging endpoint, so the pattern exists. It is off the table for the first cut because a personal skills package phoning home needs its own decision.
+
+## 6.1 Administrator policy
+
+Checked on the pilot machine on 15 September. No `managed-settings.json` for Claude Code and no `/etc/codex/requirements.toml`, so neither host is currently restricting plugin sources locally. Server-managed settings arrive from the claude.ai console rather than the filesystem, so they cannot be ruled out this way.
+
+Stronger evidence: this machine already uses a **private** GitHub repository as a working Claude Code marketplace, authenticated with the user's own git credentials. The mechanism this design depends on is therefore already in use here, not merely documented. Codex's `config.toml` likewise tracks `source_type = "git"` marketplaces, though both of its examples are public repositories, so private-source authentication on Codex stays unproven.
+
+Policies that could block the local route if an administrator ever sets them:
+
+| Host | Key | Effect |
+|---|---|---|
+| Claude Code | `strictKnownMarketplaces` | Allowlist, checked before any network or filesystem operation, and not overridable by user or project configuration. The delivery repository would have to be added to it |
+| Claude Code | `blockedMarketplaces` | Denylist, supports an owner wildcard |
+| Codex | `requirements.toml` | Can constrain which plugin marketplace sources users may use, delivered locally or as cloud-managed requirements tied to the workspace |
+
+`disableSideloadFlags` and `disableCommandPluginSources` do not affect this design, which uses neither sideload flags nor command sources. Codex's `features.plugin_sharing` governs publishing a plugin to a workspace, which this design also does not do.
+
+The existing workspace blocker recorded in [agent setup](agent-setup.md), where the Satchel MCP connector shows as Not added with Connect disabled, does **not** apply here. The skills kit carries no MCP server, so it needs no connector. The right sequence is to try the local install first and only escalate to an administrator if a server-managed policy actually refuses it, with the ask being a single allowlist entry. See [admin setup request](admin-setup-request.md).
 
 ## 7. Not in scope
 

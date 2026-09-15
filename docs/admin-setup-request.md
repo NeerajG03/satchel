@@ -53,6 +53,23 @@ If hosted ChatGPT use is also in scope, request authorization to register/enable
 
 **Do not import the current package and assume web support.** OpenAI documents imported packages declaring `.mcp.json` servers as desktop-only, even with remote HTTPS URLs. Hosted packaging must reference an existing registered app via `.app.json`. Registering the app does not itself grant user permissions. Satchel's registered OpenAI app ID and hosted package have not yet been created/verified; that engineering work is ours to complete. Web installation also does not deploy local hook scripts. No cloud hook parity is promised by this request.
 
+### Skills delivery: nothing to request yet
+
+Added 15 September 2026, when [skills delivery](skills-delivery.md) resumed. **No administrator action is requested for this.** It is recorded here so the answer exists if the question comes up.
+
+Satchel's skills kit is delivered as a plugin from a private GitHub repository the user owns, installed with `claude plugin marketplace add` and `codex plugin marketplace add`. It carries **no MCP server and no connector**, so the connector request above does not gate it, and the workspace's disabled connector control does not block it.
+
+Checked on the pilot machine: no Claude Code `managed-settings.json` and no `/etc/codex/requirements.toml`, and the machine already uses a private GitHub repository as a working Claude Code marketplace with the user's own git credentials. So the mechanism is in use today without an administrator.
+
+Escalate only if a server-managed policy refuses the install. The ask would then be one allowlist entry, not a general permission:
+
+| Host | If refused, ask for |
+| --- | --- |
+| Claude Code | The delivery repository added to `strictKnownMarketplaces`, and confirmation it is not matched by `blockedMarketplaces` |
+| Codex | The delivery repository permitted by the workspace's `requirements.toml` plugin marketplace source constraint |
+
+Do not ask for claude.ai **Organization settings > Plugins** distribution. It would solve cloud credentials, but it publishes organization-wide, and these are the user's private personal skills.
+
 ## Current tools for policy review
 
 | Tools | Effect |
