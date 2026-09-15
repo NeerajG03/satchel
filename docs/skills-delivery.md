@@ -33,11 +33,13 @@ Two further findings reduce the work:
 | Claude Code desktop app | same | documented |
 | Codex CLI, local | `codex plugin marketplace add <owner>/<repo>` | documented |
 | Codex in ChatGPT desktop app | repo and personal marketplaces | documented |
-| Claude Code cloud and web | none; `/plugin` is not available in cloud sessions | **blocked** |
-| Codex cloud | plugins are not documented for cloud | **unknown** |
-| Claude and ChatGPT mobile chat | no plugin install path | not a target |
+| Claude Code cloud and web | `/plugin` is not available in cloud sessions | **blocked directly**, one candidate route in section 6 |
+| Codex cloud | no documented mechanism for plugins or skills | **not possible today** |
+| Claude and ChatGPT mobile chat | no install path we control | not a target |
 
-Claude Code documents that cloud sessions are configured through environment variables or settings files committed to the repository, not through `/plugin`. Three candidate cloud routes exist and are recorded in section 6; none is verified.
+Claude Code documents that cloud sessions are configured through environment variables or settings files committed to the repository, not through `/plugin`. That leaves one candidate route, narrowed in section 6.
+
+Codex cloud is a firmer no than expected. OpenAI enumerates plugin surfaces four separate times and cloud is never among them: "Plugins work in Chat and Work across ChatGPT on the web, desktop, and mobile, and in Codex in the ChatGPT desktop app. Codex CLI also has a plugin browser for Codex environments." Standalone skills are documented for "the ChatGPT desktop app, Codex CLI, and IDE extension". The cloud task lifecycle names only `AGENTS.md` as repository customization, and the referenced `openai/codex-universal` image does not list a `codex` binary, so a setup script has nothing to run. This is silence plus positive lists that exclude cloud, which is not a documented no, but it is not something to build on either.
 
 ## 2. Agreed decisions
 
@@ -82,6 +84,7 @@ Contents are materialized at publish time, not at selection time. A release ther
 - R09 The delivery repository states in its README that it is generated and that hand edits are overwritten on the next publish.
 - R10 Satchel shows the exact one-time setup commands per host, and the exact update command per host.
 - R11 Setup guidance must cover Claude Code's documented limitation that a background marketplace refresh disables git credential helpers, so a private HTTPS remote cannot auto-refresh. The documented remedies are an SSH remote or `CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE=1`. Manual update authenticates normally.
+- R11a The generated kit must never declare an MCP server, in `mcp.json`, `.mcp.json`, an inline declaration, or `.app.json`. OpenAI marks any plugin declaring MCP servers as **Desktop only**, including servers reached over remote HTTPS, and a Desktop-only plugin is discoverable but not usable on web or mobile. Keeping the kit free of MCP is therefore not only hygiene, it is what stops the kit inheriting that restriction. This is the mechanical reason behind S07, beyond audience separation: bundling skills into the existing memory package, which does declare `.mcp.json`, would have made every skill Desktop only.
 - R12 Every release also produces a zip of the same tree with a recorded sha256. This costs almost nothing over the commit and is the input to every cloud route in section 6 as well as Claude Code's archive source and `--plugin-url`.
 
 ### Honest state
@@ -99,7 +102,7 @@ One loop, on real accounts, as the parked document specified:
 1. Create two skills in Satchel. Put both in the Claude Code kit and one in the Codex kit.
 2. Publish. Confirm the commit, tag, both marketplace files, and the zip checksum.
 3. Install in local Claude Code. Confirm both skills are invocable under the plugin namespace.
-4. Install in local Codex. Confirm the one skill appears.
+4. Install in local Codex. Confirm the one skill appears, and record specifically whether Codex authenticated to the private repository without extra configuration, since that is undocumented.
 5. Untick one skill, publish, update both hosts. Confirm it is gone from Claude Code and that the Satchel source record is unchanged.
 6. Record what was actually observed per surface, including anything that failed.
 
@@ -109,8 +112,9 @@ A passing loop covers local surfaces only. It is not evidence for any cloud surf
 
 - **Claude Code cloud delivery.** Research on 15 September narrowed this considerably. Now documented: a committed `.claude/settings.json` is read in cloud sessions because it is part of the clone, and `extraKnownMarketplaces` is explicitly one of the keys that applies there once the folder is trusted; `github.com`, `api.github.com`, `codeload.github.com` and `raw.githubusercontent.com` are all in the default allowed domains for Trusted network access; and project-scope `.claude/skills/` loads in cloud while personal `~/.claude/skills` does not. Now documented as unavailable: `--plugin-dir` and `--plugin-url` are sideload flags that cloud sessions drop. Still unresolved, and the one thing that decides this route: whether the cloud sandbox can clone a **second** private repository that is not the session's own, given that git credentials stay outside the sandbox behind a proxy with scoped credentials, and whether `enabledPlugins` in project settings installs a plugin or only enables an already-installed one. Both need a real cloud session to answer.
 - **Claude Code cloud, admin route.** Distributing through claude.ai **Organization settings > Plugins** removes the credential problem outright, because organization sync reads the marketplace repository through the organization's own GitHub connection rather than the user's. It is Team or Enterprise, admin-only, and organization-wide, which makes it the wrong shape for private personal skills. Recorded because it exists, not because it is wanted.
-- **Codex cloud.** Whether plugins or skills load at all. Setup scripts run with internet access, and `AGENTS.md` is the documented repository customization, so a route may exist.
-- **Private repo sources on Codex.** Credential behavior is undocumented.
+- **Codex cloud.** Researched and closed as not possible today by any documented mechanism, per section 1.1. Reopening it needs an answer from OpenAI rather than more documentation reading. Recorded alternatives, none the right shape: a repo-scoped `$REPO_ROOT/.agents/skills` directory, which is per repository rather than per user; a workspace marketplace import, which supports private repositories and daily sync but is admin-only and role-scoped; and cloud-managed `config.toml` defining a Git marketplace, which despite the name delivers to local clients only.
+- **Private repo sources on Codex.** Credential behavior is undocumented. The four marketplace config keys are `source_type`, `source`, `ref` and `sparse_paths`, none of them an auth key, and no credential helper, SSH key or token handling is documented for marketplace fetching anywhere in OpenAI's corpus. It very likely falls through to whatever `git` does on the machine, which is what we want, but that must be tested rather than assumed. This is now a named step in the acceptance test.
+- **Whether a plugin installed from a local personal marketplace is visible on ChatGPT web and mobile.** OpenAI states that skills bundled in plugins are available in Chat and Work across web, desktop and mobile, but it also states that local marketplace plugins install into a local cache directory. Those two statements are about different install routes, so the reach of a locally installed personal-marketplace kit on web and mobile is not established. R11a is worth keeping regardless, because it removes one documented blocker either way.
 - **Repo sources generally.** Skill-folder discovery, support-file copying, sha pinning, and what Satchel should do when an upstream source moves.
 - **Whether Satchel should ever write into a user's project repository.** Treated as out of scope until explicitly decided, because it changes who can see a private skill.
 - **Name collisions** between a Satchel source and a repo source, and between kits.

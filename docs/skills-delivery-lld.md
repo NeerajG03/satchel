@@ -91,6 +91,8 @@ satchel-kit/
 
 Both marketplaces use top-level name `satchel-kit` and plugin name `satchel-skills`, so the install handle is `satchel-skills@satchel-kit` on both hosts. That avoids colliding with the existing `satchel@satchel-dev` memory package. `satchel-kit` is not on Claude Code's reserved marketplace name list.
 
+Neither plugin directory contains `mcp.json`, `.mcp.json` or `.app.json`, and the builder has no code path that could emit one. Per R11a, a plugin declaring MCP servers is marked Desktop only by OpenAI, so an accidental MCP declaration here would silently restrict every skill in the kit. `tests/release-builder.test.mjs` asserts the absence.
+
 The Codex entry carries `policy.installation`, `policy.authentication` and `category`, which its docs require and Claude's schema does not have. That is why the two marketplace files are written separately instead of sharing one.
 
 `version` is bumped on every release, as `0.0.<release version>`. Claude Code only ships an update when that field changes, and the repo's own history already showed stale cached hooks when a version was left alone.
