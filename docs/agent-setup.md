@@ -1,5 +1,7 @@
 # Native agent pilot
 
+For workspace approval covering Claude and Codex together, use the [consolidated administrator request](admin-setup-request.md).
+
 Satchel runs at https://satchel-pi.vercel.app. The MCP service is https://satchel-pi.vercel.app/api/mcp. Memory remains in Supabase; local plugins contain only instructions, hook scripts and the service address. There is no laptop tunnel or local memory database.
 
 ## Installed on this machine
@@ -16,6 +18,16 @@ claude mcp login plugin:satchel:satchel
 ```
 
 Run Claude login in an interactive terminal. In Satchel's consent page, select personal memory and/or individual projects. Write access is a separate unchecked option. Connections in the web app shows and revokes those grants. A client display name is self-declared; revocation applies to all installations using that client identity.
+
+## Claude account upload and cloud verification status (2026-09-11)
+
+The Claude account UI accepted the existing Claude 0.1.1 package through **Customize → Plugins → Add plugin → Upload plugin**. Package the contents of `integrations/claude/satchel`, including dotfiles, as a ZIP. The manifest must be at `.claude-plugin/plugin.json` inside the archive.
+
+The uploaded `satchel@My Uploads` is enabled in the pilot account. Claude recognized all five files, one skill, one connector, and two SessionStart hook groups (`startup|clear|compact` bootstrap and `clear|compact` MCP). Recognition in this UI is not evidence that a Code cloud session executes the hooks.
+
+The pilot Team workspace currently shows the Satchel connector as **Not added**, with **Connect disabled**, and no custom-connector creation control. [Anthropic's documented Team setup](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) requires an Owner or Primary Owner to add it under **Organization settings → Connectors → Add → Custom → Web**, using `https://satchel-pi.vercel.app/api/mcp`. Members then connect individually and authorize their own Satchel scopes. Do not copy local OAuth credentials into a cloud environment.
+
+Cloud OAuth, actual Code-session plugin delivery, startup/compaction execution, and memory read/write verification remain untested pending connector availability. The existing local CLI verification does not cover those cases. Uploading the package alone has not completed cloud setup.
 
 ## Use
 
