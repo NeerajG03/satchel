@@ -26,22 +26,6 @@
         ],
         "matcher": "^(clear|compact)$"
       }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "mcp_tool",
-            "server": "plugin:satchel:satchel",
-            "tool": "load_memory_context",
-            "input": {
-              "session_key": "${session_id}",
-              "event": "UserPromptSubmit"
-            },
-            "timeout": 10
-          }
-        ]
-      }
     ]
   }
 }

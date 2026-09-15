@@ -40,9 +40,9 @@ Cloud OAuth, actual Code-session plugin delivery, startup/compaction execution, 
 
 ## Startup behavior and limits
 
-Claude can start `SessionStart` before MCP is available. Its command hook stages the normalized repository without credentials, while the MCP `SessionStart` hook remains restricted to `clear|compact`. A `UserPromptSubmit` MCP hook consumes an unhandled staged hint on the first prompt; if another lifecycle hook already consumed it, the server returns no duplicate context. This provides direct cold-launch injection without a model-issued tool call when the plugin MCP connection is healthy.
+Claude can start `SessionStart` before MCP is available. Its command hook stages the normalized repository without credentials, while the MCP `SessionStart` hook remains restricted to `clear|compact`. On a cold launch, the bootstrap may ask the agent to make one lifecycle fallback retrieval if the index did not arrive; there is no hook on ordinary prompts.
 
-Codex uses the same first-prompt fallback plus `SessionStart` for startup/clear and `PostCompact`. Both hosts exclude resume. Their `UserPromptSubmit` hooks are one-shot in effect because the server returns context only while a staged lifecycle hint remains unconsumed. Hooks remain subject to host trust/settings and connection availability. See [current event behavior](memory-hooks.md).
+Codex uses `SessionStart` for startup/clear and `PostCompact` for compaction. Both hosts exclude resume and `UserPromptSubmit`. Hooks remain subject to host trust/settings and connection availability. See [current event behavior](memory-hooks.md).
 
 The hook includes authorized personal memory plus the conversation's explicitly selected project. Its serialized index budget is 1,800 UTF-8 bytes, deliberately conservative relative to host context limits. If the index exceeds that budget, or database pagination is incomplete, it reports incomplete loading and directs explicit scoped retrieval. Full detail is never automatically injected. This pilot limit needs usability testing with larger memory collections.
 

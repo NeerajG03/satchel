@@ -42,13 +42,13 @@ Codex documents `SessionStart`, `UserPromptSubmit`, plugin hooks, trust review a
 
 Claude Code likewise supports command and MCP tool hooks; MCP hooks cannot initiate OAuth. Its startup `SessionStart` MCP hook is skipped before servers are available. Plugin server names are scoped, so a bare server name is insufficient. [Claude hooks](https://code.claude.com/docs/en/hooks).
 
-**Preferred experiment:** use a synchronous `UserPromptSubmit` MCP hook to fetch the authorized index before each user turn. Also test session resume and compaction explicitly. Use a tiny static bootstrap instruction to explain connection/setup state. Do not make the first-turn guarantee depend solely on `SessionStart`.
+**Current decision:** do not use `UserPromptSubmit`; ordinary prompts must not call Satchel automatically. Load only on new-conversation/clear and compaction lifecycle events, with one agent fallback instruction when startup precedes MCP readiness. Test session resume and compaction explicitly.
 
 This is a candidate mechanism, not a proven timing guarantee. If the native connection is late or the event cannot deliver the complete index, record a failed automatic-loading test. Explicitly asking the agent to call an index tool is a useful fallback, but does not pass the automatic-hook requirement.
 
 Only if needed, add a small command-hook helper that obtains the index independently of MCP startup. That helper introduces credential storage and refresh responsibilities; it must use a supported login flow and its own scoped authorization, never scrape the host's credential store. Evaluate that cost after the synthetic test, rather than assuming a local daemon or CLI is necessary.
 
-For initial testing, fetch current metadata each turn; do not add a persistent private-memory cache. A phone edit should be picked up before the next user turn, not silently injected into an already-running answer. Later caching must have revision checks and explicit invalidation.
+Do not fetch current metadata each turn or add a persistent private-memory cache. A phone edit is picked up at the next lifecycle load or explicit refresh request, not automatically on the next ordinary prompt. Later caching must have revision checks and explicit invalidation.
 
 ## Index and scope contract
 

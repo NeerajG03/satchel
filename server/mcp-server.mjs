@@ -6,7 +6,7 @@ const session=z.string().min(1).max(200);
 const content={name:z.string().trim().min(1).max(100),description:z.string().trim().min(1).max(280),more_info:z.string().max(40000).default('')};
 const identity={project_id:scope,id:z.uuid(),revision:z.number().int().positive()};
 const readAnnotations={readOnlyHint:true,destructiveHint:false,openWorldHint:false};
-const lifecycle=z.enum(['UserPromptSubmit','SessionStart','PostCompact']);
+const lifecycle=z.enum(['SessionStart','PostCompact']);
 const repository={provider:z.literal('github'),repository:z.string().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/).max(201)};
 const textResult=data=>({content:[{type:'text',text:JSON.stringify(data)}]});
 const errorText=error=>({
@@ -20,7 +20,7 @@ const errorText=error=>({
 export function createMemoryServer(service) {
   const server=new McpServer({name:'satchel',version:'0.1.0'});
   async function consumeLifecycleHint(sessionKey,event) {
-    if(!['SessionStart','PostCompact','UserPromptSubmit'].includes(event))return {staged:false};
+    if(!['SessionStart','PostCompact'].includes(event))return {staged:false};
     for(let attempt=0;attempt<13;attempt++) {
       if(await service.repositoryHintExists(sessionKey))
         return {staged:true,project:await service.activateRepositoryHint(sessionKey)};
@@ -36,12 +36,6 @@ export function createMemoryServer(service) {
       let project=selectedProject;
       if(project===undefined) {
         const hint=await consumeLifecycleHint(sessionKey,event);
-        // SessionStart/PostCompact may run before a remote MCP server is ready in
-        // Codex Desktop. UserPromptSubmit is a one-shot fallback: only inject when
-        // the local bootstrap left an unconsumed repository hint. Once another
-        // lifecycle hook consumes it, ordinary prompts add no duplicate context.
-        if(event==='UserPromptSubmit'&&!hint.staged)
-          return textResult({hookSpecificOutput:{hookEventName:event,additionalContext:''}});
         project=hint.staged?hint.project:await service.activeProject(sessionKey);
       }
       const indexes=[];

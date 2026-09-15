@@ -32,12 +32,10 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.ok(!hook.hookSpecificOutput.additionalContext.includes('amber'));
     assert.equal(detailReads,0);assert.equal(writes,0);
     hintedProject=projectId;
-    result=await call('load_memory_context',{session_key:'staged-session',event:'UserPromptSubmit'});
+    result=await call('load_memory_context',{session_key:'staged-session',event:'SessionStart'});
     assert.match(result.content[0].text,/project-fixture/);
     assert.match(result.content[0].text,new RegExp(projectId));
     hintedProject=null;
-    result=await call('load_memory_context',{session_key:'staged-session',event:'UserPromptSubmit'});
-    assert.equal(JSON.parse(result.content[0].text).hookSpecificOutput.additionalContext,'');
     result=await call('activate_repository',{session_key:'one',event:'SessionStart',provider:'github',repository:'neerajg03/satchel'});
     assert.equal(activations,1);
     assert.match(result.content[0].text,/project-fixture/);
