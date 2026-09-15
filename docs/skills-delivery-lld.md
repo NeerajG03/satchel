@@ -257,7 +257,27 @@ New deployment values, none of them `VITE_` prefixed, because `VITE_` variables 
 | Name | Purpose |
 |---|---|
 | `SATCHEL_GITHUB_APP_ID` | App identifier for the JWT `iss` |
-| `SATCHEL_GITHUB_APP_PRIVATE_KEY` | RS256 signing key. Server only, never logged |
+| `SATCHEL_GITHUB_APP_PRIVATE_KEY` | RS256 signing key. Server only, never logged. GitHub issues PKCS#1 (`BEGIN RSA PRIVATE KEY`); `createPrivateKey` accepts that and PKCS#8, so either works |
 | `SATCHEL_GITHUB_APP_SLUG` | Builds the install URL shown in the companion |
+
+### Registering the App
+
+A one-time owner action. Under **GitHub → Settings → Developer settings → GitHub Apps → New GitHub App**:
+
+| Field | Value |
+|---|---|
+| Name | Satchel Skills, or any unused name. The resulting slug goes in `SATCHEL_GITHUB_APP_SLUG` |
+| Homepage URL | `https://satchel-pi.vercel.app` |
+| Setup URL | `https://satchel-pi.vercel.app` , with **Redirect on update** enabled. GitHub returns the browser here with `installation_id` and `setup_action` after an install |
+| Webhook | **Uncheck Active.** Nothing in this design listens for webhooks |
+| Repository permissions | **Contents: Read and write.** Nothing else. Read is for discovering skills, write is for generated paths and companion authoring |
+| Account permissions | None |
+| Where can this be installed | Only on this account |
+
+Then generate a private key, which downloads a `.pem`, and set the three values above in Vercel deployment configuration. The key is a secret: it is never `VITE_` prefixed, never committed, and never logged.
+
+The user installs it themselves on **one repository they created**, which is why Satchel needs no repository-creation permission. `https://github.com/apps/<slug>/installations/new` is the link the companion shows.
+
+Revoking the App in GitHub settings stops future writes. It does not remove an already installed plugin from any host, and the interface says so.
 
 The publish handler holds no service-role key, exactly as the MCP handler does not. Everything it reads and writes in Satchel goes through the user's own token under row-level security.
