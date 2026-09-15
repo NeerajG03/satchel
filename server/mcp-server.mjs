@@ -19,6 +19,15 @@ const errorText=error=>({
 
 export function createMemoryServer(service) {
   const server=new McpServer({name:'satchel',version:'0.1.0'});
+  async function consumeLifecycleHint(sessionKey,event) {
+    if(!['SessionStart','PostCompact'].includes(event))return {staged:false};
+    for(let attempt=0;attempt<13;attempt++) {
+      if(await service.repositoryHintExists(sessionKey))
+        return {staged:true,project:await service.activateRepositoryHint(sessionKey)};
+      if(attempt<12)await new Promise(resolve=>setTimeout(resolve,250));
+    }
+    return {staged:false};
+  }
   async function loadContext(sessionKey,event,selectedProject) {
     let context;
     try {
@@ -26,8 +35,8 @@ export function createMemoryServer(service) {
       if (!status) throw {code:'42501'};
       let project=selectedProject;
       if(project===undefined) {
-        const hintedProject=await service.activateRepositoryHint(sessionKey);
-        project=hintedProject??await service.activeProject(sessionKey);
+        const hint=await consumeLifecycleHint(sessionKey,event);
+        project=hint.staged?hint.project:await service.activeProject(sessionKey);
       }
       const indexes=[];
       if (status.personal) indexes.push(await service.index(null));

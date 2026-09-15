@@ -95,7 +95,9 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
         await db.query('select stage_agent_repository_hint($1,$2,$3)',[session,'github','NeerajG03/Satchel']);
         await db.exec('commit');
       }catch(e){await db.exec('rollback');throw e;}
+      assert.equal((await call(codex,'select agent_repository_hint_exists($1) ready',[session]))[0].ready,true);
       assert.equal((await call(codex,'select activate_agent_repository_hint($1) id',[session]))[0].id,a);
+      assert.equal((await call(codex,'select agent_repository_hint_exists($1) ready',[session]))[0].ready,false);
       assert.equal((await call(codex,'select agent_active_project($1) id',[session]))[0].id,a);
       assert.equal((await call(codex,'select activate_agent_repository_hint($1) id',[session]))[0].id,null);
 

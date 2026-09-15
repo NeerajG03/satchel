@@ -11,6 +11,7 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
   const summary={id,project_id:null,name:'fixture',description:'Read for fixture colour',revision:1};
   const projectSummary={...summary,id:crypto.randomUUID(),project_id:projectId,name:'project-fixture'};
   const service={status:async()=>revoked?null:{personal:true},activeProject:async()=>null,
+    repositoryHintExists:async()=>hintedProject!==null,
     activateRepositoryHint:async()=>hintedProject,
     selectRepository:async()=>{activations++;return {project_id:projectId};},
     index:async project=>({memories:oversized?[{...summary,description:'x'.repeat(8000)}]:[project?projectSummary:summary],complete:true}),
