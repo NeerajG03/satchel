@@ -88,16 +88,23 @@ export function githubApp({appId,privateKey,fetchImpl=fetch}) {
       if(!account||!login||account.toLowerCase()!==String(login).toLowerCase())
         throw new GitHubError(403,'That installation belongs to a different GitHub account');
       const token=await this.installationToken(installationId);
-      const listed=await call({path:'/installation/repositories?per_page=100',token});
-      const names=(listed?.repositories??[]).map(r=>String(r.full_name).toLowerCase());
-      if(!names.includes(repository.toLowerCase()))
-        throw new GitHubError(403,'The Satchel app is not installed on that repository');
-      return {token,account};
+      const wanted=repository.toLowerCase();
+      for(let page=1;page<=20;page++) {
+        const listed=await call({path:`/installation/repositories?per_page=100&page=${page}`,token});
+        const repositories=listed?.repositories??[];
+        if(repositories.some(r=>String(r.full_name).toLowerCase()===wanted))return {token,account};
+        if(repositories.length<100)break;
+      }
+      throw new GitHubError(403,'The Satchel app is not installed on that repository');
+    },
+
+    async defaultBranch({token,repository}) {
+      const repo=await call({path:repoPath(repository),token});
+      return repo?.default_branch??'main';
     },
 
     async resolveBranch({token,repository,branch}) {
-      const repo=await call({path:repoPath(repository),token});
-      const name=branch??repo?.default_branch??'main';
+      const name=branch??await this.defaultBranch({token,repository});
       try {
         const ref=await call({path:`${repoPath(repository)}/git/ref/heads/${encodeURIComponent(name)}`,token});
         const commit=await call({path:`${repoPath(repository)}/git/commits/${ref.object.sha}`,token});
@@ -117,19 +124,32 @@ export function githubApp({appId,privateKey,fetchImpl=fetch}) {
       const tree=await call({path:`${repoPath(repository)}/git/trees/${commitSha}?recursive=1`,token});
       const entries=(tree?.tree??[]).filter(e=>e.type==='blob'&&SKILL_PATH.test(e.path));
       const skills=[];
-      for(const entry of entries) {
-        const blob=await call({path:`${repoPath(repository)}/git/blobs/${entry.sha}`,token});
-        const content=Buffer.from(blob.content??'',blob.encoding==='base64'?'base64':'utf8').toString('utf8');
-        const front=readFrontmatter(content);
-        const name=entry.path.match(SKILL_PATH)[1];
-        skills.push({name,path:entry.path,blobSha:entry.sha,content,
-          description:(front.description??'').slice(0,280),
-          // Claude uses frontmatter name for a plugin skill's invocation name,
-          // so a mismatch with the directory is worth surfacing, not fixing.
-          nameMismatch:Boolean(front.name)&&front.name!==name});
+      for(let start=0;start<entries.length;start+=8) {
+        const batch=await Promise.all(entries.slice(start,start+8).map(async entry=>{
+          const blob=await call({path:`${repoPath(repository)}/git/blobs/${entry.sha}`,token});
+          const content=Buffer.from(blob.content??'',blob.encoding==='base64'?'base64':'utf8').toString('utf8');
+          const front=readFrontmatter(content);
+          const name=entry.path.match(SKILL_PATH)[1];
+          return {name,path:entry.path,blobSha:entry.sha,content,
+            description:(front.description??'').slice(0,280),
+            // Claude uses frontmatter name for a plugin skill's invocation name,
+            // so a mismatch with the directory is worth surfacing, not fixing.
+            nameMismatch:Boolean(front.name)&&front.name!==name};
+        }));
+        skills.push(...batch);
       }
       return {skills:skills.sort((a,b)=>a.name.localeCompare(b.name)),
         truncated:Boolean(tree?.truncated)};
+    },
+
+    // Live listing of what Satchel previously generated under one target, used
+    // to compute deletions exactly rather than from bookkeeping that can drift.
+    async listTreePaths({token,repository,treeSha,prefix}) {
+      if(!treeSha)return [];
+      const tree=await call({path:`${repoPath(repository)}/git/trees/${treeSha}?recursive=1`,token});
+      if(tree?.truncated)throw new GitHubError(409,
+        'The delivery repository is too large to publish into safely: its tree listing was truncated');
+      return (tree?.tree??[]).filter(e=>e.type==='blob'&&e.path.startsWith(prefix)).map(e=>e.path).sort();
     },
 
     async readSkill({token,repository,blobSha}) {

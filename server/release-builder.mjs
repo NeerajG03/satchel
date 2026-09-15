@@ -106,12 +106,18 @@ export function checksum(files) {
   return hash.digest('hex');
 }
 
-// Only paths this target previously owned may be removed. Shared files are
-// rewritten, never deleted, and nothing outside the target prefix is touched,
-// which is what keeps a publish from deleting the user's own skills/ directory.
-export function deletions({previousPaths=[],generatedPaths,target}) {
+// Only paths under this target's own prefix may be removed. Shared files are
+// rewritten, never deleted, and nothing outside the prefix is touched, which is
+// what keeps a publish from deleting the user's own skills/ directory.
+// existingPaths comes from the live tree, so this is exact rather than bookkept.
+export function deletions({existingPaths=[],generatedPaths,target}) {
   if(!TARGETS.includes(target))throw Error(`Unsupported target: ${target}`);
   const keep=new Set(generatedPaths);
   const prefix=`${target}/`;
-  return previousPaths.filter(path=>path.startsWith(prefix)&&!keep.has(path)).sort();
+  return existingPaths.filter(path=>path.startsWith(prefix)&&!keep.has(path)).sort();
+}
+
+export function targetPrefix(target) {
+  if(!TARGETS.includes(target))throw Error(`Unsupported target: ${target}`);
+  return `${target}/`;
 }

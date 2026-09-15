@@ -11,10 +11,12 @@ export type SkillSource = {
 };
 export type Skill = {
   id: string; source_id: string; repository: string; path: string; name: string;
-  description: string; seen_sha: string; source_sha: string | null; changed: boolean;
+  // blob_sha identifies the file. seen_sha is only the commit it was read at,
+  // which is the same for every skill in a source and so detects nothing.
+  description: string; blob_sha: string; seen_sha: string; synced_at: string;
 };
 export type KitItem = { target: Target; skill_id: string };
-export type ReleaseManifest = { target: Target; repository: string; skills: { name: string; seen_sha: string }[] };
+export type ReleaseManifest = { target: Target; repository: string; skills: { name: string; blob_sha: string }[] };
 export type Release = {
   id: string; target: Target; version: number; checksum: string;
   commit_sha: string | null; delivered_at: string | null; manifest: ReleaseManifest;
@@ -41,22 +43,18 @@ export function normalizeRepository(value: string): string | null {
 // distinct cause, because "out of date" alone does not tell you what to do.
 export function pendingReasons(ticked: Skill[], release: Release | null): string[] {
   const names = ticked.map(skill => skill.name).sort();
-  const stale = ticked.filter(skill => skill.changed).map(skill => skill.name).sort();
-  if (!release) {
-    const reasons = names.length ? [`${names.length} skill${names.length === 1 ? '' : 's'} never published`] : [];
-    if (stale.length) reasons.push(`newer in the repository, sync first: ${stale.join(', ')}`);
-    return reasons;
-  }
-  const published = new Map(release.manifest.skills.map(skill => [skill.name, skill.seen_sha]));
+  if (!release) return names.length ? [`${names.length} skill${names.length === 1 ? '' : 's'} never published`] : [];
+  const published = new Map(release.manifest.skills.map(skill => [skill.name, skill.blob_sha]));
   const added = names.filter(name => !published.has(name));
   const removed = [...published.keys()].filter(name => !names.includes(name)).sort();
-  const edited = ticked.filter(skill => published.has(skill.name) && published.get(skill.name) !== skill.seen_sha)
+  // Compares the file's own identity. Comparing the commit would mark every
+  // skill edited whenever any unrelated commit landed in the source.
+  const edited = ticked.filter(skill => published.has(skill.name) && published.get(skill.name) !== skill.blob_sha)
     .map(skill => skill.name).sort();
   const reasons: string[] = [];
   if (added.length) reasons.push(`added: ${added.join(', ')}`);
   if (removed.length) reasons.push(`removed: ${removed.join(', ')}`);
   if (edited.length) reasons.push(`edited since v${release.version}: ${edited.join(', ')}`);
-  if (stale.length) reasons.push(`newer in the repository, sync first: ${stale.join(', ')}`);
   return reasons;
 }
 

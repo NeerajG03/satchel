@@ -50,13 +50,19 @@ export function createSkillRepository(db: SupabaseClient) {
       if (error) throw error;
       return (data ?? null) as Delivery | null;
     },
-    async addSource(id: string, repository: string, isDeliveryTarget: boolean): Promise<SkillSource> {
+    async addSource(id: string, repository: string): Promise<SkillSource> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('add_skill_source', {
-        p_id: id, p_repository: repository, p_is_delivery_target: isDeliveryTarget,
+        p_id: id, p_repository: repository,
       }).abortSignal(signal).single<SkillSource>());
       if (error) throw error;
       if (!data) throw new Error('Missing source');
       return data;
+    },
+    async setDeliverySource(sourceId: string): Promise<void> {
+      const { error } = await requestWithTimeout(signal => db.rpc('set_delivery_source', {
+        p_source_id: sourceId,
+      }).abortSignal(signal));
+      if (error) throw error;
     },
     async setKitItem(target: Target, skillId: string, included: boolean): Promise<void> {
       const { error } = await requestWithTimeout(signal => db.rpc('set_kit_item', {
@@ -67,10 +73,12 @@ export function createSkillRepository(db: SupabaseClient) {
     connect: (repository: string, installationId: number) =>
       callApi<{ delivery: { repository: string; branch: string } }>({ action: 'connect', repository, installation_id: installationId }),
     sync: (sourceId: string) =>
-      callApi<{ synced: number; truncated: boolean; empty?: boolean; warnings?: string[] }>({ action: 'sync', source_id: sourceId }),
-    publish: (target: Target) =>
-      callApi<{ release: { version: number; commit_sha: string; checksum: string; removed: string[] } }>(
-        { action: 'publish', target, release_id: crypto.randomUUID() }),
+      callApi<{ synced: number; empty?: boolean; warnings?: string[] }>({ action: 'sync', source_id: sourceId }),
+    // The release id is supplied by the caller and reused across retries, which
+    // is the whole point of the idempotency contract in the migration.
+    publish: (target: Target, releaseId: string) =>
+      callApi<{ release: { version: number; commit_sha: string; checksum: string; removed: string[] }; notes?: string[] }>(
+        { action: 'publish', target, release_id: releaseId }),
   };
 }
 export type SkillRepository = ReturnType<typeof createSkillRepository>;

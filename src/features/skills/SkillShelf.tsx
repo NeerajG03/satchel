@@ -35,10 +35,7 @@ export function SkillShelf({ sources, skills, kit, busy, onToggle, onSync }: Pro
               onChange={event => onToggle(target, skill, event.target.checked)} />
             {TARGET_LABELS[target]}
           </label>)}
-          <p className="muted fine">
-            <code>{skill.path}</code>
-            {skill.changed && ' · newer in the repository, sync to pick it up'}
-          </p>
+          <p className="muted fine"><code>{skill.path}</code> · {skill.blob_sha.slice(0, 7)}</p>
         </div>)}
       </article>;
     })}

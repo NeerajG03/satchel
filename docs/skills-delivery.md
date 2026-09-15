@@ -85,12 +85,14 @@ Content is read from the source at publish time and frozen into the release. A r
 ### Delivery
 
 - R07 Satchel adopts one private GitHub repository the user created, and writes both `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`, each in its host's idiomatic shape, plus one plugin directory per kit.
-- R07a A publish writes and deletes **only** paths Satchel generated, taken from the previous release's recorded path list. `skills/` and anything else the user keeps in that repository is never written, never deleted, and never used as a base for the generated tree. This is the single most expensive thing to get wrong in this design, so it gets its own test.
+- R07a A publish writes and deletes **only** paths Satchel generated, taken from a live listing of the delivery repository's current tree. `skills/` and anything else the user keeps in that repository is never written, never deleted, and never used as a base for the generated tree. This is the single most expensive thing to get wrong in this design, so it gets its own test.
 - R08 Each publish is a commit and a tag. Plugin `version` is bumped on every release, because Claude Code only delivers updates when that field changes.
 - R09 The delivery repository states in its README that it is generated and that hand edits are overwritten on the next publish.
 - R10 Satchel shows the exact one-time setup commands per host, and the exact update command per host.
 - R11 Setup guidance must cover Claude Code's documented limitation that a background marketplace refresh disables git credential helpers, so a private HTTPS remote cannot auto-refresh. The documented remedies are an SSH remote or `CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE=1`. Manual update authenticates normally.
 - R11a The generated kit must never declare an MCP server, in `mcp.json`, `.mcp.json`, an inline declaration, or `.app.json`. OpenAI marks any plugin declaring MCP servers as **Desktop only**, including servers reached over remote HTTPS, and a Desktop-only plugin is discoverable but not usable on web or mobile. Keeping the kit free of MCP is therefore not only hygiene, it is what stops the kit inheriting that restriction. This is the mechanical reason behind S07, beyond audience separation: bundling skills into the existing memory package, which does declare `.mcp.json`, would have made every skill Desktop only.
+- R11b A sync that cannot list a source completely must change nothing. Acting on a partial listing deletes every skill it could not see, and their kit selections with it, which is worse than not syncing.
+- R11c A publish must not overwrite a `README.md` that existed before Satchel ever published to that repository. After Satchel owns the repository it maintains that file.
 - R12 Every release also produces a zip of the same tree with a recorded sha256. This costs almost nothing over the commit and is the input to every cloud route in section 6 as well as Claude Code's archive source and `--plugin-url`.
 
 ### Honest state

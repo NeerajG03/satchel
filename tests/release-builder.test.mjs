@@ -95,7 +95,7 @@ test('the release builder is deterministic and never emits an MCP declaration', 
   });
 });
 
-test('a publish can only delete paths its own target previously owned', async t => {
+test('a publish can only delete paths under its own target prefix', async t => {
   const { generatedPaths } = build({ skills: [review] });
 
   await t.test('the user source directory is never a deletion candidate', () => {
@@ -104,12 +104,12 @@ test('a publish can only delete paths its own target previously owned', async t 
       'skills/anything/reference.md', 'README.md', 'LICENSE', '.gitignore',
       '.claude-plugin/marketplace.json', 'codex/skills/review-style/SKILL.md',
     ];
-    assert.deepEqual(deletions({ previousPaths: previous, generatedPaths, target: 'claude-code' }), []);
+    assert.deepEqual(deletions({ existingPaths: previous, generatedPaths, target: 'claude-code' }), []);
   });
 
   await t.test('a skill removed from the kit loses its generated copy', () => {
     assert.deepEqual(deletions({
-      previousPaths: [...generatedPaths, 'claude-code/skills/trace-analysis/SKILL.md'],
+      existingPaths: [...generatedPaths, 'claude-code/skills/trace-analysis/SKILL.md'],
       generatedPaths, target: 'claude-code',
     }), ['claude-code/skills/trace-analysis/SKILL.md']);
   });
@@ -117,17 +117,26 @@ test('a publish can only delete paths its own target previously owned', async t 
   await t.test('one target never deletes the other target files', () => {
     const codex = build({ target: 'codex', skills: [review] });
     assert.deepEqual(deletions({
-      previousPaths: ['claude-code/skills/review-style/SKILL.md', 'claude-code/.claude-plugin/plugin.json'],
+      existingPaths: ['claude-code/skills/review-style/SKILL.md', 'claude-code/.claude-plugin/plugin.json'],
       generatedPaths: codex.generatedPaths, target: 'codex',
     }), []);
   });
 
   await t.test('shared files are rewritten, never removed', () => {
-    const result = deletions({ previousPaths: SHARED, generatedPaths: ['claude-code/x'], target: 'claude-code' });
+    const result = deletions({ existingPaths: SHARED, generatedPaths: ['claude-code/x'], target: 'claude-code' });
     assert.deepEqual(result, []);
   });
 
-  await t.test('a first publish with no history deletes nothing', () => {
+  await t.test('a first publish into an empty tree deletes nothing', () => {
     assert.deepEqual(deletions({ generatedPaths, target: 'claude-code' }), []);
+  });
+
+  await t.test('a stray generated file left by an unrecorded publish is still cleaned up', () => {
+    // The live tree is the source of truth, so a release that committed without
+    // recording itself cannot strand files forever.
+    assert.deepEqual(deletions({
+      existingPaths: ['claude-code/skills/orphan/SKILL.md', 'skills/orphan/SKILL.md'],
+      generatedPaths, target: 'claude-code',
+    }), ['claude-code/skills/orphan/SKILL.md']);
   });
 });

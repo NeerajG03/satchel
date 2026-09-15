@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSkillsHandler, verifyCompanionToken, githubLogin } from '../server/skills-handler.mjs';
 import { GitHubError } from '../server/github-app.mjs';
+import { checksum } from '../server/release-builder.mjs';
 import { generateKeyPairSync } from 'node:crypto';
 import { SignJWT, importSPKI, createLocalJWKSet, exportJWK } from 'jose';
 import { SUPABASE_URL } from '../server/http-handler.mjs';
@@ -33,7 +34,8 @@ function reply() {
   return res;
 }
 
-const skill = (id, name) => ({ id, name, repository, seen_sha: commitSha, description: '' });
+const blobFor = name => name.split('').reduce((a, c) => a + c.charCodeAt(0), 0).toString(16).padStart(40, '7');
+const skill = (id, name) => ({ id, name, repository, blob_sha: blobFor(name), seen_sha: commitSha, description: '' });
 
 function harness(over = {}) {
   const state = {
@@ -41,7 +43,9 @@ function harness(over = {}) {
     sources: [{ id: 'src-1', repository, commit_sha: commitSha, is_delivery_target: true }],
     skills: [skill('sk-1', 'review-style'), skill('sk-2', 'trace-analysis')],
     kit: [{ skill_id: 'sk-1' }],
-    previous: { version: 3, generated_paths: ['claude-code/skills/trace-analysis/SKILL.md', 'README.md'] },
+    existing: ['skills/review-style/SKILL.md', 'claude-code/skills/trace-analysis/SKILL.md',
+      'claude-code/.claude-plugin/plugin.json', 'README.md'],
+    delivered: 3,
     live: ['claude-code'],
     ...over.state,
   };
@@ -52,19 +56,21 @@ function harness(over = {}) {
     sources: async () => state.sources,
     skills: async () => state.skills,
     kit: async () => state.kit,
-    previousRelease: async () => state.previous,
     liveTargets: async () => state.live,
+    deliveredCount: async () => state.delivered,
     syncSource: async (...a) => { record('syncSource', ...a); return a[2]; },
-    connectDelivery: async (r, i) => { record('connectDelivery', r, i); return { repository: r, branch: 'main' }; },
-    openRelease: async a => { record('openRelease', a); return { ...a, version: 4 }; },
-    finishRelease: async (...a) => { record('finishRelease', ...a); return { version: 4, checksum: '0'.repeat(64) }; },
+    connectDelivery: async (...a) => { record('connectDelivery', ...a); return { repository: a[0], branch: a[2] }; },
+    openRelease: async a => { record('openRelease', a); return { ...a, version: 4, commit_sha: state.reservedCommit ?? null, checksum: null }; },
+    finishRelease: async a => { record('finishRelease', a); return { version: 4, checksum: a.checksum }; },
     ...over.service,
   };
   const app = {
     verifyInstallation: async (...a) => { record('verifyInstallation', ...a); return { token: 'ghs_x', account: 'NeerajG03' }; },
+    defaultBranch: async () => 'master',
     resolveBranch: async () => ({ branch: 'main', commitSha, treeSha: 'b'.repeat(40), empty: false }),
+    listTreePaths: async () => state.existing,
+    readSkill: async a => { record('readSkill', a); return `---\nname: x\n---\nbody for ${a.blobSha}\n`; },
     listSkills: async () => ({ skills: [{ name: 'review-style', path: 'skills/review-style/SKILL.md', description: 'd', nameMismatch: false }], truncated: false }),
-    readSkill: async () => '---\nname: review-style\n---\nbody\n',
     commitRelease: async (...a) => { record('commitRelease', ...a); return newCommit; },
     createTag: async (...a) => { record('createTag', ...a); return { created: true }; },
     ...over.app,
@@ -144,6 +150,7 @@ test('the handler refuses what it cannot safely do', async t => {
     assert.equal(res.status, 200);
     assert.deepEqual(calls.map(c => c.name), ['verifyInstallation', 'connectDelivery']);
     assert.equal(calls[1].args[0], 'neerajg03/my-skills', 'normalized before storage');
+    assert.equal(calls[1].args[2], 'master', 'the repository default branch is recorded, not assumed to be main');
   });
 
   await t.test('publishing without a connected repository is refused', async () => {
@@ -180,13 +187,33 @@ test('a publish reserves, writes only its own paths, then stamps delivery', asyn
     assert.equal(calls.filter(c => c.name === 'verifyInstallation').length, 1);
   });
 
-  await t.test('the order is reserve, commit, tag, finish', async () => {
+  await t.test('delivery is stamped before tagging, since a tag is only a convenience', async () => {
     const { res, calls } = await publish();
     assert.equal(res.status, 200);
-    assert.deepEqual(calls.map(c => c.name).filter(n => n !== 'verifyInstallation'),
-      ['openRelease', 'commitRelease', 'createTag', 'finishRelease']);
+    assert.deepEqual(calls.map(c => c.name).filter(n => !['verifyInstallation', 'readSkill'].includes(n)),
+      ['openRelease', 'commitRelease', 'finishRelease', 'createTag']);
     assert.equal(res.json.release.commit_sha, newCommit);
     assert.equal(res.json.release.version, 4);
+  });
+
+  await t.test('skill content is read by its own blob sha, not the commit sha', async () => {
+    // Passing seen_sha here asks GitHub for a blob by a commit id, which 404s
+    // and makes every publish fail. It shipped once; it does not ship again.
+    const { calls } = await publish();
+    const read = calls.filter(c => c.name === 'readSkill');
+    assert.equal(read.length, 1);
+    assert.equal(read[0].args[0].blobSha, blobFor('review-style'));
+    assert.notEqual(read[0].args[0].blobSha, commitSha, 'a commit sha is not a blob sha');
+  });
+
+  await t.test('the stored checksum describes exactly the bytes that were committed', async () => {
+    const { calls } = await publish();
+    const committed = calls.find(c => c.name === 'commitRelease').args[0].files;
+    const stamped = calls.find(c => c.name === 'finishRelease').args[0];
+    assert.equal(stamped.checksum, checksum(committed),
+      'building before the version is allocated stores a checksum for a tree that never existed');
+    assert.deepEqual(stamped.files, committed);
+    assert.deepEqual(stamped.generatedPaths, Object.keys(committed).sort());
   });
 
   await t.test('the committed tree carries the allocated version, not the provisional one', async () => {
@@ -200,11 +227,8 @@ test('a publish reserves, writes only its own paths, then stamps delivery', asyn
   await t.test('only the unticked generated path is deleted, never a shared or source path', async () => {
     const { res, calls } = await publish({
       state: {
-        previous: {
-          version: 3,
-          generated_paths: ['claude-code/skills/trace-analysis/SKILL.md', 'README.md',
-            'skills/review-style/SKILL.md', 'codex/skills/review-style/SKILL.md', 'LICENSE'],
-        },
+        existing: ['claude-code/skills/trace-analysis/SKILL.md', 'README.md',
+          'skills/review-style/SKILL.md', 'codex/skills/review-style/SKILL.md', 'LICENSE'],
       },
     });
     const commit = calls.find(c => c.name === 'commitRelease').args[0];
@@ -219,6 +243,33 @@ test('a publish reserves, writes only its own paths, then stamps delivery', asyn
     assert.deepEqual(calls.find(c => c.name === 'commitRelease').args[0].deletions, []);
   });
 
+  await t.test('a README written before Satchel ever published here is left alone', async () => {
+    const { res, calls } = await publish({ state: { delivered: 0, existing: ['README.md'] } });
+    assert.ok(!('README.md' in calls.find(c => c.name === 'commitRelease').args[0].files));
+    assert.match(res.json.notes.join(' '), /Left your existing README\.md alone/);
+  });
+
+  await t.test('once Satchel owns the repository it does maintain the README', async () => {
+    const { calls } = await publish({ state: { delivered: 2, existing: ['README.md'] } });
+    assert.ok('README.md' in calls.find(c => c.name === 'commitRelease').args[0].files);
+  });
+
+  await t.test('replaying a delivered release returns it instead of committing again', async () => {
+    const { res, calls } = await publish({ state: { reservedCommit: newCommit } });
+    assert.equal(res.status, 200);
+    assert.ok(!calls.some(c => c.name === 'commitRelease'), 'a replay must not add a second commit');
+    assert.match(res.json.notes.join(' '), /already delivered/);
+  });
+
+  await t.test('a tag failure still leaves the release delivered, and says so', async () => {
+    const { res, calls } = await publish({
+      app: { createTag: async () => { throw new GitHubError(409, 'Tag claude-code-v4 already points at a different commit'); } },
+    });
+    assert.equal(res.status, 200);
+    assert.ok(calls.some(c => c.name === 'finishRelease'), 'the commit landed, so the release is delivered');
+    assert.match(res.json.notes.join(' '), /tag could not be created/);
+  });
+
   await t.test('a failed commit is an uncertain outcome and is never stamped as delivered', async () => {
     const { res, calls } = await publish({
       app: { commitRelease: async () => { throw new GitHubError(502, 'GitHub is unavailable'); } },
@@ -229,37 +280,44 @@ test('a publish reserves, writes only its own paths, then stamps delivery', asyn
     assert.ok(!res.json.release);
   });
 
-  await t.test('a tag conflict also stops short of stamping delivery', async () => {
-    const { res, calls } = await publish({
-      app: { createTag: async () => { throw new GitHubError(409, 'Tag claude-code-v4 already points at a different commit'); } },
-    });
-    assert.equal(res.status, 502);
-    assert.ok(!calls.some(c => c.name === 'finishRelease'));
-  });
+
 });
 
-test('a sync caches identity and passes on what it could not read', async () => {
+test('a sync caches identity and refuses to act on a partial listing', async t => {
   const keys = await jwks();
   const authorization = `Bearer ${await mint()}`;
-  const { handle, calls } = harness({
-    keys,
-    app: {
-      listSkills: async () => ({
-        skills: [
-          { name: 'review-style', path: 'skills/review-style/SKILL.md', description: 'How I want it.', nameMismatch: false },
-          { name: 'trace-analysis', path: 'skills/trace-analysis/SKILL.md', description: 'Traces.', nameMismatch: true },
-        ],
-        truncated: true,
-      }),
-    },
+  const listed = truncated => ({
+    listSkills: async () => ({
+      truncated,
+      skills: [
+        { name: 'review-style', path: 'skills/review-style/SKILL.md', blobSha: blobFor('review-style'), description: 'How I want it.', nameMismatch: false },
+        { name: 'trace-analysis', path: 'skills/trace-analysis/SKILL.md', blobSha: blobFor('trace-analysis'), description: 'Traces.', nameMismatch: true },
+      ],
+    }),
   });
-  const res = reply();
-  await handle({ method: 'POST', headers: { authorization }, body: { action: 'sync', source_id: 'src-1' } }, res);
-  assert.equal(res.status, 200);
-  assert.equal(res.json.truncated, true, 'a partial shelf is declared, not hidden');
-  assert.equal(res.json.warnings.length, 1);
-  assert.match(res.json.warnings[0], /frontmatter name differs/);
-  const synced = calls.find(c => c.name === 'syncSource').args[2];
-  assert.deepEqual(Object.keys(synced[0]).sort(), ['description', 'name', 'path'],
-    'no skill content is ever sent to the database');
+  const send = async app => {
+    const { handle, calls } = harness({ keys, app });
+    const res = reply();
+    await handle({ method: 'POST', headers: { authorization }, body: { action: 'sync', source_id: 'src-1' } }, res);
+    return { res, calls };
+  };
+
+  await t.test('identity is cached, with a blob sha and no content', async () => {
+    const { res, calls } = await send(listed(false));
+    assert.equal(res.status, 200);
+    assert.equal(res.json.synced, 2);
+    assert.match(res.json.warnings[0], /frontmatter name differs/);
+    const synced = calls.find(c => c.name === 'syncSource').args[2];
+    assert.deepEqual(Object.keys(synced[0]).sort(), ['blob_sha', 'description', 'name', 'path'],
+      'no skill content is ever sent to the database');
+  });
+
+  await t.test('a truncated listing changes nothing at all', async () => {
+    // Syncing a partial list deletes every skill it could not see, and the kit
+    // selections with them, then warns afterwards. Refuse instead.
+    const { res, calls } = await send(listed(true));
+    assert.equal(res.status, 409);
+    assert.ok(!calls.some(c => c.name === 'syncSource'));
+    assert.match(res.json.error, /too large to list/);
+  });
 });

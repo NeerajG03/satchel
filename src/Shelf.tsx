@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { errorMessage } from './client';
 import { createSkillRepository } from './features/skills/repository';
@@ -49,8 +49,10 @@ export function Shelf({ db, slug, installationId }: { db: SupabaseClient; slug: 
     await store.connect(repository, id);
     // The delivery repository is also the user's own skills source, so it goes
     // on the shelf in the same action rather than needing a second step.
-    if (!sources.some(source => source.repository === repository))
-      await store.addSource(crypto.randomUUID(), repository, true);
+    // addSource returns the existing row if it is already there, and moving the
+    // delivery flag is a separate call so it can never dead-end on a duplicate.
+    const source = await store.addSource(crypto.randomUUID(), repository);
+    await store.setDeliverySource(source.id);
     reload();
     return `Connected ${repository}. Sync it to read your skills.`;
   });
@@ -60,7 +62,7 @@ export function Shelf({ db, slug, installationId }: { db: SupabaseClient; slug: 
     const repository = normalizeRepository(extraRepository);
     if (!repository) { setError('Enter a GitHub repository as owner/name or a GitHub URL.'); return; }
     void run(async () => {
-      await store.addSource(crypto.randomUUID(), repository, false);
+      await store.addSource(crypto.randomUUID(), repository);
       setExtraRepository(''); reload();
       return `Added ${repository}. Sync it to read its skills.`;
     });
@@ -70,9 +72,7 @@ export function Shelf({ db, slug, installationId }: { db: SupabaseClient; slug: 
     const result = await store.sync(source.id);
     reload();
     if (result.empty) return `${source.repository} has no commits yet.`;
-    const extra: string[] = [];
-    if (result.truncated) extra.push('Its tree was truncated, so this list may be incomplete.');
-    setWarnings([...(result.warnings ?? []), ...extra]);
+    setWarnings(result.warnings ?? []);
     return `Read ${result.synced} skill${result.synced === 1 ? '' : 's'} from ${source.repository}.`;
   });
 
@@ -86,8 +86,15 @@ export function Shelf({ db, slug, installationId }: { db: SupabaseClient; slug: 
     }).then(ok => { if (!ok) reload(); });
   };
 
+  // One id per attempt, reused until it succeeds. A fresh id on every click
+  // would turn a timed-out publish into a second version and a second commit.
+  const releaseIds = useRef<Partial<Record<Target, string>>>({});
   const publish = (target: Target) => void run(async () => {
-    const { release } = await store.publish(target);
+    const id = releaseIds.current[target] ?? crypto.randomUUID();
+    releaseIds.current[target] = id;
+    const { release, notes } = await store.publish(target, id);
+    delete releaseIds.current[target];
+    setWarnings(notes ?? []);
     reload();
     const removed = release.removed.length ? ` Removed ${release.removed.length} generated file${release.removed.length === 1 ? '' : 's'}.` : '';
     return `Published ${target} v${release.version} as ${release.commit_sha.slice(0, 7)}.${removed} Run the update command in that agent to pick it up.`;

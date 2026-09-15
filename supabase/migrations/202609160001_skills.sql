@@ -36,6 +36,9 @@ create table public.skills (
     name = lower(name) and name ~ '^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$'
   ),
   description text not null default '' check (length(description) <= 280),
+  -- The identity of the file itself. seen_sha is only the commit we read at, so
+  -- it is the same for every skill in a source and cannot detect a file change.
+  blob_sha text not null check (blob_sha ~ '^[0-9a-f]{40}$'),
   seen_sha text not null check (seen_sha ~ '^[0-9a-f]{40}$'),
   synced_at timestamptz not null default now(),
   unique (owner_id, id),
@@ -71,9 +74,13 @@ create table public.skill_releases (
   target text not null check (target in ('claude-code', 'codex')),
   version integer not null check (version > 0),
   manifest jsonb not null,
-  files jsonb not null,
-  generated_paths text[] not null check (cardinality(generated_paths) between 1 and 5000),
-  checksum text not null check (checksum ~ '^[0-9a-f]{64}$'),
+  -- Written at finish, not at open: the tree cannot be built until the version
+  -- is allocated, because the plugin manifest carries that version.
+  files jsonb,
+  checksum text check (checksum ~ '^[0-9a-f]{64}$'),
+  -- A record of what this release wrote. Deletions are computed from the live
+  -- tree instead, so this never has to be correct for safety, only for audit.
+  generated_paths text[] check (cardinality(generated_paths) between 1 and 5000),
   commit_sha text check (commit_sha ~ '^[0-9a-f]{40}$'),
   archive_sha256 text check (archive_sha256 ~ '^[0-9a-f]{64}$'),
   created_at timestamptz not null default now(),
@@ -94,7 +101,8 @@ create table public.skill_delivery (
     and length(repository) <= 201
   ),
   installation_id bigint not null check (installation_id > 0),
-  branch text not null default 'main' check (length(btrim(branch)) between 1 and 200),
+  -- Recorded from the repository's own default_branch. Never assumed to be main.
+  branch text not null check (length(btrim(branch)) between 1 and 200),
   connected_at timestamptz not null default now(),
   revoked_at timestamptz
 );
@@ -130,37 +138,53 @@ revoke all on public.skill_sources, public.skills, public.skill_tags,
   from public, anon, authenticated;
 grant select on public.skill_sources, public.skills, public.skill_tags,
   public.skill_kit_items, public.skill_releases, public.skill_delivery to authenticated;
-grant insert(id, provider, repository, is_delivery_target) on public.skill_sources to authenticated;
-grant update(commit_sha, synced_at) on public.skill_sources to authenticated;
+grant insert(id, provider, repository) on public.skill_sources to authenticated;
+grant update(commit_sha, synced_at, is_delivery_target) on public.skill_sources to authenticated;
 grant delete on public.skill_sources to authenticated;
-grant insert(id, source_id, path, name, description, seen_sha) on public.skills to authenticated;
-grant update(path, description, seen_sha, synced_at) on public.skills to authenticated;
+grant insert(id, source_id, path, name, description, blob_sha, seen_sha) on public.skills to authenticated;
+grant update(path, description, blob_sha, seen_sha, synced_at) on public.skills to authenticated;
 grant delete on public.skills to authenticated;
 grant insert(skill_id, project_id) on public.skill_tags to authenticated;
 grant delete on public.skill_tags to authenticated;
 grant insert(target, skill_id) on public.skill_kit_items to authenticated;
 grant delete on public.skill_kit_items to authenticated;
-grant insert(id, target, version, manifest, files, generated_paths, checksum) on public.skill_releases to authenticated;
--- A release is otherwise immutable: only the delivery outcome may be stamped.
-grant update(commit_sha, archive_sha256, delivered_at) on public.skill_releases to authenticated;
+grant insert(id, target, version, manifest) on public.skill_releases to authenticated;
+-- A release is otherwise immutable: only the delivered tree and outcome are stamped.
+grant update(files, checksum, generated_paths, commit_sha, archive_sha256, delivered_at) on public.skill_releases to authenticated;
 grant insert(provider, repository, installation_id, branch) on public.skill_delivery to authenticated;
 grant update(repository, installation_id, branch, revoked_at) on public.skill_delivery to authenticated;
 
 -- Same retry contract as save_memory: a stable client ID makes a lost response
 -- safe to resend, while an ID reused for a different payload is a conflict.
-create function public.add_skill_source(p_id uuid, p_repository text, p_is_delivery_target boolean)
+create function public.add_skill_source(p_id uuid, p_repository text)
 returns public.skill_sources language plpgsql security invoker set search_path = '' as $$
 declare result public.skill_sources;
 begin
-  insert into public.skill_sources(id, provider, repository, is_delivery_target)
-    values(p_id, 'github', lower(btrim(p_repository)), p_is_delivery_target)
-    on conflict(id) do nothing;
+  select * into result from public.skill_sources
+    where owner_id = auth.uid() and provider = 'github' and repository = lower(btrim(p_repository));
+  if result.id is not null then return result; end if;
+  insert into public.skill_sources(id, provider, repository)
+    values(p_id, 'github', lower(btrim(p_repository))) on conflict(id) do nothing;
   select * into result from public.skill_sources where id = p_id;
-  if result.id is null or result.repository is distinct from lower(btrim(p_repository))
-    or result.is_delivery_target is distinct from p_is_delivery_target then
+  if result.id is null or result.repository is distinct from lower(btrim(p_repository)) then
     raise exception 'Skill source request conflict' using errcode = '40001';
   end if;
   return result;
+end;
+$$;
+
+-- Moving the delivery flag needs the old holder cleared in the same transaction,
+-- or the partial unique index rejects it and leaves no way to recover.
+create function public.set_delivery_source(p_source_id uuid)
+returns void language plpgsql security invoker set search_path = '' as $$
+begin
+  update public.skill_sources set is_delivery_target = false
+    where owner_id = auth.uid() and is_delivery_target and id is distinct from p_source_id;
+  update public.skill_sources set is_delivery_target = true
+    where owner_id = auth.uid() and id = p_source_id;
+  if not found then
+    raise exception 'Skill source unavailable' using errcode = 'P0002';
+  end if;
 end;
 $$;
 
@@ -179,17 +203,17 @@ begin
   end if;
 
   with incoming as (
-    select distinct on (nm) nm as name, pth as path, descr as description from (
+    select distinct on (nm) nm as name, pth as path, descr as description, blob from (
       select btrim(e->>'name') as nm, btrim(e->>'path') as pth,
-        left(coalesce(e->>'description', ''), 280) as descr
+        left(coalesce(e->>'description', ''), 280) as descr, btrim(e->>'blob_sha') as blob
       from jsonb_array_elements(p_skills) e
     ) raw order by nm, pth
   )
-  insert into public.skills(id, source_id, path, name, description, seen_sha)
-    select gen_random_uuid(), p_source_id, i.path, i.name, i.description, p_commit_sha from incoming i
+  insert into public.skills(id, source_id, path, name, description, blob_sha, seen_sha)
+    select gen_random_uuid(), p_source_id, i.path, i.name, i.description, i.blob, p_commit_sha from incoming i
     on conflict(owner_id, source_id, name) do update
       set path = excluded.path, description = excluded.description,
-        seen_sha = excluded.seen_sha, synced_at = clock_timestamp();
+        blob_sha = excluded.blob_sha, seen_sha = excluded.seen_sha, synced_at = clock_timestamp();
 
   delete from public.skills s where s.owner_id = auth.uid() and s.source_id = p_source_id
     and not exists (
@@ -203,10 +227,10 @@ $$;
 
 create function public.list_skills()
 returns table(id uuid, source_id uuid, repository text, path text, name text,
-  description text, seen_sha text, source_sha text, changed boolean)
+  description text, blob_sha text, seen_sha text, synced_at timestamptz)
 language sql stable security invoker set search_path = '' as $$
   select s.id, s.source_id, src.repository, s.path, s.name, s.description,
-    s.seen_sha, src.commit_sha, src.commit_sha is distinct from s.seen_sha
+    s.blob_sha, s.seen_sha, s.synced_at
   from public.skills s join public.skill_sources src
     on src.owner_id = s.owner_id and src.id = s.source_id
   order by src.repository, s.name;
@@ -225,33 +249,35 @@ begin
 end;
 $$;
 
--- Two-phase publish. This reserves the version and freezes the payload; a
--- concurrent publish loses the unique index and the caller retries the same ID.
-create function public.open_skill_release(p_id uuid, p_target text, p_manifest jsonb,
-  p_files jsonb, p_generated_paths text[], p_checksum text)
+-- Two-phase publish. Open allocates the version and records the paths, which
+-- are version-independent. The tree itself cannot be built until the version is
+-- known, because the plugin manifest carries it, so files and checksum are
+-- stamped at finish and always describe exactly what was committed.
+create function public.open_skill_release(p_id uuid, p_target text, p_manifest jsonb)
 returns public.skill_releases language plpgsql security invoker set search_path = '' as $$
 declare result public.skill_releases;
 begin
-  insert into public.skill_releases(id, target, version, manifest, files, generated_paths, checksum)
+  insert into public.skill_releases(id, target, version, manifest)
     select p_id, p_target,
       coalesce((select max(version) from public.skill_releases
         where owner_id = auth.uid() and target = p_target), 0) + 1,
-      p_manifest, p_files, p_generated_paths, p_checksum
+      p_manifest
     on conflict(id) do nothing;
   select * into result from public.skill_releases where id = p_id;
-  if result.id is null or result.target is distinct from p_target
-    or result.checksum is distinct from p_checksum then
+  if result.id is null or result.target is distinct from p_target then
     raise exception 'Skill release request conflict' using errcode = '40001';
   end if;
   return result;
 end;
 $$;
 
-create function public.finish_skill_release(p_id uuid, p_commit_sha text, p_archive_sha256 text)
+create function public.finish_skill_release(p_id uuid, p_commit_sha text, p_files jsonb,
+  p_checksum text, p_generated_paths text[], p_archive_sha256 text)
 returns public.skill_releases language plpgsql security invoker set search_path = '' as $$
 declare result public.skill_releases;
 begin
-  update public.skill_releases set commit_sha = p_commit_sha,
+  update public.skill_releases set commit_sha = p_commit_sha, files = p_files,
+    checksum = p_checksum, generated_paths = p_generated_paths,
     archive_sha256 = p_archive_sha256, delivered_at = clock_timestamp()
     where id = p_id and (commit_sha is null or commit_sha = p_commit_sha)
     returning * into result;
@@ -262,30 +288,30 @@ begin
 end;
 $$;
 
-create function public.connect_skill_delivery(p_repository text, p_installation_id bigint)
+create function public.connect_skill_delivery(p_repository text, p_installation_id bigint, p_branch text)
 returns public.skill_delivery language plpgsql security invoker set search_path = '' as $$
 declare result public.skill_delivery;
 begin
-  insert into public.skill_delivery(provider, repository, installation_id)
-    values('github', lower(btrim(p_repository)), p_installation_id)
+  insert into public.skill_delivery(provider, repository, installation_id, branch)
+    values('github', lower(btrim(p_repository)), p_installation_id, btrim(p_branch))
     on conflict(owner_id) do update set repository = excluded.repository,
-      installation_id = excluded.installation_id, revoked_at = null
+      installation_id = excluded.installation_id, branch = excluded.branch, revoked_at = null
     returning * into result;
   return result;
 end;
 $$;
 
-revoke execute on function public.add_skill_source(uuid,text,boolean),
-  public.sync_skill_source(uuid,text,jsonb), public.list_skills(),
-  public.set_kit_item(text,uuid,boolean),
-  public.open_skill_release(uuid,text,jsonb,jsonb,text[],text),
-  public.finish_skill_release(uuid,text,text),
-  public.connect_skill_delivery(text,bigint) from public, anon;
-grant execute on function public.add_skill_source(uuid,text,boolean),
-  public.sync_skill_source(uuid,text,jsonb), public.list_skills(),
-  public.set_kit_item(text,uuid,boolean),
-  public.open_skill_release(uuid,text,jsonb,jsonb,text[],text),
-  public.finish_skill_release(uuid,text,text),
-  public.connect_skill_delivery(text,bigint) to authenticated;
+revoke execute on function public.add_skill_source(uuid,text),
+  public.set_delivery_source(uuid), public.sync_skill_source(uuid,text,jsonb),
+  public.list_skills(), public.set_kit_item(text,uuid,boolean),
+  public.open_skill_release(uuid,text,jsonb),
+  public.finish_skill_release(uuid,text,jsonb,text,text[],text),
+  public.connect_skill_delivery(text,bigint,text) from public, anon;
+grant execute on function public.add_skill_source(uuid,text),
+  public.set_delivery_source(uuid), public.sync_skill_source(uuid,text,jsonb),
+  public.list_skills(), public.set_kit_item(text,uuid,boolean),
+  public.open_skill_release(uuid,text,jsonb),
+  public.finish_skill_release(uuid,text,jsonb,text,text[],text),
+  public.connect_skill_delivery(text,bigint,text) to authenticated;
 
 commit;

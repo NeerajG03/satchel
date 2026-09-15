@@ -54,7 +54,7 @@ test('installation ownership is verified before anything is written', async t =>
   await t.test('a repository outside the installation is refused', async () => {
     const { app } = fake({
       'GET /app/installations/42': { body: { account: { login: 'neerajg03' } } }, ...tokenRoute,
-      'GET /installation/repositories?per_page=100': { body: { repositories: [{ full_name: 'neerajg03/something-else' }] } },
+      'GET /installation/repositories?per_page=100&page=1': { body: { repositories: [{ full_name: 'neerajg03/something-else' }] } },
     });
     await assert.rejects(app.verifyInstallation({ installationId: 42, repository, login: 'neerajg03' }),
       e => e.status === 403 && /not installed on that repository/.test(e.message));
@@ -63,7 +63,7 @@ test('installation ownership is verified before anything is written', async t =>
   await t.test('a matching account and repository returns a usable token', async () => {
     const { app, calls } = fake({
       'GET /app/installations/42': { body: { account: { login: 'NeerajG03' } } }, ...tokenRoute,
-      'GET /installation/repositories?per_page=100': { body: { repositories: [{ full_name: 'NeerajG03/My-Skills' }] } },
+      'GET /installation/repositories?per_page=100&page=1': { body: { repositories: [{ full_name: 'NeerajG03/My-Skills' }] } },
     });
     const result = await app.verifyInstallation({ installationId: 42, repository, login: 'neerajg03' });
     assert.equal(result.token, 'ghs_installation');
@@ -71,6 +71,18 @@ test('installation ownership is verified before anything is written', async t =>
     assert.match(appCall.headers.authorization, /^Bearer ey/, 'app endpoints use the App JWT, not an installation token');
     const listCall = calls.find(c => c.path.startsWith('/installation/repositories'));
     assert.equal(listCall.headers.authorization, 'Bearer ghs_installation');
+  });
+
+  await t.test('a repository past the first page is still found', async () => {
+    const full = Array.from({ length: 100 }, (_, i) => ({ full_name: `neerajg03/filler-${i}` }));
+    const { app, calls } = fake({
+      'GET /app/installations/42': { body: { account: { login: 'neerajg03' } } }, ...tokenRoute,
+      'GET /installation/repositories?per_page=100&page=1': { body: { repositories: full } },
+      'GET /installation/repositories?per_page=100&page=2': { body: { repositories: [{ full_name: repository }] } },
+    });
+    const result = await app.verifyInstallation({ installationId: 42, repository, login: 'neerajg03' });
+    assert.equal(result.token, 'ghs_installation');
+    assert.equal(calls.filter(c => c.path.startsWith('/installation/repositories')).length, 2);
   });
 
   await t.test('a missing token in the response is an error, not an empty token', async () => {
@@ -87,6 +99,11 @@ test('a repository with no commits is the expected first-publish state', async t
       [`GET /repos/${repository}/git/commits/${commitSha}`]: { body: { tree: { sha: treeSha } } },
     });
     assert.deepEqual(await app.resolveBranch({ token: 't', repository }), { branch: 'main', commitSha, treeSha, empty: false });
+  });
+
+  await t.test('the real default branch is read, never assumed to be main', async () => {
+    const { app } = fake({ [`GET /repos/${repository}`]: { body: { default_branch: 'master' } } });
+    assert.equal(await app.defaultBranch({ token: 't', repository }), 'master');
   });
 
   await t.test('a 404 on the ref means empty, not broken', async () => {
@@ -222,4 +239,32 @@ test('frontmatter reading stays inside what it can honestly parse', () => {
   assert.deepEqual(readFrontmatter('no frontmatter'), {});
   assert.deepEqual(readFrontmatter('---\nname: a\nunterminated'), {}, 'a missing closing fence is not frontmatter');
   assert.deepEqual(readFrontmatter('---\nallowed-tools:\n  - Read\n  - Grep\n---\n').name, undefined);
+});
+
+test('the live tree decides what a publish may delete', async t => {
+  const treeSha = 'b'.repeat(40);
+  const routes = paths => ({
+    [`GET /repos/${repository}/git/trees/${treeSha}?recursive=1`]: {
+      body: { truncated: false, tree: paths.map(path => ({ type: 'blob', path, sha: '9'.repeat(40) })) },
+    },
+  });
+
+  await t.test('everything under the prefix is listed, nothing else', async () => {
+    const { app } = fake(routes(['skills/a/SKILL.md', 'claude-code/skills/a/SKILL.md', 'README.md']));
+    assert.deepEqual(await app.listTreePaths({ token: 't', repository, treeSha, prefix: 'claude-code/' }),
+      ['claude-code/skills/a/SKILL.md']);
+  });
+
+  await t.test('an empty tree sha lists nothing rather than throwing', async () => {
+    const { app } = fake({});
+    assert.deepEqual(await app.listTreePaths({ token: 't', repository, treeSha: null, prefix: '' }), []);
+  });
+
+  await t.test('a truncated delivery tree refuses rather than guessing what to delete', async () => {
+    const { app } = fake({
+      [`GET /repos/${repository}/git/trees/${treeSha}?recursive=1`]: { body: { truncated: true, tree: [] } },
+    });
+    await assert.rejects(app.listTreePaths({ token: 't', repository, treeSha, prefix: '' }),
+      e => e.status === 409 && /truncated/.test(e.message));
+  });
 });

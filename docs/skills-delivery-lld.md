@@ -35,7 +35,8 @@ skill_sources   id, owner_id, provider, repository, commit_sha, is_delivery_targ
                 commit_sha ^[0-9a-f]{40}$
                 exactly one row per owner may have is_delivery_target true
 
-skills          id, owner_id, source_id, path, name, description, seen_sha, synced_at
+skills          id, owner_id, source_id, path, name, description,
+                blob_sha, seen_sha, synced_at
                 name lowercase kebab, ^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$
                 description 0..280, truncated from frontmatter for display
                 unique (owner_id, source_id, name)
@@ -45,9 +46,9 @@ skill_tags      owner_id, skill_id, project_id                organizational onl
 
 skill_kit_items owner_id, target, skill_id                    target in claude-code, codex
 
-skill_releases  id, owner_id, target, version, manifest jsonb, files jsonb,
-                generated_paths text[], checksum, commit_sha, archive_sha256,
-                created_at, delivered_at
+skill_releases  id, owner_id, target, version, manifest jsonb,
+                files jsonb, checksum, generated_paths text[]  (all at finish)
+                commit_sha, archive_sha256, created_at, delivered_at
                 unique (owner_id, target, version)
 
 skill_delivery  owner_id pk, provider, repository, installation_id, branch,
@@ -56,9 +57,11 @@ skill_delivery  owner_id pk, provider, repository, installation_id, branch,
 
 `name` is the only identifier. It is the directory name under `skills/`, the SKILL.md frontmatter name, and therefore the invocation name, so a separate display title would only create two things that can disagree.
 
-`generated_paths` is load-bearing. It is how the next publish knows which paths it owns, and therefore which it may delete. Without it a publish cannot safely distinguish its own previous output from the user's source files.
+`blob_sha` is the identity of the file itself. `seen_sha` is only the commit the source was read at, so it is identical for every skill in a source and can detect nothing: an earlier revision of this design used it for change detection, which made the signal permanently false in one direction and permanently true in the other once any unrelated commit landed. Only `blob_sha` answers "did this skill change".
 
-Because content is not stored, a skill has no revision integer. Its version is the commit it was read at, which is what `seen_sha` records. A skill whose `seen_sha` differs from its source's current `commit_sha` is shown as changed since sync.
+`files`, `checksum` and `generated_paths` are all written at **finish**, never at open. The tree cannot be built before the version is allocated, because the plugin manifest carries that version, so anything stored at open would describe bytes that were never committed.
+
+`generated_paths` is a record for audit, not a safety mechanism. Deletions are computed from the live tree, so nothing depends on this column being complete.
 
 Policies mirror the existing companion policies exactly: `owner_id = (select auth.uid())` and `(select auth.jwt()->>'client_id') is null`, so an agent OAuth token is denied at the database. That is the enforcement behind S11, not just an absence of tools.
 
@@ -66,13 +69,14 @@ Policies mirror the existing companion policies exactly: `owner_id = (select aut
 
 | Function | Security | Purpose |
 |---|---|---|
-| `add_skill_source(id, repository, is_delivery_target)` | invoker | Idempotent on `id`, same retry contract as `save_memory` |
+| `add_skill_source(id, repository)` | invoker | Returns an existing row for the same repository rather than a unique violation, so connecting a repository already on the shelf cannot dead-end. Otherwise idempotent on `id`, same retry contract as `save_memory` |
+| `set_delivery_source(source_id)` | invoker | Clears the previous holder and sets the new one in one transaction, or the partial unique index rejects the move and leaves no way back |
 | `sync_skill_source(source_id, commit_sha, skills jsonb)` | invoker | Replaces the cached skill rows for one source in one statement. Kit membership survives by `(source_id, name)`, so a re-sync does not silently drop a selection |
 | `list_skills()` | invoker, stable | Names, descriptions, source and sync state. There is no body to withhold |
 | `set_kit_item(target, skill_id, included)` | invoker | Idempotent tick and untick |
 | `open_skill_release(id, target, manifest, files, checksum, generated_paths)` | invoker | Allocates `version` as max plus one for that owner and target, idempotent on `id` |
 | `finish_skill_release(id, commit_sha, archive_sha256)` | invoker | The only way `commit_sha` is ever set |
-| `connect_skill_delivery(repository, installation_id)` | definer | Written only after the handler verifies installation ownership |
+| `connect_skill_delivery(repository, installation_id, branch)` | invoker | Written only after the handler verifies installation ownership |
 
 ## 3. Generated repository layout
 
@@ -161,8 +165,9 @@ GET  /repos/{o}/{r}/git/ref/heads/{branch}          current head, or empty repo
 POST /repos/{o}/{r}/git/trees                       full file list, entries carry
                                                     content inline so no separate
                                                     blob calls, and base_tree is
-                                                    omitted so removed skills
-                                                    disappear instead of lingering
+                                                    ALWAYS sent: omitting it would
+                                                    replace the tree and delete the
+                                                    user's own skills/ directory
 POST /repos/{o}/{r}/git/commits                     parent = head when it exists
 PATCH /repos/{o}/{r}/git/refs/heads/{branch}        fast-forward
 POST /repos/{o}/{r}/git/refs                        refs/tags/<target>-v<version>
@@ -181,11 +186,13 @@ Generated paths split in two, which is what makes the deletion rule safe:
 ```
 base_tree   = current head tree
 write       = every path in this release's generated_paths
-delete      = previous generated_paths, filtered to this target's prefix,
-              minus this release's paths   (tree entry with sha null)
+delete      = paths that ACTUALLY EXIST under this target's prefix in the
+              current tree, minus this release's paths  (tree entry, sha null)
 ```
 
-Filtering deletions to the target prefix is the whole safety property. Without it, publishing the Claude kit could delete Codex's directory, or worse, a shared path or the user's `skills/`. `tests/release-builder.test.mjs` asserts directly that a previous path list containing `skills/**`, `LICENSE` and the other target's files yields no deletions at all.
+Deletions are computed from the **live tree**, not from stored history. Satchel lists what actually exists under `<target>/` in the current commit and removes whatever this release does not produce. That is exact, needs no bookkeeping to stay correct, and self-heals if a previous publish committed but failed to record itself.
+
+Filtering to the target prefix is the safety property either way. Without it, publishing the Claude kit could delete Codex's directory, or worse, a shared path or the user's `skills/`. `tests/release-builder.test.mjs` asserts directly that a path list containing `skills/**`, `LICENSE` and the other target's files yields no deletions at all.
 
 ## 7. Publish endpoint
 
@@ -198,17 +205,25 @@ Sequence, with the failure story for each step:
 ```
 1. verify companion token            401, nothing written
 2. read kit and skills under RLS     403 when the connection is revoked
-3. buildRelease                      pure, cannot partially apply
-4. open_skill_release                reserves the version; a concurrent publish
-                                     loses the unique index and the client retries
-                                     the same release id with the same payload
-5. commit + tag on GitHub            release row exists without commit_sha.
-                                     This is the uncertain outcome, and it is
-                                     reported as uncertain, never as published
-6. finish_skill_release              the only transition to published
+3. open_skill_release                allocates the version. If the row already
+                                     has a commit, return it: a replay must not
+                                     commit a second time
+4. read each skill by its blob_sha   content is frozen into the release here
+5. buildRelease at THAT version      once, never before the version is known
+6. list the live tree                deletions come from what exists, not from
+                                     stored history, so an unrecorded publish
+                                     cannot strand generated files
+7. commit on GitHub                  fails: release stays open, uncertain, and
+                                     is reported as uncertain, never published
+8. finish_skill_release              the only transition to published
+9. tag                               a convenience. Failing here leaves the
+                                     release delivered and adds a note, rather
+                                     than making a landed commit look lost
 ```
 
-Retrying step 5 is safe: the tree and commit are content-addressed, and an existing tag is treated as already done. A retry reuses the same release id and payload, exactly as an uncertain `save_memory` does today.
+Step 9 comes after step 8 deliberately. Tagging before stamping meant a tag conflict left a committed release looking undelivered, whose paths then never fed a future deletion.
+
+A retried publish reuses the same release id, which the browser holds until the attempt succeeds. Generating a fresh id per click would turn one timed-out publish into two versions and two commits for identical content.
 
 ## 8. Interface state
 
@@ -234,7 +249,9 @@ Following the existing PGlite plus `node --test` harness, which runs the real mi
 | `tests/skills-database.test.mjs` | Owner isolation, agent-token denial, kebab and length constraints, unique names, kit ticking, revision stamping, conflicting corrections, release immutability, version allocation under a concurrent insert, safe publish retry |
 | `tests/release-builder.test.mjs` | Byte-identical output for the same selection, checksum path/length sensitivity and key-order insensitivity, both marketplace shapes, omission of an unpublished target, version bump, verbatim skill content, absence of any MCP or app declaration, and that a deletion can never escape the target prefix |
 | `tests/github-app.test.mjs` | JWT claims, token exchange, the tree/commit/tag call sequence, empty-repository first commit, existing-tag retry, all against an injected fetch |
-| `tests/skills-handler.test.mjs` | Companion token accepted, agent token rejected, installation-ownership check rejecting a mismatched login and a repository outside the installation, uncertain-commit reported as uncertain |
+| `tests/skills-handler.test.mjs` | Companion token accepted, agent token rejected, installation-ownership check rejecting a mismatched login and a repository outside the installation, uncertain-commit reported as uncertain, skill content read by `blob_sha` rather than a commit sha, the stamped checksum equalling a checksum of exactly the committed files, a replay returning without committing again, a tag failure still stamping delivery, a truncated listing changing nothing, and a pre-existing README left alone |
+
+Test stubs forward every argument they receive. Two real argument-dropping bugs in this work were hidden by stubs that narrowed a signature, so a stub that takes fewer parameters than the thing it replaces is itself a defect.
 
 No test reaches real GitHub or real Supabase. The acceptance loop in the requirements is the manual counterpart and the only thing that can claim a host actually installed anything.
 

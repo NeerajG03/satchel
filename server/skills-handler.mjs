@@ -3,7 +3,7 @@ import {createClient} from '@supabase/supabase-js';
 import {RESOURCE,SUPABASE_URL} from './http-handler.mjs';
 import {skillsService} from './skills-service.mjs';
 import {githubApp,GitHubError} from './github-app.mjs';
-import {buildRelease,deletions,TARGETS} from './release-builder.mjs';
+import {buildRelease,checksum,deletions,TARGETS} from './release-builder.mjs';
 
 const issuer=SUPABASE_URL+'/auth/v1';
 const keys=createRemoteJWKSet(new URL(issuer+'/.well-known/jwks.json'));
@@ -16,6 +16,10 @@ export async function verifyCompanionToken(token,verificationKeys=keys) {
     algorithms:['ES256','RS256'],requiredClaims:['exp','sub']});
   if(payload.client_id!==undefined)
     throw Error('Agent tokens cannot manage skills');
+  // Belt and braces alongside the client_id rejection: a Satchel resource
+  // audience is what an agent token carries, and a companion token does not.
+  const audience=Array.isArray(payload.aud)?payload.aud:[payload.aud];
+  if(audience.includes(RESOURCE))throw Error('Agent tokens cannot manage skills');
   if(typeof payload.sub!=='string'||!payload.sub)throw Error('Missing subject');
   return payload;
 }
@@ -40,7 +44,7 @@ const message=error=>error instanceof GitHubError
       'P0002':'That source is unavailable. Reload the shelf.',
       'PT409':'This release was already delivered. Reload before retrying.',
       '40001':'Request conflict. Reload the shelf; do not overwrite blindly.',
-      '23505':'That repository is already used for this purpose.',
+      '23505':'That conflicts with an existing record. Reload and try again.',
       '23514':'A value exceeded the permitted limits.',
     }[error?.code]??'Satchel could not complete that request.');
 
@@ -103,8 +107,12 @@ export function createSkillsHandler({makeClient=createClient,makeService=skillsS
         const installationId=Number(body.installation_id);
         if(!/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(repository)||!Number.isSafeInteger(installationId)||installationId<=0)
           return json(res,400,{error:'Enter a GitHub repository as owner/name.'});
-        await app.verifyInstallation({installationId,repository,login:githubLogin(claims)});
-        const row=await service.connectDelivery(repository,installationId);
+        const {token:installationToken}=await app.verifyInstallation({installationId,repository,
+          login:githubLogin(claims)});
+        // Read the repository's real default branch. Assuming main would create
+        // an orphan branch on a master repository and report success anyway.
+        const branch=await app.defaultBranch({token:installationToken,repository});
+        const row=await service.connectDelivery(repository,installationId,branch);
         return json(res,200,{delivery:{repository:row.repository,branch:row.branch}});
       }
 
@@ -117,9 +125,13 @@ export function createSkillsHandler({makeClient=createClient,makeService=skillsS
         if(parent.empty)return json(res,200,{synced:0,empty:true,skills:[]});
         const {skills,truncated}=await app.listSkills({token:installationToken,
           repository:source.repository,commitSha:parent.commitSha});
+        // Syncing a partial list would delete every skill it could not see, and
+        // their kit selections with them. Refuse rather than warn afterwards.
+        if(truncated)return json(res,409,{error:
+          `${source.repository} is too large to list in one request, so Satchel cannot tell which skills it has. Nothing was changed.`});
         const rows=await service.syncSource(source.id,parent.commitSha,
-          skills.map(s=>({name:s.name,path:s.path,description:s.description})));
-        return json(res,200,{synced:rows.length,truncated,commit_sha:parent.commitSha,
+          skills.map(s=>({name:s.name,path:s.path,description:s.description,blob_sha:s.blobSha})));
+        return json(res,200,{synced:rows.length,commit_sha:parent.commitSha,
           warnings:skills.filter(s=>s.nameMismatch).map(s=>
             `${s.name}: its frontmatter name differs from its directory, so the host will use the frontmatter name`)});
       }
@@ -130,52 +142,72 @@ export function createSkillsHandler({makeClient=createClient,makeService=skillsS
         if(typeof body.release_id!=='string')return json(res,400,{error:'Supply a release id.'});
         const {delivery,installationToken}=await authorizedDelivery();
 
-        const [chosen,shelf,previous,live]=await Promise.all([
-          service.kit(target),service.skills(),service.previousRelease(target),service.liveTargets()]);
+        const settled=await Promise.allSettled([service.kit(target),service.skills(),
+          service.liveTargets(),service.deliveredCount(target)]);
+        const failure=settled.find(outcome=>outcome.status==='rejected');
+        if(failure)throw failure.reason;
+        const [chosen,shelf,live,delivered]=settled.map(outcome=>outcome.value);
         const wanted=new Set(chosen.map(item=>item.skill_id));
         const selected=shelf.filter(skill=>wanted.has(skill.id));
         if(!selected.length)return json(res,400,{error:'Tick at least one skill before publishing.'});
 
-        // Content is read at publish time and frozen into the release, so the
-        // release survives the source moving or disappearing later.
+        // Reserve the version first, then build once at that version. Building
+        // before allocation would store a checksum for bytes never committed.
+        const reserved=await service.openRelease({id:body.release_id,target,
+          manifest:{target,repository:delivery.repository,
+            skills:selected.map(s=>({name:s.name,repository:s.repository,blob_sha:s.blob_sha}))}});
+        if(reserved.commit_sha)
+          return json(res,200,{release:{version:reserved.version,commit_sha:reserved.commit_sha,
+            checksum:reserved.checksum,removed:[]},notes:['This release was already delivered; nothing was committed again.']});
+
         const skills=[];
         for(const skill of selected)
           skills.push({name:skill.name,content:await app.readSkill({token:installationToken,
-            repository:skill.repository,blobSha:body.blob_shas?.[skill.id]??skill.seen_sha})});
+            repository:skill.repository,blobSha:skill.blob_sha})});
 
-        const openArgs=version=>{
-          const built=buildRelease({target,version,repository:delivery.repository,skills,liveTargets:live});
-          return {built,manifest:{target,repository:delivery.repository,
-            skills:selected.map(s=>({name:s.name,repository:s.repository,seen_sha:s.seen_sha}))}};
-        };
-        // open_skill_release allocates the version itself, so build twice:
-        // once to get a checksum to reserve against, once at the real version.
-        const provisional=openArgs(1);
-        const reserved=await service.openRelease({id:body.release_id,target,
-          manifest:provisional.manifest,files:provisional.built.files,
-          generatedPaths:provisional.built.generatedPaths,checksum:provisional.built.checksum});
-        const {built}=openArgs(reserved.version);
-
+        const built=buildRelease({target,version:reserved.version,
+          repository:delivery.repository,skills,liveTargets:live});
         const parent=await app.resolveBranch({token:installationToken,
           repository:delivery.repository,branch:delivery.branch});
-        const removing=deletions({previousPaths:previous?.generated_paths??[],
-          generatedPaths:built.generatedPaths,target});
+        // Deletions come from what actually exists, so a previous publish that
+        // committed without recording itself cannot strand generated files.
+        const existing=parent.empty?[]:await app.listTreePaths({token:installationToken,
+          repository:delivery.repository,treeSha:parent.treeSha,prefix:''});
+
+        const notes=[];
+        const files={...built.files};
+        // Never overwrite a README written before Satchel published here.
+        if(!delivered&&existing.includes('README.md')) {
+          delete files['README.md'];
+          notes.push('Left your existing README.md alone.');
+        }
+        const removing=deletions({existingPaths:existing,generatedPaths:built.generatedPaths,target});
         const commitSha=await app.commitRelease({token:installationToken,
-          repository:delivery.repository,branch:parent.branch,parent,files:built.files,
+          repository:delivery.repository,branch:parent.branch,parent,files,
           deletions:parent.empty?[]:removing,
           message:`Satchel ${target} release v${reserved.version}`});
-        await app.createTag({token:installationToken,repository:delivery.repository,
-          commitSha,tag:`${target}-v${reserved.version}`});
-        const row=await service.finishRelease(body.release_id,commitSha,null);
+        const stored=checksum(files);
+        const row=await service.finishRelease({id:body.release_id,commitSha,files,
+          checksum:stored,generatedPaths:Object.keys(files).sort()});
+        // Tagging is a convenience. A tag failure must not leave a delivered
+        // release looking undelivered, so it is stamped first and noted here.
+        try {
+          await app.createTag({token:installationToken,repository:delivery.repository,
+            commitSha,tag:`${target}-v${reserved.version}`});
+        } catch(error) {
+          notes.push(`Committed, but the tag could not be created: ${error.message}`);
+        }
         return json(res,200,{release:{version:row.version,commit_sha:commitSha,
-          checksum:row.checksum,removed:removing}});
+          checksum:stored,removed:removing},notes});
       }
 
       return json(res,400,{error:'Unknown action.'});
     } catch(error) {
       // A failed commit leaves a reserved, undelivered release. That is an
       // uncertain outcome and is reported as one, never as published.
-      const status=error instanceof GitHubError?(error.status===403?403:502):400;
+      const status=error instanceof GitHubError
+        ? ([403,404,409].includes(error.status)?error.status:502)
+        : 400;
       return json(res,status,{error:message(error)});
     }
   };
