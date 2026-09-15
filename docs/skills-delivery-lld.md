@@ -26,78 +26,83 @@ Agent MCP connections get **no** access to skills in this design. The shelf is c
 
 ## 2. Data model
 
-`skills.source_id` being null means the skill is authored in Satchel. `skill_sources` therefore holds only repo sources, which removes the need for a shape constraint on the source row itself.
+Satchel stores no skill content. `skills` is a cache of what a source repository contains, kept so the shelf can be browsed and chosen from without fetching on every page load.
 
 ```
-skill_sources   id, owner_id, provider, repository, commit_sha, created_at
-                repository lowercase and matching ^[a-z0-9_.-]+/[a-z0-9_.-]+$
-                commit_sha matching ^[0-9a-f]{40}$ when resolved
+skill_sources   id, owner_id, provider, repository, commit_sha, is_delivery_target,
+                synced_at, created_at
+                repository lowercase, ^[a-z0-9_.-]+/[a-z0-9_.-]+$
+                commit_sha ^[0-9a-f]{40}$
+                exactly one row per owner may have is_delivery_target true
 
-skills          id, owner_id, source_id (null = authored here), source_path,
-                name, description, body, revision, created_at, updated_at
+skills          id, owner_id, source_id, path, name, description, seen_sha, synced_at
                 name lowercase kebab, ^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$
-                description 1..280, body 0..40000
-                unique (owner_id, name)
-                check (source_id is null) = (source_path is null)
+                description 0..280, truncated from frontmatter for display
+                unique (owner_id, source_id, name)
+                NO body column. That is the point
 
-skill_tags      owner_id, skill_id, project_id          organizational only
+skill_tags      owner_id, skill_id, project_id                organizational only
 
-skill_kit_items owner_id, target, skill_id              target in claude-code, codex
+skill_kit_items owner_id, target, skill_id                    target in claude-code, codex
 
 skill_releases  id, owner_id, target, version, manifest jsonb, files jsonb,
-                checksum, commit_sha, archive_sha256, created_at, delivered_at
+                generated_paths text[], checksum, commit_sha, archive_sha256,
+                created_at, delivered_at
                 unique (owner_id, target, version)
 
-skill_delivery  owner_id pk, provider, repository, installation_id,
-                branch, connected_at, revoked_at
+skill_delivery  owner_id pk, provider, repository, installation_id, branch,
+                connected_at, revoked_at
 ```
 
-`name` is deliberately the single identifier. It is the directory name, the SKILL.md frontmatter name, and therefore the invocation name, so a separate display title would only create two things that can disagree. `name` plus `description` plus `body` is the same three-field shape as a memory, which is the point.
+`name` is the only identifier. It is the directory name under `skills/`, the SKILL.md frontmatter name, and therefore the invocation name, so a separate display title would only create two things that can disagree.
 
-Policies mirror the existing companion policies exactly: `owner_id = (select auth.uid())` and `(select auth.jwt()->>'client_id') is null`, so an agent OAuth token is denied at the database. Grants are per column, and `revision` and `updated_at` stay untouchable by clients, stamped by a trigger copied from `stamp_memory_revision`.
+`generated_paths` is load-bearing. It is how the next publish knows which paths it owns, and therefore which it may delete. Without it a publish cannot safely distinguish its own previous output from the user's source files.
 
-`files` is jsonb of path to content. A release therefore carries its own frozen bytes, which is what makes it survive an upstream source disappearing. At 40 KB a skill this is comfortable on the Supabase free tier for a personal pilot, and it is the thing to watch if the shelf grows large.
+Because content is not stored, a skill has no revision integer. Its version is the commit it was read at, which is what `seen_sha` records. A skill whose `seen_sha` differs from its source's current `commit_sha` is shown as changed since sync.
+
+Policies mirror the existing companion policies exactly: `owner_id = (select auth.uid())` and `(select auth.jwt()->>'client_id') is null`, so an agent OAuth token is denied at the database. That is the enforcement behind S11, not just an absence of tools.
 
 ### Functions
 
 | Function | Security | Purpose |
 |---|---|---|
-| `save_skill(id, source_id, source_path, name, description, body)` | invoker | Insert on conflict do nothing, then compare the stored row to the request and raise `40001` on mismatch. Same retry contract as `save_memory` |
-| `correct_skill(id, revision, name, description, body)` | invoker | Update guarded on revision, raise `40001` when it moved |
-| `list_skills()` | invoker, stable | Names, descriptions, source and revision only. No bodies |
-| `read_skill(name)` | invoker, stable | Body on demand, raises `P0002` when missing or renamed |
-| `set_kit_item(target, skill_id, included bool)` | invoker | Idempotent tick and untick |
-| `open_skill_release(id, target, manifest, files, checksum)` | invoker | Allocates `version` as max plus one for that owner and target, idempotent on `id`. A concurrent publish loses the unique index and the caller retries |
-| `finish_skill_release(id, commit_sha, archive_sha256)` | invoker | The only way `commit_sha` is ever set. Releases are otherwise immutable |
-| `connect_skill_delivery(repository, installation_id)` | definer | Writes `skill_delivery` only after the handler has verified installation ownership. Not callable usefully from the browser alone |
+| `add_skill_source(id, repository, is_delivery_target)` | invoker | Idempotent on `id`, same retry contract as `save_memory` |
+| `sync_skill_source(source_id, commit_sha, skills jsonb)` | invoker | Replaces the cached skill rows for one source in one statement. Kit membership survives by `(source_id, name)`, so a re-sync does not silently drop a selection |
+| `list_skills()` | invoker, stable | Names, descriptions, source and sync state. There is no body to withhold |
+| `set_kit_item(target, skill_id, included)` | invoker | Idempotent tick and untick |
+| `open_skill_release(id, target, manifest, files, checksum, generated_paths)` | invoker | Allocates `version` as max plus one for that owner and target, idempotent on `id` |
+| `finish_skill_release(id, commit_sha, archive_sha256)` | invoker | The only way `commit_sha` is ever set |
+| `connect_skill_delivery(repository, installation_id)` | definer | Written only after the handler verifies installation ownership |
 
 ## 3. Generated repository layout
 
-One repository, both hosts, one plugin directory per kit.
+One repository. The user's source at the top, Satchel's output below it, and a README that says which is which.
 
 ```
-satchel-kit/
-├── README.md                              generated, states that hand edits are overwritten
-├── .claude-plugin/marketplace.json        Claude Code reads this
-├── .agents/plugins/marketplace.json       Codex reads this
-├── claude-code/
-│   ├── .claude-plugin/plugin.json         name satchel-skills, version 0.0.<release>
-│   └── skills/<name>/SKILL.md
-└── codex/
-    ├── plugin.json                        portable root manifest, extensions.com.openai
-    ├── .claude-plugin/plugin.json          compatibility manifest
+my-skills/
+├── skills/<name>/SKILL.md            ← YOURS. Satchel reads, never writes on publish
+│                                       (it does write here for companion authoring)
+├── README.md                          ← generated
+├── .claude-plugin/marketplace.json    ← generated, Claude Code reads
+├── .agents/plugins/marketplace.json   ← generated, Codex reads
+├── claude-code/                       ← generated
+│   ├── .claude-plugin/plugin.json
+│   └── skills/<name>/SKILL.md         ← real copy, deduplicated to one Git blob
+└── codex/                             ← generated
+    ├── plugin.json
+    ├── .claude-plugin/plugin.json
     └── skills/<name>/SKILL.md
 ```
 
-Both marketplaces use top-level name `satchel-kit` and plugin name `satchel-skills`, so the install handle is `satchel-skills@satchel-kit` on both hosts. That avoids colliding with the existing `satchel@satchel-dev` memory package. `satchel-kit` is not on Claude Code's reserved marketplace name list.
+`skills/<name>/SKILL.md` is the layout `npx skills add <owner/repo> --skill <name>` consumes, so the source half of this repository stays usable by other tools and by the user directly if Satchel is not involved. The exact layout the Vercel CLI expects is worth confirming from `vercel-labs/skills` before the first release, since its documentation gives the commands but not the directory contract.
+
+Both marketplaces use top-level name `satchel-kit` and plugin name `satchel-skills`, so the install handle is `satchel-skills@satchel-kit` on both hosts. That avoids colliding with the existing `satchel@satchel-dev` memory package, and `satchel-kit` is not on Claude Code's reserved marketplace name list.
 
 Neither plugin directory contains `mcp.json`, `.mcp.json` or `.app.json`, and the builder has no code path that could emit one. Per R11a, a plugin declaring MCP servers is marked Desktop only by OpenAI, so an accidental MCP declaration here would silently restrict every skill in the kit. `tests/release-builder.test.mjs` asserts the absence.
 
 The Codex entry carries `policy.installation`, `policy.authentication` and `category`, which its docs require and Claude's schema does not have. That is why the two marketplace files are written separately instead of sharing one.
 
 `version` is bumped on every release, as `0.0.<release version>`. Claude Code only ships an update when that field changes, and the repo's own history already showed stale cached hooks when a version was left alone.
-
-Each `SKILL.md` is frontmatter `name` and `description`, then the body. A repo-sourced skill's supporting files are copied alongside when repo sources land; the builder already takes a file map rather than a single string so that needs no rework.
 
 ## 4. Release build
 
@@ -127,7 +132,7 @@ Zip writing needs either a small dependency or roughly sixty lines of store-only
 
 ### Registration and connect
 
-Registering the App is a one-time owner action, documented rather than automated. Requested permission is Contents read and write, nothing else.
+Registering the App is a one-time owner action, documented rather than automated. Requested permission is Contents read and write, nothing else. Read is needed to discover skills in a source repository; write is needed for the generated paths and for companion authoring.
 
 The user creates the empty private repository themselves, prefilled by a link, then installs the App on that one repository. Satchel does **not** create the repository, because repository creation would need a much broader permission than Contents, and the whole point of the App over an OAuth `repo` scope is that it stays narrow.
 
@@ -158,7 +163,17 @@ PATCH /repos/{o}/{r}/git/refs/heads/{branch}        fast-forward
 POST /repos/{o}/{r}/git/refs                        refs/tags/<target>-v<version>
 ```
 
-Omitting `base_tree` is the important detail. It makes the commit a full replacement of the tree, so unticking a skill actually removes its files rather than leaving them behind.
+`base_tree` is the important detail, and it is the opposite of what a dedicated delivery repository would want. Here the repository also holds the user's `skills/` source, so the commit **must** start from the current tree and change only Satchel's own paths:
+
+```
+base_tree   = current head tree
+write       = every path in this release's generated_paths
+delete      = previous release's generated_paths minus this release's
+              (a tree entry with sha null removes the path)
+never touch = anything not in either list
+```
+
+That is how unticking a skill removes its generated copy while `skills/` is left exactly as the user left it. Getting this backwards would delete the user's source, so `tests/release-builder.test.mjs` and `tests/github-app.test.mjs` both pin it.
 
 ## 7. Publish endpoint
 
@@ -215,13 +230,13 @@ No test reaches real GitHub or real Supabase. The acceptance loop in the require
 
 1. Migration and `skills-database` tests.
 2. `release-builder` and its tests. Pure, no network, and everything depends on it.
-3. Shelf UI for skills and kits, usable with delivery not yet connected.
-4. `github-app`, connect and publish handlers, and their tests.
-5. Generated setup text and the four state rows.
+3. `github-app`: App JWT, installation token, source reading, and the generated-path-only commit, with its tests against an injected fetch.
+4. Connect and publish handlers, and their tests.
+5. Shelf UI: sources, skills, kits, publish, generated setup text and the four state rows.
 6. Archive writer and `archive_sha256`.
 7. Run the acceptance loop on real accounts and write a checkpoint recording what actually happened, including failures.
 
-Steps 1 to 3 deliver a shelf that works on its own. Nothing reaches an agent until step 4, and nothing may be described as installed until step 7.
+The ordering changed when skill content moved out of Satchel: reading a repository is now on the critical path, so `github-app` comes before the UI rather than after it. Nothing may be described as installed until step 7.
 
 ## 11. Configuration
 

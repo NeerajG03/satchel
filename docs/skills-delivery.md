@@ -48,8 +48,11 @@ Codex cloud is a firmer no than expected. OpenAI enumerates plugin surfaces four
 | S01 | Satchel manages the user's skills and delivers a personalized selection to each supported agent. The user does not hand-maintain plugin manifests or a distribution repository. |
 | S02 | Delivery uses one private Git repository per user, written by Satchel. Section 1 is the evidence that this is necessary, which satisfies the parked document's condition against requiring an extra user-owned repository. |
 | S03 | The delivery repository belongs to the user's own GitHub account. Satchel writes to it through a Satchel GitHub App the user installs on that one repository, with Contents read and write. This is separate from Supabase GitHub sign-in and revocable in GitHub's own settings. |
-| S04 | A shelf entry is always a reference to a source. A source is either a **repo source**, whose truth stays in that repository and which Satchel never writes to, or a **Satchel source**, whose text Satchel stores and revises the way it already stores memory. One skill has exactly one home. |
-| S05 | Both source kinds are modelled from the start. Satchel sources are implemented first, because delivery and verification carry the unknowns, not content storage. |
+| S04 | **Satchel never stores skill content.** A skill's only home is a Git repository. Satchel stores sources, selection and releases. This makes "Satchel is the serving mechanism" literally true, and it is a deliberate reversal of an earlier decision in this session to let Satchel author and store skills. |
+| S05 | One repository serves as both the user's skill source and the delivery target. `skills/<name>/SKILL.md` at its root is the single source of truth. Per-target plugin directories are generated from it. Satchel records the paths it generated in each release and only ever writes or deletes those, so the source directory is never touched by a publish. |
+| S09 | Generated per-target directories contain real copies, not symlinks. Measured: three identical `SKILL.md` files resolve to one Git blob, so copying costs nothing, while symlinks lose `claude plugin validate` coverage (the validator states it reads components without following symlinks), dangle under Codex's plugin cache copy, and break the archive route. |
+| S10 | Authoring from the companion means Satchel commits to the user's skills repository on their behalf. The web and phone capture path is preserved without Satchel becoming a second home. |
+| S11 | Agents get no access to the shelf: no new MCP tools and no new grants. This is not a gap, because a skill is a file in a repository the agent already works in, so updating one is an ordinary edit followed by a commit. Publishing stays companion-only, so nothing an agent edits reaches another agent until the user publishes. |
 | S06 | Kits are flat per target. Projects may tag a skill for the user's own organization; tags do not affect delivery. |
 | S07 | The skills kit is a separate plugin from the existing `satchel` memory plugin. Private skills are never bundled into the shared product package. |
 | S08 | Targets are Claude Code and Codex, both native, from one repository. |
@@ -58,19 +61,21 @@ Codex cloud is a firmer no than expected. OpenAI enumerates plugin surfaces four
 
 | Object | Holds | Notes |
 |---|---|---|
-| Source | Kind, and for a repo source its provider, repository, path and resolved commit sha | A repo source is never written by Satchel |
-| Skill | Name, description, body or source path, project tags | Name and description are the discovery pair, matching the memory record shape |
+| Source | Provider, repository, resolved commit sha, last sync | One source is the user's own skills repository, which is also the delivery target. Others are any readable repository |
+| Skill | Identity only: source, path, name, description, and the sha they were read at | A cache for display and selection. The content lives in the repository, never here |
 | Kit | One per target, holding the user's current selection | Flat; no project scoping |
-| Release | Immutable resolved selection, frozen file contents, source shas, version, checksum | Self-contained, so a release still installs if an upstream source disappears |
-| Delivery | The user's repository, the App installation, and the last observed fetch per client | Evidence only; never a claim about what an agent loaded |
+| Release | Resolved selection, frozen file contents, source shas, version, checksum, and the list of generated paths | Frozen contents make a release survive an upstream source disappearing. The generated-path list is what makes a publish safe in a shared repository |
+| Delivery | The repository, the App installation, and the branch | No fetch record, because a fetch is not observable. See R15 |
 
-Contents are materialized at publish time, not at selection time. A release therefore records both what was delivered and which revision it came from.
+Content is read from the source at publish time and frozen into the release. A release therefore records what was delivered and which commit it came from, while the shelf holds only enough to browse and choose.
 
 ## 4. Functional requirements
 
 ### Shelf and kits
 
-- R01 The user can write a skill in Satchel with a name, description and body, and correct or delete it, with revision checks, matching existing memory behavior.
+- R01 The user can connect a source repository, and Satchel discovers the skills in it by reading `skills/<name>/SKILL.md`, recording each name, description and the commit it was read at.
+- R01a The user can write a skill from the companion, including on a phone, and Satchel commits it to their own skills repository as `skills/<name>/SKILL.md`. Satchel does not keep a second copy. A failed commit is reported as a failure, never as a saved skill.
+- R01b Editing a skill anywhere other than the companion is expected and supported: the user or their agent edits the file in the repository and commits. Satchel detects the new commit on the next sync and shows the skill as changed since the published release.
 - R02 The user can tag a skill with projects. Tags are organizational and must not change what is delivered.
 - R03 The user can tick and untick skills per kit. An unpublished change is visible as such, and the currently published release stays in effect until the user publishes.
 - R04 Publishing produces a new release with a version, a checksum, the frozen contents, and the source revision of every included skill.
@@ -79,7 +84,8 @@ Contents are materialized at publish time, not at selection time. A release ther
 
 ### Delivery
 
-- R07 Satchel creates or adopts one private GitHub repository for delivery and writes both `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`, each in its host's idiomatic shape, plus one plugin directory per kit.
+- R07 Satchel adopts one private GitHub repository the user created, and writes both `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`, each in its host's idiomatic shape, plus one plugin directory per kit.
+- R07a A publish writes and deletes **only** paths Satchel generated, taken from the previous release's recorded path list. `skills/` and anything else the user keeps in that repository is never written, never deleted, and never used as a base for the generated tree. This is the single most expensive thing to get wrong in this design, so it gets its own test.
 - R08 Each publish is a commit and a tag. Plugin `version` is bumped on every release, because Claude Code only delivers updates when that field changes.
 - R09 The delivery repository states in its README that it is generated and that hand edits are overwritten on the next publish.
 - R10 Satchel shows the exact one-time setup commands per host, and the exact update command per host.
@@ -99,12 +105,13 @@ Contents are materialized at publish time, not at selection time. A release ther
 
 One loop, on real accounts, as the parked document specified:
 
-1. Create two skills in Satchel. Put both in the Claude Code kit and one in the Codex kit.
+1. Create two skills, one written from the companion and one committed straight to the repository by hand, to exercise both paths. Put both in the Claude Code kit and one in the Codex kit.
 2. Publish. Confirm the commit, tag, both marketplace files, and the zip checksum.
 3. Install in local Claude Code. Confirm both skills are invocable under the plugin namespace.
 4. Install in local Codex. Confirm the one skill appears, and record specifically whether Codex authenticated to the private repository without extra configuration, since that is undocumented.
 5. Untick one skill, publish, update both hosts. Confirm it is gone from Claude Code and that the Satchel source record is unchanged.
-6. Record what was actually observed per surface, including anything that failed.
+6. Edit one skill's file directly in the repository, sync, publish, and update. Confirm the change reaches the agent and that `skills/` was untouched by the publish.
+7. Record what was actually observed per surface, including anything that failed.
 
 A passing loop covers local surfaces only. It is not evidence for any cloud surface.
 
@@ -141,4 +148,4 @@ The existing workspace blocker recorded in [agent setup](agent-setup.md), where 
 
 ## 7. Not in scope
 
-No skill execution on the Satchel server. No writes to a user's source repositories. No marketplace of other people's skills. No sync engine that changes a running agent. No claim of support for mobile chat surfaces.
+No skill execution on the Satchel server. No writes to a source repository the user does not own, and no writes outside generated paths in the one repository Satchel does write to. No marketplace of other people's skills. No sync engine that changes a running agent. No claim of support for mobile chat surfaces.
