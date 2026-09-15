@@ -87,6 +87,28 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       await assert.rejects(call(codex,'select link_project_repository($1,$2,$3)',
         [a,'github','other/repository']),{code:'42501'});
     });
+    await t.test('anonymous lifecycle hints activate only through an authorized agent grant',async()=>{
+      const session='40000000-0000-4000-8000-000000000001';
+      await db.exec('begin; set local role anon;');
+      try {
+        await db.query("select set_config('request.jwt.claims','{}',true)");
+        await db.query('select stage_agent_repository_hint($1,$2,$3)',[session,'github','NeerajG03/Satchel']);
+        await db.exec('commit');
+      }catch(e){await db.exec('rollback');throw e;}
+      assert.equal((await call(codex,'select activate_agent_repository_hint($1) id',[session]))[0].id,a);
+      assert.equal((await call(codex,'select agent_active_project($1) id',[session]))[0].id,a);
+      assert.equal((await call(codex,'select activate_agent_repository_hint($1) id',[session]))[0].id,null);
+
+      const denied='40000000-0000-4000-8000-000000000002';
+      await db.exec('begin; set local role anon;');
+      try {
+        await db.query("select set_config('request.jwt.claims','{}',true)");
+        await db.query('select stage_agent_repository_hint($1,$2,$3)',[denied,'github','neerajg03/satchel']);
+        await db.exec('commit');
+      }catch(e){await db.exec('rollback');throw e;}
+      assert.equal((await call(claude,'select activate_agent_repository_hint($1) id',[denied]))[0].id,null);
+      await assert.rejects(call({},'select activate_agent_repository_hint($1)',[crypto.randomUUID()]),{code:'42501'});
+    });
     await t.test('revoke blocks an unexpired token immediately and re-consent cannot revive it',async()=>{
       await call(user,'select revoke_agent($1)',[ca]);
       assert.deepEqual(await call(codex,'select * from memories'),[]);

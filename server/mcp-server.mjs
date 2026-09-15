@@ -24,7 +24,11 @@ export function createMemoryServer(service) {
     try {
       const status=await service.status();
       if (!status) throw {code:'42501'};
-      const project=selectedProject===undefined?await service.activeProject(sessionKey):selectedProject;
+      let project=selectedProject;
+      if(project===undefined) {
+        const hintedProject=await service.activateRepositoryHint(sessionKey);
+        project=hintedProject??await service.activeProject(sessionKey);
+      }
       const indexes=[];
       if (status.personal) indexes.push(await service.index(null));
       if (project) indexes.push(await service.index(project));

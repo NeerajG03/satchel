@@ -13,6 +13,7 @@ export function memoryService(db) {
     status: () => result(db.rpc('agent_connection_status')),
     projects: () => result(db.from('projects').select('id,name,brief').order('name')),
     activeProject: session => result(db.rpc('agent_active_project',{p_session_key:session})),
+    activateRepositoryHint: session => result(db.rpc('activate_agent_repository_hint',{p_session_key:session})),
     async selectProject(session,projectId) {
       await result(db.rpc('select_agent_project',{p_session_key:session,p_project_id:projectId}));
       return {project_id:projectId};

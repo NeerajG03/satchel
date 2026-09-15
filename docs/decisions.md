@@ -31,6 +31,7 @@ The notebook/hardware style is the current user-supplied visual direction. The p
 |---|---|
 | Project identity independent of repository identity | Covers non-code and multi-repo efforts; addresses the user's criticism of the current model |
 | Repository links are optional routing, never authorization | A linked GitHub origin may select an already-authorized project for one conversation; projects still work without repositories and may link multiple repositories |
+| Repository activation is lifecycle-driven, not model-driven | A short-lived repository hint is consumed by the authenticated MCP hook, so a user preference against model tool calls cannot suppress project memory loading |
 | One hosted context service with native integration packages | Fits the intended hosted/plugin direction without a new agent runtime |
 | Separate library, installation, connection, and execution-readiness records | Makes skill portability and per-platform setup honest |
 | Native Android only if a later required device feature justifies it | Initial web delivery is now agreed; Android packaging is deferred |

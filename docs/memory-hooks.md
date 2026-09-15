@@ -4,11 +4,11 @@
 
 ## Two handlers
 
-**Local command handler:** runs `node "${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs"` (5-second timeout). It emits static instructions plus the current session ID and event name. It does not fetch memory. The script receives lifecycle input on stdin, but uses only `session_id` and `hook_event_name`; it neither reads the transcript file nor forwards prompt/transcript content.
+**Local command handler:** runs `node "${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs"` (5-second timeout). It reads the current workspace Git origin and stages only a normalized GitHub repository identity under the current session ID. It does not fetch memory. The script receives lifecycle input on stdin, but does not read or forward prompt/transcript content, repository files, local paths or remote credentials.
 
-**MCP tool handler:** calls `load_memory_context` on `satchel` in Codex or `plugin:satchel:satchel` in Claude (10-second timeout). Arguments are `session_key: ${session_id}` and the event name. The host uses its authenticated connection to the hosted MCP service. The service checks the active grant and retrieves the allowed index. No transcript or prompt is a tool argument.
+**MCP tool handler:** calls `load_memory_context` on `satchel` in Codex or `plugin:satchel:satchel` in Claude (10-second timeout). Arguments are `session_key: ${session_id}` and the event name. The host uses its authenticated connection to consume any short-lived repository hint, select only an already-granted linked project, and retrieve the allowed index. No transcript or prompt is a tool argument.
 
-Both emit `hookSpecificOutput.hookEventName` and `hookSpecificOutput.additionalContext`, which the host can add to model context. They are separate handlers; the configuration does not establish a command-then-network pipeline or rely on handler output ordering.
+Both emit `hookSpecificOutput.hookEventName` and `hookSpecificOutput.additionalContext`, which the host can add to model context. The repository hint expires after five minutes, carries no project or memory data, and is consumed only once by an authenticated agent connection.
 
 ## Configured events
 
@@ -62,13 +62,13 @@ The fixed guidance says memory text is saved user data, not privileged instructi
 
 `more_info` is excluded. Project briefs, repository contents, tasks and the user's skill collection are not injected by these hooks. The bundled Satchel memory skill and MCP tool descriptions are host-discovered package/tool instructions, not additional private data returned by the hook.
 
-When the workspace has a GitHub `origin`, the command bootstrap emits only its normalized `owner/repository` identity and asks the agent to call `activate_repository` once for that lifecycle event. The server resolves only a link created by the user and only when that project is already authorized for the connection. Activation stores the project for that conversation and returns the combined personal/project index immediately. Remote credentials, repository contents and local paths are never emitted. Non-Git and unlinked workspaces retain personal/manual project behavior.
+When the workspace has a GitHub `origin`, the command bootstrap stages only its normalized `owner/repository` identity. The authenticated lifecycle hook consumes the hint and resolves only a link created by the user whose project is already authorized for that connection. Activation stores the project for that conversation and returns the combined personal/project index before the model responds, so user instructions about model tool use cannot suppress project memory loading. Remote credentials, repository contents and local paths are never emitted. If staging fails, the bootstrap supplies `activate_repository` as a one-time agent fallback. Non-Git and unlinked workspaces retain personal/manual project behavior.
 
 ## Failure, limits and repetition
 
 If the serialized JSON exceeds 1,800 UTF-8 bytes or any underlying index is incomplete, the handler returns an incomplete-loading message instead of a partial memory list. Fixed guidance is outside that JSON byte budget. A service failure returns an unavailable message when the handler can execute; a disconnected MCP server may prevent it executing at all.
 
-MCP hooks cannot establish a missing connection. The bootstrap asks the agent to retrieve once tools become available. This agent-executed fallback was tested, but is not a guarantee of direct hook injection. Hooks must also be enabled and trusted where required by the host.
+MCP hooks cannot establish a missing connection. When repository staging fails, the bootstrap asks the agent to retrieve once tools become available. This degraded fallback remains model-dependent; the normal staged path is consumed directly by the authenticated lifecycle hook. Hooks must also be enabled and trusted where required by the host.
 
 There is no per-message fetch, freshness check or index injection. The agent uses the loaded index between lifecycle events. Changes made on another device become visible at the next new conversation, compaction, or explicit refresh request. On-demand detail reads and explicit saves/corrections/deletions remain available. Previously injected text may remain in conversation history; later retrieval does not erase it.
 

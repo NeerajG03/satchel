@@ -45,7 +45,7 @@ The personal local Satchel installation has already completed OAuth and memory t
 4. Hook policy permits Satchel's read-only lifecycle hooks. If `allow_managed_hooks_only` is enforced, an administrator must arrange managed deployment of equivalent reviewed hooks/scripts; ordinary plugin installation will not run them. Do not disable the organization's global hook restrictions just to complete this pilot.
 5. Where network restrictions apply, allow the MCP service host `satchel-pi.vercel.app` and OAuth issuer host `prpgcrwteepcunizdcut.supabase.co`. Package installation requires access to its approved source; the existing GitHub/Satchel sign-in flow must also remain usable. No inbound laptop port or tunnel is required by the hosted memory service.
 
-The package bootstrap requires Node.js. Its command emits static retrieval instructions; it does not read files, collect transcripts, or hold credentials. User hook trust and individual OAuth are still user-side setup steps, not repeated administrator approvals.
+The package bootstrap requires Node.js. Its command reads only the current Git origin and sends the normalized GitHub repository identity with an opaque session ID to Satchel's short-lived staging endpoint. It does not read repository files, collect transcripts, return memory data, or hold OAuth credentials. The authenticated MCP hook still enforces the connection grant before selecting a project. User hook trust and individual OAuth are still user-side setup steps, not repeated administrator approvals.
 
 ### Hosted ChatGPT / Work: separate from local Codex
 

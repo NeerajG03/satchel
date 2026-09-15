@@ -7,10 +7,11 @@ import {createMemoryServer} from '../server/mcp-server.mjs';
 import {verifyAgentToken,RESOURCE,SUPABASE_URL} from '../server/http-handler.mjs';
 
 test('MCP contracts separate index, detail, explicit writes and hook output',async()=>{
-  const id=crypto.randomUUID(),projectId=crypto.randomUUID();let revoked=false,writes=0,oversized=false,detailReads=0,activations=0;
+  const id=crypto.randomUUID(),projectId=crypto.randomUUID();let revoked=false,writes=0,oversized=false,detailReads=0,activations=0,hintedProject=null;
   const summary={id,project_id:null,name:'fixture',description:'Read for fixture colour',revision:1};
   const projectSummary={...summary,id:crypto.randomUUID(),project_id:projectId,name:'project-fixture'};
   const service={status:async()=>revoked?null:{personal:true},activeProject:async()=>null,
+    activateRepositoryHint:async()=>hintedProject,
     selectRepository:async()=>{activations++;return {project_id:projectId};},
     index:async project=>({memories:oversized?[{...summary,description:'x'.repeat(8000)}]:[project?projectSummary:summary],complete:true}),
     read:async()=>{detailReads++;return {...summary,more_info:'amber'};},
@@ -29,6 +30,11 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.ok(hook.hookSpecificOutput.additionalContext.includes('fixture'));
     assert.ok(!hook.hookSpecificOutput.additionalContext.includes('amber'));
     assert.equal(detailReads,0);assert.equal(writes,0);
+    hintedProject=projectId;
+    result=await call('load_memory_context',{session_key:'staged-session',event:'SessionStart'});
+    assert.match(result.content[0].text,/project-fixture/);
+    assert.match(result.content[0].text,new RegExp(projectId));
+    hintedProject=null;
     result=await call('activate_repository',{session_key:'one',event:'SessionStart',provider:'github',repository:'neerajg03/satchel'});
     assert.equal(activations,1);
     assert.match(result.content[0].text,/project-fixture/);

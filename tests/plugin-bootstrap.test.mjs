@@ -5,7 +5,9 @@ import {mkdtempSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const script=new URL('../integrations/shared/bootstrap.mjs',import.meta.url);
-const run=input=>spawnSync(process.execPath,[script.pathname],{input,encoding:'utf8'});
+const run=input=>spawnSync(process.execPath,[script.pathname],{
+  input,encoding:'utf8',env:{...process.env,SATCHEL_DISABLE_REPOSITORY_STAGING:'1'},
+});
 test('startup fallback supplies only a session-bound retrieval instruction',()=>{
   const cwd=mkdtempSync(join(tmpdir(),'satchel-unlinked-workspace-'));
   try {
