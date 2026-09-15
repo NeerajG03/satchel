@@ -5,8 +5,9 @@ import { createMemoryRepository } from './features/memories/repository';
 import { EMPTY_CONTENT, PERSONAL_SCOPE, replaceSummary, scopeProjectId, type Memory, type MemorySummary, type MemoryScope, type MemoryContent } from './features/memories/model';
 import { MemoryEditor } from './features/memories/MemoryEditor';
 import { MemoryList } from './features/memories/MemoryList';
-import { createProjectRepository, type Project } from './features/projects/repository';
+import { createProjectRepository, type Project, type ProjectRepositoryLink } from './features/projects/repository';
 import { ScopeSidebar } from './features/projects/ScopeSidebar';
+import { RepositoryLinks } from './features/projects/RepositoryLinks';
 
 export function Workspace({ db }: { db: SupabaseClient }) {
   const memoryStore = useMemo(() => createMemoryRepository(db), [db]);
@@ -90,6 +91,28 @@ export function Workspace({ db }: { db: SupabaseClient }) {
       chooseScope({ kind: 'project', projectId: created.id }); setNotice('Project created.');
     });
   }
+  function linkRepository(value: string) {
+    if (!project) return Promise.resolve(false);
+    return run(async () => {
+      const link = await projectStore.linkRepository(project.id, value);
+      setProjects(items => items.map(item => item.id === project.id ? {
+        ...item, project_repositories: [...item.project_repositories.filter(existing =>
+          existing.provider !== link.provider || existing.repository !== link.repository), link],
+      } : item));
+      setNotice(`Linked ${link.repository}.`);
+    });
+  }
+  function unlinkRepository(link: ProjectRepositoryLink) {
+    if (!project) return Promise.resolve(false);
+    return run(async () => {
+      await projectStore.unlinkRepository(project.id, link);
+      setProjects(items => items.map(item => item.id === project.id ? {
+        ...item, project_repositories: item.project_repositories.filter(existing =>
+          existing.provider !== link.provider || existing.repository !== link.repository),
+      } : item));
+      setNotice(`Unlinked ${link.repository}.`);
+    });
+  }
 
   return <div className="book-layout">
     <ScopeSidebar projects={projects} scope={scope} busy={busy || projectsLoading} navigationLocked={busy || hasDraft}
@@ -103,6 +126,7 @@ export function Workspace({ db }: { db: SupabaseClient }) {
       {error && <p role="alert" className="notice error">{error}</p>}
       {notice && <p role="status" className="notice">{notice}</p>}
       <p className="muted">{scope.kind === 'personal' ? 'Preferences and details that apply across your work. No project needed.' : project?.brief || 'Decisions and details worth carrying forward.'}</p>
+      {project && <RepositoryLinks key={project.id} project={project} busy={busy} onLink={linkRepository} onUnlink={unlinkRepository} />}
       <MemoryEditor content={content} editing={Boolean(editing)} busy={busy || memoriesLoading} destination={destination}
         onChange={value => { setContent(value); setDraftId(crypto.randomUUID()); }} onDiscard={clearDraft} onSave={() => void save()} />
       {memoriesLoading ? <p role="status">Loading your book…</p> : !loadError && memories.length === 0 ?

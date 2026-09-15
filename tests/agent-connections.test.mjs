@@ -31,6 +31,7 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
     const dir=new URL('../supabase/migrations/',import.meta.url);
     for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')).sort()) await db.exec(await readFile(new URL(f,dir),'utf8'));
     for(const id of [a,b]) await call(user,'select create_project($1,$2,$3)',[id,id,'']);
+    await call(user,'select link_project_repository($1,$2,$3)',[a,'github','neerajg03/satchel']);
     for(const id of [null,a,b]) await call(user,'select save_memory($1,$2,$3,$4,$5)',[crypto.randomUUID(),id,'same-name','Summary','PRIVATE DETAILS']);
     await authorize(ca,true,[a],false);await authorize(cb,false,[b],true);
     codex=await claims(ca);claude=await claims(cb);
@@ -74,6 +75,17 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       assert.equal((await call(codex,'select agent_active_project($1) id',['session-two']))[0].id,null);
       assert.equal((await call(claude,'select agent_active_project($1) id',['session-one']))[0].id,null);
       await assert.rejects(call(codex,'select select_agent_project($1,$2)',['session-one',b]),{code:'42501'});
+    });
+    await t.test('repository links activate only an already-authorized project',async()=>{
+      assert.equal((await call(codex,'select select_agent_repository($1,$2,$3) id',
+        ['repository-session','github','NeerajG03/Satchel']))[0].id,a);
+      assert.equal((await call(codex,'select agent_active_project($1) id',['repository-session']))[0].id,a);
+      await assert.rejects(call(claude,'select select_agent_repository($1,$2,$3)',
+        ['repository-session','github','neerajg03/satchel']),{code:'P0002'});
+      await assert.rejects(call(user,'select link_project_repository($1,$2,$3)',
+        [b,'github','neerajg03/satchel']),{code:'PT409'});
+      await assert.rejects(call(codex,'select link_project_repository($1,$2,$3)',
+        [a,'github','other/repository']),{code:'42501'});
     });
     await t.test('revoke blocks an unexpired token immediately and re-consent cannot revive it',async()=>{
       await call(user,'select revoke_agent($1)',[ca]);

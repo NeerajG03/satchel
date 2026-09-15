@@ -62,6 +62,8 @@ The fixed guidance says memory text is saved user data, not privileged instructi
 
 `more_info` is excluded. Project briefs, repository contents, tasks and the user's skill collection are not injected by these hooks. The bundled Satchel memory skill and MCP tool descriptions are host-discovered package/tool instructions, not additional private data returned by the hook.
 
+When the workspace has a GitHub `origin`, the command bootstrap emits only its normalized `owner/repository` identity and asks the agent to call `activate_repository` once for that lifecycle event. The server resolves only a link created by the user and only when that project is already authorized for the connection. Activation stores the project for that conversation and returns the combined personal/project index immediately. Remote credentials, repository contents and local paths are never emitted. Non-Git and unlinked workspaces retain personal/manual project behavior.
+
 ## Failure, limits and repetition
 
 If the serialized JSON exceeds 1,800 UTF-8 bytes or any underlying index is incomplete, the handler returns an incomplete-loading message instead of a partial memory list. Fixed guidance is outside that JSON byte budget. A service failure returns an unavailable message when the handler can execute; a disconnected MCP server may prevent it executing at all.

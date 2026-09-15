@@ -58,7 +58,7 @@ If hosted ChatGPT use is also in scope, request authorization to register/enable
 | Tools | Effect |
 | --- | --- |
 | `connection_status`, `list_projects`, `memory_index`, `read_memory`, `load_memory_context` | Read connection permissions, authorized projects, memory metadata or requested details |
-| `select_project` | Changes this conversation's active project; it does not expand access or write memory content |
+| `select_project`, `activate_repository` | Changes this conversation's active project explicitly or through a user-created repository link; neither expands access or writes memory content |
 | `save_memory` | Explicitly saves a memory |
 | `correct_memory` | Explicitly revises a memory using its current revision |
 | `delete_memory` | Explicitly deletes a requested memory using its current revision |

@@ -17,6 +17,12 @@ export function memoryService(db) {
       await result(db.rpc('select_agent_project',{p_session_key:session,p_project_id:projectId}));
       return {project_id:projectId};
     },
+    async selectRepository(session,provider,repository) {
+      const projectId=await result(db.rpc('select_agent_repository',{
+        p_session_key:session,p_provider:provider,p_repository:repository,
+      }));
+      return {project_id:projectId};
+    },
     async index(projectId) {
       await requireScope(projectId);
       // A sentinel row detects PostgREST pagination instead of silently claiming completeness.
