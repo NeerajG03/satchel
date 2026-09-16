@@ -34,7 +34,7 @@ test('startup detects a GitHub origin without exposing remote credentials',()=>{
     const result=run(JSON.stringify({session_id:'linked-session',hook_event_name:'SessionStart',cwd}));
     assert.equal(result.status,0);
     const context=JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
-    assert.match(context,/activate_repository/);
+    assert.match(context,/select_project/);
     assert.match(context,/neerajg03\/satchel/);
     assert.doesNotMatch(context,/PRIVATE_TOKEN|user:/);
   } finally { rmSync(cwd,{recursive:true,force:true}); }
