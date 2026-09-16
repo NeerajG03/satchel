@@ -11,7 +11,7 @@ for(const host of ['codex','claude']) {
   await mkdir(join(target,'skills','memory'),{recursive:true});
   await mkdir(join(target,'scripts'),{recursive:true});
   await cp(join(root,'integrations/shared/bootstrap.mjs'),join(target,'scripts/bootstrap.mjs'));
-  const common={name,version:host==='claude'?'0.1.4':'0.1.1',description:'Personal and project memory across your agents.',author:{name:'Satchel'},repository:'https://github.com/NeerajG03/satchel'};
+  const common={name,version:host==='claude'?'0.1.5':'0.1.2',description:'Personal and project memory across your agents.',author:{name:'Satchel'},repository:'https://github.com/NeerajG03/satchel'};
   const manifest=host==='codex'?{...common,skills:'./skills/',mcpServers:'./.mcp.json',interface:{
     displayName:'Satchel',shortDescription:'Your memory, across your agents.',
     longDescription:'Load memory summaries automatically, read details on demand, and explicitly save or revise memories with scoped access.',

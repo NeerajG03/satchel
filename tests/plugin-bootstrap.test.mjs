@@ -34,10 +34,20 @@ test('startup detects a GitHub origin without exposing remote credentials',()=>{
     const result=run(JSON.stringify({session_id:'linked-session',hook_event_name:'SessionStart',cwd}));
     assert.equal(result.status,0);
     const context=JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
-    assert.match(context,/activate_repository/);
-    assert.match(context,/neerajg03\/satchel/);
+    assert.match(context,/select_project/);
+    // The fallback payload is what the model sends verbatim, so assert its shape, not a substring.
+    const payload=JSON.parse(context.match(/\{"session_key".*?\}/)[0]);
+    assert.deepEqual(payload,{session_key:'linked-session',event:'SessionStart',repository:'neerajg03/satchel'});
     assert.doesNotMatch(context,/PRIVATE_TOKEN|user:/);
   } finally { rmSync(cwd,{recursive:true,force:true}); }
+});
+test('built packages stay in sync with their shared sources',()=>{
+  // Nothing else fails when integrations/shared changes without re-running build-plugins.
+  const shared=path=>readFileSync(new URL(`../integrations/shared/${path}`,import.meta.url),'utf8');
+  for(const host of ['codex','claude'])
+    for(const [source,built] of [['bootstrap.mjs','scripts/bootstrap.mjs'],['memory/SKILL.md','skills/memory/SKILL.md']])
+      assert.equal(readFileSync(new URL(`../integrations/${host}/satchel/${built}`,import.meta.url),'utf8'),shared(source),
+        `integrations/${host}/satchel/${built} is stale; run node scripts/build-plugins.mjs`);
 });
 test('installed package definitions load only at new conversation or compaction',()=>{
   for(const host of ['codex','claude']) {
