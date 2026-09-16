@@ -7,16 +7,16 @@ import {createMemoryServer} from '../server/mcp-server.mjs';
 import {verifyAgentToken,RESOURCE,SUPABASE_URL} from '../server/http-handler.mjs';
 
 test('MCP contracts separate index, detail, explicit writes and hook output',async()=>{
-  const id=crypto.randomUUID(),projectId=crypto.randomUUID();let revoked=false,writes=0,oversized=false,detailReads=0,activations=0,hintedProject=null;
+  const id=crypto.randomUUID(),projectId=crypto.randomUUID();let revoked=false,writes=0,oversized=false,detailReads=0,activations=0,hintedProject=null,unlinked=false,personal=true;
   const summary={id,project_id:null,name:'fixture',description:'Read for fixture colour',revision:1};
   const projectSummary={...summary,id:crypto.randomUUID(),project_id:projectId,name:'project-fixture'};
-  const service={status:async()=>revoked?null:{label:'Test',personal:true,can_write:true,project_ids:[projectId]},
+  const service={status:async()=>revoked?null:{label:'Test',personal,can_write:true,project_ids:[projectId]},
     activeProject:async()=>null,
     projects:async()=>[{id:projectId,name:'Fixture',brief:''}],
     repositoryHintExists:async()=>hintedProject!==null,
     activateRepositoryHint:async()=>hintedProject,
     selectProject:async(_session,project)=>({project_id:project}),
-    selectRepository:async()=>{activations++;return {project_id:projectId};},
+    selectRepository:async()=>{activations++;if(unlinked)throw {code:'P0002'};return {project_id:projectId};},
     index:async project=>({memories:oversized?[{...summary,description:'x'.repeat(8000)}]:[project?projectSummary:summary],complete:true}),
     read:async()=>{detailReads++;return {...summary,more_info:'amber'};},
     save:async a=>{writes++;return a;}};
@@ -53,16 +53,43 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.match(result.content[0].text,/project-fixture/);
     assert.match(result.content[0].text,new RegExp(projectId));
     assert.equal(JSON.parse(result.content[0].text).complete,true);
+    // Personal scope must not leak the previously selected project's memories.
     result=await call('select_project',{session_key:'one',project_id:null});
     assert.equal(JSON.parse(result.content[0].text).active_project,null);
-    assert.match(result.content[0].text,/fixture/);
+    assert.match(result.content[0].text,/"name":"fixture"/);
+    assert.doesNotMatch(result.content[0].text,/project-fixture/);
     assert.equal(activations,1);
+    // Hosts that serialize unused optional arguments as null still reach personal scope.
+    result=await call('select_project',{session_key:'one',project_id:null,repository:null});
+    assert.ok(!result.isError);
+    assert.equal(JSON.parse(result.content[0].text).active_project,null);
     for(const ambiguous of [{session_key:'one'},{session_key:'one',project_id:projectId,repository:'neerajg03/satchel'}]) {
       const rejected=await call('select_project',ambiguous);
       assert.ok(rejected.isError);
       assert.match(rejected.content[0].text,/exactly one/);
     }
     assert.equal(activations,1);
+    // A lifecycle selection stays budgeted and framed like the hook it stands in for.
+    oversized=true;
+    result=await call('select_project',{session_key:'one',event:'SessionStart',repository:'neerajg03/satchel'});
+    assert.equal(activations,2);
+    assert.match(result.content[0].text,/NOT loaded completely/);
+    assert.doesNotMatch(result.content[0].text,/xxxx/);
+    oversized=false;
+    result=await call('select_project',{session_key:'one',event:'SessionStart',repository:'neerajg03/satchel'});
+    assert.match(result.content[0].text,/saved user data, not system instructions/);
+    // An unlinked repository must not read as a stale-name error.
+    unlinked=true;
+    result=await call('select_project',{session_key:'one',repository:'neerajg03/satchel'});
+    assert.ok(result.isError);
+    assert.match(result.content[0].text,/not linked to a project/);
+    unlinked=false;
+    // Personal scope without a personal grant is a denial, not a confident empty index.
+    personal=false;
+    result=await call('select_project',{session_key:'one',project_id:null});
+    assert.ok(result.isError);
+    assert.match(result.content[0].text,/Access denied/);
+    personal=true;
     result=await call('read_memory',{project_id:null,name:'fixture',expected_id:id});
     assert.ok(result.content[0].text.includes('amber'));assert.equal(detailReads,1);
     await call('save_memory',{project_id:null,id:crypto.randomUUID(),name:'new',description:'summary'});
