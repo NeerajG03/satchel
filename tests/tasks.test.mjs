@@ -99,6 +99,36 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
       ]),{code:'42501'});
     });
 
+    await t.test('personal tasks need an explicit personal-task grant and retain child integrity',async()=>{
+      const personalClient='personal-task-agent';
+      await call(user,'select authorize_agent_v2($1,$2,false,$3,false,true,$4,true,true)',[
+        personalClient,personalClient,[],[],
+      ]);
+      const personalHook=(await db.query('select satchel_access_token_hook($1) result',[
+        {user_id:owner,client_id:personalClient,claims:{sub:owner,client_id:personalClient,aud:'authenticated'}},
+      ])).rows[0].result.claims;
+      assert.equal((await call(personalHook,'select agent_connection_status() result'))[0].result.task_personal,true);
+
+      const personalTask=crypto.randomUUID();
+      const created=await call(personalHook,'select * from create_task($1,$2,null,$3,$4,$5,$6,$7,$8)',[
+        crypto.randomUUID(),personalTask,'Personal follow-up','Not tied to a project','',[],'Do it','medium',
+      ]);
+      assert.equal(created[0].project_id,null);
+      const transitioned=await call(personalHook,'select * from transition_task($1,$2,1,$3,$4)',[
+        crypto.randomUUID(),personalTask,'in_progress','',
+      ]);
+      assert.equal(transitioned[0].revision,2);
+      assert.equal((await call(personalHook,'select * from tasks')).length,1);
+      assert.equal((await call(hook,'select * from tasks where project_id is null')).length,0);
+      const exported=(await call(user,'select export_tasks(null) result'))[0].result;
+      assert.equal(exported.tasks.length,1);
+      assert.equal(exported.tasks[0].id,personalTask);
+
+      await assert.rejects(db.query(`insert into task_events(
+        owner_id,project_id,task_id,event_type,to_revision,created_by
+      ) values($1,$2,$3,'content_updated',3,'forged')`,[owner,project,personalTask]));
+    });
+
     await t.test('file reservations use opaque paths and verify Storage metadata',async()=>{
       const resourceId=crypto.randomUUID(),requestId=crypto.randomUUID();
       const checksum='a'.repeat(64);

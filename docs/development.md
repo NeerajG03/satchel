@@ -4,7 +4,7 @@ Updated 16 September 2026.
 
 The repository contains a React/TypeScript companion with GitHub sign-in through Supabase, projects, explicit memory, Supabase-native tasks, append-only handoffs, typed links, private file upload/download and task export. It uses the notebook palette and typography with responsive light/dark themes.
 
-Memory hooks, generation-bound agent grants and the production MCP transport are implemented. Task release work still includes applying the new migration to the hosted project, provisioning the private bucket, hosted browser/MCP verification, advisor review, cleanup scheduling and a restore drill.
+Memory hooks, generation-bound agent grants and the production MCP transport are implemented. Supabase-native personal/project tasks and the private bucket are deployed. Hosted rollback-only RPC checks, task-table advisors and the production read/render path pass; cleanup scheduling, a restore drill and broader signed-in browser mutation evidence remain release-hardening work.
 
 ## Local setup
 

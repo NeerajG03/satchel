@@ -9,7 +9,7 @@ export function taskService(db, connectionStatus) {
     const status=await connectionStatus();
     if(!status)throw {code:'42501'};
     const projects=Array.isArray(status.task_project_ids)?status.task_project_ids:[];
-    if(!projects.includes(projectId))throw {code:'42501'};
+    if(projectId===null?!status.task_personal:!projects.includes(projectId))throw {code:'42501'};
     if(capability==='write'&&!status.task_can_write)throw {code:'42501'};
     if(capability==='upload'&&!status.task_can_upload)throw {code:'42501'};
   }
@@ -19,7 +19,9 @@ export function taskService(db, connectionStatus) {
       let query=db.from('tasks').select(
         'id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at',
         {count:'exact'},
-      ).eq('project_id',projectId).order('updated_at',{ascending:false}).order('id').range(0,200);
+      );
+      query=(projectId===null?query.is('project_id',null):query.eq('project_id',projectId))
+        .order('updated_at',{ascending:false}).order('id').range(0,200);
       if(statuses?.length)query=query.in('status',statuses);
       const {data,error,count}=await query.abortSignal(AbortSignal.timeout(8000));
       if(error)throw error;
@@ -27,12 +29,13 @@ export function taskService(db, connectionStatus) {
     },
     async read(projectId,id) {
       await requireScope(projectId);
-      const task=await result(db.from('tasks').select('*').eq('project_id',projectId).eq('id',id).maybeSingle());
+      const taskBase=db.from('tasks').select('*').eq('id',id);
+      const task=await result((projectId===null?taskBase.is('project_id',null):taskBase.eq('project_id',projectId)).maybeSingle());
       if(!task)throw {code:'P0002'};
       const [handoffs,resources,events]=await Promise.all([
-        result(db.from('task_handoffs').select('*').eq('project_id',projectId).eq('task_id',id).order('created_at')),
-        result(db.from('task_resources').select('*').eq('project_id',projectId).eq('task_id',id).order('created_at')),
-        result(db.from('task_events').select('*').eq('project_id',projectId).eq('task_id',id).order('created_at')),
+        result((projectId===null?db.from('task_handoffs').select('*').is('project_id',null):db.from('task_handoffs').select('*').eq('project_id',projectId)).eq('task_id',id).order('created_at')),
+        result((projectId===null?db.from('task_resources').select('*').is('project_id',null):db.from('task_resources').select('*').eq('project_id',projectId)).eq('task_id',id).order('created_at')),
+        result((projectId===null?db.from('task_events').select('*').is('project_id',null):db.from('task_events').select('*').eq('project_id',projectId)).eq('task_id',id).order('created_at')),
       ]);
       return {...task,handoffs,resources,events};
     },

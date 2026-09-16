@@ -100,7 +100,7 @@ The desired interface answers four questions separately: “Do I have this?”, 
 
 ### 7. Manage portable tasks without requiring a repository
 
-Satchel owns V1 task content, state, revisions, handoffs and event history in Supabase. A task belongs to a Satchel project and works for code and non-code work. GitHub issues, pull requests, Notion pages and other HTTPS objects can be attached as typed references; Satchel does not mirror or synchronize their state.
+Satchel owns V1 task content, state, revisions, handoffs and event history in Supabase. A task can live in **For me** with no project, or belong to a Satchel project for shared context. Both work for code and non-code work. GitHub issues, pull requests, Notion pages and other HTTPS objects can be attached as typed references; Satchel does not mirror or synchronize their state.
 
 Private task files live in Supabase Storage and use an explicit reserve, upload and verification lifecycle. Agent read, write and upload permissions are separate. A public source-plugin loader, marketplace and synchronization engine remain deferred.
 

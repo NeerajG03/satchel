@@ -3,7 +3,7 @@ export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export type Task = {
   id: string;
-  project_id: string;
+  project_id: string | null;
   title: string;
   outcome: string;
   why: string;

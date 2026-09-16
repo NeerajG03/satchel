@@ -12,7 +12,7 @@ export function TaskWorkspace({db}:{db:SupabaseClient}) {
   const projectStore=useMemo(()=>createProjectRepository(db),[db]);
   const taskStore=useMemo(()=>createTaskRepository(db),[db]);
   const [projects,setProjects]=useState<Project[]>([]);
-  const [projectId,setProjectId]=useState('');
+  const [projectId,setProjectId]=useState<string|null>(null);
   const [tasks,setTasks]=useState<TaskSummary[]>([]);
   const [selected,setSelected]=useState<TaskDetail|null>(null);
   const [draft,setDraft]=useState<TaskDraft>(EMPTY_TASK);
@@ -25,12 +25,12 @@ export function TaskWorkspace({db}:{db:SupabaseClient}) {
   const [blockedReason,setBlockedReason]=useState('');
 
   useEffect(()=>{let active=true;setLoading(true);
-    projectStore.list().then(items=>{if(!active)return;setProjects(items);setProjectId(current=>current||items[0]?.id||'');})
+    projectStore.list().then(items=>{if(active)setProjects(items);})
       .catch(reason=>{if(active)setError(errorMessage(reason,'load'));})
       .finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[projectStore]);
-  useEffect(()=>{let active=true;if(!projectId){setTasks([]);return;}
+  useEffect(()=>{let active=true;
     setLoading(true);setError('');setSelected(null);
     taskStore.list(projectId).then(items=>{if(active)setTasks(items);})
       .catch(reason=>{if(active)setError(errorMessage(reason,'load'));})
@@ -45,7 +45,7 @@ export function TaskWorkspace({db}:{db:SupabaseClient}) {
   function changeDraft(next:TaskDraft) {setDraft(next);setRequestId(crypto.randomUUID());}
   function resetDraft() {setDraft(EMPTY_TASK);setSelected(null);setRequestId(crypto.randomUUID());setTaskId(crypto.randomUUID());}
   async function open(summary:TaskSummary) {await run(async()=>{const task=await taskStore.read(summary.project_id,summary.id);setSelected(task);setDraft(task);});}
-  async function save(event:FormEvent) {event.preventDefault();if(!projectId)return;
+  async function save(event:FormEvent) {event.preventDefault();
     await run(async()=>{const task=selected?await taskStore.update(selected,requestId,draft):await taskStore.create(projectId,taskId,requestId,draft);
       setTasks(items=>replaceTask(items,task));resetDraft();setNotice(selected?'Task updated.':'Task captured.');});
   }
@@ -67,16 +67,18 @@ export function TaskWorkspace({db}:{db:SupabaseClient}) {
     await run(async()=>{const result=await taskStore.upload(selected,crypto.randomUUID(),crypto.randomUUID(),String(form.get('label')),file);
       const task=await taskStore.read(selected.project_id,result.task.id);setSelected(task);setDraft(task);setTasks(items=>replaceTask(items,result.task));setNotice('File uploaded and verified.');element.reset();});
   }
-  async function exportProject() {if(!projectId)return;await run(async()=>{const count=await taskStore.exportProject(projectId);setNotice(`Exported the database manifest${count?` and ${count} stored file${count===1?'':'s'}`:''}.`);});}
+  async function exportProject() {await run(async()=>{const count=await taskStore.exportProject(projectId);setNotice(`Exported the database manifest${count?` and ${count} stored file${count===1?'':'s'}`:''}.`);});}
 
   const project=projects.find(item=>item.id===projectId);
   return <div className="task-layout">
     <aside><div className="eyebrow">TASK PROJECT</div><nav aria-label="Task projects">
+      <button aria-current={projectId===null?'page':undefined} disabled={busy}
+        onClick={()=>setProjectId(null)}>For me</button>
       {projects.map(item=><button key={item.id} aria-current={item.id===projectId?'page':undefined} disabled={busy}
         onClick={()=>setProjectId(item.id)}>{item.name}</button>)}
-    </nav>{!projects.length&&!loading&&<p className="fine muted">Create a project in Memory first, then capture tasks here.</p>}</aside>
-    <section className="book tasks"><div className="book-heading"><div><div className="eyebrow">{project?.name??'TASKS'}</div><h1>Continue.</h1></div>
-      <button className="quiet" disabled={busy||!projectId} onClick={()=>void exportProject()}>Export project</button></div>
+    </nav></aside>
+    <section className="book tasks"><div className="book-heading"><div><div className="eyebrow">{project?.name??'FOR ME'}</div><h1>Continue.</h1></div>
+      <button className="quiet" disabled={busy} onClick={()=>void exportProject()}>Export {projectId===null?'personal tasks':'project'}</button></div>
       <p className="muted">See what is moving, what is blocked, and the exact next action.</p>
       {error&&<p className="notice error" role="alert">{error}</p>}{notice&&<p className="notice" role="status">{notice}</p>}
       {selected?<>
@@ -105,10 +107,10 @@ export function TaskWorkspace({db}:{db:SupabaseClient}) {
           {[...(selected.handoffs??[])].reverse().map(handoff=><article key={handoff.id}><h3>{handoff.summary||'Handoff'}</h3><p>{handoff.next_action}</p><p className="fine muted">{new Date(handoff.created_at).toLocaleString()} · {handoff.created_by}</p></article>)}
         </section>
       </>:<>
-        <form className="composer" onSubmit={save}><h2>Capture a task</h2><label>Title<input required maxLength={200} value={draft.title} disabled={busy||!projectId} onChange={event=>changeDraft({...draft,title:event.target.value})}/></label>
-          <label>Outcome <span className="muted">(optional)</span><textarea maxLength={1000} value={draft.outcome} disabled={busy||!projectId} onChange={event=>changeDraft({...draft,outcome:event.target.value})}/></label>
-          <label>Next action <span className="muted">(optional)</span><textarea maxLength={1000} value={draft.next_action} disabled={busy||!projectId} onChange={event=>changeDraft({...draft,next_action:event.target.value})}/></label>
-          <button className="primary" disabled={busy||!projectId||!draft.title.trim()}>Capture task</button></form>
+        <form className="composer" onSubmit={save}><h2>Capture a task</h2><label>Title<input required maxLength={200} value={draft.title} disabled={busy} onChange={event=>changeDraft({...draft,title:event.target.value})}/></label>
+          <label>Outcome <span className="muted">(optional)</span><textarea maxLength={1000} value={draft.outcome} disabled={busy} onChange={event=>changeDraft({...draft,outcome:event.target.value})}/></label>
+          <label>Next action <span className="muted">(optional)</span><textarea maxLength={1000} value={draft.next_action} disabled={busy} onChange={event=>changeDraft({...draft,next_action:event.target.value})}/></label>
+          <button className="primary" disabled={busy||!draft.title.trim()}>Capture task</button></form>
         {loading?<p role="status">Loading tasks…</p>:tasks.length===0?<div className="empty"><h2>No tasks yet.</h2><p>Capture the next thing worth carrying forward.</p></div>:
           <div className="task-list">{tasks.map(task=><article key={task.id}><div className="task-card-heading"><h2>{task.title}</h2><span className={`task-state ${task.status}`}>{task.status.replace('_',' ')}</span></div>
             <p>{task.next_action||'No next action yet.'}</p>{task.blocked_reason&&<p className="notice">Blocked: {task.blocked_reason}</p>}

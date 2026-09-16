@@ -5,6 +5,7 @@ import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
 import {generateKeyPair,SignJWT} from 'jose';
 import {createMemoryServer} from '../server/mcp-server.mjs';
 import {verifyAgentToken,RESOURCE,SUPABASE_URL} from '../server/http-handler.mjs';
+import {taskService} from '../server/task-service.mjs';
 
 test('MCP contracts separate index, detail, explicit writes and hook output',async()=>{
   const id=crypto.randomUUID(),projectId=crypto.randomUUID();let revoked=false,writes=0,oversized=false,detailReads=0,activations=0,hintedProject=null,unlinked=false,personal=true;
@@ -118,7 +119,7 @@ test('MCP exposes revision-safe task operations without turning links into fetch
   const projectId=crypto.randomUUID(),taskId=crypto.randomUUID();
   const calls=[];
   const service={
-    status:async()=>({personal:false,task_project_ids:[projectId],task_can_write:true,task_can_upload:false}),
+    status:async()=>({personal:false,task_personal:true,task_project_ids:[projectId],task_can_write:true,task_can_upload:false}),
     tasks:{
       list:async(project,statuses)=>({tasks:[{id:taskId,project_id:project,title:'Fixture',status:statuses?.[0]??'ready',revision:1}],complete:true}),
       read:async()=>({id:taskId,project_id:projectId,title:'Fixture',handoffs:[],resources:[],events:[]}),
@@ -139,15 +140,29 @@ test('MCP exposes revision-safe task operations without turning links into fetch
     assert.equal(tools.find(tool=>tool.name==='add_task_resource').annotations.openWorldHint,false);
     const listed=await call('list_tasks',{project_id:projectId,statuses:['ready']});
     assert.match(listed.content[0].text,/Fixture/);
+    assert.match((await call('list_tasks',{project_id:null})).content[0].text,/Fixture/);
     await call('create_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,title:'Fixture'});
+    await call('create_task',{request_id:crypto.randomUUID(),id:crypto.randomUUID(),project_id:null,title:'Personal fixture'});
     await call('transition_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,revision:1,status:'in_progress'});
     await call('record_handoff',{request_id:crypto.randomUUID(),handoff_id:crypto.randomUUID(),id:taskId,
       project_id:projectId,revision:1,next_action:'Continue'});
     await call('add_task_resource',{request_id:crypto.randomUUID(),resource_id:crypto.randomUUID(),id:taskId,
       project_id:projectId,revision:1,label:'Docs',url:'https://example.com/doc'});
-    assert.deepEqual(calls.map(entry=>entry[0]),['create','transition','handoff','resource']);
+    assert.deepEqual(calls.map(entry=>entry[0]),['create','create','transition','handoff','resource']);
     const invalid=await call('add_task_resource',{request_id:crypto.randomUUID(),resource_id:crypto.randomUUID(),id:taskId,
       project_id:projectId,revision:1,label:'Unsafe',url:'http://example.com'});
     assert.equal(invalid.isError,true);
   }finally{await client.close();await server.close();}
+});
+
+test('task service requires an explicit personal-task grant for project_id null',async()=>{
+  let calls=0;
+  const db={rpc:()=>{calls++;return {single:()=>({abortSignal:async()=>({data:{id:'ok'},error:null})})};}};
+  const args={project_id:null,request_id:crypto.randomUUID(),id:crypto.randomUUID(),title:'Personal',outcome:'',why:'',done_when:[],next_action:'',priority:'medium'};
+  const denied=taskService(db,async()=>({task_personal:false,task_project_ids:[],task_can_write:true}));
+  await assert.rejects(denied.create(args),{code:'42501'});
+  assert.equal(calls,0);
+  const allowed=taskService(db,async()=>({task_personal:true,task_project_ids:[],task_can_write:true}));
+  assert.equal((await allowed.create(args)).id,'ok');
+  assert.equal(calls,1);
 });

@@ -4,13 +4,13 @@
 
 ## Decision
 
-Supabase Postgres is the sole authority for Satchel task content, state, revision, handoffs, resources and event history. A task belongs to a Satchel project and does not require a repository. GitHub issues, pull requests, repositories, documents and other web objects are typed resources attached to a task; Satchel never treats them as task identity and never fetches external URLs automatically.
+Supabase Postgres is the sole authority for Satchel task content, state, revision, handoffs, resources and event history. A task belongs either to the owner's personal **For me** scope or to a Satchel project; neither scope requires a repository. GitHub issues, pull requests, repositories, documents and other web objects are typed resources attached to a task; Satchel never treats them as task identity and never fetches external URLs automatically.
 
 Supabase Storage owns uploaded bytes. Postgres owns their metadata and lifecycle. Realtime is optional and not required for correctness.
 
 ## What the first slice solves
 
-- Capture a task once and retrieve it in another supported agent or device.
+- Capture a personal or project task once and retrieve it in another supported agent or device.
 - Make the current state, blocker, priority and next action explicit.
 - Preserve append-only handoffs and meaningful state history.
 - Attach HTTPS references and private files without coupling work to a code repository.
@@ -57,7 +57,7 @@ Database writes are atomic with their events and idempotency receipt. Storage up
 
 ### `tasks`
 
-The canonical task row contains identity (`owner_id`, `project_id`, `id`), content (`title`, `outcome`, `why`, `done_when[]`, `next_action`), planning (`status`, `priority`, `blocked_reason`), concurrency (`revision`) and audit fields (`created_by`, `updated_by`, timestamps).
+The canonical task row contains identity (`owner_id`, nullable `project_id`, `id`), content (`title`, `outcome`, `why`, `done_when[]`, `next_action`), planning (`status`, `priority`, `blocked_reason`), concurrency (`revision`) and audit fields (`created_by`, `updated_by`, timestamps). `project_id = null` is the personal **For me** scope.
 
 States are `inbox`, `ready`, `in_progress`, `blocked`, and `done`. A blocked task requires a blocker; other states must not retain one. A done task requires `closed_at`; reopening clears it.
 
@@ -90,26 +90,26 @@ Idempotency ledger keyed by `(owner_id, request_id)`. It stores operation, canon
 
 ### `agent_task_grants`
 
-Per-project capability rows bound to `(owner_id, client_id, grant_id)`. Capabilities are `can_read`, `can_write`, and `can_upload`. The grant generation must match both the live connection and JWT. Reauthorization rotates the generation and replaces grants atomically; revocation deletes task grants and rotates the connection generation.
+Per-project capability rows are bound to `(owner_id, client_id, grant_id)`, while `agent_connections.task_personal` grants the personal task scope. Capabilities are `can_read`, `can_write`, and `can_upload`. Personal task access is distinct from personal-memory access. The grant generation must match both the live connection and JWT. Reauthorization rotates the generation and replaces grants atomically; revocation deletes task grants and rotates the connection generation.
 
 ## Ownership invariants
 
-Every child carries `owner_id`, `project_id`, and `task_id` and uses composite foreign keys:
+Every child carries `owner_id`, nullable `project_id`, `task_id`, and an internal generated `scope_key`. The scope key is the project UUID text or `personal`, allowing null-safe composite foreign keys without a fake project:
 
 ```sql
-unique (owner_id, project_id, id)
+unique (owner_id, scope_key, id)
 
-foreign key (owner_id, project_id, task_id)
-  references tasks(owner_id, project_id, id)
+foreign key (owner_id, scope_key, task_id)
+  references tasks(owner_id, scope_key, id)
 ```
 
-Handoff-resource references bind both sides to the same owner, project and task. These constraints prevent a policy or wrapper defect from associating data across tenants or projects.
+Handoff-resource references bind both sides to the same owner, scope and task. These constraints prevent a policy or wrapper defect from associating data across tenants, personal/project scopes or tasks.
 
 ## Authorization
 
 All exposed tables have RLS enabled. The migration revokes defaults and grants only `SELECT` to `authenticated`; direct inserts, updates and deletes are unavailable. Mutations use narrowly scoped functions that derive the owner and actor from `auth.uid()` and trusted JWT claims.
 
-`private.agent_can_access_tasks(project_id, capability)` is a stable `SECURITY DEFINER` boolean helper in an unexposed schema. `authenticated` receives `USAGE` on `private` and `EXECUTE` only on the narrow helpers so RLS policies can call them. The helper always checks caller owner, client, current connection generation, JWT generation, revocation and per-project capability.
+`private.agent_can_access_tasks(project_id, capability)` is a stable `SECURITY DEFINER` boolean helper in an unexposed schema. A null project checks the explicit personal-task grant; a UUID checks its per-project grant. `authenticated` receives `USAGE` on `private` and `EXECUTE` only on the narrow helpers so RLS policies can call them. The helper always checks caller owner, client, current connection generation, JWT generation, revocation and exact-scope capability.
 
 Companion sessions are identified by the absence of an OAuth `client_id`; agent sessions require exact task grants. Task permissions do not grant memory access, and memory permissions do not grant task access.
 
@@ -137,7 +137,7 @@ Each operation keeps its database transaction short and performs no external net
 
 The production MCP server exposes:
 
-- `list_tasks(project_id, statuses?)`
+- `list_tasks(project_id, statuses?)` (`null` means personal tasks)
 - `read_task(project_id, id)`
 - `create_task(request_id, id, project_id, …)`
 - `update_task(request_id, id, project_id, revision, …)`
@@ -149,12 +149,12 @@ Lists are bounded and return `complete`. Reads include handoffs, verified resour
 
 ## Companion flow
 
-1. Choose a project.
+1. Choose **For me** or a project; **For me** is available even with zero projects.
 2. Capture a task with title, optional outcome and next action.
 3. Open it to edit the full contract or transition state.
 4. Attach an HTTPS reference or reserve/upload/verify a private file.
 5. Record a handoff; this advances the task revision atomically.
-6. Export the project manifest and every verified stored object.
+6. Export the selected personal/project scope manifest and every verified stored object.
 
 Agent consent presents memory scopes and task scopes separately. Task write and upload are independent checkboxes.
 
@@ -168,7 +168,7 @@ Database backups do not contain Storage bytes. A recoverable backup consists of:
 2. authenticated downloads of every verified `storage_object` in the manifest;
 3. a restore drill that recreates private objects at their immutable keys and then restores database records.
 
-The companion's project export performs steps 1 and 2. `npm run task-storage:cleanup` removes failed or pending reservations older than 24 hours and records deletion events; scheduling it is operational follow-up, not hidden inside request transactions.
+The companion's selected-scope export performs steps 1 and 2. `npm run task-storage:cleanup` removes failed or pending reservations older than 24 hours and records deletion events; scheduling it is operational follow-up, not hidden inside request transactions.
 
 ## Failure behavior
 
@@ -187,7 +187,7 @@ The companion's project export performs steps 1 and 2. `npm run task-storage:cle
 - Assert companion, read-only agent, writer, uploader, stale generation, revoked generation and cross-owner cases.
 - Assert every meaningful mutation creates exactly one event and identical retries do not duplicate rows.
 - Assert stale revisions preserve the winning task.
-- Assert composite foreign keys reject cross-project child rows.
+- Assert composite foreign keys reject cross-owner, cross-project and personal/project child rows.
 - Assert unsafe/non-HTTPS external URLs fail.
 - Assert upload paths contain only owner/task/resource IDs and failed verification never becomes readable.
 - Run `supabase test db`, security/performance advisors, the Node test suite and production build.
@@ -197,7 +197,7 @@ The companion's project export performs steps 1 and 2. `npm run task-storage:cle
 
 1. **Core data and authorization** — schema, composite constraints, RLS, capability grants, atomic functions, events and tests.
 2. **Agent continuity** — TaskService plus MCP list/read/write/handoff/link tools.
-3. **Companion workflow** — project task list, capture/detail/transitions/handoffs/resources/export.
+3. **Companion workflow** — personal/project task lists, capture/detail/transitions/handoffs/resources/export.
 4. **Storage operations** — private bucket provisioning, upload verification, abandoned-upload cleanup, restore drill.
 5. **Release hardening** — hosted migration, advisors, browser evidence, observability and rollback/export runbook.
 
@@ -205,7 +205,7 @@ Slices are deployable checkpoints, not alternate designs. A slice is complete on
 
 ## Current implementation checkpoint
 
-Slices 1–3 and the repository's provisioning/cleanup/export mechanics for slice 4 are implemented. Local database/MCP tests and the production build pass. Hosted migration, private bucket provisioning, cleanup scheduling, restore drill, advisors and browser verification remain release work.
+Slices 1–3 and the provisioning/cleanup/export mechanics for slice 4 are implemented. The hosted migrations and private bucket are live; hosted rollback-only project and personal-agent RPC smokes pass, task-table advisor findings are clear, and the production companion renders both **For me** and project task scopes. Cleanup scheduling, a restore drill and broader signed-in browser mutation evidence remain release-hardening work.
 
 ## Sources
 

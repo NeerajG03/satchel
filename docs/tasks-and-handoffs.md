@@ -4,7 +4,7 @@
 
 ## One task authority
 
-Satchel's Supabase database is the sole authority for task title, outcome, rationale, completion criteria, next action, state, priority, blocker, revision and history. Tasks belong to Satchel projects and do not require a repository.
+Satchel's Supabase database is the sole authority for task title, outcome, rationale, completion criteria, next action, state, priority, blocker, revision and history. Tasks belong either to **For me** or to a Satchel project and do not require a repository.
 
 An existing GitHub issue, pull request, repository, Notion page or document can be attached as a typed HTTPS resource. Satchel does not automatically fetch it, mirror its status or claim to synchronize it. This avoids two editable copies of an external team's work while still giving a Satchel task the context needed for continuity.
 
@@ -33,7 +33,7 @@ Do not claim validation that was not performed. A branch, commit, PR or artifact
 
 ## Resume flow
 
-1. Resolve an authorized Satchel project.
+1. Resolve an authorized personal or project task scope.
 2. List active tasks and choose one explicitly.
 3. Read the latest task, handoffs, verified resources and events.
 4. Check that referenced code, documents and files are reachable.
@@ -53,7 +53,7 @@ reserve metadata → pending → upload bytes → verify size/checksum → verif
                                 └──────── failure ───────────────→ failed
 ```
 
-Read, write and upload are distinct agent capabilities. Verified files are downloaded with authenticated requests; public URLs are not used. Project export downloads a JSON manifest and every verified object because database backups alone do not include Storage bytes.
+Read, write and upload are distinct agent capabilities. Personal-task access is separate from personal-memory access. Verified files are downloaded with authenticated requests; public URLs are not used. Scope export downloads a JSON manifest and every verified object because database backups alone do not include Storage bytes.
 
 ## History and deletion
 

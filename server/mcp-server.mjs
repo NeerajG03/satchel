@@ -14,7 +14,7 @@ const repositoryName=z.string().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/).max(201).n
   .describe('Normalized lowercase owner/repository detected by the Satchel bootstrap, never a guessed folder name.');
 const taskStatus=z.enum(['inbox','ready','in_progress','blocked','done']);
 const taskPriority=z.enum(['low','medium','high','urgent']);
-const taskProject=z.uuid().describe('An explicitly task-authorized Satchel project UUID.');
+const taskProject=z.uuid().nullable().describe('null means personal tasks; otherwise an explicitly task-authorized Satchel project UUID.');
 const taskIdentity={project_id:taskProject,id:z.uuid(),revision:z.number().int().positive()};
 const taskContent={
   title:z.string().trim().min(1).max(200),outcome:z.string().max(1000).default(''),
@@ -119,11 +119,11 @@ export function createMemoryServer(service) {
     identity,a=>service.remove(a),{readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:false});
 
   if(service.tasks) {
-    register('list_tasks','List bounded task summaries in one explicitly authorized project. Filter by state when useful and check complete before claiming the list is exhaustive.',
+    register('list_tasks','List bounded task summaries in one explicit task scope. Use project_id=null for personal tasks; otherwise use an authorized project UUID. Filter by state when useful and check complete before claiming the list is exhaustive.',
       {project_id:taskProject,statuses:z.array(taskStatus).max(5).optional()},a=>service.tasks.list(a.project_id,a.statuses));
     register('read_task','Read one task with its append-only handoffs, verified resources, and event history.',
       {project_id:taskProject,id:z.uuid()},a=>service.tasks.read(a.project_id,a.id));
-    register('create_task','Create a Satchel task only when the user explicitly asks. Reuse request_id and id with the identical payload when retrying a lost response.',
+    register('create_task','Create a personal or project Satchel task only when the user explicitly asks. Use project_id=null for personal scope. Reuse request_id and id with the identical payload when retrying a lost response.',
       {request_id:z.uuid(),id:z.uuid(),project_id:taskProject,...taskContent},a=>service.tasks.create(a),writeAnnotations);
     register('update_task','Update task content using the current revision. Re-read after a conflict; never overwrite a newer revision blindly.',
       {request_id:z.uuid(),...taskIdentity,...taskContent},a=>service.tasks.update(a),writeAnnotations);
