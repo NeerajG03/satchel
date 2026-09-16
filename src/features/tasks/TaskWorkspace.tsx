@@ -7,6 +7,7 @@ import {EMPTY_TASK,replaceTask,type TaskDetail,type TaskDraft,type TaskStatus,ty
 
 const STATES:TaskStatus[]=['inbox','ready','in_progress','blocked','done'];
 const lines=(value:string)=>value.split('\n').map(line=>line.trim()).filter(Boolean);
+const resourceIds=(form:FormData)=>form.getAll('resource_id').map(String);
 
 export function TaskWorkspace({db}:{db:SupabaseClient}) {
   const projectStore=useMemo(()=>createProjectRepository(db),[db]);
@@ -59,6 +60,22 @@ export function TaskWorkspace({db}:{db:SupabaseClient}) {
       summary,completed:lines(String(form.get('completed')??'')),remaining:lines(String(form.get('remaining')??'')),nextAction,
     });const task=await taskStore.read(selected.project_id,result.task.id);setSelected(task);setDraft(task);setTasks(items=>replaceTask(items,result.task));setNotice('Handoff recorded.');element.reset();});
   }
+  async function addComment(event:FormEvent<HTMLFormElement>) {event.preventDefault();if(!selected)return;
+    const element=event.currentTarget;const form=new FormData(element);
+    await run(async()=>{await taskStore.comment(selected,crypto.randomUUID(),crypto.randomUUID(),String(form.get('body')??''),resourceIds(form));
+      const task=await taskStore.read(selected.project_id,selected.id);setSelected(task);setDraft(task);setTasks(items=>replaceTask(items,task));setNotice('Comment added.');element.reset();});
+  }
+  async function addProgress(event:FormEvent<HTMLFormElement>) {event.preventDefault();if(!selected)return;
+    const element=event.currentTarget;const form=new FormData(element);const status=String(form.get('status')??'') as TaskStatus|'';
+    const progressBlockedReason=String(form.get('blocked_reason')??'');
+    if(status==='blocked'&&!progressBlockedReason.trim()){setError('A blocked progress update requires a blocker.');return;}
+    await run(async()=>{const result=await taskStore.progress(selected,crypto.randomUUID(),crypto.randomUUID(),{
+      summary:String(form.get('summary')??''),completed:lines(String(form.get('completed')??'')),
+      decisions:lines(String(form.get('decisions')??'')),remaining:lines(String(form.get('remaining')??'')),
+      blockers:lines(String(form.get('blockers')??'')),nextAction:String(form.get('next_action')??''),
+      status:status||null,blockedReason:progressBlockedReason,resourceIds:resourceIds(form),
+    });const task=await taskStore.read(selected.project_id,result.task.id);setSelected(task);setDraft(task);setTasks(items=>replaceTask(items,result.task));setNotice('Progress recorded.');element.reset();});
+  }
   async function addLink(event:FormEvent<HTMLFormElement>) {event.preventDefault();if(!selected)return;const element=event.currentTarget;const form=new FormData(element);
     await run(async()=>{const result=await taskStore.addLink(selected,crypto.randomUUID(),crypto.randomUUID(),String(form.get('label')),String(form.get('url')));
       const task=await taskStore.read(selected.project_id,result.task.id);setSelected(task);setDraft(task);setTasks(items=>replaceTask(items,result.task));setNotice('Link attached.');element.reset();});
@@ -99,6 +116,29 @@ export function TaskWorkspace({db}:{db:SupabaseClient}) {
           {resource.kind==='external_url'?<a href={resource.external_url??'#'} target="_blank" rel="noreferrer">Open ↗</a>:resource.upload_status==='verified'?<button className="quiet" onClick={()=>void run(()=>taskStore.download(resource))}>Download</button>:null}</div>)}
           <form className="inline-form" onSubmit={addLink}><label>Link label<input name="label" required maxLength={200} disabled={busy}/></label><label>HTTPS URL<input name="url" type="url" required pattern="https://.*" disabled={busy}/></label><button disabled={busy}>Attach link</button></form>
           <form className="inline-form" onSubmit={upload}><label>File label<input name="label" maxLength={200} disabled={busy}/></label><label>File <span className="muted">(max 6 MB)</span><input name="file" type="file" required disabled={busy}/></label><button disabled={busy}>Upload file</button></form>
+        </section>
+        <section className="task-section"><h2>Updates & comments</h2>
+          <form onSubmit={addProgress}><h3>Progress update</h3>
+            <label>Summary<textarea name="summary" required maxLength={4000} disabled={busy}/></label>
+            <label>Completed <span className="muted">(one per line)</span><textarea name="completed" disabled={busy}/></label>
+            <label>Decisions <span className="muted">(one per line)</span><textarea name="decisions" disabled={busy}/></label>
+            <label>Remaining <span className="muted">(one per line)</span><textarea name="remaining" disabled={busy}/></label>
+            <label>Blockers <span className="muted">(one per line)</span><textarea name="blockers" disabled={busy}/></label>
+            <label>Next action<textarea name="next_action" maxLength={1000} defaultValue={selected.next_action} disabled={busy}/></label>
+            <label>Move task <select name="status" defaultValue="" disabled={busy}><option value="">Keep current state</option>{STATES.map(state=><option key={state} value={state}>{state.replace('_',' ')}</option>)}</select></label>
+            <label>Blocked reason <span className="muted">(required when moving to blocked)</span><input name="blocked_reason" maxLength={2000} disabled={busy}/></label>
+            {!!selected.resources?.length&&<fieldset className="resource-choices"><legend>Reference resources</legend>{selected.resources.filter(resource=>resource.upload_status==='verified').map(resource=><label key={resource.id}><input type="checkbox" name="resource_id" value={resource.id} disabled={busy}/>{resource.label}</label>)}</fieldset>}
+            <button className="primary" disabled={busy}>Record progress</button>
+          </form>
+          <form className="comment-form" onSubmit={addComment}><h3>Comment</h3><label>Comment<textarea name="body" required maxLength={4000} disabled={busy}/></label>
+            {!!selected.resources?.length&&<fieldset className="resource-choices"><legend>Reference resources</legend>{selected.resources.filter(resource=>resource.upload_status==='verified').map(resource=><label key={resource.id}><input type="checkbox" name="resource_id" value={resource.id} disabled={busy}/>{resource.label}</label>)}</fieldset>}
+            <button disabled={busy}>Add comment</button>
+          </form>
+          <div className="task-timeline">{[...(selected.updates??[])].reverse().map(update=>{const linked=(selected.update_resource_refs??[]).filter(ref=>ref.update_id===update.id).map(ref=>selected.resources.find(resource=>resource.id===ref.resource_id)).filter(Boolean);return <article key={update.id}>
+            <div className="task-card-heading"><h3>{update.kind==='progress'?'Progress update':'Comment'}</h3>{update.status&&<span className={`task-state ${update.status}`}>{update.status.replace('_',' ')}</span>}</div>
+            <p>{update.body}</p>{update.completed.length>0&&<p><strong>Completed:</strong> {update.completed.join(' · ')}</p>}{update.blockers.length>0&&<p><strong>Blockers:</strong> {update.blockers.join(' · ')}</p>}{update.next_action&&<p><strong>Next:</strong> {update.next_action}</p>}
+            {linked.length>0&&<p className="fine">Resources: {linked.map(resource=>resource?.label).join(', ')}</p>}<p className="fine muted">{new Date(update.created_at).toLocaleString()} · {update.created_by}</p>
+          </article>;})}</div>
         </section>
         <section className="task-section"><h2>Record handoff</h2><form onSubmit={addHandoff}>
           <label>Summary<textarea name="summary" maxLength={4000} disabled={busy}/></label><label>Completed <span className="muted">(one per line)</span><textarea name="completed" disabled={busy}/></label>

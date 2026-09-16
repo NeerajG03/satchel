@@ -10,9 +10,17 @@ An existing GitHub issue, pull request, repository, Notion page or document can 
 
 ## V1 operations
 
-The companion and connected agents can list, read, create, update and transition tasks; record append-only handoffs; attach HTTPS links; and inspect event history. The companion also uploads private files, downloads them through authenticated Storage access and exports database records plus verified objects.
+The companion and connected agents can list, read, create, update and transition tasks; add append-only comments; record structured progress and handoffs; attach HTTPS links; and inspect event history. The companion also uploads private files, downloads them through authenticated Storage access and exports database records plus verified objects.
 
 Every write has a stable request ID. Content/state writes require the current task revision. A lost response is retried with the same ID and identical payload; a stale revision is a conflict, not an overwrite.
+
+## Comment, progress update, or handoff
+
+- A **comment** is lightweight discussion or context. It may reference existing verified resources, but it does not change task content or invalidate an in-flight editor.
+- A **progress update** records what moved, decisions, remaining work, blockers and the next action. It atomically advances the task revision and may move its state.
+- A **handoff** is the stronger boundary used when work stops or ownership/context changes. It additionally carries validation evidence and supports explicit supersession.
+
+All three appear as durable continuation context. They are not interchangeable labels for the same free-form note.
 
 ## A handoff is portable work evidence
 
@@ -35,7 +43,7 @@ Do not claim validation that was not performed. A branch, commit, PR or artifact
 
 1. Resolve an authorized personal or project task scope.
 2. List active tasks and choose one explicitly.
-3. Read the latest task, handoffs, verified resources and events.
+3. Read the latest task, comments, progress updates, handoffs, verified resources and events.
 4. Check that referenced code, documents and files are reachable.
 5. Continue the next action in the current environment or present a bounded handoff when launch/transfer is unavailable.
 6. Record new evidence and state using the current revision.

@@ -24,6 +24,7 @@ As of 10 September 2026. Explicit user statements outrank inherited reports, rec
 | D16 | Investigate automatic context delivery through native plugin hooks | User wants the agent told how to retrieve context or given relevant context; automatic retrieval does not change explicit-only saving |
 | D17 | Supabase is the sole authority for Satchel task state, handoffs and resource metadata | User explicitly selected the self-contained architecture; repositories and external trackers are optional typed links, not task identity |
 | D18 | Private Supabase Storage holds task files with a reserve/upload/verify lifecycle | User accepted the Supabase-native review, including separate upload capability, immutable object paths and export of database records plus objects |
+| D19 | Tasks have lightweight comments and structured progress updates in addition to handoffs | User explicitly called out ongoing progress and comment updates as useful; comments do not conflict with task edits, while progress atomically advances task state/next action |
 
 The notebook/hardware style is the current user-supplied visual direction. The particular font, rotated navigation, opening screen, and component behavior still need final decisions. “Your work, with you” is the working tagline proposed during naming; the name was explicitly selected, not a complete brand system.
 

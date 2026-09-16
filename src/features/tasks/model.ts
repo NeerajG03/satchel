@@ -17,12 +17,13 @@ export type Task = {
   updated_by: string;
   created_at: string;
   updated_at: string;
+  last_activity_at: string;
   closed_at: string | null;
 };
 
 export type TaskSummary = Pick<Task,
   'id' | 'project_id' | 'title' | 'status' | 'priority' | 'next_action' |
-  'blocked_reason' | 'revision' | 'updated_at'>;
+  'blocked_reason' | 'revision' | 'updated_at' | 'last_activity_at'>;
 
 export type TaskResource = {
   id: string;
@@ -57,6 +58,27 @@ export type TaskHandoff = {
   created_at: string;
 };
 
+export type TaskUpdate = {
+  id: string;
+  task_id: string;
+  kind: 'comment' | 'progress';
+  body: string;
+  completed: string[];
+  decisions: string[];
+  remaining: string[];
+  blockers: string[];
+  next_action: string | null;
+  status: TaskStatus | null;
+  blocked_reason: string;
+  created_by: string;
+  created_at: string;
+};
+
+export type TaskUpdateResourceRef = {
+  update_id: string;
+  resource_id: string;
+};
+
 export type TaskEvent = {
   id: number;
   event_type: string;
@@ -69,7 +91,9 @@ export type TaskEvent = {
 
 export type TaskDetail = Task & {
   handoffs: TaskHandoff[];
+  updates: TaskUpdate[];
   resources: TaskResource[];
+  update_resource_refs: TaskUpdateResourceRef[];
   events: TaskEvent[];
 };
 
@@ -79,11 +103,11 @@ export const EMPTY_TASK: TaskDraft = {
 };
 
 export function taskSummary(task: Task): TaskSummary {
-  const {id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at}=task;
-  return {id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at};
+  const {id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at}=task;
+  return {id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at};
 }
 
 export function replaceTask(tasks: TaskSummary[], task: Task): TaskSummary[] {
   return [taskSummary(task),...tasks.filter(item=>item.id!==task.id)]
-    .sort((a:TaskSummary,b:TaskSummary)=>b.updated_at.localeCompare(a.updated_at)||a.id.localeCompare(b.id));
+    .sort((a:TaskSummary,b:TaskSummary)=>b.last_activity_at.localeCompare(a.last_activity_at)||a.id.localeCompare(b.id));
 }

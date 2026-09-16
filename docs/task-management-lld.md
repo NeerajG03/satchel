@@ -12,7 +12,7 @@ Supabase Storage owns uploaded bytes. Postgres owns their metadata and lifecycle
 
 - Capture a personal or project task once and retrieve it in another supported agent or device.
 - Make the current state, blocker, priority and next action explicit.
-- Preserve append-only handoffs and meaningful state history.
+- Preserve append-only comments, progress updates, handoffs and meaningful state history.
 - Attach HTTPS references and private files without coupling work to a code repository.
 - Reject stale concurrent writes rather than silently overwriting them.
 - Revoke agent access immediately through the existing grant generation.
@@ -66,6 +66,12 @@ Every mutation supplies `expected_revision`. The update and revision increment o
 ### `task_handoffs`
 
 Append-only structured evidence containing completed work, decisions, validation, remaining work, blockers, next action and summary. `supersedes_ids[]` corrects earlier handoffs without editing them. `record_task_handoff` updates the task next action/state and creates the handoff/event in one transaction, returning both the new task projection and handoff.
+
+### `task_updates`
+
+One append-only work timeline with two explicit kinds. A `comment` is lightweight discussion and does not advance the task revision, so it cannot invalidate a concurrent content edit. A `progress` update records a summary, completed work, decisions, remaining work, blockers and the resolved next action/state snapshot; it advances the task revision and patches the canonical next action and optional state atomically. Both kinds may reference verified task resources through `task_update_resource_refs`.
+
+Every event touches `tasks.last_activity_at`, allowing comments and other append-only activity to reorder task lists without pretending the canonical task content changed.
 
 ### `task_resources`
 
@@ -125,6 +131,8 @@ Signed URLs are not used by the first slice. If added later, they must be short-
 | `update_task` | task | expected revision, content event |
 | `transition_task` | task | expected revision, state invariants, state event |
 | `record_task_handoff` | `{task,handoff}` | same-task supersession/resources, task patch + append-only handoff + event |
+| `add_task_comment` | update | append-only discussion/resource references; no task revision conflict |
+| `record_task_progress` | `{task,update}` | task patch + structured progress/resource references + event |
 | `add_task_resource` | `{task,resource}` | HTTPS only, no fetch, revision + event |
 | `reserve_task_file` | `{task,resource}` | upload capability, immutable key, expected checksum/size |
 | `finalize_task_file` | resource | checks Storage size/checksum, verified/failed event |
@@ -143,9 +151,11 @@ The production MCP server exposes:
 - `update_task(request_id, id, project_id, revision, …)`
 - `transition_task(request_id, id, project_id, revision, status, blocked_reason)`
 - `record_handoff(request_id, handoff_id, id, project_id, revision, …)`
+- `add_task_comment(request_id, update_id, id, project_id, body, resource_ids)`
+- `record_task_progress(request_id, update_id, id, project_id, revision, …)`
 - `add_task_resource(request_id, resource_id, id, project_id, revision, label, url, …)`
 
-Lists are bounded and return `complete`. Reads include handoffs, verified resources and events. Writes require explicit user intent, a stable request ID and the current revision. MCP stores external links but never downloads them. Binary file transfer remains a companion operation.
+Lists are bounded and return `complete`. Reads include comments, progress updates, handoffs, verified resources and events. Writes require explicit user intent and a stable request ID; task-changing writes also require the current revision. MCP stores external links but never downloads them. Binary file transfer remains a companion operation.
 
 ## Companion flow
 
@@ -153,7 +163,7 @@ Lists are bounded and return `complete`. Reads include handoffs, verified resour
 2. Capture a task with title, optional outcome and next action.
 3. Open it to edit the full contract or transition state.
 4. Attach an HTTPS reference or reserve/upload/verify a private file.
-5. Record a handoff; this advances the task revision atomically.
+5. Add comments during discussion, record structured progress while continuing, and use a handoff when work stops or ownership changes.
 6. Export the selected personal/project scope manifest and every verified stored object.
 
 Agent consent presents memory scopes and task scopes separately. Task write and upload are independent checkboxes.
@@ -200,12 +210,21 @@ The companion's selected-scope export performs steps 1 and 2. `npm run task-stor
 3. **Companion workflow** — personal/project task lists, capture/detail/transitions/handoffs/resources/export.
 4. **Storage operations** — private bucket provisioning, upload verification, abandoned-upload cleanup, restore drill.
 5. **Release hardening** — hosted migration, advisors, browser evidence, observability and rollback/export runbook.
+6. **Work timeline** — append-only comments and structured progress updates with verified resource references and one chronological activity surface.
+7. **Planning graph** — scoped hierarchy, dependency integrity and derived actionability; never infer relationships from display IDs.
+8. **Automation** — durable event delivery, opt-in webhooks and expiring agent leases after the underlying task contracts stabilize.
 
 Slices are deployable checkpoints, not alternate designs. A slice is complete only when its contract and denial paths are tested.
 
 ## Current implementation checkpoint
 
-Slices 1–3 and the provisioning/cleanup/export mechanics for slice 4 are implemented. The hosted migrations and private bucket are live; hosted rollback-only project and personal-agent RPC smokes pass, task-table advisor findings are clear, and the production companion renders both **For me** and project task scopes. Cleanup scheduling, a restore drill and broader signed-in browser mutation evidence remain release-hardening work.
+Slices 1–3 and the provisioning/cleanup/export mechanics for slice 4 are implemented. Slice 6 is deployed: the task-update migrations are live, the new-table advisor findings are clear, and the production companion renders both **For me** and project task scopes. The hosted base migrations and private bucket are also live, and hosted rollback-only project and personal-agent RPC smokes pass. Cleanup scheduling, a restore drill, planning graph design and broader signed-in browser mutation evidence remain release-hardening work.
+
+## Automation and Gig hook lessons
+
+Gig demonstrates two separate mechanisms. Task-event shell hooks filter created/status/comment/close/assign events and execute local commands; its agent and Git hooks restore session instructions, bind a claimed task to a session, add pre-compaction breadcrumbs and associate commits with task IDs. The latter lifecycle integrations provide the larger continuity benefit.
+
+Satchel must not execute owner-supplied shell commands on hosted infrastructure. Future automation should consume committed `task_events` through a durable outbox/queue and deliver signed, allowlisted HTTPS webhooks with retries, attempt history, timeouts and per-owner revocation. Agent lifecycle hooks may read an explicitly selected active task automatically, but automatic writes—including compaction breadcrumbs or commit comments—require separate opt-in consent. Claims should be expiring leases tied to authenticated client identity, not permanent free-text assignment.
 
 ## Sources
 

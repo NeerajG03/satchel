@@ -90,6 +90,28 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
       assert.equal((await call(hook,'select * from handoff_resource_refs where handoff_id=$1',[handoffId])).length,1);
     });
 
+    await t.test('comments stay lightweight while progress advances task state atomically',async()=>{
+      const commentId=crypto.randomUUID(),commentRequest=crypto.randomUUID();
+      const commentArgs=[commentRequest,commentId,taskId,'Review note from the implementation',[resourceId]];
+      const comment=await call(hook,'select * from add_task_comment($1,$2,$3,$4,$5)',commentArgs);
+      assert.equal(comment[0].kind,'comment');
+      assert.equal((await call(hook,'select revision from tasks where id=$1',[taskId]))[0].revision,4);
+      assert.equal((await call(hook,'select * from add_task_comment($1,$2,$3,$4,$5)',commentArgs))[0].id,commentId);
+      assert.equal((await call(hook,'select * from task_update_resource_refs where update_id=$1',[commentId])).length,1);
+
+      const progressId=crypto.randomUUID(),progressRequest=crypto.randomUUID();
+      const progressArgs=[progressRequest,progressId,taskId,4,'UI work is underway',['Editor added'],['Keep updates append-only'],['Browser verification'],[],'Verify the flow','in_progress','',[resourceId]];
+      const progress=(await call(hook,'select record_task_progress($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) result',progressArgs))[0].result;
+      assert.equal(progress.task.revision,5);
+      assert.equal(progress.task.next_action,'Verify the flow');
+      assert.equal(progress.update.kind,'progress');
+      assert.deepEqual(progress.update.completed,['Editor added']);
+      assert.equal((await call(hook,'select record_task_progress($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) result',progressArgs))[0].result.update.id,progressId);
+      await assert.rejects(call(hook,'select record_task_progress($1,$2,$3,4,$4,$5,$6,$7,$8,$9,$10,$11,$12) result',[
+        crypto.randomUUID(),crypto.randomUUID(),taskId,'Stale update',[],[],[],[],'Nope',null,'',[],
+      ]),{code:'PT409'});
+    });
+
     await t.test('task grant does not expose other owners or projects',async()=>{
       assert.deepEqual((await call(hook,'select id from projects')).map(row=>row.id),[project]);
       assert.equal((await call(hook,'select * from tasks')).length,1);
@@ -132,10 +154,10 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
     await t.test('file reservations use opaque paths and verify Storage metadata',async()=>{
       const resourceId=crypto.randomUUID(),requestId=crypto.randomUUID();
       const checksum='a'.repeat(64);
-      const reserved=(await call(hook,'select reserve_task_file($1,$2,$3,4,$4,$5,$6,$7,$8,$9) result',[
+      const reserved=(await call(hook,'select reserve_task_file($1,$2,$3,5,$4,$5,$6,$7,$8,$9) result',[
         requestId,resourceId,taskId,'Build log','sensitive name.txt','text/plain',4,checksum,'document',
       ]))[0].result;
-      assert.equal(reserved.task.revision,5);
+      assert.equal(reserved.task.revision,6);
       assert.equal(reserved.resource.object_key,`${owner}/${taskId}/${resourceId}`);
       assert.ok(!reserved.resource.object_key.includes('sensitive'));
       await db.query('insert into storage.objects values($1,$2,$3,$4)',[
@@ -166,7 +188,9 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
       const exported=(await call(user,'select export_tasks($1) result',[project]))[0].result;
       assert.equal(exported.tasks.length,1);
       assert.equal(exported.resources[0].id,resourceId);
-      assert.equal(exported.events.length,6);
+      assert.equal(exported.updates.length,2);
+      assert.equal(exported.update_resource_refs.length,2);
+      assert.equal(exported.events.length,8);
     });
   } finally { await db.close(); }
 });

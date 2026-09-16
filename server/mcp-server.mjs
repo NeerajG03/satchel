@@ -29,7 +29,7 @@ const errorText=error=>({
   'PT404':'That repository is not linked to a project in this connection\'s grant. Report that project memory was not loaded; do not guess a project.',
   'PT409':'Revision or request conflict. Read the current record; do not overwrite blindly.',
   '23505':'This name is already used in the selected scope.',
-  '23514':'Memory fields exceed the permitted limits.',
+  '23514':'The supplied fields or relationships violate the Satchel contract.',
 }[error?.code] ?? 'Satchel request failed. Reload before retrying a write: it may have completed.');
 
 export function createMemoryServer(service) {
@@ -121,7 +121,7 @@ export function createMemoryServer(service) {
   if(service.tasks) {
     register('list_tasks','List bounded task summaries in one explicit task scope. Use project_id=null for personal tasks; otherwise use an authorized project UUID. Filter by state when useful and check complete before claiming the list is exhaustive.',
       {project_id:taskProject,statuses:z.array(taskStatus).max(5).optional()},a=>service.tasks.list(a.project_id,a.statuses));
-    register('read_task','Read one task with its append-only handoffs, verified resources, and event history.',
+    register('read_task','Read one task with its append-only comments, progress updates, handoffs, verified resources, and event history.',
       {project_id:taskProject,id:z.uuid()},a=>service.tasks.read(a.project_id,a.id));
     register('create_task','Create a personal or project Satchel task only when the user explicitly asks. Use project_id=null for personal scope. Reuse request_id and id with the identical payload when retrying a lost response.',
       {request_id:z.uuid(),id:z.uuid(),project_id:taskProject,...taskContent},a=>service.tasks.create(a),writeAnnotations);
@@ -138,6 +138,19 @@ export function createMemoryServer(service) {
         next_action:z.string().trim().min(1).max(1000),summary:z.string().max(4000).default(''),
         status:taskStatus.nullable().default(null),blocked_reason:z.string().max(2000).default(''),
         resource_ids:z.array(z.uuid()).max(50).default([])},a=>service.tasks.handoff(a),writeAnnotations);
+    register('add_task_comment','Append a lightweight task comment without changing task content or invalidating another editor. Reference only verified resources already attached to this task.',
+      {request_id:z.uuid(),update_id:z.uuid(),project_id:taskProject,id:z.uuid(),
+        body:z.string().trim().min(1).max(4000),resource_ids:z.array(z.uuid()).max(50).default([])},
+      a=>service.tasks.comment(a),writeAnnotations);
+    register('record_task_progress','Append a structured progress update and atomically advance the task revision, next action, and optional state. Use a handoff instead when work is stopping or ownership is changing.',
+      {request_id:z.uuid(),update_id:z.uuid(),...taskIdentity,summary:z.string().trim().min(1).max(4000),
+        completed:z.array(z.string().trim().min(1).max(1000)).max(50).default([]),
+        decisions:z.array(z.string().trim().min(1).max(1000)).max(50).default([]),
+        remaining:z.array(z.string().trim().min(1).max(1000)).max(50).default([]),
+        blockers:z.array(z.string().trim().min(1).max(1000)).max(50).default([]),
+        next_action:z.string().max(1000).nullable().default(null),status:taskStatus.nullable().default(null),
+        blocked_reason:z.string().max(2000).default(''),resource_ids:z.array(z.uuid()).max(50).default([])},
+      a=>service.tasks.progress(a),writeAnnotations);
     register('add_task_resource','Attach a typed HTTPS reference to a task. This stores the link only and never fetches its contents.',
       {request_id:z.uuid(),resource_id:z.uuid(),...taskIdentity,label:z.string().trim().min(1).max(200),
         url:z.url({protocol:/^https$/}),resource_type:z.enum(['reference','document','image','artifact','repository','pull_request']).default('reference'),

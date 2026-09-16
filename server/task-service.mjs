@@ -17,11 +17,11 @@ export function taskService(db, connectionStatus) {
     async list(projectId,statuses) {
       await requireScope(projectId);
       let query=db.from('tasks').select(
-        'id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at',
+        'id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at',
         {count:'exact'},
       );
       query=(projectId===null?query.is('project_id',null):query.eq('project_id',projectId))
-        .order('updated_at',{ascending:false}).order('id').range(0,200);
+        .order('last_activity_at',{ascending:false}).order('id').range(0,200);
       if(statuses?.length)query=query.in('status',statuses);
       const {data,error,count}=await query.abortSignal(AbortSignal.timeout(8000));
       if(error)throw error;
@@ -32,12 +32,14 @@ export function taskService(db, connectionStatus) {
       const taskBase=db.from('tasks').select('*').eq('id',id);
       const task=await result((projectId===null?taskBase.is('project_id',null):taskBase.eq('project_id',projectId)).maybeSingle());
       if(!task)throw {code:'P0002'};
-      const [handoffs,resources,events]=await Promise.all([
+      const [handoffs,updates,resources,updateResourceRefs,events]=await Promise.all([
         result((projectId===null?db.from('task_handoffs').select('*').is('project_id',null):db.from('task_handoffs').select('*').eq('project_id',projectId)).eq('task_id',id).order('created_at')),
+        result((projectId===null?db.from('task_updates').select('*').is('project_id',null):db.from('task_updates').select('*').eq('project_id',projectId)).eq('task_id',id).order('created_at')),
         result((projectId===null?db.from('task_resources').select('*').is('project_id',null):db.from('task_resources').select('*').eq('project_id',projectId)).eq('task_id',id).order('created_at')),
+        result((projectId===null?db.from('task_update_resource_refs').select('update_id,resource_id').is('project_id',null):db.from('task_update_resource_refs').select('update_id,resource_id').eq('project_id',projectId)).eq('task_id',id)),
         result((projectId===null?db.from('task_events').select('*').is('project_id',null):db.from('task_events').select('*').eq('project_id',projectId)).eq('task_id',id).order('created_at')),
       ]);
-      return {...task,handoffs,resources,events};
+      return {...task,handoffs,updates,resources,update_resource_refs:updateResourceRefs,events};
     },
     async create(args) {
       await requireScope(args.project_id,'write');
@@ -71,6 +73,23 @@ export function taskService(db, connectionStatus) {
         p_remaining:args.remaining,p_blockers:args.blockers,p_next_action:args.next_action,
         p_summary:args.summary,p_status:args.status,p_blocked_reason:args.blocked_reason,
         p_resource_ids:args.resource_ids,
+      }));
+    },
+    async comment(args) {
+      await requireScope(args.project_id,'write');
+      return result(db.rpc('add_task_comment',{
+        p_request_id:args.request_id,p_id:args.update_id,p_task_id:args.id,
+        p_body:args.body,p_resource_ids:args.resource_ids,
+      }).single());
+    },
+    async progress(args) {
+      await requireScope(args.project_id,'write');
+      return result(db.rpc('record_task_progress',{
+        p_request_id:args.request_id,p_id:args.update_id,p_task_id:args.id,
+        p_expected_revision:args.revision,p_summary:args.summary,
+        p_completed:args.completed,p_decisions:args.decisions,p_remaining:args.remaining,
+        p_blockers:args.blockers,p_next_action:args.next_action,p_status:args.status,
+        p_blocked_reason:args.blocked_reason,p_resource_ids:args.resource_ids,
       }));
     },
     async addResource(args) {
