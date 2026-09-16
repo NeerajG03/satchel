@@ -1,0 +1,142 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile,readdir} from 'node:fs/promises';
+import {PGlite} from '@electric-sql/pglite';
+
+test('Supabase-native tasks enforce grants, revisions, history, resources and idempotency',async t=>{
+  const db=new PGlite();
+  const owner=crypto.randomUUID(),other=crypto.randomUUID();
+  const project=crypto.randomUUID(),otherProject=crypto.randomUUID();
+  const client='task-agent';
+  async function call(claims,sql,params=[]) {
+    await db.exec('begin; set local role authenticated;');
+    try {
+      await db.query("select set_config('request.jwt.claims',$1,true)",[JSON.stringify(claims)]);
+      const result=await db.query(sql,params);
+      await db.exec('commit');
+      return result.rows;
+    } catch(error) { await db.exec('rollback'); throw error; }
+  }
+  const user={sub:owner};
+  try {
+    await db.exec(`
+      create role anon; create role authenticated; create role supabase_auth_admin;
+      create schema auth;
+      create schema storage;
+      create table storage.objects(bucket_id text,name text,metadata jsonb,user_metadata jsonb);
+      create table auth.users(id uuid primary key);
+      create function auth.jwt() returns jsonb language sql stable as
+        $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
+      create function auth.uid() returns uuid language sql stable as
+        $$select (auth.jwt()->>'sub')::uuid$$;
+      grant usage on schema auth,public to authenticated,anon;
+      insert into auth.users values('${owner}'),('${other}');
+    `);
+    const dir=new URL('../supabase/migrations/',import.meta.url);
+    for(const file of (await readdir(dir)).filter(name=>name.endsWith('.sql')).sort())
+      await db.exec(await readFile(new URL(file,dir),'utf8'));
+
+    await call(user,'select create_project($1,$2,$3)',[project,'Tasks','Primary']);
+    await call({sub:other},'select create_project($1,$2,$3)',[otherProject,'Other','Separate owner']);
+    await call(user,'select authorize_agent_v2($1,$2,false,$3,false,$4,true,true)',[
+      client,client,[],[project],
+    ]);
+    const hook=(await db.query('select satchel_access_token_hook($1) result',[
+      {user_id:owner,client_id:client,claims:{sub:owner,client_id:client,aud:'authenticated'}},
+    ])).rows[0].result.claims;
+
+    const taskId=crypto.randomUUID(),createRequest=crypto.randomUUID();
+    const createArgs=[createRequest,taskId,project,'Ship task management','Continuity works','Avoid lost work',['MCP can resume'],'Implement the slice','high'];
+    await t.test('create is idempotent and writes the first event atomically',async()=>{
+      const created=await call(hook,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',createArgs);
+      assert.equal(created[0].revision,1);
+      assert.equal((await call(hook,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',createArgs))[0].revision,1);
+      assert.equal((await call(hook,'select * from task_events where task_id=$1',[taskId])).length,1);
+      await assert.rejects(call(hook,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',[
+        createRequest,taskId,project,'Different','','',[],'','medium',
+      ]),{code:'PT409'});
+    });
+
+    await t.test('revision checks preserve the winning update and state event',async()=>{
+      const request=crypto.randomUUID();
+      const updated=await call(hook,'select * from transition_task($1,$2,1,$3,$4)',[
+        request,taskId,'blocked','Waiting for review',
+      ]);
+      assert.equal(updated[0].status,'blocked');
+      assert.equal(updated[0].revision,2);
+      await assert.rejects(call(hook,'select * from transition_task($1,$2,1,$3,$4)',[
+        crypto.randomUUID(),taskId,'ready','',
+      ]),{code:'PT409'});
+      const events=await call(hook,'select event_type,from_revision,to_revision from task_events where task_id=$1 order by id',[taskId]);
+      assert.deepEqual(events.map(event=>event.event_type),['created','state_changed']);
+    });
+
+    let resourceId;
+    await t.test('external resources are typed and handoffs return the new task projection',async()=>{
+      resourceId=crypto.randomUUID();
+      const added=(await call(hook,'select add_task_resource($1,$2,$3,2,$4,$5,$6,$7) result',[
+        crypto.randomUUID(),resourceId,taskId,'Pull request','https://github.com/example/repo/pull/1','pull_request','github',
+      ]))[0].result;
+      assert.equal(added.resource.kind,'external_url');
+      assert.equal(added.task.revision,3);
+      const handoffId=crypto.randomUUID();
+      const handed=(await call(hook,'select record_task_handoff($1,$2,$3,3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) result',[
+        crypto.randomUUID(),handoffId,taskId,[],['Schema complete'],['Supabase is authoritative'],
+        [{kind:'test',result:'pass'}],['UI'],[],'Build UI','Database slice complete','in_progress','',[resourceId],
+      ]))[0].result;
+      assert.equal(handed.task.revision,4);
+      assert.equal(handed.task.status,'in_progress');
+      assert.equal(handed.handoff.id,handoffId);
+      assert.equal((await call(hook,'select * from handoff_resource_refs where handoff_id=$1',[handoffId])).length,1);
+    });
+
+    await t.test('task grant does not expose other owners or projects',async()=>{
+      assert.deepEqual((await call(hook,'select id from projects')).map(row=>row.id),[project]);
+      assert.equal((await call(hook,'select * from tasks')).length,1);
+      assert.deepEqual(await call({...hook,sub:other},'select * from tasks'),[]);
+      await assert.rejects(call(hook,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',[
+        crypto.randomUUID(),crypto.randomUUID(),otherProject,'Nope','','',[],'','medium',
+      ]),{code:'42501'});
+    });
+
+    await t.test('file reservations use opaque paths and verify Storage metadata',async()=>{
+      const resourceId=crypto.randomUUID(),requestId=crypto.randomUUID();
+      const checksum='a'.repeat(64);
+      const reserved=(await call(hook,'select reserve_task_file($1,$2,$3,4,$4,$5,$6,$7,$8,$9) result',[
+        requestId,resourceId,taskId,'Build log','sensitive name.txt','text/plain',4,checksum,'document',
+      ]))[0].result;
+      assert.equal(reserved.task.revision,5);
+      assert.equal(reserved.resource.object_key,`${owner}/${taskId}/${resourceId}`);
+      assert.ok(!reserved.resource.object_key.includes('sensitive'));
+      await db.query('insert into storage.objects values($1,$2,$3,$4)',[
+        'task-files',reserved.resource.object_key,{size:4},{sha256:checksum},
+      ]);
+      const finalizeRequest=crypto.randomUUID();
+      const verified=await call(hook,'select * from finalize_task_file($1,$2)',[finalizeRequest,resourceId]);
+      assert.equal(verified[0].upload_status,'verified');
+      assert.equal((await call(hook,'select * from finalize_task_file($1,$2)',[finalizeRequest,resourceId]))[0].upload_status,'verified');
+      await assert.rejects(call(hook,'select cleanup_task_file($1,$2)',[owner,resourceId]),{code:'42501'});
+    });
+
+    await t.test('read-only reauthorization invalidates the old generation and blocks writes',async()=>{
+      await call(user,'select authorize_agent_v2($1,$2,false,$3,false,$4,false,false)',[
+        client,client,[],[project],
+      ]);
+      assert.deepEqual(await call(hook,'select * from tasks'),[]);
+      const fresh=(await db.query('select satchel_access_token_hook($1) result',[
+        {user_id:owner,client_id:client,claims:{sub:owner,client_id:client,aud:'authenticated'}},
+      ])).rows[0].result.claims;
+      assert.equal((await call(fresh,'select * from tasks')).length,1);
+      await assert.rejects(call(fresh,'select * from transition_task($1,$2,4,$3,$4)',[
+        crypto.randomUUID(),taskId,'done','',
+      ]),{code:'P0002'});
+    });
+
+    await t.test('export includes database records and immutable storage identities',async()=>{
+      const exported=(await call(user,'select export_tasks($1) result',[project]))[0].result;
+      assert.equal(exported.tasks.length,1);
+      assert.equal(exported.resources[0].id,resourceId);
+      assert.equal(exported.events.length,6);
+    });
+  } finally { await db.close(); }
+});

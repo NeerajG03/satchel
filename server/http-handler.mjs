@@ -3,12 +3,13 @@ import {createClient} from '@supabase/supabase-js';
 import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {createMemoryServer} from './mcp-server.mjs';
 import {memoryService} from './memory-service.mjs';
+import {taskService} from './task-service.mjs';
 
 export const RESOURCE='https://satchel-pi.vercel.app/api/mcp';
 export const SUPABASE_URL='https://prpgcrwteepcunizdcut.supabase.co';
 const issuer=SUPABASE_URL+'/auth/v1';
 const keys=createRemoteJWKSet(new URL(issuer+'/.well-known/jwks.json'));
-export const metadata={resource:RESOURCE,authorization_servers:[issuer],scopes_supported:['openid'],resource_name:'Satchel memory'};
+export const metadata={resource:RESOURCE,authorization_servers:[issuer],scopes_supported:['openid'],resource_name:'Satchel'};
 export async function verifyAgentToken(token,verificationKeys=keys) {
   const {payload}=await jwtVerify(token,verificationKeys,{issuer,audience:RESOURCE,algorithms:['ES256','RS256'],requiredClaims:['exp','sub','client_id','satchel_grant_id']});
   if (typeof payload.client_id!=='string'||typeof payload.satchel_grant_id!=='string') throw Error('Missing grant');
@@ -28,6 +29,7 @@ export async function handleMcp(req,res) {
   if(!key){res.writeHead(503);return res.end('Server configuration unavailable');}
   const db=createClient(SUPABASE_URL,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{headers:{Authorization:`Bearer ${token}`}}});
   const service=memoryService(db);
+  service.tasks=taskService(db,service.status);
   try {
     if(!await service.status()){res.writeHead(403);return res.end('Connection revoked or unavailable');}
   }catch{res.writeHead(503);return res.end('Unable to verify connection');}

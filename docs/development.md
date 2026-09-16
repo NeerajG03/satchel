@@ -1,10 +1,10 @@
 # Running the first foundation
 
-10 September 2026 · Task authority: `gig-27f1`.
+Updated 16 September 2026.
 
-The repository now contains a React/TypeScript web foundation: GitHub sign-in through Supabase, projects, explicit memory saves, corrections with revision checks, and deletion. It uses the existing notebook palette and typography with responsive light/dark themes. The preserved mockup remains a separate artifact.
+The repository contains a React/TypeScript companion with GitHub sign-in through Supabase, projects, explicit memory, Supabase-native tasks, append-only handoffs, typed links, private file upload/download and task export. It uses the notebook palette and typography with responsive light/dark themes.
 
-This is not the completed cross-agent feature. Native plugins, agent grants, MCP transport, hook-assisted retrieval, export/recovery, and revision-history viewing still require implementation. Database corrections replace the current content and increment its revision; this foundation does not retain past versions. The database deliberately denies tokens containing an OAuth `client_id` until agent authorization is ready.
+Memory hooks, generation-bound agent grants and the production MCP transport are implemented. Task release work still includes applying the new migration to the hosted project, provisioning the private bucket, hosted browser/MCP verification, advisor review, cleanup scheduling and a restore drill.
 
 ## Local setup
 
@@ -24,25 +24,26 @@ Without configuration, the app shows a setup-pending state and disables login. T
 
 Use a dedicated Supabase Free project with synthetic records first. Needed from the owner: project URL and publishable key, Vercel personal account/team, repository access, and the preferred region before creating any project. No billing upgrade is required by this foundation.
 
-1. Apply all files in `supabase/migrations` in filename order: [foundation](../supabase/migrations/202609100001_foundation.sql), [named memories](../supabase/migrations/202609100002_named_memories.sql), [conflict responses](../supabase/migrations/202609110001_conflict_responses.sql), then [personal memory](../supabase/migrations/202609110002_personal_memory.sql), using the SQL editor or Supabase migration tooling. These are one-time migrations, not repeatable reset scripts. Existing installations apply only migrations not already applied. The named-memory migration replaces the old write-function signatures, so reload older companion tabs after applying it.
-2. Register a GitHub OAuth App. The callback is `https://<project-ref>.supabase.co/auth/v1/callback` (copy the real value from Supabase). Set its homepage to the stable Satchel deployment URL.
-3. Enable GitHub in Supabase Authentication → Providers. Enter the GitHub client ID and secret directly in that dashboard. Satchel does not request repository scopes.
-4. In Supabase URL Configuration, set the Site URL to the stable deployed app origin. Allow that exact origin and `http://127.0.0.1:5173` for development (the origin used by `npm run dev`). Avoid a wildcard authorizing arbitrary preview origins.
-5. In Vercel, import the private `NeerajG03/satchel` repository with repository access granted. Root is the repository root; framework is Vite. Set the two public environment values for the intended environment, then deploy. The checked-in Vercel configuration builds `dist/`.
-6. Use a consistent URL for sign-in tests. OAuth uses PKCE and returns to the origin that started the flow. Do not copy the callback into a different browser/device.
-7. Verify sign-in, refresh, sign-out and declined login in a real browser. Then test separate accounts, cross-device reads, failed writes and stale corrections against the hosted project.
+1. Apply every file in `supabase/migrations` in filename order using Supabase migration tooling. They are one-time migrations; an existing installation applies only migrations not already recorded. This pilot previously applied early memory migrations manually in the Dashboard, so reconcile remote migration history before `supabase db push` instead of replaying them.
+2. Create the `task-files` bucket through the Storage API as private with a 6 MB file limit. From a trusted shell, set non-`VITE_*` `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, then run `npm run task-storage:provision`. Never place the service-role key in browser or Vercel public variables.
+3. Run `npm run task-storage:cleanup` from a trusted scheduled environment to remove pending/failed uploads older than 24 hours and record deletion events. Start manually; schedule only after observing it against synthetic data.
+4. Register a GitHub OAuth App. The callback is `https://<project-ref>.supabase.co/auth/v1/callback` (copy the real value from Supabase). Set its homepage to the stable Satchel deployment URL.
+5. Enable GitHub in Supabase Authentication → Providers. Enter the GitHub client ID and secret directly in that dashboard. Satchel does not request repository scopes.
+6. In Supabase URL Configuration, set the Site URL to the stable deployed app origin. Allow that exact origin and `http://127.0.0.1:5173` for development. Avoid wildcard preview origins.
+7. In Vercel, import the private repository. Root is the repository root; framework is Vite. Set only the two public browser environment values, then deploy.
+8. Verify memory plus task capture, edit, transition, blocker, handoff, link, file verification/download, export, agent consent/revocation and stale revision behavior against the hosted project.
 
-GitHub account login and future GitHub task-source access are separate. Website sign-in also does not authorize agent connections. Keep Supabase OAuth server access disabled for this first foundation; the future consent interface and per-client permissions are not present yet.
+GitHub account login is identity-only and separate from optional GitHub task links. Website sign-in also does not authorize agent connections; the consent interface grants memory and task read/write/upload capabilities separately.
 
 [GitHub provider setup](https://supabase.com/docs/guides/auth/social-login/auth-github), [PKCE flow](https://supabase.com/docs/guides/auth/sessions/pkce-flow), [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
 ## Cost and architecture
 
-Working choice: Vite/React on Vercel, Supabase PostgreSQL and Auth. Browser requests use Supabase's authenticated data API, with row-level policies and database functions enforcing account boundaries. This replaces the earlier dedicated Fastify/container starting point for the web foundation. A stateless MCP endpoint will be evaluated separately; no second authority for memory is introduced.
+Working choice: Vite/React on Vercel, Supabase PostgreSQL/Auth/Storage and a stateless MCP endpoint. Browser and MCP requests use RLS plus narrowly scoped database functions. Supabase is the authority for memory and tasks; private Storage holds task bytes.
 
 Vercel Hobby is intended for personal, non-commercial use. Supabase Free includes PostgreSQL and authentication allowances, but projects may pause after a week of inactivity and managed daily backups are a paid-plan feature. Use synthetic data until export/recovery is implemented; zero cost is a pilot target, not a production uptime promise. [Vercel Hobby](https://vercel.com/docs/plans/hobby), [Supabase pricing](https://supabase.com/pricing).
 
-Supabase documents an OAuth 2.1 server and MCP integration path. That is a candidate for the agent phase, not proof that the actual Codex/Claude connections work. [OAuth server](https://supabase.com/docs/guides/auth/oauth-server).
+Satchel's implemented agent authorization follows Supabase's OAuth 2.1 server and MCP integration path. Local contract tests are not proof that fresh Codex and Claude connections work against the hosted deployment, so both hosts remain release verification gates. [OAuth server](https://supabase.com/docs/guides/auth/oauth-server).
 
 ## Checks
 
@@ -53,7 +54,7 @@ npm test
 npm run build
 ```
 
-Tests execute the actual migration in PGlite's PostgreSQL engine with test equivalents of Supabase's identity functions. They check account isolation, foreign-project writes, anonymous/agent denial, safe save retries, immutable metadata, conflicting corrections and deletion. They do not replace hosted Supabase or real GitHub OAuth tests. Docker is not needed for these checks.
+Tests execute the actual migrations in PGlite with test equivalents of Supabase identity functions. They cover memory plus task ownership, grants, generation revocation, idempotency, revision conflicts, events, handoffs, links and export. Storage API behavior, hosted advisors and real OAuth/browser flows still require hosted verification. Docker is not needed for these checks.
 
 CI runs the same tests and build. No cloud credentials are required for CI, and CI does not deploy or migrate the database.
 

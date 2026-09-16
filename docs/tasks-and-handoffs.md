@@ -1,72 +1,66 @@
 # Tasks and handoffs
 
-8 September 2026. GitHub Issues only in V1 is agreed. The workflows and record shapes below are proposed; no tasks have been migrated.
+16 September 2026. Supabase-native tasks supersede the earlier GitHub-Issues-only direction.
 
 ## One task authority
 
-All tasks managed by Satchel V1 use GitHub Issues. Satchel can expose convenient task operations and project associations, but must not create a second independently editable task-status database.
+Satchel's Supabase database is the sole authority for task title, outcome, rationale, completion criteria, next action, state, priority, blocker, revision and history. Tasks belong to Satchel projects and do not require a repository.
 
-Existing work in Notion or another team tracker remains there. A URL can be retained as a source reference without implying V1 reads, synchronizes, or writes that source. Do not create a shadow GitHub issue for every external ticket merely to populate Satchel.
+An existing GitHub issue, pull request, repository, Notion page or document can be attached as a typed HTTPS resource. Satchel does not automatically fetch it, mirror its status or claim to synchronize it. This avoids two editable copies of an external team's work while still giving a Satchel task the context needed for continuity.
 
-A project selects a GitHub task destination. It can span multiple code repositories and does not need a dedicated repository solely to exist. The user chooses where an issue belongs if routing cannot be resolved from project configuration.
+## V1 operations
 
-## Proposed V1 task operations
+The companion and connected agents can list, read, create, update and transition tasks; record append-only handoffs; attach HTTPS links; and inspect event history. The companion also uploads private files, downloads them through authenticated Storage access and exports database records plus verified objects.
 
-Support the operations needed for real cross-device work: list/find, read, create, update, close/reopen, record a handoff, and inspect linked work. The earlier discussion also identified dependency edits, priorities, and typed gig attributes as migration needs. Their GitHub representation must be specified and verified; unsupported fields must be reported rather than silently discarded.
-
-Use stable task references tied to the provider identity and source URL. Task projections and cached indexes may aid lookup, but source revision and freshness remain visible.
-
-## Preserve a small backend boundary
-
-Companion and agent-facing operations should call a TaskService that delegates GitHub transport and authentication to a GitHub backend. Public task responses should not simply expose raw GitHub HTTP payloads.
-
-Implement the operations the first release needs. A fake backend can exercise the interface. There is no need to implement a second real provider, dynamic plugin loader, sync cursor service, field-mapping UI, or public SDK just to keep the code extensible.
-
-Later source plugins may import or synchronize external data through this boundary. Their ownership rules, deduplication, credentials, retries, conflicts, and removal behavior are deferred. The historical [source-plugin sketch](archive/jeff-rethinking/JEFF-v2-task-source-plugins.md) preserves those ideas without making them V1 requirements.
+Every write has a stable request ID. Content/state writes require the current task revision. A lost response is retried with the same ID and identical payload; a stale revision is a conflict, not an overwrite.
 
 ## A handoff is portable work evidence
 
-Proposed home: an identifiable comment on the authoritative GitHub issue, with a stable reference and revision/time. Avoid maintaining a separately editable handoff elsewhere. A suggested template is:
+A handoff records:
 
-```text
-Task and project:
-Completed:
-Decisions and sources:
-Validation actually run and results:
-Remaining work:
-Blockers and dependencies:
-Code state: repository, branch, commit, PR, or recoverable patch
-Artifacts and source links:
-Suggested next action:
-Originating app/session/device:
-Recorded at:
-```
+- work completed;
+- decisions and sources;
+- validation actually run and its results;
+- remaining work;
+- blockers;
+- the exact next action;
+- resources needed to resume;
+- actor and time.
 
-Do not claim validation that was not performed. State which repository each code reference belongs to. Handoffs can be written by agents as work evidence without converting their conclusions into user-stated memory.
+Handoffs are append-only. A correction supersedes earlier handoff IDs rather than editing historical evidence. Recording a handoff updates the task next action and optional state in the same database transaction, increments the revision and creates a task event.
+
+Do not claim validation that was not performed. A branch, commit, PR or artifact should be attached only when it actually exists and the next worker can reach it.
 
 ## Resume flow
 
-1. Select or resolve a project and task.
-2. Read the latest authoritative task and handoff under the caller's permissions.
-3. Check that referenced code and artifacts are actually accessible.
-4. Identify a supported destination app and execution environment.
-5. Launch with context only where that route is verified; otherwise present a bounded copyable handoff.
-6. Record task pickup separately from successful app launch or completed work.
+1. Resolve an authorized Satchel project.
+2. List active tasks and choose one explicitly.
+3. Read the latest task, handoffs, verified resources and events.
+4. Check that referenced code, documents and files are reachable.
+5. Continue the next action in the current environment or present a bounded handoff when launch/transfer is unavailable.
+6. Record new evidence and state using the current revision.
 
-A device preference for the default app was discussed, but the exact mapping is open. A hardcoded choice of Codex on desktop and Claude on phone is sample behavior, not a product rule.
+Task `in_progress` is a coordination signal, not an exclusive lock. V1 does not claim concurrent workers atomically. If unattended claims become a requirement, design them separately.
 
-An assignee or “in progress” label is a coordination convention, not a lock. V1 does not promise exclusive cross-agent claims. If unattended concurrent workers become a requirement, specify atomic claims separately rather than imply the mockup's takeover button solves races.
+## Resources and files
 
-## Completion across repositories
+External resources are HTTPS links only and are never fetched automatically. Stored resources use the private `task-files` bucket. Their object key contains only owner, task and resource UUIDs; the filename is metadata.
 
-One task can require several PRs. Use a non-closing reference such as “Part of owner/repo#123” for partial contributions, and close the overall task explicitly after all required work is verified. Keep task completion, PR merge, deployment, and workspace cleanup separate events.
+File lifecycle:
 
-A handoff cannot transfer uncommitted files automatically. Before changing environments, publish an authorized branch/commit or deliberately transfer a recoverable patch. If code remains only on an unavailable machine, report that blocker.
+```text
+reserve metadata → pending → upload bytes → verify size/checksum → verified
+                                └──────── failure ───────────────→ failed
+```
 
-## Migration fidelity
+Read, write and upload are distinct agent capabilities. Verified files are downloaded with authenticated requests; public URLs are not used. Project export downloads a JSON manifest and every verified object because database backups alone do not include Storage bytes.
 
-For migrated active gig tasks, preserve original IDs, title/body, status, priority, relationships, useful events, checkpoints, PR links, and meaningful timestamps. Map agent persona assignees deliberately rather than pretending they are GitHub users.
+## History and deletion
 
-The historical report records typed gig attributes as strings, booleans, and objects. A versioned marked YAML block is one proposed representation; labels alone cannot preserve these values. Preserve unrelated issue content on edits. Keep closed history searchable without recreating every closed item as new work.
+Meaningful task mutations append events in the same transaction. Events do not duplicate the entire task body. The first slice closes/reopens tasks instead of deleting them. Handoffs are not editable or deletable through public operations.
 
-Gig remains the authority for the existing JEFF installation until an explicit, verified cutover. Creating Satchel's repository and collecting docs does not perform that cutover.
+Failed/abandoned uploads need a cleanup job that removes orphaned Storage objects and advances metadata to `deleted`; that operational job is separate from interactive request transactions.
+
+## Detailed contract
+
+See the [Supabase-native task management LLD](task-management-lld.md) for schema, ownership constraints, RLS, atomic functions, MCP operations, upload verification, export and acceptance gates.

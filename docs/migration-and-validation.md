@@ -8,7 +8,7 @@ Historical capability mapping and proposed evidence gates · 8 September 2026. T
 |---|---|
 | Initialization, home directory, configuration | Account/service setup plus supported native plugin installation; machine setup stays with its environment |
 | Projects and repository registry | Portable project catalog with repository/source references and separate local mappings |
-| gig task state | GitHub Issues after a verified, explicit cutover; preserve IDs and historical exports |
+| gig task state | Supabase-native Satchel tasks after a verified, explicit cutover; preserve IDs, history, links and exports |
 | Pickup/work/done | Native execution plus task operations and portable handoffs |
 | Worktrees and task folders | Native app/Git ownership; retain focused multi-repo setup scripts where needed |
 | Checkpoints | Structured work evidence on the authoritative task |

@@ -45,7 +45,7 @@ The design should be judged by reduced repetition and reliable handoffs. Merely 
 | Plugin | An installable package for an AI platform that can expose workflows and a connection to Satchel |
 | Installation | A particular plugin or skill version made available in a particular host environment |
 | Connection | An authenticated relationship with an app or source, with an explicit access boundary |
-| Task | A unit of work whose V1 authoritative state lives in GitHub Issues |
+| Task | A project-scoped unit of work whose authoritative state lives in Satchel's Supabase database |
 | Handoff | A portable account of completed work, decisions, validation, code state, blockers, and next steps |
 
 These concepts must remain distinct in storage and the interface. In particular, a skill appearing in your library does not establish that it is installed or runnable on every device.
@@ -98,11 +98,11 @@ An instruction-only review procedure may be useful in several apps. A database i
 
 The desired interface answers four questions separately: “Do I have this?”, “Is it installed here?”, “Is it authorized?”, and “Can it run here?” See [Skills and plugins](skills-and-plugins.md).
 
-### 7. Manage tasks without maintaining two truths
+### 7. Manage portable tasks without requiring a repository
 
-GitHub Issues is the only built-in V1 task source. Satchel should expose the task operations needed for continuity, while GitHub owns authoritative issue state. Existing tasks elsewhere remain there; V1 must not advertise Notion import, synchronization, or status updates.
+Satchel owns V1 task content, state, revisions, handoffs and event history in Supabase. A task belongs to a Satchel project and works for code and non-code work. GitHub issues, pull requests, Notion pages and other HTTPS objects can be attached as typed references; Satchel does not mirror or synchronize their state.
 
-The backend should have a small internal task boundary so additional sources can be supported later. A public Satchel plugin loader, marketplace, source synchronization engine, and third-party provider UI are deferred. This restriction does not prevent distributing Satchel through OpenAI's and Anthropic's plugin ecosystems.
+Private task files live in Supabase Storage and use an explicit reserve, upload and verification lifecycle. Agent read, write and upload permissions are separate. A public source-plugin loader, marketplace and synchronization engine remain deferred.
 
 ### 8. Understand what is actually available
 
@@ -114,7 +114,7 @@ A context preview should use the app's effective permissions. A separate manual 
 
 Export portable records and configuration without credentials. Preserve identifiers, sources, revisions, and correction history. Keep original documents and live task authorities identifiable.
 
-Satchel being hosted does not mean everything must be copied into its database. The final storage choice remains open. The earlier GitHub-backed memory design is a candidate, not something settled by the visual mockup.
+Satchel being hosted does not mean every external source must be copied into its database. Supabase is the V1 authority for Satchel memory and task records, while linked repositories, documents and other systems remain identifiable external sources rather than synchronized replicas.
 
 ## Representative experiences
 

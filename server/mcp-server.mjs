@@ -12,10 +12,19 @@ const lifecycle=z.enum(['SessionStart','PostCompact']);
 const PROVIDER='github';
 const repositoryName=z.string().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/).max(201).nullable()
   .describe('Normalized lowercase owner/repository detected by the Satchel bootstrap, never a guessed folder name.');
+const taskStatus=z.enum(['inbox','ready','in_progress','blocked','done']);
+const taskPriority=z.enum(['low','medium','high','urgent']);
+const taskProject=z.uuid().describe('An explicitly task-authorized Satchel project UUID.');
+const taskIdentity={project_id:taskProject,id:z.uuid(),revision:z.number().int().positive()};
+const taskContent={
+  title:z.string().trim().min(1).max(200),outcome:z.string().max(1000).default(''),
+  why:z.string().max(4000).default(''),done_when:z.array(z.string().trim().min(1).max(500)).max(20).default([]),
+  next_action:z.string().max(1000).default(''),priority:taskPriority.default('medium'),
+};
 const textResult=data=>({content:[{type:'text',text:JSON.stringify(data)}]});
 const errorText=error=>({
-  '42501':'Access denied. Check the connection and granted memory scopes in Satchel.',
-  'P0002':'Memory unavailable or renamed. Refresh the index before trying again.',
+  '42501':'Access denied. Check the connection and granted memory or task scopes in Satchel.',
+  'P0002':'The requested Satchel record is unavailable. Refresh before trying again.',
   'PT400':'Provide exactly one of project_id (null for personal scope) or repository.',
   'PT404':'That repository is not linked to a project in this connection\'s grant. Report that project memory was not loaded; do not guess a project.',
   'PT409':'Revision or request conflict. Read the current record; do not overwrite blindly.',
@@ -108,6 +117,32 @@ export function createMemoryServer(service) {
     {...identity,...content},a=>service.correct(a),{readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:false});
   register('delete_memory','Delete only a memory the user explicitly requested to forget; provide its scope, ID and current revision.',
     identity,a=>service.remove(a),{readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:false});
+
+  if(service.tasks) {
+    register('list_tasks','List bounded task summaries in one explicitly authorized project. Filter by state when useful and check complete before claiming the list is exhaustive.',
+      {project_id:taskProject,statuses:z.array(taskStatus).max(5).optional()},a=>service.tasks.list(a.project_id,a.statuses));
+    register('read_task','Read one task with its append-only handoffs, verified resources, and event history.',
+      {project_id:taskProject,id:z.uuid()},a=>service.tasks.read(a.project_id,a.id));
+    register('create_task','Create a Satchel task only when the user explicitly asks. Reuse request_id and id with the identical payload when retrying a lost response.',
+      {request_id:z.uuid(),id:z.uuid(),project_id:taskProject,...taskContent},a=>service.tasks.create(a),writeAnnotations);
+    register('update_task','Update task content using the current revision. Re-read after a conflict; never overwrite a newer revision blindly.',
+      {request_id:z.uuid(),...taskIdentity,...taskContent},a=>service.tasks.update(a),writeAnnotations);
+    register('transition_task','Move a task between inbox, ready, in progress, blocked, and done using the current revision. A blocked task requires a reason.',
+      {request_id:z.uuid(),...taskIdentity,status:taskStatus,blocked_reason:z.string().max(2000).default('')},
+      a=>service.tasks.transition(a),writeAnnotations);
+    register('record_handoff','Append a structured handoff and update the task next action atomically. Reference only verified resources already attached to this task.',
+      {request_id:z.uuid(),handoff_id:z.uuid(),...taskIdentity,
+        supersedes_ids:z.array(z.uuid()).max(20).default([]),completed:z.array(z.string().max(1000)).max(50).default([]),
+        decisions:z.array(z.string().max(1000)).max(50).default([]),validation:z.array(z.record(z.string(),z.unknown())).max(50).default([]),
+        remaining:z.array(z.string().max(1000)).max(50).default([]),blockers:z.array(z.string().max(1000)).max(50).default([]),
+        next_action:z.string().trim().min(1).max(1000),summary:z.string().max(4000).default(''),
+        status:taskStatus.nullable().default(null),blocked_reason:z.string().max(2000).default(''),
+        resource_ids:z.array(z.uuid()).max(50).default([])},a=>service.tasks.handoff(a),writeAnnotations);
+    register('add_task_resource','Attach a typed HTTPS reference to a task. This stores the link only and never fetches its contents.',
+      {request_id:z.uuid(),resource_id:z.uuid(),...taskIdentity,label:z.string().trim().min(1).max(200),
+        url:z.url({protocol:/^https$/}),resource_type:z.enum(['reference','document','image','artifact','repository','pull_request']).default('reference'),
+        provider:z.string().trim().max(80).nullable().default(null)},a=>service.tasks.addResource(a),writeAnnotations);
+  }
 
   // This tool is deliberately read-only. Only our formatter controls hook JSON.
   server.registerTool('load_memory_context',{

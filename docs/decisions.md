@@ -12,7 +12,7 @@ As of 10 September 2026. Explicit user statements outrank inherited reports, rec
 | D04 | Companion interface for configuring and understanding the setup | User clarified that this supports their agents and server configuration |
 | D05 | No personas; no curator needed to start | Direct user decisions; no automatic reintroduction scheduled |
 | D06 | Explicit memory and corrections, without a proposal/curation pipeline | Carried through the requested report revisions; task evidence remains distinct |
-| D07 | GitHub Issues is the only built-in V1 task source | Direct user scope decision; Notion is not provided by Satchel |
+| D07 | ~~GitHub Issues is the only built-in V1 task source~~ | Superseded by D17 on 16 September 2026 |
 | D08 | Satchel's own third-party source plugin system comes later | Backend must permit extension, but V1 does not ship a loader, marketplace, SDK, or sync UI |
 | D09 | Dark and light modes are required in the design | Direct user design request; current warm prototype does not yet implement both |
 | D10 | Current visual revamp establishes look and feel | User explicitly said functionality and mechanisms remain incomplete |
@@ -22,6 +22,8 @@ As of 10 September 2026. Explicit user statements outrank inherited reports, rec
 | D14 | Make sign-in as simple as possible | User favors GitHub and also raised Google OAuth; GitHub-first is the recommendation, not yet an implemented or irrevocable provider choice |
 | D15 | Target no hosting cost for the personal pilot | User asked to use free tiers; this is a budget direction, not a guarantee of unlimited free service or authorization to enable paid overages |
 | D16 | Investigate automatic context delivery through native plugin hooks | User wants the agent told how to retrieve context or given relevant context; automatic retrieval does not change explicit-only saving |
+| D17 | Supabase is the sole authority for Satchel task state, handoffs and resource metadata | User explicitly selected the self-contained architecture; repositories and external trackers are optional typed links, not task identity |
+| D18 | Private Supabase Storage holds task files with a reserve/upload/verify lifecycle | User accepted the Supabase-native review, including separate upload capability, immutable object paths and export of database records plus objects |
 
 The notebook/hardware style is the current user-supplied visual direction. The particular font, rotated navigation, opening screen, and component behavior still need final decisions. “Your work, with you” is the working tagline proposed during naming; the name was explicitly selected, not a complete brand system.
 
@@ -35,9 +37,9 @@ The notebook/hardware style is the current user-supplied visual direction. The p
 | One hosted context service with native integration packages | Fits the intended hosted/plugin direction without a new agent runtime |
 | Separate library, installation, connection, and execution-readiness records | Makes skill portability and per-platform setup honest |
 | Native Android only if a later required device feature justifies it | Initial web delivery is now agreed; Android packaging is deferred |
-| GitHub-first sign-in, with repository access requested when enabling tasks | Keeps initial login simple while separating identity from access to issues and code |
+| GitHub-first sign-in without repository access for tasks | Login remains identity-only; task storage no longer needs GitHub authorization |
 | Plugin startup context plus MCP retrieval tools and skill instructions | Makes relevant retrieval more dependable; verify hooks, authorization and fallback on the actual installed hosts |
-| GitHub issue comments as portable handoff records | Keeps task state and work evidence near their authority |
+| Append-only Supabase handoffs and task events | Keeps continuity evidence atomic with Satchel-owned task revisions |
 | Effective-client preview separate from user-authorized export | Avoids confusing denied automatic access with manual sharing |
 | Sixty-second cross-device freshness target | An earlier pilot target to validate, not a service guarantee |
 | Nine ordinary successful retrievals in ten opportunities | An earlier relevance target; manual search alone does not establish useful continuity |
@@ -53,7 +55,8 @@ The notebook/hardware style is the current user-supplied visual direction. The p
 | Every project is a private repository | Not adopted as the project definition; a repository is a resource |
 | `npx skills` is the installation answer everywhere | Historical option; native plugin packaging and surface-specific installation must be resolved |
 | “No plugins in V1” applies to every meaning of plugin | Applies to Satchel's own source-extension system; does not rule out distribution through AI app plugin platforms |
-| Built-in Notion task support | Superseded by GitHub-only V1; existing external work remains outside the integration |
+| GitHub Issues as task authority | Superseded by D17; GitHub objects are optional external task resources |
+| Built-in Notion task support | Still not included; an existing Notion record can be attached as an HTTPS reference without synchronization |
 | Font or navigation choice is final because it appears in the prototype | No; prototype establishes visual direction and alternatives |
 | Delete all queued sessions because counts are repetitive | Not accepted; preserve and classify before any destructive migration |
 

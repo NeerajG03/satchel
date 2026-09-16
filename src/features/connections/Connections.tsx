@@ -4,7 +4,8 @@ import {errorMessage} from '../../client';
 import {requestWithTimeout} from '../../request.mjs';
 
 type Project={id:string;name:string};
-type Connection={client_id:string;label:string;personal:boolean;project_ids:string[];can_write:boolean;revoked_at:string|null};
+type TaskGrant={project_id:string;can_read:boolean;can_write:boolean;can_upload:boolean};
+type Connection={client_id:string;label:string;personal:boolean;project_ids:string[];can_write:boolean;task_can_write:boolean;task_can_upload:boolean;revoked_at:string|null;agent_task_grants:TaskGrant[]};
 export function Connections({db,authorizationId}:{db:SupabaseClient;authorizationId?:string}) {
   const [projects,setProjects]=useState<Project[]>([]);
   const [connections,setConnections]=useState<Connection[]>([]);
@@ -12,6 +13,9 @@ export function Connections({db,authorizationId}:{db:SupabaseClient;authorizatio
   const [personal,setPersonal]=useState(false);
   const [selected,setSelected]=useState<string[]>([]);
   const [write,setWrite]=useState(false);
+  const [taskSelected,setTaskSelected]=useState<string[]>([]);
+  const [taskWrite,setTaskWrite]=useState(false);
+  const [taskUpload,setTaskUpload]=useState(false);
   const [busy,setBusy]=useState(false);
   const [loaded,setLoaded]=useState(false);
   const [error,setError]=useState('');
@@ -21,7 +25,7 @@ export function Connections({db,authorizationId}:{db:SupabaseClient;authorizatio
     try {
       const [p,c]=await Promise.all([
         requestWithTimeout(signal=>db.from('projects').select('id,name').order('name').abortSignal(signal)),
-        requestWithTimeout(signal=>db.from('agent_connections').select('client_id,label,personal,project_ids,can_write,revoked_at').order('created_at').abortSignal(signal)),
+        requestWithTimeout(signal=>db.from('agent_connections').select('client_id,label,personal,project_ids,can_write,task_can_write,task_can_upload,revoked_at,agent_task_grants(project_id,can_read,can_write,can_upload)').order('created_at').abortSignal(signal)),
       ]);
       if(p.error)throw p.error;if(c.error)throw c.error;
       setProjects(p.data??[]);setConnections(c.data??[]);
@@ -40,9 +44,11 @@ export function Connections({db,authorizationId}:{db:SupabaseClient;authorizatio
     setBusy(true);setError('');
     try {
       if(approve){
-        const {error}=await requestWithTimeout(signal=>db.rpc('authorize_agent',{
+        const {error}=await requestWithTimeout(signal=>db.rpc('authorize_agent_v2',{
           p_client_id:details.client.id,p_label:details.client.name.slice(0,100)||'Agent connection',
           p_personal:personal,p_project_ids:selected,p_can_write:write,
+          p_task_project_ids:taskSelected,p_task_can_write:taskSelected.length>0&&taskWrite,
+          p_task_can_upload:taskSelected.length>0&&taskUpload,
         }).abortSignal(signal));
         if(error)throw error;
       }
@@ -68,7 +74,7 @@ export function Connections({db,authorizationId}:{db:SupabaseClient;authorizatio
   return <section className="book connections">
     <div className="eyebrow">YOUR CONNECTIONS</div>
     <h1>{authorizationId?'Connect your agent.':'Your agents.'}</h1>
-    <p>Each client gets only the memory scopes you choose. Permissions apply to every installation using that client identity.</p>
+    <p>Each client gets only the memory and task scopes you choose. Permissions apply to every installation using that client identity.</p>
     {error&&<p className="notice error" role="alert">{error}</p>}
     {notice&&<p className="notice" role="status">{notice}</p>}
     {!loaded&&!error&&<p role="status">Loading connections…</p>}
@@ -83,15 +89,22 @@ export function Connections({db,authorizationId}:{db:SupabaseClient;authorizatio
         {projects.map(p=><label className="choice" key={p.id}><input type="checkbox" checked={selected.includes(p.id)} onChange={e=>setSelected(e.target.checked?[...selected,p.id]:selected.filter(id=>id!==p.id))}/>{p.name}</label>)}
         <label className="choice"><input type="checkbox" checked={write} onChange={e=>setWrite(e.target.checked)}/>Also allow explicit saves, corrections and deletions in these scopes</label>
       </fieldset>
+      <fieldset disabled={busy||!loaded}>
+        <legend>Allow this client to read tasks</legend>
+        {projects.map(p=><label className="choice" key={p.id}><input type="checkbox" checked={taskSelected.includes(p.id)} onChange={e=>setTaskSelected(e.target.checked?[...taskSelected,p.id]:taskSelected.filter(id=>id!==p.id))}/>{p.name}</label>)}
+        <label className="choice"><input type="checkbox" checked={taskWrite} disabled={!taskSelected.length} onChange={e=>setTaskWrite(e.target.checked)}/>Also allow task creation, updates, transitions and handoffs</label>
+        <label className="choice"><input type="checkbox" checked={taskUpload} disabled={!taskSelected.length} onChange={e=>setTaskUpload(e.target.checked)}/>Also allow file uploads to task storage</label>
+      </fieldset>
       <p className="fine">Automatic hooks only read names and descriptions. More info is available on demand. Writing requires the permission above and your explicit request to the agent.</p>
-      <div className="header-actions"><button className="primary" disabled={busy||!loaded||(!personal&&!selected.length)} onClick={()=>void consent(true)}>Allow access</button><button disabled={busy} onClick={()=>void consent(false)}>Deny</button></div>
+      <div className="header-actions"><button className="primary" disabled={busy||!loaded||(!personal&&!selected.length&&!taskSelected.length)} onClick={()=>void consent(true)}>Allow access</button><button disabled={busy} onClick={()=>void consent(false)}>Deny</button></div>
     </>}
     {!authorizationId&&loaded&&<>
       {!connections.length&&<p>No agents connected yet. Install the Satchel plugin in your agent, then sign in from its MCP connection settings.</p>}
       {connections.map(c=><article key={c.client_id}>
         <h2>{c.label}</h2>
         <p>{c.personal?'Personal memory':''}{c.personal&&c.project_ids.length?' · ':''}{c.project_ids.map(id=>projects.find(p=>p.id===id)?.name??'Unavailable project').join(', ')}</p>
-        <p className="fine muted">{c.can_write?'Read and write':'Read only'} · {c.revoked_at?'Revoked':'Connected'}</p>
+        <p>{c.agent_task_grants.length?`Tasks: ${c.agent_task_grants.map(grant=>projects.find(p=>p.id===grant.project_id)?.name??'Unavailable project').join(', ')}`:'No task access'}</p>
+        <p className="fine muted">Memory {c.can_write?'read/write':'read only'} · Tasks {c.task_can_write?'read/write':'read only'}{c.task_can_upload?' + uploads':''} · {c.revoked_at?'Revoked':'Connected'}</p>
         <button disabled={busy||!!c.revoked_at} onClick={()=>void revoke(c)}>Revoke access</button>
       </article>)}
     </>}

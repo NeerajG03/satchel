@@ -79,7 +79,7 @@ The earlier Codex report proposed a hosted memory provider pilot, naming Mem0, w
 
 | Data | Current position |
 |---|---|
-| Satchel-managed V1 task state | GitHub Issues is agreed |
+| Satchel-managed V1 task state | Supabase Postgres is authoritative; task files use private Supabase Storage |
 | Satchel product code and design documents | This private development repository |
 | Skill content | Versioned source packages/repositories, reused where appropriate; final private distribution path open |
 | Memory records | Supabase PostgreSQL for the implemented pilot; summary and details share one canonical row |

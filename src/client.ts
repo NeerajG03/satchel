@@ -19,6 +19,8 @@ export function errorMessage(error: unknown, operation: 'load' | 'save' = 'save'
   if (code === 'PT409' || code === '40001') return 'This record changed elsewhere or conflicts with an earlier save. Reload to see the latest version. Your draft is still here; discard it before starting a fresh correction.';
   if (code === '23514') return 'Check the text length and try again.';
   if (code === '42501' || code === 'PGRST301') return 'Your access could not be verified. Sign in again and retry.';
+  if (error instanceof Error && (error.message.startsWith('Files are limited') || error.message.startsWith('The uploaded file did not pass')))
+    return error.message;
   return operation === 'load'
     ? 'Your book could not be loaded. Check your connection and reload.'
     : 'Satchel could not complete that request. Check your connection and retry. Your draft is still here.';

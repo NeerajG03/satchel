@@ -32,7 +32,7 @@ flowchart LR
     A --> P[Project and skill catalog]
     A --> M[Canonical memory store: decision open]
     A --> T[TaskService]
-    T --> G[GitHub Issues]
+    T --> G[Supabase task tables and functions]
     P --> S[Authorized source references]
 ```
 
@@ -68,7 +68,7 @@ Hosting and Git-backed storage can coexist: a hosted service could mediate autho
 
 Use the platforms' own plugin distribution and authentication support. Do not implement a universal plugin installer or silently edit hidden native chat/memory stores. A host-native configuration/export path may be appropriate where verified.
 
-Keep original documents in their source systems where possible. Linking a source is different from implementing its connector. GitHub is the only built-in task source for V1; no Notion adapter is implied by an archived document or an independently installed skill.
+Keep original documents in their source systems where appropriate. Linking an HTTPS source is different from implementing its connector. Supabase is the built-in task authority for V1; no GitHub or Notion synchronization adapter is implied by a link, archived document or independently installed skill.
 
 A catalog and context service should stay useful without a large dashboard, automatic transcript collection, model routing, session orchestration, or background curation. Any later remote execution needs its own specification and evidence of need.
 

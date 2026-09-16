@@ -113,3 +113,41 @@ test('OAuth token validation rejects wrong issuer/audience, expiry and missing g
   for(const bad of [{aud:'authenticated'},{iss:'https://other.invalid'},{exp:1},{satchel_grant_id:null},{client_id:null}])
     await assert.rejects(verifyAgentToken(await token(bad),publicKey));
 });
+
+test('MCP exposes revision-safe task operations without turning links into fetched content',async()=>{
+  const projectId=crypto.randomUUID(),taskId=crypto.randomUUID();
+  const calls=[];
+  const service={
+    status:async()=>({personal:false,task_project_ids:[projectId],task_can_write:true,task_can_upload:false}),
+    tasks:{
+      list:async(project,statuses)=>({tasks:[{id:taskId,project_id:project,title:'Fixture',status:statuses?.[0]??'ready',revision:1}],complete:true}),
+      read:async()=>({id:taskId,project_id:projectId,title:'Fixture',handoffs:[],resources:[],events:[]}),
+      create:async args=>{calls.push(['create',args]);return args;},
+      update:async args=>{calls.push(['update',args]);return args;},
+      transition:async args=>{calls.push(['transition',args]);return args;},
+      handoff:async args=>{calls.push(['handoff',args]);return {task:{id:taskId,revision:2},handoff:{id:args.handoff_id}};},
+      addResource:async args=>{calls.push(['resource',args]);return {task:{id:taskId,revision:2},resource:{external_url:args.url}};},
+    },
+  };
+  const server=createMemoryServer(service);const client=new Client({name:'task-test',version:'1'});
+  const [left,right]=InMemoryTransport.createLinkedPair();await server.connect(right);await client.connect(left);
+  const call=(name,args)=>client.callTool({name,arguments:args});
+  try {
+    const tools=(await client.listTools()).tools;
+    assert.equal(tools.find(tool=>tool.name==='list_tasks').annotations.readOnlyHint,true);
+    assert.equal(tools.find(tool=>tool.name==='record_handoff').annotations.idempotentHint,true);
+    assert.equal(tools.find(tool=>tool.name==='add_task_resource').annotations.openWorldHint,false);
+    const listed=await call('list_tasks',{project_id:projectId,statuses:['ready']});
+    assert.match(listed.content[0].text,/Fixture/);
+    await call('create_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,title:'Fixture'});
+    await call('transition_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,revision:1,status:'in_progress'});
+    await call('record_handoff',{request_id:crypto.randomUUID(),handoff_id:crypto.randomUUID(),id:taskId,
+      project_id:projectId,revision:1,next_action:'Continue'});
+    await call('add_task_resource',{request_id:crypto.randomUUID(),resource_id:crypto.randomUUID(),id:taskId,
+      project_id:projectId,revision:1,label:'Docs',url:'https://example.com/doc'});
+    assert.deepEqual(calls.map(entry=>entry[0]),['create','transition','handoff','resource']);
+    const invalid=await call('add_task_resource',{request_id:crypto.randomUUID(),resource_id:crypto.randomUUID(),id:taskId,
+      project_id:projectId,revision:1,label:'Unsafe',url:'http://example.com'});
+    assert.equal(invalid.isError,true);
+  }finally{await client.close();await server.close();}
+});

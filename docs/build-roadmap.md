@@ -30,7 +30,7 @@ We should settle enough to build this experiment, then make larger commitments f
 |---|---|---|
 | Continuity, hosted service, companion interface, native AI integrations | Agreed direction | [Product](product.md), [D02–D04](decisions.md) |
 | Explicit saves and corrections; no personas or initial curator | Agreed boundary | [D05–D06](decisions.md) |
-| GitHub Issues is the V1 task authority; Satchel task-source plugins come later | Agreed boundary | [D07–D08](decisions.md), [Task model](tasks-and-handoffs.md) |
+| Supabase is the V1 task authority; external objects are typed references and source plugins come later | Agreed boundary | [D17–D18](decisions.md), [Task model](tasks-and-handoffs.md) |
 | Preserve the visual direction, implement both themes, vet broad visual changes | Agreed boundary | [D09–D11](decisions.md), [Design review](../design/review-notes.md) |
 | Projects, skills, installation and access are distinct concepts | Working model to specify | [Projects](projects.md), [Skills](skills-and-plugins.md) |
 | TypeScript, React, one backend and PostgreSQL | New recommendation for evaluation | Stack rationale below; not a user-approved selection |
@@ -49,7 +49,7 @@ I recommend one code repository, one small application service, and one managed 
 | Canonical application data | Managed PostgreSQL for accounts, grants, project catalog, explicit memory and revisions, skill references | Validate the schema, access isolation, correction transactions, deletion and restoration before adopting it |
 | Retrieval | Scoped lookups and PostgreSQL full-text search as the first measured baseline | Recall for ordinary language; introduce semantic retrieval only if measured misses justify it; [PostgreSQL text search](https://www.postgresql.org/docs/current/textsearch-intro.html) |
 | Identity | Established authentication implementation plus a compatible OAuth authorization server for AI connections | Select a provider/library only after the MCP authorization experiment; website login alone does not implement agent authorization |
-| Tasks | Internal TaskService with a GitHub Issues implementation | GitHub App versus another supported authorization route; selected repositories, attributable writes and recovery |
+| Tasks | Supabase Postgres functions behind TaskService; private Storage for files | Hosted migration, bucket provisioning, cleanup, export/restore drill and browser evidence |
 | Skill sources | Versioned existing source repositories/packages; Satchel stores references and configuration intent | Private source access, install paths, version pinning and evidence per target |
 | Hosting | Evaluate a complete free-tier deployment; Vercel and Firebase are candidates raised by the user | Web/API/MCP/auth/storage fit, usage limits, region, billing requirements and recovery; no purchase or deployment selected yet |
 | Delivery | GitHub CI checks, reproducible container build, staging before production, separately versioned native packages | Release promotion, schema compatibility, rollback and plugin review/update delays |
@@ -68,7 +68,7 @@ flowchart TB
     W[Web and Android browser companion] --> S[Hosted Satchel application]
     A[Supported AI apps via native integrations] --> S
     S --> P[(PostgreSQL: catalog, memory, grants)]
-    S --> G[GitHub Issues via TaskService]
+    S --> G[Supabase tasks via TaskService]
     S --> I[Selected identity and authorization service]
     K[Versioned skill sources] --> H[Native host installation]
     S -. authorized catalog references .-> K

@@ -21,7 +21,8 @@ Start with [The product](product.md). It explains what Satchel is for, what some
 | [Projects](projects.md) | What is a project, and how do repositories, documents, tasks, and native app projects relate? |
 | [Skills and plugins](skills-and-plugins.md) | What is shared, what is installed, and what can actually run on each platform? |
 | [Memory and storage](memory-and-storage.md) | How should save, retrieve, correct, forget, storage, and sharing work? |
-| [Tasks and handoffs](tasks-and-handoffs.md) | How do GitHub Issues and continuity between sessions fit together? |
+| [Tasks and handoffs](tasks-and-handoffs.md) | How do Supabase-native tasks, handoffs, links and files preserve continuity? |
+| [Task management LLD](task-management-lld.md) | What concrete schema, permissions, atomic operations, MCP/UI flows and verification gates implement task management? |
 | [Architecture](architecture.md) | What belongs in the hosted service, companion, native plugin, and existing tools? |
 | [Decisions](decisions.md) | What is agreed, superseded, proposed, or still open? |
 | [Migration and validation](migration-and-validation.md) | Where does each JEFF capability go, and how will we prove the replacement works? |
