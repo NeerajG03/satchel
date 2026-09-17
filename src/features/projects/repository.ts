@@ -32,6 +32,14 @@ export function createProjectRepository(db: SupabaseClient) {
       if (!data) throw new Error('Missing updated project');
       return { ...data.project, project_repositories: data.repositories };
     },
+    async remove(project: Project): Promise<{ id: string; name: string; memories_removed: number; tasks_removed: number; files_removed: number }> {
+      const { data, error } = await requestWithTimeout(signal => db.rpc('delete_project', {
+        p_id: project.id, p_expected_revision: project.revision,
+      }).abortSignal(signal).single<{ id: string; name: string; memories_removed: number; tasks_removed: number; files_removed: number }>());
+      if (error) throw error;
+      if (!data) throw new Error('Missing delete result');
+      return data;
+    },
     async linkRepository(projectId: string, value: string): Promise<ProjectRepositoryLink> {
       const repository = normalizeGitHubRepository(value);
       if (!repository) throw new Error('Enter a GitHub repository as owner/name or a GitHub URL.');

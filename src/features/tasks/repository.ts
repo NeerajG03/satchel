@@ -148,6 +148,9 @@ export function createTaskRepository(db:SupabaseClient) {
       if(error)throw error;
       downloadBlob(data,resource.original_filename??resource.label);
     },
+    remove(task:{id:string;revision:number}):Promise<{id:string;title:string;project_id:string|null;files_removed:number;children_unparented:number}> {
+      return rpc('delete_task',{p_id:task.id,p_expected_revision:task.revision});
+    },
     async exportProject(projectId:string|null):Promise<number> {
       const manifest=await rpc<Record<string,unknown>&{resources?:TaskResource[]}>('export_tasks',{p_project_id:projectId});
       downloadBlob(new Blob([JSON.stringify(manifest,null,2)],{type:'application/json'}),`satchel-tasks-${projectId??'personal'}.json`);

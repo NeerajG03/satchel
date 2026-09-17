@@ -77,7 +77,7 @@ export function ProjectPage() {
 
   return <>
     <div className="between wrap"><Link to="/projects" className="fine">← Projects</Link>
-      <div className="row" style={{ gap: 8 }}><LinkButton to={`/book${scopeQuery(scope)}`}>Open its book</LinkButton><LinkButton to={`/tasks${scopeQuery(scope)}`}>Open its tasks</LinkButton></div></div>
+      <div className="row" style={{ gap: 8 }}><LinkButton to={`/book${scopeQuery(scope)}`}>Open its book</LinkButton><LinkButton to={`/tasks${scopeQuery(scope)}`}>Open its tasks</LinkButton><LinkButton to={`/projects/${id}/delete`} look="quiet">Delete</LinkButton></div></div>
     <div className="col" style={{ gap: 10 }}>
       <span className="eyebrow">Project</span>
       <h1>{project.name}</h1>

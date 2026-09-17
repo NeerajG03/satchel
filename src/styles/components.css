@@ -185,3 +185,5 @@ a.entry:hover { text-decoration: none; background: linear-gradient(to right, var
   .steps, .steps.lead-wide { grid-template-columns: 1fr; }
   .drop { right: auto; left: 0; }
 }
+
+.plain-list { margin: 8px 0 0; padding-left: 18px; list-style: disc; display: grid; gap: 4px; }

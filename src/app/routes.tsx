@@ -5,8 +5,10 @@ import { Book } from '../features/memories/Book';
 import { TaskList } from '../features/tasks/TaskList';
 import { TaskDetail } from '../features/tasks/TaskDetail';
 import { TaskEdit } from '../features/tasks/TaskEdit';
+import { TaskDelete } from '../features/tasks/TaskDelete';
 import { ProjectList } from '../features/projects/ProjectList';
 import { ProjectPage } from '../features/projects/ProjectPage';
+import { ProjectDelete } from '../features/projects/ProjectDelete';
 import { Apps } from '../features/connections/Apps';
 import { Consent } from '../features/connections/Consent';
 import { Connected } from '../features/connections/Connected';
@@ -28,9 +30,11 @@ export const router = createBrowserRouter([
       { path: 'tasks', Component: TaskList },
       { path: 'tasks/:id', Component: TaskDetail },
       { path: 'tasks/:id/edit', Component: TaskEdit },
+      { path: 'tasks/:id/delete', Component: TaskDelete },
       { path: 'projects', Component: ProjectList },
       { path: 'projects/new', Component: ProjectList },
       { path: 'projects/:id', Component: ProjectPage },
+      { path: 'projects/:id/delete', Component: ProjectDelete },
       { path: 'apps', Component: Apps },
       { path: 'apps/consent', Component: Consent },
       { path: 'authorize', Component: AuthorizeRedirect },

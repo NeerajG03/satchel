@@ -127,6 +127,7 @@ export function TaskDetail() {
       <Link to={`/tasks${scopeQuery(scope)}`} className="fine">← Tasks · {label}</Link>
       <div className="row" style={{ gap: 8 }}>
         <LinkButton to={`/tasks/${task.id}/edit${scopeQuery(scope)}`}>Edit</LinkButton>
+        <LinkButton to={`/tasks/${task.id}/delete${scopeQuery(scope)}`} look="quiet">Delete</LinkButton>
         <Menu label="Move to" disabled={move.busy}>{close => STATES.filter(state => state !== task.status).map(state =>
           <button key={state} type="button" role="menuitem" className="option" onClick={() => { close(); void moveTo(state); }}><span>{stateWord(state)}</span>{state === 'blocked' && <span className="fine muted">needs a reason</span>}</button>)}
         </Menu>
