@@ -1,32 +1,37 @@
 # Satchel design
 
-The current direction is **a personal notebook with physical controls**. This folder preserves the visual work and its review, without treating sample interactions as settled product mechanisms.
+The direction is **a personal notebook with physical controls**. Paper is for what you wrote. Hardware is for what the connected apps may do. This folder is the handoff pack for building the v1 web app.
 
-## Start here
+## The canvas
 
-- [Visual direction](visual-direction.md): palette, typography options, material treatment, copy, and unresolved choices.
-- [Screen map](screen-map.md): the purpose of each surface and what still needs product definition.
-- [Review notes](review-notes.md): findings from the latest review and the user's clarification.
-- [Interactive Satchel mockup](mockup/satchel-companion.html): open in a browser, then use “Play interactive artboard.”
-- [Preview image](mockup/preview.png): the current Satchel mockup.
-- [Main source](mockup/Main.dc.html), [direction board](mockup/Direction.dc.html), and [canvas layout](mockup/canvas.json).
+The mockups are on the design canvas: <https://claude.ai/artifact/E37216htrsgRJFEVwhshDc>. Every artboard is a clickable prototype; rail items and buttons link between screens. The same artboards are checked in under [`canvas/project/`](canvas/project/) as `.dc.html` files, and [`canvas/gen.mjs`](canvas/gen.mjs) generates them, so a change to the shared CSS lands on every board at once.
 
-![Satchel notebook and hardware mockup](mockup/preview.png)
+Rows on the canvas, top to bottom:
 
-`mockup/` is the active design copy. On 10 September 2026, its title, device headers, sample project references, and handoff branding were renamed from JEFF to Satchel. Layout and interaction behavior are unchanged. All records and installation examples remain sample data, not working service or package configuration.
+1. Design system, motion, the corner fix, and the heading font question
+2. Arrive: sign in, first run, then where you left off
+3. The book: empty, filled, correcting and forgetting (dark theme board is a v2 reference)
+4. Projects: list, a full project, a brand new one
+5. Tasks: empty, list, task detail with timeline
+6. v1 details: the picker open, sheets, edit, search, errors, and component states
+7. Apps and settings: empty, connected, consent request, Satchel × Claude, Satchel × OpenAI, settings
+8. v2 reference only: phone boards (the phone becomes a native Android app)
 
-## What is preserved
+## Read in this order
 
-`prototype/` is an unchanged copy of the supplied Claude design bundle, including earlier artboards under `prototype/archive/`, shared style text, and browser scripts under `prototype/tests/`. Its visible product name remains JEFF as historical evidence. Use the active Satchel mockup above for testing; the [original assembled prototype](prototype/jeff-companion.html) and [original preview](prototype/preview.png) remain available for comparison.
+1. [Decisions](decisions.md): the ledger. Settled choices with dates and reasons.
+2. [Visual direction](visual-direction.md): colour, type, controls, voice, motion.
+3. [Tokens](tokens.css): the values, as CSS custom properties. Use this file in the app.
+4. [Screen map and routes](screen-map.md): every route, which board it is, the component shape.
+5. [Copy deck](copy.md): every string, by page.
+6. [Acceptance](acceptance.md): what "done" means per screen.
+7. [Accessibility](accessibility.md): the checklist to tick per screen.
+8. [Build order and data gaps](build-order.md): the sequence, and what the boards show that the code does not have yet.
 
-`archive/early-codex-mockups/` contains the rejected forest and cobalt explorations. Their companion reports and screenshots are in the [document archive](../docs/archive/). They are historical references, not competing current directions.
+## Not in v1
 
-The assembled HTML embeds the canvas runtime; opening `Main.dc.html` alone is not equivalent because the standalone support runtime is not included. Fonts are requested externally, so rendering without network access can use fallback fonts.
+Dark theme, phone layouts, Skills, Resume, correction history view, account delete. See the decisions ledger for why.
 
-## Inspection and editing
+## History
 
-The assembled HTML can be opened locally. For HTTP inspection of the current mockup, serve `design/mockup/` with a local static server and open `satchel-companion.html`. The historical test scripts expect `http://localhost:8765/jeff-companion.html` and contain an author-machine Playwright path. They require environment adjustments elsewhere and are not a portable test suite or integration certification.
-
-The handoff describes rebuilding through Claude Design using the artboard sources. No reproducible build pipeline is included here, and this collection does not republish the original cloud artifact.
-
-Broad visual changes should follow the user's requested process: research, make a concrete proposal, get it vetted, then apply it. Current work preserves the look and feel while documenting unresolved functionality. No new redesign is implied.
+`mockup/` is the 10 September Satchel-named copy of the earlier prototype, and `prototype/` is the original JEFF-named bundle with its archived artboards and browser scripts. `archive/early-codex-mockups/` holds the rejected forest and cobalt explorations. [`review-notes.md`](review-notes.md) is the 8 September review of that prototype. All of these are history. Build from the canvas and the files listed above, not from them.

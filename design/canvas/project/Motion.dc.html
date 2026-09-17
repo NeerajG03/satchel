@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=Instrument+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&family=Caveat:wght@600&display=swap">
+  <style>
+  :root { --outer:#DED8CC; --hw:#26231F; --hw2:#332E28; --hw3:#3E3831; --hwtext:#EEE7DB; --hwmuted:#A79E90;
+    --paper:#F4F0E7; --paper2:#EDE7DB; --paper3:#E4DCCD;
+    --ink:#1F1B17; --muted:#6B6257; --line:#D9D1C4;
+    --accent:#B8451A; --orange:#E4571E; --red:#A82720; --green:#2E7A4A; --amber:#8A5E00;
+    --led-green:#3E9E62; --led-amber:#E2A11E; --led-red:#C8442E; --led-off:#6E665C; }
+  body { margin:0; background:var(--outer); color:var(--ink); font:15px/1.5 'Instrument Sans', system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:var(--accent); text-decoration:none; } a:hover { color:var(--orange); text-decoration:underline; text-underline-offset:3px; }
+  * { box-sizing:border-box; }
+  h1,h2,h3 { font-family:'Newsreader', Georgia, serif; font-weight:400; margin:0; letter-spacing:-.01em; }
+  .serif { font-family:'Newsreader', Georgia, serif; }
+  .mono { font-family:'DM Mono', ui-monospace, monospace; }
+  .eyebrow { font:500 11px/1.4 'DM Mono', monospace; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .muted { color:var(--muted); } .fine { font-size:12.5px; line-height:1.5; }
+  /* hardware */
+  .frame { background:var(--hw); border-radius:22px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 30px 70px #0003; }
+  .top { height:64px; display:flex; align-items:center; justify-content:space-between; padding:0 28px 0 24px; color:var(--hwtext); }
+  .wordmark { font:600 34px/1 'Caveat', cursive; color:var(--hwtext); letter-spacing:0; position:relative; top:-2px; }
+  .topmeta { display:flex; align-items:center; gap:22px; font:500 11px/1 'DM Mono', monospace; letter-spacing:.09em; text-transform:uppercase; color:var(--hwmuted); }
+  .device { margin-left:14px; font:500 10.5px/1 'DM Mono', monospace; letter-spacing:.12em; color:var(--hwmuted); text-transform:uppercase; }
+  .body { display:flex; flex-grow:1; min-height:0; padding:0 14px 14px 14px; gap:0; }
+  .rail { width:154px; display:flex; flex-direction:column; gap:6px; padding:4px 10px 0 0; }
+  .rail a { display:flex; align-items:center; gap:10px; min-height:44px; padding:0 14px; border-radius:9px; color:var(--hwtext); font-weight:500; font-size:14px; background:var(--hw2); box-shadow:inset 0 1px 0 #fff1, 0 1px 0 #0006; }
+  .rail a:hover { background:var(--hw3); text-decoration:none; }
+  .rail a[aria-current] { background:var(--paper); color:#1F1B17; box-shadow:0 1px 0 #0006; }
+  .rail a[aria-current] .dot { background:var(--orange); }
+  .rail .dot { width:7px; height:7px; border-radius:50%; background:#5C554C; flex:none; }
+  .rail .spacer { flex-grow:1; }
+  .key { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:38px; padding:0 14px; border-radius:8px; background:var(--hw2); color:var(--hwtext); font:500 13px 'Instrument Sans', sans-serif; border:0; cursor:pointer; box-shadow:inset 0 1px 0 #fff1, 0 1px 0 #0008; }
+  .key.on { background:var(--orange); color:#1F1B17; }
+  .paper { flex-grow:1; min-width:0; background:var(--paper); border-radius:14px; padding:34px 44px 30px; display:flex; flex-direction:column; overflow:hidden; position:relative; }
+  .paper::before { content:''; position:absolute; inset:0; border-radius:14px; box-shadow:inset 0 0 0 1px #0000000d, inset 0 2px 8px #0000000a; pointer-events:none; }
+  .h1 { font-size:44px; line-height:1.05; letter-spacing:-.02em; }
+  .h2 { font-size:26px; line-height:1.15; }
+  .h3 { font-size:20px; line-height:1.25; }
+  .lede { font-size:15px; color:var(--muted); max-width:560px; }
+  .head { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; }
+  /* buttons */
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:40px; padding:0 16px; border-radius:8px; border:1px solid var(--line); background:var(--paper2); color:var(--ink); font:500 14px 'Instrument Sans', sans-serif; cursor:pointer; white-space:nowrap; }
+  .btn:hover { background:var(--paper3); }
+  .btn.primary { background:#1F1B17; color:#F4F0E7; border-color:#1F1B17; box-shadow:0 2px 0 #0009; }
+  .btn.primary:hover { box-shadow:0 0 0 2px var(--orange), 0 2px 0 #0009; }
+  .btn.quiet { background:transparent; border-color:transparent; padding:0 10px; }
+  .btn.quiet:hover { background:var(--paper2); }
+  .btn.danger { background:var(--red); color:#F4F0E7; border-color:transparent; }
+  .btn.sm { min-height:32px; padding:0 12px; font-size:13px; }
+  .btn.icon { width:40px; padding:0; }
+  /* chips, leds, fields */
+  .chip { display:inline-flex; align-items:center; gap:6px; height:24px; padding:0 9px; border-radius:999px; border:1px solid var(--line); font:500 10.5px 'DM Mono', monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+  .chip.ink { color:var(--ink); border-color:var(--ink); }
+  .chip.blocked { color:var(--red); border-color:var(--red); }
+  .chip.done { color:var(--muted); border-style:dashed; }
+  .chip.progress { color:var(--accent); border-color:var(--accent); }
+  .led { width:9px; height:9px; border-radius:50%; background:var(--led-off); flex:none; box-shadow:inset 0 1px 1px #0004; }
+  .led.green { background:var(--led-green); box-shadow:0 0 0 3px #3E9E6233; } .led.amber { background:var(--led-amber); box-shadow:0 0 0 3px #E2A11E33; } .led.red { background:var(--led-red); box-shadow:0 0 0 3px #C8442E33; }
+  .field { width:100%; border:1px solid var(--line); background:var(--paper2); color:var(--ink); border-radius:8px; padding:11px 13px; font:15px/1.4 'Instrument Sans', sans-serif; }
+  .field.serif { font:20px/1.4 'Newsreader', Georgia, serif; }
+  .field::placeholder { color:var(--muted); }
+  label.f { display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:500; }
+  .ph { color:var(--muted); font-weight:400; }
+  .row { display:flex; align-items:center; gap:12px; }
+  .between { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  .col { display:flex; flex-direction:column; }
+  .hr { height:1px; background:var(--line); }
+  .entry { padding:20px 0; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
+  .entry .title { font-size:22px; line-height:1.25; }
+  .prov { font:11.5px/1.5 'DM Mono', monospace; color:var(--muted); letter-spacing:.02em; }
+  .kbd { font:11px 'DM Mono', monospace; border:1px solid var(--line); border-radius:4px; padding:1px 5px; color:var(--muted); }
+  .panel { background:var(--paper2); border:1px solid var(--line); border-radius:12px; padding:18px 20px; }
+  .panel.ink { background:var(--ink); color:var(--paper); border-color:transparent; }
+  .empty { display:flex; flex-direction:column; align-items:flex-start; gap:12px; max-width:520px; }
+  .steps { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:16px; }
+  .step { border:1px solid var(--line); border-radius:12px; padding:18px 18px 16px; display:flex; flex-direction:column; gap:10px; background:var(--paper); }
+  .step .n { font:500 11px 'DM Mono', monospace; letter-spacing:.1em; color:var(--muted); }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; background:var(--paper2); }
+  .seg a { padding:9px 14px; font-weight:500; font-size:13px; color:var(--muted); border-right:1px solid var(--line); }
+  .seg a:last-child { border-right:0; } .seg a[aria-current] { background:var(--paper); color:var(--ink); } .seg a:hover { text-decoration:none; color:var(--ink); }
+  .foot { display:flex; justify-content:space-between; margin-top:auto; padding-top:18px; font:11px 'DM Mono', monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+  .stepper { display:flex; align-items:center; gap:0; }
+  .stepper span { font:500 10.5px 'DM Mono', monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:6px 10px; border:1px solid var(--line); background:var(--paper2); }
+  .stepper span:first-child { border-radius:999px 0 0 999px; } .stepper span:last-child { border-radius:0 999px 999px 0; }
+  .stepper span.on { background:var(--ink); color:var(--paper); border-color:var(--ink); } .stepper span.past { color:var(--ink); }
+  .check { display:flex; gap:10px; align-items:flex-start; font-size:14px; } .check i { width:18px; height:18px; border:1.5px solid var(--ink); border-radius:4px; flex:none; margin-top:2px; display:inline-block; }
+  .check i.on { background:var(--ink); box-shadow:inset 0 0 0 3px var(--paper); }
+  .tick { color:var(--green); }
+  /* phone */
+  .phone { background:var(--hw); border-radius:44px; padding:14px 12px 12px; display:flex; flex-direction:column; gap:10px; box-shadow:0 30px 70px #0004; }
+  .phone .ptop { display:flex; align-items:center; justify-content:space-between; padding:6px 12px 0; color:var(--hwtext); }
+  .phone .wordmark { font-size:28px; }
+  .phone .paper { border-radius:26px; padding:22px 20px 18px; }
+  .scrim { position:absolute; inset:0; background:#1F1B1766; border-radius:14px; display:flex; align-items:center; justify-content:center; z-index:5; }
+  .sheet { background:var(--paper); border-radius:14px; padding:26px 28px; width:520px; display:flex; flex-direction:column; gap:16px; box-shadow:0 30px 80px #0006, 0 0 0 1px #0002; animation: settle .32s cubic-bezier(.2,.7,.2,1) both; }
+  .drop { position:absolute; right:44px; top:96px; width:360px; background:var(--paper); border:1px solid var(--line); border-radius:12px; box-shadow:0 18px 50px #0003; padding:10px; display:flex; flex-direction:column; gap:4px; z-index:6; animation: settle .18s ease-out both; }
+  .drop a { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:40px; padding:0 12px; border-radius:8px; color:var(--ink); font-weight:500; font-size:14px; }
+  .drop a:hover { background:var(--paper2); text-decoration:none; } .drop a[aria-current] { background:var(--paper2); box-shadow:inset 3px 0 0 var(--orange); }
+  .focus { outline:3px solid var(--accent); outline-offset:3px; }
+  mark { background:#E4571E33; color:inherit; border-radius:3px; padding:0 2px; }
+  /* motion: one clock, two curves */
+  .btn, .key, .rail a, .tabs a, .chip, .seg a { transition: background-color .18s ease-out, color .18s ease-out, box-shadow .18s ease-out, transform .12s ease-out; }
+  .key:active, .btn.primary:active, .rail a:active { transform: translateY(1px); box-shadow: inset 0 1px 0 #fff1, 0 0 0 #0000; }
+  .entry { animation: settle .32s cubic-bezier(.2,.7,.2,1) both; }
+  .entry:nth-child(2) { animation-delay:.04s } .entry:nth-child(3) { animation-delay:.08s } .entry:nth-child(4) { animation-delay:.12s } .entry:nth-child(5) { animation-delay:.16s } .entry:nth-child(6) { animation-delay:.2s }
+  @keyframes settle { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .led.green { animation: verify .9s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes verify { 0% { background:var(--led-amber); box-shadow:0 0 0 0 #3E9E6266; } 60% { background:var(--led-green); box-shadow:0 0 0 7px #3E9E6200; } 100% { background:var(--led-green); box-shadow:0 0 0 3px #3E9E6233; } }
+  .panel.ink { animation: settle .4s cubic-bezier(.2,.7,.2,1) both; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+  .tabs { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px; }
+  .tabs a { display:flex; align-items:center; justify-content:center; min-height:48px; border-radius:12px; background:var(--hw2); color:var(--hwtext); font-weight:500; font-size:13px; box-shadow:inset 0 1px 0 #fff1, 0 1px 0 #0006; }
+  .tabs a[aria-current] { background:var(--paper); color:#1F1B17; }
+</style>
+</helmet>
+<div style="width:1280px; height:820px; background:#F4F0E7; color:#1F1B17; padding:44px 52px; display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:26px 36px; align-content:start; box-sizing:border-box;">
+  <style>
+    @keyframes demoPress { 0%,40% { transform:none; box-shadow:inset 0 1px 0 #fff1, 0 1px 0 #0008; } 50%,60% { transform:translateY(1px); box-shadow:inset 0 1px 0 #fff1, 0 0 0 #0000; background:#E4571E; color:#1F1B17; } 70%,100% { background:#E4571E; color:#1F1B17; } }
+    @keyframes demoLed { 0%,30% { background:#E2A11E; box-shadow:0 0 0 3px #E2A11E33; } 45% { background:#3E9E62; box-shadow:0 0 0 9px #3E9E6200; } 60%,100% { background:#3E9E62; box-shadow:0 0 0 3px #3E9E6233; } }
+    @keyframes demoSettle { 0%,20% { opacity:0; transform:translateY(8px); } 45%,100% { opacity:1; transform:none; } }
+    @keyframes demoRail { 0%,30% { transform:translateY(0); } 50%,100% { transform:translateY(50px); } }
+    @keyframes demoStep { 0%,35% { width:33%; } 55%,100% { width:66%; } }
+    @keyframes demoForget { 0%,30% { opacity:1; max-height:60px; } 50% { opacity:0; max-height:60px; } 70%,100% { opacity:0; max-height:0; } }
+    @keyframes demoCompose { 0%,30% { height:44px; } 50%,100% { height:120px; } }
+    @keyframes demoInk { 0%,45% { width:0; } 65%,100% { width:100%; } }
+    .demo > * { animation-duration:3.2s; animation-iteration-count:infinite; animation-timing-function:cubic-bezier(.2,.7,.2,1); }
+  </style>
+  <div style="grid-column:1/-1; display:flex; justify-content:space-between; align-items:flex-end;"><div class="col" style="gap:8px;"><span class="eyebrow">Motion · everything on one clock</span><h1 class="h1" style="font-size:38px;">Things settle onto paper. Keys press. Lights confirm.</h1></div><span class="prov">120 ms taps · 180 ms hovers · 320 ms settles · one curve: cubic-bezier(.2,.7,.2,1)</span></div>
+  <div class="col" style="gap:10px; border-top:1px solid #D9D1C4; padding-top:14px;"><span class="eyebrow">01 · Key press</span><div class="demo" style="background:#26231F; border-radius:12px; padding:16px; display:flex; gap:10px;"><a href="#" class="key" style="animation-name:demoPress;">Allow saves</a><a href="#" class="key">Deny</a></div><span class="muted" style="font-size:13px; line-height:1.5;">Any hardware key drops 1 px and loses its bottom shadow for 120 ms. Selecting a rail item also turns it orange. Feels like a real key, no bounce.</span></div><div class="col" style="gap:10px; border-top:1px solid #D9D1C4; padding-top:14px;"><span class="eyebrow">02 · Verify light</span><div class="demo" style="background:#26231F; border-radius:12px; padding:22px 16px; display:flex; gap:12px; align-items:center; color:#EEE7DB; font-size:14px;"><span class="led" style="animation-name:demoLed;"></span>Claude Code · verifying…</div><span class="muted" style="font-size:13px; line-height:1.5;">When a connection is checked, the LED goes amber, then a ring expands once and it settles green. 900 ms. Never loops. Always next to a word.</span></div><div class="col" style="gap:10px; border-top:1px solid #D9D1C4; padding-top:14px;"><span class="eyebrow">03 · Settle in</span><div class="demo col" style="gap:8px;"><div style="border-bottom:1px solid #D9D1C4; padding:8px 0; animation-name:demoSettle; animation-delay:0s;"><span class="serif" style="font-size:17px;">memory-name</span><br><span class="prov">Said on your phone · 09:18</span></div><div style="border-bottom:1px solid #D9D1C4; padding:8px 0; animation-name:demoSettle; animation-delay:0.08s;"><span class="serif" style="font-size:17px;">memory-name</span><br><span class="prov">Said on your phone · 09:18</span></div><div style="border-bottom:1px solid #D9D1C4; padding:8px 0; animation-name:demoSettle; animation-delay:0.16s;"><span class="serif" style="font-size:17px;">memory-name</span><br><span class="prov">Said on your phone · 09:18</span></div></div><span class="muted" style="font-size:13px; line-height:1.5;">New list entries rise 6 px and fade in over 320 ms, staggered 40 ms each. Used when a scope changes or a save lands. Nothing slides in from the side.</span></div><div class="col" style="gap:10px; border-top:1px solid #D9D1C4; padding-top:14px;"><span class="eyebrow">04 · Rail selection</span><div class="demo" style="background:#26231F; border-radius:12px; padding:12px; position:relative; height:126px;"><div style="position:absolute; left:12px; right:12px; top:12px; height:44px; background:#F4F0E7; border-radius:9px; animation-name:demoRail;"></div><div style="position:relative; display:flex; flex-direction:column; gap:6px; color:#EEE7DB; font-weight:500; font-size:14px;"><span style="height:44px; display:flex; align-items:center; padding:0 14px; mix-blend-mode:difference;">Left off</span><span style="height:44px; display:flex; align-items:center; padding:0 14px; mix-blend-mode:difference;">Book</span></div></div><span class="muted" style="font-size:13px; line-height:1.5;">The paper-coloured pill moves to the clicked destination in 180 ms instead of popping. The paper area cross-fades its content underneath in the same time.</span></div><div class="col" style="gap:10px; border-top:1px solid #D9D1C4; padding-top:14px;"><span class="eyebrow">05 · State move</span><div class="demo col" style="gap:10px;"><div style="height:8px; background:#EDE7DB; border-radius:999px; overflow:hidden; border:1px solid #D9D1C4;"><div style="height:100%; background:#1F1B17; animation-name:demoStep;"></div></div><div class="row" style="justify-content:space-between;" ><span class="eyebrow">Inbox</span><span class="eyebrow">Ready</span><span class="eyebrow" style="color:#1F1B17;">In progress</span></div></div><span class="muted" style="font-size:13px; line-height:1.5;">Moving a task fills the stepper to the next stop over 320 ms. The chip on the list row swaps text with a 180 ms cross-fade. Blocked shows the red dot after, not during.</span></div><div class="col" style="gap:10px; border-top:1px solid #D9D1C4; padding-top:14px;"><span class="eyebrow">06 · Forget</span><div class="demo col" style="gap:0;"><div style="overflow:hidden; animation-name:demoForget; border-bottom:1px solid #D9D1C4;"><div style="padding:8px 0;"><span class="serif" style="font-size:17px;">memory-index-shape</span><br><span class="prov">Codex · Thu</span></div></div><div style="padding:8px 0; border-bottom:1px solid #D9D1C4;"><span class="serif" style="font-size:17px;">plain-words</span><br><span class="prov">MacBook · Fri</span></div></div><span class="muted" style="font-size:13px; line-height:1.5;">A forgotten entry fades out in 180 ms, then the space closes in 200 ms so the list below moves once, not twice. The confirmation panel never animates in; it just appears.</span></div><div class="col" style="gap:10px; border-top:1px solid #D9D1C4; padding-top:14px;"><span class="eyebrow">07 · Composer opens</span><div class="demo"><div style="border:1px solid #1F1B17; border-radius:10px; background:#F4F0E7; overflow:hidden; animation-name:demoCompose; padding:10px 12px;"><span class="serif" style="font-size:18px; color:#6B6257;">Write something down…</span><div style="margin-top:12px; display:flex; flex-direction:column; gap:6px;"><span style="height:26px; border-radius:6px; background:#EDE7DB;"></span><span style="height:26px; border-radius:6px; background:#EDE7DB;"></span></div></div></div><span class="muted" style="font-size:13px; line-height:1.5;">The one-line “Write something down…” grows into name, description and more info on focus. Height animates 320 ms, the extra fields fade in after 120 ms.</span></div><div class="col" style="gap:10px; border-top:1px solid #D9D1C4; padding-top:14px;"><span class="eyebrow">08 · Saved</span><div class="demo col" style="gap:6px;"><div style="padding:8px 0;"><span class="serif" style="font-size:17px;">no-personas-v1</span><br><span class="prov">Said on your phone · just now</span></div><div style="height:2px; background:#1F1B17; animation-name:demoInk;"></div></div><span class="muted" style="font-size:13px; line-height:1.5;">On save, a thin ink line draws under the new entry left to right in 320 ms, then fades. The status text “Saved to your book” appears in the footer readout, not a toast.</span></div><div class="col" style="gap:10px; border-top:1px solid #D9D1C4; padding-top:14px;"><span class="eyebrow">09 · What never moves</span><div class="panel" style="border-color:var(--red); font-size:14px;"><strong>Could not save.</strong> <span class="muted">The revision changed under you. Reload to see the newer version.</span></div><span class="muted" style="font-size:13px; line-height:1.5;">Errors, delete confirmations and the consent page appear instantly. Nothing loops except the verify light once. Reduced motion turns everything into a plain swap.</span></div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

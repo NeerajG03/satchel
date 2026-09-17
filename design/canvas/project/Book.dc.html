@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=Instrument+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&family=Caveat:wght@600&display=swap">
+  <style>
+  :root { --outer:#DED8CC; --hw:#26231F; --hw2:#332E28; --hw3:#3E3831; --hwtext:#EEE7DB; --hwmuted:#A79E90;
+    --paper:#F4F0E7; --paper2:#EDE7DB; --paper3:#E4DCCD;
+    --ink:#1F1B17; --muted:#6B6257; --line:#D9D1C4;
+    --accent:#B8451A; --orange:#E4571E; --red:#A82720; --green:#2E7A4A; --amber:#8A5E00;
+    --led-green:#3E9E62; --led-amber:#E2A11E; --led-red:#C8442E; --led-off:#6E665C; }
+  body { margin:0; background:var(--outer); color:var(--ink); font:15px/1.5 'Instrument Sans', system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:var(--accent); text-decoration:none; } a:hover { color:var(--orange); text-decoration:underline; text-underline-offset:3px; }
+  * { box-sizing:border-box; }
+  h1,h2,h3 { font-family:'Newsreader', Georgia, serif; font-weight:400; margin:0; letter-spacing:-.01em; }
+  .serif { font-family:'Newsreader', Georgia, serif; }
+  .mono { font-family:'DM Mono', ui-monospace, monospace; }
+  .eyebrow { font:500 11px/1.4 'DM Mono', monospace; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .muted { color:var(--muted); } .fine { font-size:12.5px; line-height:1.5; }
+  /* hardware */
+  .frame { background:var(--hw); border-radius:22px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 30px 70px #0003; }
+  .top { height:64px; display:flex; align-items:center; justify-content:space-between; padding:0 28px 0 24px; color:var(--hwtext); }
+  .wordmark { font:600 34px/1 'Caveat', cursive; color:var(--hwtext); letter-spacing:0; position:relative; top:-2px; }
+  .topmeta { display:flex; align-items:center; gap:22px; font:500 11px/1 'DM Mono', monospace; letter-spacing:.09em; text-transform:uppercase; color:var(--hwmuted); }
+  .device { margin-left:14px; font:500 10.5px/1 'DM Mono', monospace; letter-spacing:.12em; color:var(--hwmuted); text-transform:uppercase; }
+  .body { display:flex; flex-grow:1; min-height:0; padding:0 14px 14px 14px; gap:0; }
+  .rail { width:154px; display:flex; flex-direction:column; gap:6px; padding:4px 10px 0 0; }
+  .rail a { display:flex; align-items:center; gap:10px; min-height:44px; padding:0 14px; border-radius:9px; color:var(--hwtext); font-weight:500; font-size:14px; background:var(--hw2); box-shadow:inset 0 1px 0 #fff1, 0 1px 0 #0006; }
+  .rail a:hover { background:var(--hw3); text-decoration:none; }
+  .rail a[aria-current] { background:var(--paper); color:#1F1B17; box-shadow:0 1px 0 #0006; }
+  .rail a[aria-current] .dot { background:var(--orange); }
+  .rail .dot { width:7px; height:7px; border-radius:50%; background:#5C554C; flex:none; }
+  .rail .spacer { flex-grow:1; }
+  .key { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:38px; padding:0 14px; border-radius:8px; background:var(--hw2); color:var(--hwtext); font:500 13px 'Instrument Sans', sans-serif; border:0; cursor:pointer; box-shadow:inset 0 1px 0 #fff1, 0 1px 0 #0008; }
+  .key.on { background:var(--orange); color:#1F1B17; }
+  .paper { flex-grow:1; min-width:0; background:var(--paper); border-radius:14px; padding:34px 44px 30px; display:flex; flex-direction:column; overflow:hidden; position:relative; }
+  .paper::before { content:''; position:absolute; inset:0; border-radius:14px; box-shadow:inset 0 0 0 1px #0000000d, inset 0 2px 8px #0000000a; pointer-events:none; }
+  .h1 { font-size:44px; line-height:1.05; letter-spacing:-.02em; }
+  .h2 { font-size:26px; line-height:1.15; }
+  .h3 { font-size:20px; line-height:1.25; }
+  .lede { font-size:15px; color:var(--muted); max-width:560px; }
+  .head { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; }
+  /* buttons */
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:40px; padding:0 16px; border-radius:8px; border:1px solid var(--line); background:var(--paper2); color:var(--ink); font:500 14px 'Instrument Sans', sans-serif; cursor:pointer; white-space:nowrap; }
+  .btn:hover { background:var(--paper3); }
+  .btn.primary { background:#1F1B17; color:#F4F0E7; border-color:#1F1B17; box-shadow:0 2px 0 #0009; }
+  .btn.primary:hover { box-shadow:0 0 0 2px var(--orange), 0 2px 0 #0009; }
+  .btn.quiet { background:transparent; border-color:transparent; padding:0 10px; }
+  .btn.quiet:hover { background:var(--paper2); }
+  .btn.danger { background:var(--red); color:#F4F0E7; border-color:transparent; }
+  .btn.sm { min-height:32px; padding:0 12px; font-size:13px; }
+  .btn.icon { width:40px; padding:0; }
+  /* chips, leds, fields */
+  .chip { display:inline-flex; align-items:center; gap:6px; height:24px; padding:0 9px; border-radius:999px; border:1px solid var(--line); font:500 10.5px 'DM Mono', monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+  .chip.ink { color:var(--ink); border-color:var(--ink); }
+  .chip.blocked { color:var(--red); border-color:var(--red); }
+  .chip.done { color:var(--muted); border-style:dashed; }
+  .chip.progress { color:var(--accent); border-color:var(--accent); }
+  .led { width:9px; height:9px; border-radius:50%; background:var(--led-off); flex:none; box-shadow:inset 0 1px 1px #0004; }
+  .led.green { background:var(--led-green); box-shadow:0 0 0 3px #3E9E6233; } .led.amber { background:var(--led-amber); box-shadow:0 0 0 3px #E2A11E33; } .led.red { background:var(--led-red); box-shadow:0 0 0 3px #C8442E33; }
+  .field { width:100%; border:1px solid var(--line); background:var(--paper2); color:var(--ink); border-radius:8px; padding:11px 13px; font:15px/1.4 'Instrument Sans', sans-serif; }
+  .field.serif { font:20px/1.4 'Newsreader', Georgia, serif; }
+  .field::placeholder { color:var(--muted); }
+  label.f { display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:500; }
+  .ph { color:var(--muted); font-weight:400; }
+  .row { display:flex; align-items:center; gap:12px; }
+  .between { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  .col { display:flex; flex-direction:column; }
+  .hr { height:1px; background:var(--line); }
+  .entry { padding:20px 0; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
+  .entry .title { font-size:22px; line-height:1.25; }
+  .prov { font:11.5px/1.5 'DM Mono', monospace; color:var(--muted); letter-spacing:.02em; }
+  .kbd { font:11px 'DM Mono', monospace; border:1px solid var(--line); border-radius:4px; padding:1px 5px; color:var(--muted); }
+  .panel { background:var(--paper2); border:1px solid var(--line); border-radius:12px; padding:18px 20px; }
+  .panel.ink { background:var(--ink); color:var(--paper); border-color:transparent; }
+  .empty { display:flex; flex-direction:column; align-items:flex-start; gap:12px; max-width:520px; }
+  .steps { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:16px; }
+  .step { border:1px solid var(--line); border-radius:12px; padding:18px 18px 16px; display:flex; flex-direction:column; gap:10px; background:var(--paper); }
+  .step .n { font:500 11px 'DM Mono', monospace; letter-spacing:.1em; color:var(--muted); }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; background:var(--paper2); }
+  .seg a { padding:9px 14px; font-weight:500; font-size:13px; color:var(--muted); border-right:1px solid var(--line); }
+  .seg a:last-child { border-right:0; } .seg a[aria-current] { background:var(--paper); color:var(--ink); } .seg a:hover { text-decoration:none; color:var(--ink); }
+  .foot { display:flex; justify-content:space-between; margin-top:auto; padding-top:18px; font:11px 'DM Mono', monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+  .stepper { display:flex; align-items:center; gap:0; }
+  .stepper span { font:500 10.5px 'DM Mono', monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:6px 10px; border:1px solid var(--line); background:var(--paper2); }
+  .stepper span:first-child { border-radius:999px 0 0 999px; } .stepper span:last-child { border-radius:0 999px 999px 0; }
+  .stepper span.on { background:var(--ink); color:var(--paper); border-color:var(--ink); } .stepper span.past { color:var(--ink); }
+  .check { display:flex; gap:10px; align-items:flex-start; font-size:14px; } .check i { width:18px; height:18px; border:1.5px solid var(--ink); border-radius:4px; flex:none; margin-top:2px; display:inline-block; }
+  .check i.on { background:var(--ink); box-shadow:inset 0 0 0 3px var(--paper); }
+  .tick { color:var(--green); }
+  /* phone */
+  .phone { background:var(--hw); border-radius:44px; padding:14px 12px 12px; display:flex; flex-direction:column; gap:10px; box-shadow:0 30px 70px #0004; }
+  .phone .ptop { display:flex; align-items:center; justify-content:space-between; padding:6px 12px 0; color:var(--hwtext); }
+  .phone .wordmark { font-size:28px; }
+  .phone .paper { border-radius:26px; padding:22px 20px 18px; }
+  .scrim { position:absolute; inset:0; background:#1F1B1766; border-radius:14px; display:flex; align-items:center; justify-content:center; z-index:5; }
+  .sheet { background:var(--paper); border-radius:14px; padding:26px 28px; width:520px; display:flex; flex-direction:column; gap:16px; box-shadow:0 30px 80px #0006, 0 0 0 1px #0002; animation: settle .32s cubic-bezier(.2,.7,.2,1) both; }
+  .drop { position:absolute; right:44px; top:96px; width:360px; background:var(--paper); border:1px solid var(--line); border-radius:12px; box-shadow:0 18px 50px #0003; padding:10px; display:flex; flex-direction:column; gap:4px; z-index:6; animation: settle .18s ease-out both; }
+  .drop a { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:40px; padding:0 12px; border-radius:8px; color:var(--ink); font-weight:500; font-size:14px; }
+  .drop a:hover { background:var(--paper2); text-decoration:none; } .drop a[aria-current] { background:var(--paper2); box-shadow:inset 3px 0 0 var(--orange); }
+  .focus { outline:3px solid var(--accent); outline-offset:3px; }
+  mark { background:#E4571E33; color:inherit; border-radius:3px; padding:0 2px; }
+  /* motion: one clock, two curves */
+  .btn, .key, .rail a, .tabs a, .chip, .seg a { transition: background-color .18s ease-out, color .18s ease-out, box-shadow .18s ease-out, transform .12s ease-out; }
+  .key:active, .btn.primary:active, .rail a:active { transform: translateY(1px); box-shadow: inset 0 1px 0 #fff1, 0 0 0 #0000; }
+  .entry { animation: settle .32s cubic-bezier(.2,.7,.2,1) both; }
+  .entry:nth-child(2) { animation-delay:.04s } .entry:nth-child(3) { animation-delay:.08s } .entry:nth-child(4) { animation-delay:.12s } .entry:nth-child(5) { animation-delay:.16s } .entry:nth-child(6) { animation-delay:.2s }
+  @keyframes settle { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .led.green { animation: verify .9s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes verify { 0% { background:var(--led-amber); box-shadow:0 0 0 0 #3E9E6266; } 60% { background:var(--led-green); box-shadow:0 0 0 7px #3E9E6200; } 100% { background:var(--led-green); box-shadow:0 0 0 3px #3E9E6233; } }
+  .panel.ink { animation: settle .4s cubic-bezier(.2,.7,.2,1) both; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+  .tabs { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px; }
+  .tabs a { display:flex; align-items:center; justify-content:center; min-height:48px; border-radius:12px; background:var(--hw2); color:var(--hwtext); font-weight:500; font-size:13px; box-shadow:inset 0 1px 0 #fff1, 0 1px 0 #0006; }
+  .tabs a[aria-current] { background:var(--paper); color:#1F1B17; }
+</style>
+</helmet>
+<div class="frame" style="width:1280px; height:820px;">
+  <header class="top">
+  <div class="row" style="gap:0;"><span class="wordmark">satchel</span><span class="device">MacBook</span></div>
+  <div class="topmeta"><span>Wed 17 Sep</span><span class="row" style="gap:8px;"><span class="led green"></span>Synced</span><span>neerajg03</span></div>
+</header>
+  <div class="body">
+    <nav class="rail" aria-label="Destinations">
+  <a href="Main.dc.html"><span class="dot"></span>Left off</a>
+  <a href="Book.dc.html" aria-current="page"><span class="dot"></span>Book</a>
+  <a href="Tasks.dc.html"><span class="dot"></span>Tasks</a>
+  <a href="Projects.dc.html"><span class="dot"></span>Projects</a>
+  <a href="Apps.dc.html"><span class="dot"></span>Apps</a>
+  <a href="Settings.dc.html"><span class="dot"></span>Settings</a>
+  <div class="spacer"></div>
+  <a href="Book.dc.html" style="background:var(--orange); color:#1F1B17;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Write</a>
+</nav>
+    <main class="paper">
+      
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Project · Satchel</span><h1 class="h1">The book.</h1></div>
+    <div class="row"><button class="btn" style="gap:10px; padding-left:12px;"><span class="eyebrow" style="color:var(--muted);">In</span><strong style="font-weight:600;">Satchel</strong><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><a href="#" class="btn icon" aria-label="Search the book"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></a></div></div>
+  <div class="between" style="margin:14px 0 6px;"><p class="lede" style="margin:0;">Continuity between the AI apps you already use. Decisions saved here are read by Claude Code and Codex.</p>
+    <a href="Book.dc.html" class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Write something down</a></div>
+  <div class="row" style="gap:8px; margin:12px 0 4px;"><span class="seg"><a href="#" aria-current="true">All 5</a><a href="#">Saved by me 3</a><a href="#">Saved by agents 2</a></span><span class="fine muted">Newest first</span></div>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">no-personas-v1</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Satchel has no personas and no curator in the first version. Read before proposing agent roles.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  
+  <div class="between"><span class="prov">Said on your phone · today 09:18 · revision 1</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="false">Read more info</a></span></div>
+</article>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">task-authority</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Supabase is the only authority for task state. GitHub issues are attached references, never mirrors.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  <div class="serif" style="font-size:19px; line-height:1.5; white-space:pre-wrap; padding:10px 0 4px; max-width:680px;">Every write carries a request id and the current revision. A stale revision is a conflict, not an overwrite. Attach a GitHub issue or PR as a typed HTTPS resource; do not sync its status back.
+
+Decided 16 Sep after the Issues-only direction was dropped.</div>
+  <div class="between"><span class="prov">Saved by Claude Code · MacBook · Tue 16 Sep · revision 2</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="true">Hide more info</a><a href="#" class="fine muted" style="color:var(--muted);">2 revisions</a></span></div>
+</article>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">plain-words</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Write UI copy in plain 8th-grade words. No jargon, no metaphors, no em dashes.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  
+  <div class="between"><span class="prov">Said on your MacBook · Fri 12 Sep · revision 3</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="false">Read more info</a><a href="#" class="fine muted" style="color:var(--muted);">3 revisions</a></span></div>
+</article>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">memory-index-shape</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Hooks read only names and descriptions. More info is fetched by name when needed.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  
+  <div class="between"><span class="prov">Saved by Codex · desktop · Thu 11 Sep · revision 1</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="false">Read more info</a></span></div>
+</article>
+      <div class="foot"><span>5 in the book · Project / Satchel</span><span>Explicit saves only</span></div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

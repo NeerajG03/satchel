@@ -8,7 +8,7 @@ Satchel is the next direction for JEFF: a hosted service with companion interfac
 
 ## Status
 
-The web pilot is live at [satchel-pi.vercel.app](https://satchel-pi.vercel.app). GitHub sign-in, personal memory in **For me**, optional projects, named memory, on-demand details, corrections and deletion work against hosted Supabase. Codex and Claude Code plugins now connect to a scoped OAuth MCP service with explicit writes and revocation. See [agent setup and limits](docs/agent-setup.md), [native runtime evidence](docs/checkpoints/native-agent-pilot.md), and the [hosted web checkpoint](docs/checkpoints/hosted-web-pilot.md). The user has confirmed phone sign-in and use. See [development setup](docs/development.md).
+The web pilot is live at [satchel-pi.vercel.app](https://satchel-pi.vercel.app). GitHub sign-in, personal memory in **For me**, optional projects, named memory, on-demand details, corrections and deletion work against hosted Supabase. Codex and Claude Code plugins install from the public catalog [NeerajG03/satchel-plugins](https://github.com/NeerajG03/satchel-plugins) and connect to a scoped OAuth MCP service with explicit writes and revocation. See [agent setup and limits](docs/agent-setup.md), [native runtime evidence](docs/checkpoints/native-agent-pilot.md), and the [hosted web checkpoint](docs/checkpoints/hosted-web-pilot.md). The user has confirmed phone sign-in and use. See [development setup](docs/development.md).
 
 ## Start here
 

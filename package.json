@@ -12,7 +12,9 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test tests/*.test.mjs",
     "task-storage:provision": "node scripts/provision-task-storage.mjs",
-    "task-storage:cleanup": "node scripts/cleanup-task-files.mjs"
+    "task-storage:cleanup": "node scripts/cleanup-task-files.mjs",
+    "plugins:build": "node scripts/build-plugins.mjs",
+    "plugins:publish": "node scripts/build-plugins.mjs && node scripts/publish-plugins.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -20,6 +22,7 @@
     "jose": "^6.2.12",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "react-router": "^8.4.0",
     "zod": "^4.6.2"
   },
   "devDependencies": {
