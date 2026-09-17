@@ -11,7 +11,14 @@ export function memoryService(db) {
   }
   return {
     status: () => result(db.rpc('agent_connection_status')),
-    projects: () => result(db.from('projects').select('id,name,brief').order('name')),
+    projects: () => result(db.from('projects')
+      .select('id,name,brief,revision,updated_at,project_repositories(provider,repository)').order('name')),
+    upsertProject: args => result(db.rpc('upsert_project',{
+      p_request_id:args.request_id,p_project_id:args.project_id,
+      p_expected_revision:args.expected_revision??null,p_name:args.name,p_brief:args.brief,
+      p_repository_action:args.repository_change.kind,
+      p_repository:args.repository_change.repository??null,
+    })),
     activeProject: session => result(db.rpc('agent_active_project',{p_session_key:session})),
     repositoryHintExists: session => result(db.rpc('agent_repository_hint_exists',{p_session_key:session})),
     activateRepositoryHint: session => result(db.rpc('activate_agent_repository_hint',{p_session_key:session})),

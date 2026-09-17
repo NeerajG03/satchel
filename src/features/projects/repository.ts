@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
 
 export type ProjectRepositoryLink = { provider: 'github'; repository: string };
-export type Project = { id: string; name: string; brief: string; project_repositories: ProjectRepositoryLink[] };
+export type Project = { id: string; name: string; brief: string; revision: number; updated_at: string; project_repositories: ProjectRepositoryLink[] };
 
 export function normalizeGitHubRepository(value: string): string | null {
   const input = value.trim();

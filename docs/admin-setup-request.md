@@ -57,7 +57,8 @@ If hosted ChatGPT use is also in scope, request authorization to register/enable
 
 | Tools | Effect |
 | --- | --- |
-| `list_projects`, `memory_index`, `read_memory`, `load_memory_context` | Read connection permissions, authorized projects, memory metadata or requested details |
+| `list_projects`, `memory_index`, `read_memory`, `load_memory_context` | Read connection permissions, authorized projects, repository links, memory metadata or requested details |
+| `upsert_project` | Explicitly create a project, or revision-safely rename/rebrief and link or unlink one GitHub repository; creation never expands the connection grant |
 | `select_project` | Changes this conversation's active project, addressed either by project ID or through a user-created repository link; it does not expand access or write memory content |
 | `save_memory` | Explicitly saves a memory |
 | `correct_memory` | Explicitly revises a memory using its current revision |

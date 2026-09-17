@@ -12,6 +12,11 @@ const lifecycle=z.enum(['SessionStart','PostCompact']);
 const PROVIDER='github';
 const repositoryName=z.string().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/).max(201).nullable()
   .describe('Normalized lowercase owner/repository detected by the Satchel bootstrap, never a guessed folder name.');
+const projectRepositoryChange=z.discriminatedUnion('kind',[
+  z.object({kind:z.literal('unchanged')}),
+  z.object({kind:z.literal('link'),repository:z.string().trim().toLowerCase().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/).max(201)}),
+  z.object({kind:z.literal('unlink'),repository:z.string().trim().toLowerCase().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/).max(201)}),
+]);
 const taskStatus=z.enum(['inbox','ready','in_progress','blocked','done']);
 const taskPriority=z.enum(['low','medium','high','urgent']);
 const taskProject=z.uuid().nullable().describe('null means personal tasks; otherwise an explicitly task-authorized Satchel project UUID.');
@@ -111,6 +116,11 @@ export function createMemoryServer(service) {
       try { return {...connection,projects:await service.projects()}; }
       catch(error) { return {...connection,projects_error:errorText(error)}; }
     });
+  register('upsert_project','Create or revise a Satchel project only when the user explicitly asks. Omit expected_revision to create with a new project_id; provide the current revision to update an already authorized project. A repository change links or unlinks one normalized GitHub owner/repository without disturbing other links. Creating a project never expands this connection grant: when grant_required is true, tell the user to authorize the new project before using it.',
+    {request_id:z.uuid(),project_id:z.uuid(),expected_revision:z.number().int().positive().optional(),
+      name:z.string().trim().min(1).max(100),brief:z.string().trim().max(1000).default(''),
+      repository_change:projectRepositoryChange.default({kind:'unchanged'})},
+    a=>service.upsertProject(a),writeAnnotations);
   register('select_project','Select the active project for this conversation only, by project_id (null selects personal scope) or by the linked GitHub repository identity supplied by the Satchel bootstrap. Provide exactly one; a repository resolves only to a link whose project is already in this connection\'s grant. Returns the resulting personal plus project memory index: check complete before claiming all memories loaded. Pass event only when the Satchel bootstrap asks for it on a new conversation or after compaction. Does not grant permissions and does not change another conversation.',
     {session_key:session,project_id:scope.optional(),repository:repositoryName.optional(),event:lifecycle.optional()},
     async (a,status)=>{

@@ -8,12 +8,13 @@ import {verifyAgentToken,RESOURCE,SUPABASE_URL} from '../server/http-handler.mjs
 import {taskService} from '../server/task-service.mjs';
 
 test('MCP contracts separate index, detail, explicit writes and hook output',async()=>{
-  const id=crypto.randomUUID(),projectId=crypto.randomUUID();let revoked=false,writes=0,oversized=false,detailReads=0,activations=0,hintedProject=null,unlinked=false,personal=true;
+  const id=crypto.randomUUID(),projectId=crypto.randomUUID();let revoked=false,writes=0,projectWrites=0,oversized=false,detailReads=0,activations=0,hintedProject=null,unlinked=false,personal=true;
   const summary={id,project_id:null,name:'fixture',description:'Read for fixture colour',revision:1};
   const projectSummary={...summary,id:crypto.randomUUID(),project_id:projectId,name:'project-fixture'};
   const service={status:async()=>revoked?null:{label:'Test',personal,can_write:true,project_ids:[projectId]},
     activeProject:async()=>null,
     projects:async()=>[{id:projectId,name:'Fixture',brief:''}],
+    upsertProject:async a=>{projectWrites++;return {project:{id:a.project_id,name:a.name,brief:a.brief,revision:1},repositories:[],grant_required:true};},
     repositoryHintExists:async()=>hintedProject!==null,
     activateRepositoryHint:async()=>hintedProject,
     selectProject:async(_session,project)=>({project_id:project}),
@@ -31,7 +32,7 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.equal(tools.find(t=>t.name==='select_project').annotations.readOnlyHint,false);
     // Selection and permissions each have exactly one tool; the merged names are gone.
     assert.deepEqual(tools.map(t=>t.name).sort(),['correct_memory','delete_memory','list_projects',
-      'load_memory_context','memory_index','read_memory','save_memory','select_project']);
+      'load_memory_context','memory_index','read_memory','save_memory','select_project','upsert_project']);
     let result=await call('load_memory_context',{session_key:'one',event:'SessionStart'});
     const hook=JSON.parse(result.content[0].text);
     assert.equal(hook.hookSpecificOutput.hookEventName,'SessionStart');
@@ -48,6 +49,13 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.equal(connection.can_write,true);
     assert.deepEqual(connection.projects,[{id:projectId,name:'Fixture',brief:''}]);
     assert.equal(connection.project_ids,undefined);
+    result=await call('upsert_project',{request_id:crypto.randomUUID(),project_id:crypto.randomUUID(),
+      name:'Created by agent',brief:'Fixture',repository_change:{kind:'link',repository:'NeerajG03/Satchel'}});
+    assert.equal(JSON.parse(result.content[0].text).grant_required,true);
+    assert.equal(projectWrites,1);
+    assert.equal((await call('upsert_project',{request_id:crypto.randomUUID(),project_id:projectId,
+      expected_revision:0,name:'Invalid revision'})).isError,true);
+    assert.equal(projectWrites,1);
     // Selecting by repository returns the combined index without a follow-up memory_index call.
     result=await call('select_project',{session_key:'one',repository:'neerajg03/satchel'});
     assert.equal(activations,1);

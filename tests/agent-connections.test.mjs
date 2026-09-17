@@ -69,6 +69,33 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       assert.equal((await call(claude,'delete from memories where id=$1 and revision=2 returning id',[id])).length,1);
       await assert.rejects(call(claude,'select save_memory($1,null,$2,$3,$4)',[crypto.randomUUID(),'denied','summary','']),{code:'42501'});
     });
+    await t.test('project upserts create atomically without expanding grants and update only authorized projects',async()=>{
+      const createdId=crypto.randomUUID(),requestId=crypto.randomUUID();
+      await assert.rejects(call(codex,'select upsert_project($1,$2,null,$3,$4,$5,$6)',[
+        crypto.randomUUID(),crypto.randomUUID(),'Denied','','unchanged',null]),{code:'42501'});
+      const created=(await call(claude,'select upsert_project($1,$2,null,$3,$4,$5,$6) result',[
+        requestId,createdId,'Agent project','Created atomically','link','agent/project']))[0].result;
+      assert.equal(created.project.id,createdId);
+      assert.equal(created.project.revision,1);
+      assert.equal(created.grant_required,true);
+      assert.deepEqual(created.repositories,[{provider:'github',repository:'agent/project'}]);
+      assert.deepEqual((await call(claude,'select id from projects where id=$1',[createdId])),[]);
+      assert.equal((await call(user,'select project_id from project_repositories where repository=$1',['agent/project']))[0].project_id,createdId);
+      assert.deepEqual((await call(claude,'select upsert_project($1,$2,null,$3,$4,$5,$6) result',[
+        requestId,createdId,'Agent project','Created atomically','link','agent/project']))[0].result,created);
+      await assert.rejects(call(claude,'select upsert_project($1,$2,null,$3,$4,$5,$6)',[
+        requestId,createdId,'Changed payload','Created atomically','link','agent/project']),{code:'PT409'});
+
+      const updated=(await call(claude,'select upsert_project($1,$2,1,$3,$4,$5,$6) result',[
+        crypto.randomUUID(),b,'Renamed project','Updated safely','unchanged',null]))[0].result;
+      assert.equal(updated.project.revision,2);
+      assert.equal(updated.project.name,'Renamed project');
+      assert.equal(updated.grant_required,false);
+      await assert.rejects(call(claude,'select upsert_project($1,$2,1,$3,$4,$5,$6)',[
+        crypto.randomUUID(),b,'Stale update','','unchanged',null]),{code:'PT409'});
+      await assert.rejects(call(claude,'select upsert_project($1,$2,1,$3,$4,$5,$6)',[
+        crypto.randomUUID(),a,'Outside grant','','unchanged',null]),{code:'42501'});
+    });
     await t.test('active scopes belong to one client and conversation, never a global project',async()=>{
       await call(codex,'select select_agent_project($1,$2)',['session-one',a]);
       assert.equal((await call(codex,'select agent_active_project($1) id',['session-one']))[0].id,a);
