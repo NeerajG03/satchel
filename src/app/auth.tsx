@@ -26,7 +26,7 @@ export function takeReturnPath(): string | null {
   } catch { return null; }
 }
 
-function hasOAuthResult() {
+export function hasOAuthResult() {
   return location.search.includes('code=') || location.search.includes('error') || location.hash.includes('error=');
 }
 
@@ -45,7 +45,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (authError) setError('GitHub sign-in didn’t finish. It was cancelled or timed out. Nothing was created. Try again, or check that pop-ups are allowed.');
       setUser(data.session?.user ?? null);
       setReady(true);
-      if (hasOAuthResult()) history.replaceState(null, '', takeReturnPath() ?? '/');
     }).catch(() => { if (active) { setError('Sign-in is unavailable right now. Try again in a moment.'); setReady(true); } });
     const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
       if (active) { setUser(session?.user ?? null); setReady(true); }

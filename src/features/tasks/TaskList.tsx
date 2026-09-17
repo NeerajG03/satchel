@@ -31,7 +31,8 @@ export function TaskList() {
   const scope = parseScope(params.get('scope'));
   const projectId = scopeProjectIdOf(scope);
   const query = params.get('q') ?? '';
-  const view = (params.get('view') as View | null) ?? null;
+  const viewParam = params.get('view');
+  const view = VIEWS.find(item => item.key === viewParam)?.key ?? null;
   const compose = params.get('compose') === '1';
 
   const projects = useLoad(() => stores.projects.list(), [stores]);

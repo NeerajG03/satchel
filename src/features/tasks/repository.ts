@@ -59,8 +59,15 @@ export function createTaskRepository(db:SupabaseClient) {
         db.from('task_events').select('*').eq('task_id',id).order('created_at'),
       ]);
       for(const response of [scopeTasks,handoffs,updates,resources,refs,events])if(response.error)throw response.error;
+      const scope=(scopeTasks.data??[]) as TaskSummary[];
+      const linked=[task.parent_id,...task.dependency_ids,...task.blocked_by_ids].filter((item):item is string=>Boolean(item)&&!scope.some(row=>row.id===item));
+      if(linked.length) {
+        const extra=await db.from('task_planning').select(PLANNING_SUMMARY).in('id',linked);
+        if(extra.error)throw extra.error;
+        scope.push(...((extra.data??[]) as TaskSummary[]));
+      }
       return {...task,handoffs:handoffs.data??[],updates:updates.data??[],resources:resources.data??[],
-        update_resource_refs:refs.data??[],events:events.data??[],scope_tasks:scopeTasks.data??[]} as TaskDetail;
+        update_resource_refs:refs.data??[],events:events.data??[],scope_tasks:scope} as TaskDetail;
     },
     create(projectId:string|null,id:string,requestId:string,draft:TaskDraft):Promise<Task> {
       return rpc('create_task',{p_project_id:projectId,p_id:id,p_request_id:requestId,

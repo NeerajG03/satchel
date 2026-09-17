@@ -19,8 +19,8 @@ export function ProjectPage() {
   const stores = useStores();
   const { announce } = useReadout();
   const page = useLoad(async () => {
-    const [projects, memories, tasks, connections] = await Promise.all([stores.projects.list(), stores.memories.listAll(), stores.tasks.listAll(), stores.connections.list()]);
-    return { projects, memories: memories.filter(m => m.project_id === id), tasks: tasks.filter(t => t.project_id === id), connections: connections.filter(c => !c.revoked_at) };
+    const [projects, memories, tasks, connections] = await Promise.all([stores.projects.list(), stores.memories.list({ kind: 'project', projectId: id }), stores.tasks.list(id), stores.connections.list()]);
+    return { projects, memories, tasks, connections: connections.filter(c => !c.revoked_at) };
   }, [stores, id]);
   const action = useAction();
   const [editingBrief, setEditingBrief] = useState(false);

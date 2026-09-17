@@ -4,21 +4,8 @@ import { requestWithTimeout } from '../../request.mjs';
 export type ProjectRepositoryLink = { provider: 'github'; repository: string };
 export type Project = { id: string; name: string; brief: string; revision: number; updated_at: string; created_at: string; project_repositories: ProjectRepositoryLink[] };
 
-export function normalizeGitHubRepository(value: string): string | null {
-  const input = value.trim();
-  let repository = input;
-  const ssh = input.match(/^git@github\.com:([^/]+\/[^/]+?)(?:\.git)?$/i);
-  if (ssh) repository = ssh[1];
-  else if (/^https?:\/\//i.test(input) || /^ssh:\/\//i.test(input)) {
-    try {
-      const url = new URL(input);
-      if (url.hostname.toLowerCase() !== 'github.com') return null;
-      repository = url.pathname.replace(/^\/+|\/+$/g, '').replace(/\.git$/i, '');
-    } catch { return null; }
-  }
-  repository = repository.replace(/\.git$/i, '').toLowerCase();
-  return /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(repository) && repository.length <= 201 ? repository : null;
-}
+import { normalizeGitHubRepository } from './githubRepository';
+export { normalizeGitHubRepository };
 
 export function createProjectRepository(db: SupabaseClient) {
   return {

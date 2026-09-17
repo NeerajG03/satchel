@@ -1,6 +1,6 @@
-import { Outlet, useLocation } from 'react-router';
+import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useEffect } from 'react';
-import { useAuth, rememberReturnPath } from '../app/auth';
+import { hasOAuthResult, rememberReturnPath, takeReturnPath, useAuth } from '../app/auth';
 import { ReadoutProvider } from '../app/readout';
 import { Header } from './Header';
 import { Rail } from './Rail';
@@ -10,10 +10,13 @@ import { Welcome } from '../features/leftoff/Welcome';
 export function Shell() {
   const { user, ready, db } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const path = location.pathname + location.search;
   const signedOut = ready && (!user || !db);
+  const signedIn = ready && Boolean(user && db);
 
   useEffect(() => { if (signedOut && path !== '/') rememberReturnPath(path); }, [signedOut, path]);
+  useEffect(() => { if (signedIn && hasOAuthResult()) navigate(takeReturnPath() ?? '/', { replace: true }); }, [signedIn, navigate]);
 
   return <ReadoutProvider>
     <div className="frame">

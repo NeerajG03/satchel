@@ -64,7 +64,11 @@ export function TaskEdit() {
         const latest = await stores.tasks.read(id).catch(() => null);
         setConflict({ revision: latest?.revision ?? base.revision + 1, by: latest ? actorLabel(latest.updated_by, page.data?.apps ?? []) : 'someone', at: latest?.updated_at ?? new Date().toISOString() });
         if (latest) setBase(latest);
-      } else setError(errorMessage(reason));
+      } else {
+        setError(errorMessage(reason));
+        const latest = await stores.tasks.read(id).catch(() => null);
+        if (latest) setBase(latest);
+      }
     } finally { setBusy(false); }
   }
   function discard() {

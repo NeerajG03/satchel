@@ -104,7 +104,7 @@
 
 ## Apps
 
-- Cards per connection with light, status phrase, Memory and Tasks rows, Revoke access and Edit scopes. Revoked cards keep their history and offer Reconnect from the app.
+- Cards per active connection with light, status phrase, Memory and Tasks rows and Revoke access. Revoked connections are not listed (decided 17 September: the list shows only what can read now). Edit scopes is not in v1; widening a grant means revoke and reconnect from the app.
 - Revoke confirms in place, then the footer reads "{app} access revoked".
 - Empty state shows the three steps and the MCP address in a copyable block.
 

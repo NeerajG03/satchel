@@ -132,8 +132,8 @@ export function Book() {
       </div>
     </div>
 
-    {!query && <Composer content={content} scopeLabel={label} open={open} busy={action.busy} error={action.error} editing={editing}
-      onOpen={() => setComposerOpen(true)} onChange={next => { setContent(next); if (!editing) setDraftId(crypto.randomUUID()); }} onDiscard={clearDraft} onSave={() => void save()} />}
+    {!query && !editing && <Composer content={content} scopeLabel={label} open={open} busy={action.busy} error={action.error}
+      onOpen={() => setComposerOpen(true)} onChange={next => { setContent(next); setDraftId(crypto.randomUUID()); }} onDiscard={clearDraft} onSave={() => void save()} />}
 
     {query && <div className="stack-tight">
       <p className="fine muted">Searching names and descriptions {searchAll ? 'in every scope you own' : 'in this scope'}.{' '}
@@ -160,7 +160,10 @@ export function Book() {
     </Empty>}
 
     <div>
-      {visible.map(memory => <MemoryEntry key={memory.id} memory={memory} expanded={expanded} busy={action.busy}
+      {visible.map(memory => editing?.id === memory.id
+        ? <Composer key={memory.id} content={content} scopeLabel={label} open busy={action.busy} error={action.error} editing={editing}
+          onOpen={() => undefined} onChange={setContent} onDiscard={clearDraft} onSave={() => void save()} />
+        : <MemoryEntry key={memory.id} memory={memory} expanded={expanded} busy={action.busy}
         dim={Boolean(editing) && editing?.id !== memory.id} fresh={freshId === memory.id} confirmingForget={forgetId === memory.id}
         canCorrect={!hasDraft} highlight={highlight}
         onRead={() => void read(memory)} onHide={() => setExpanded(null)} onCorrect={() => void read(memory, true)}

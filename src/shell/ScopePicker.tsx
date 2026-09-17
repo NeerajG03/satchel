@@ -19,7 +19,8 @@ export function ScopePicker({ scope, projects, counts, locked, onChange, onNewPr
   const options = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const matches = projects.filter(project => !needle || project.name.toLowerCase().includes(needle));
-    return [PERSONAL_SCOPE, ...matches.map(project => ({ kind: 'project', projectId: project.id } as MemoryScope))];
+    const personal = !needle || 'for me'.includes(needle) ? [PERSONAL_SCOPE] : [];
+    return [...personal, ...matches.map(project => ({ kind: 'project', projectId: project.id } as MemoryScope))];
   }, [projects, query]);
 
   useEffect(() => {
@@ -44,7 +45,9 @@ export function ScopePicker({ scope, projects, counts, locked, onChange, onNewPr
     return n === 0 ? 'empty' : `${n} memories`;
   }
 
-  return <div className="picker col" ref={root} style={{ gap: 4 }}>
+  function onBlur(event: React.FocusEvent) { if (!root.current?.contains(event.relatedTarget as Node | null)) setOpen(false); }
+
+  return <div className="picker col" ref={root} style={{ gap: 4 }} onBlur={onBlur}>
     <button type="button" className="btn" aria-haspopup="listbox" aria-expanded={open} aria-controls={listId}
       disabled={Boolean(locked)} onClick={() => setOpen(value => !value)}>
       In {scopeName(scope, projects)} ▾
@@ -64,7 +67,7 @@ export function ScopePicker({ scope, projects, counts, locked, onChange, onNewPr
             <span className={`fine ${count === 'empty' ? '' : 'muted'}`} style={count === 'empty' ? { color: 'var(--amber)' } : undefined}>{count}</span>
           </button>;
         })}
-        {options.length === 1 && query && <span className="fine muted" style={{ padding: '6px 12px' }}>No project matches “{query}”.</span>}
+        {options.length === 0 && <span className="fine muted" style={{ padding: '6px 12px' }}>Nothing matches “{query}”.</span>}
       </div>
       {onNewProject && <><hr className="hr" /><button type="button" className="option" onClick={() => { setOpen(false); onNewProject(); }}><span>New project</span><span className="muted">+</span></button></>}
     </div>}

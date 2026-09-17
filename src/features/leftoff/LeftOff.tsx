@@ -29,11 +29,11 @@ export function LeftOff() {
   const actionable = data?.tasks.filter(task => task.actionable && task.status !== 'done') ?? [];
   const blocked = data?.tasks.filter(task => task.status === 'blocked') ?? [];
   const waiting = data ? data.tasks.filter(task => !task.actionable && task.status !== 'done' && task.status !== 'blocked').length : 0;
-  const shown = [...actionable, ...blocked];
+  const moving = data?.tasks.filter(task => task.status === 'ready' || task.status === 'in_progress').length ?? 0;
   const newest = data?.memories[0];
   const live = data?.connections.filter(c => !c.revoked_at) ?? [];
 
-  useFooter(data ? `${count(data.memories.length, 'in the book', 'in the book')} · ${count(shown.length, 'task', 'tasks')} moving · ${count(live.length, 'app')}` : '',
+  useFooter(data ? `${count(data.memories.length, 'in the book', 'in the book')} · ${count(moving, 'task', 'tasks')} moving · ${count(live.length, 'app')}` : '',
     firstRun ? { light: 'amber', word: 'Nothing saved yet' } : undefined);
 
   if (page.error) return <><h1>Where you left off.</h1><LoadError what="Your tasks and book" onReload={page.reload} /><Skeleton rows={4} /></>;
@@ -48,8 +48,12 @@ export function LeftOff() {
     <div className="two">
       <section className="section">
         <div className="between"><h2>Next actions</h2><span className="eyebrow">{count(actionable.length, 'actionable now', 'actionable now')}</span></div>
-        {shown.length === 0 && <p className="muted">Nothing is actionable right now. {waiting > 0 ? `${count(waiting, 'task is', 'tasks are')} waiting on something.` : 'Capture a task with a next action and it shows up here.'}</p>}
-        <div>{shown.map(task => <TaskRow key={task.id} task={task} projects={data.projects} showScope />)}</div>
+        {actionable.length + blocked.length === 0 && <p className="muted">Nothing is actionable right now. {waiting > 0 ? `${count(waiting, 'task is', 'tasks are')} waiting on something.` : 'Capture a task with a next action and it shows up here.'}</p>}
+        <div>{actionable.map(task => <TaskRow key={task.id} task={task} projects={data.projects} showScope />)}</div>
+        {blocked.length > 0 && <>
+          <div className="between" style={{ marginTop: 12 }}><h3>Blocked</h3><span className="eyebrow">{count(blocked.length, 'waiting on something', 'waiting on something')}</span></div>
+          <div>{blocked.map(task => <TaskRow key={task.id} task={task} projects={data.projects} showScope />)}</div>
+        </>}
         {waiting > 0 && <p className="fine muted">{count(waiting, 'more task is', 'more tasks are')} waiting on something. <Link to="/tasks">See them in Tasks</Link></p>}
       </section>
       <aside>
