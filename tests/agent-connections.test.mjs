@@ -6,7 +6,7 @@ import {PGlite} from '@electric-sql/pglite';
 test('agent grants enforce isolation, writes, revocation and generation at the database boundary',async t=>{
   const db=new PGlite();
   const owner=crypto.randomUUID(), other=crypto.randomUUID(), a=crypto.randomUUID(),b=crypto.randomUUID();
-  const ca='codex-fixture',cb='claude-fixture';
+  const ca='codex-fixture',cb='claude-fixture',taskClient='task-fixture';
   async function call(claims,sql,params=[]) {
     await db.exec('begin; set local role authenticated;');
     try {
@@ -14,7 +14,7 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       const result=await db.query(sql,params);await db.exec('commit');return result.rows;
     }catch(e){await db.exec('rollback');throw e;}
   }
-  const user={sub:owner};let codex,claude;
+  const user={sub:owner};let codex,claude,taskAgent;
   const authorize=(client,personal,projects,write)=>call(user,'select authorize_agent($1,$1,$2,$3,$4)',[client,personal,projects,write]);
   async function claims(client) {
     const {rows}=await db.query('select satchel_access_token_hook($1) result',[
@@ -35,6 +35,8 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
     for(const id of [null,a,b]) await call(user,'select save_memory($1,$2,$3,$4,$5)',[crypto.randomUUID(),id,'same-name','Summary','PRIVATE DETAILS']);
     await authorize(ca,true,[a],false);await authorize(cb,false,[b],true);
     codex=await claims(ca);claude=await claims(cb);
+    await call(user,'select authorize_agent_v2($1,$1,false,$2,false,false,$3,true,false)',[taskClient,[],[a]]);
+    taskAgent=await claims(taskClient);
     await t.test('token hook leaves companion unchanged and binds OAuth grants/audience',async()=>{
       const event={user_id:owner,claims:{sub:owner,aud:'authenticated'}};
       assert.deepEqual((await db.query('select satchel_access_token_hook($1) result',[event])).rows[0].result,event);
@@ -95,6 +97,10 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
         crypto.randomUUID(),b,'Stale update','','unchanged',null]),{code:'PT409'});
       await assert.rejects(call(claude,'select upsert_project($1,$2,1,$3,$4,$5,$6)',[
         crypto.randomUUID(),a,'Outside grant','','unchanged',null]),{code:'42501'});
+      const taskAuthorized=(await call(taskAgent,'select upsert_project($1,$2,1,$3,$4,$5,$6) result',[
+        crypto.randomUUID(),a,'Task-authorized project','','unchanged',null]))[0].result;
+      assert.equal(taskAuthorized.project.revision,2);
+      assert.equal(taskAuthorized.grant_required,false);
     });
     await t.test('active scopes belong to one client and conversation, never a global project',async()=>{
       await call(codex,'select select_agent_project($1,$2)',['session-one',a]);
