@@ -74,12 +74,12 @@ export function createTaskRepository(db:SupabaseClient) {
       return rpc('transition_task',{p_id:task.id,p_expected_revision:task.revision,
         p_request_id:requestId,p_status:status,p_blocked_reason:blockedReason});
     },
-    handoff(task:Task,requestId:string,handoffId:string,input:{summary:string;completed:string[];remaining:string[];nextAction:string}):Promise<TaskMutationResult> {
+    handoff(task:Task,requestId:string,handoffId:string,input:{summary:string;completed:string[];decisions:string[];validation:Record<string,unknown>[];remaining:string[];blockers:string[];nextAction:string;status:TaskStatus|null;blockedReason:string;resourceIds:string[];supersedesIds:string[]}):Promise<TaskMutationResult> {
       return rpc('record_task_handoff',{p_request_id:requestId,p_id:handoffId,p_task_id:task.id,
-        p_expected_revision:task.revision,p_supersedes_ids:[],p_completed:input.completed,
-        p_decisions:[],p_validation:[],p_remaining:input.remaining,p_blockers:[],
-        p_next_action:input.nextAction,p_summary:input.summary,p_status:null,
-        p_blocked_reason:'',p_resource_ids:[]});
+        p_expected_revision:task.revision,p_supersedes_ids:input.supersedesIds,p_completed:input.completed,
+        p_decisions:input.decisions,p_validation:input.validation,p_remaining:input.remaining,p_blockers:input.blockers,
+        p_next_action:input.nextAction,p_summary:input.summary,p_status:input.status,
+        p_blocked_reason:input.blockedReason,p_resource_ids:input.resourceIds});
     },
     comment(task:Task,requestId:string,updateId:string,body:string,resourceIds:string[]):Promise<TaskUpdate> {
       return rpc('add_task_comment',{p_request_id:requestId,p_id:updateId,p_task_id:task.id,

@@ -89,6 +89,9 @@ article { padding:28px 0 20px; border-bottom:1px solid var(--line); }
 .relation-form { grid-template-columns:minmax(0,1fr) auto; }
 .relation-list { margin:22px 0; }
 .relation-list h3 { margin-bottom:8px; }
+.relation-block { display:grid; gap:6px; margin:18px 0; }
+.relation-link { min-height:0; padding:6px 0; background:transparent; color:var(--ink); text-align:left; text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:4px; }
+.relation-link:hover:not(:disabled) { text-decoration-color:var(--accent); }
 .resource-row { display:flex; align-items:center; justify-content:space-between; gap:18px; border-bottom:1px solid var(--line); padding:12px 0; }
 .resource-row a { color:var(--accent); }
 .comment-form { margin-top:28px; padding-top:24px; border-top:1px solid var(--line); }
@@ -98,5 +101,11 @@ article { padding:28px 0 20px; border-bottom:1px solid var(--line); }
 .task-timeline { margin-top:28px; }
 .task-timeline article { padding:18px 0; border-top:1px solid var(--line); }
 .task-timeline article p { margin:8px 0; }
+.task-toolbar { display:grid; grid-template-columns:minmax(0,2fr) minmax(150px,1fr) auto; gap:14px; align-items:end; margin:24px 0 8px; padding:16px; background:var(--field); border-radius:7px; }
+.task-toolbar label { margin:0; }
+.task-toolbar .check-label { display:flex; align-items:center; gap:8px; min-height:44px; }
+.task-toolbar .check-label input { width:auto; }
+.history summary { font-weight:600; }
+.event-row { display:flex; justify-content:space-between; gap:16px; padding:10px 0; border-bottom:1px solid var(--line); text-transform:capitalize; }
 @media(max-width:980px) { .tasks .book-heading { align-items:flex-start; flex-direction:column; gap:4px; } .tasks .book-heading .quiet { padding-left:0; } }
-@media(max-width:760px) { .task-layout { grid-template-columns:1fr; } .inline-form { grid-template-columns:1fr; } .task-card-heading { display:block; } }
+@media(max-width:760px) { .task-layout { grid-template-columns:1fr; } .inline-form,.task-toolbar { grid-template-columns:1fr; } .task-card-heading { display:block; } .event-row { display:grid; gap:2px; } }
