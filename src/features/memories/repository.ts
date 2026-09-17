@@ -11,6 +11,12 @@ export function createMemoryRepository(db: SupabaseClient) {
       if (error) throw error;
       return data ?? [];
     },
+    async listAll(): Promise<MemorySummary[]> {
+      const { data, error } = await requestWithTimeout(signal => db.from('memories')
+        .select('id,project_id,name,description,revision,updated_at').order('updated_at', { ascending: false }).abortSignal(signal));
+      if (error) throw error;
+      return (data ?? []) as MemorySummary[];
+    },
     async read(memory: MemorySummary): Promise<Memory> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('read_memory', {
         p_project_id: memory.project_id, p_name: memory.name,

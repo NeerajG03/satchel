@@ -1,30 +1,56 @@
-# Screen map
+# Screen map and routes
 
-8 September 2026. This connects the current visual exploration to the proposed product; it is not a frozen navigation specification.
+17 September 2026. Six destinations, one rail, real URLs. Every board named here is on the [design canvas](https://claude.ai/artifact/E37216htrsgRJFEVwhshDc) and in [`canvas/project/`](canvas/project/).
 
-| Surface | Job | Required product clarification |
-|---|---|---|
-| Left off | Find an ongoing project/task and its next action | Which handoff is current, source freshness, accessible code, and actual resume capability |
-| Book | Save, search, inspect, correct, and forget durable records | Storage semantics, access partitions, scope resolution, scalable filters, and history presentation |
-| Projects | Understand an effort and link its resources, tasks, and skills | Stable identity independent of repositories; no implicit repository creation |
-| Apps | Set up and inspect each host connection | Installation versus account authorization versus verified operation; user/session/device boundaries |
-| Skills | Discover reusable procedures and their requirements | Source/version, package and target, dependencies, installation evidence, and execution environment |
-| Settings | Manage service/account setup, retention, export, and preferences | Hosting/storage choice, credentials, deletion policy, and theme controls |
-| Context preview | Inspect what a selected connection can retrieve for a project | Use effective access; include relevant repository context and accurate freshness |
-| Manual handoff | Deliberately share a bounded snapshot | Distinct from automatic app access; no claim of future synchronization |
+## Shell
 
-The prototype's desktop destinations are Left off, Book, Projects, Apps, Skills, and Settings, with Preview in the top rail. Phone destinations are Left off, Book, Apps, and More; More exposes the remaining surfaces. First screen and shelf naming remain open.
+Hardware frame around a paper panel. The rail sits on the hardware at the left with six fixed destinations; it never lists projects, so nothing in it can grow. The header on the hardware shows the wordmark, device, date, a sync light with a word, and the account. The paper has a footer readout on every page: a left slot for counts and success messages, a right slot for a fixed line such as "Explicit saves only".
 
-## Flow inventory to carry into later design work
+## Routes
 
-- Add a project, associate multiple resources, choose a task destination, and resolve duplicate names.
-- Save directly from the companion or through a connected agent with separate permissions.
-- Correct with expected revision, inspect history, forget with accurate retention explanation.
-- Retrieve a project with current memories, relevant repositories, live issue state, and skill references.
-- Install/configure an integration on an actual host; verify a representative operation.
-- Inspect a skill on a phone and distinguish reading it from running it elsewhere.
-- Resume a task, prepare a manual handoff, and report inaccessible code or artifacts.
-- Handle empty results, first-time setup, expired access, failed writes, offline drafts, and conflicts.
-- Export selected content with no credentials and clear source/retention limits.
+| Route | Board(s) | Job | Notes |
+|---|---|---|---|
+| `/` | Welcome · LeftOffEmpty · Main | Signed out: welcome and GitHub sign-in. Signed in: Where you left off. | First run shows the three-step start instead of the task list. |
+| `/book` | BookEmpty · Book | Save, read, correct, forget memories in one scope. | Scope in the query: `?scope=me` (default) or `?scope=project:<id>`. |
+| `/book?q=` | BookSearch | Search within the current scope. | `q` alongside `scope`. Clear removes `q` only. |
+| `/book` with a draft | BookCorrect · ScopePicker | Composer open or correcting one entry. Picker open. | Draft is page state, not a route. Picker locks while a draft exists. |
+| `/tasks` | TasksEmpty · Tasks | List for one scope with filter segments and search. | Same `scope` query as the Book. Segments: Actionable, Moving, Blocked, Done, All. |
+| `/tasks/:id` | Task · TaskBlocked | Task detail: state stepper, next action, composer (comment, progress, handoff), timeline, right column. | Move-to Blocked is a sheet over this page. |
+| `/tasks/:id/edit` | TaskEdit | Edit title, next action, outcome, why, done-when, priority. | Save writes with the current revision. Conflict shown in place. |
+| `/projects` | Projects | List with memory, task and app counts. | |
+| `/projects/new` | ProjectNew | Sheet over the list: name and brief. | Create lands on `/projects/:id`. |
+| `/projects/:id` | Project · ProjectEmpty | Brief, linked codebases, apps with access, activity, tasks, memories. | Empty version leads with the brief field and three starts. |
+| `/apps` | AppsEmpty · Apps | Connected apps with lights, scopes and revoke. | Empty version is the three install steps. |
+| `/apps/consent?authorization_id=` | Consent | An app asks for access. Memory and Tasks side by side, Select all / None, quick-start row. | Already the entry point when `authorization_id` is present. |
+| `/apps/connected/:client` | ConnectedClaude · ConnectedCodex | Plain split acknowledgement after Allow. | Right half follows the partner's look. No logos. |
+| `/settings` | Settings | Account, export, forgetting explained. | No Appearance, no delete. |
 
-The mockup includes only selected simulations of these flows. It does not implement the server, credentials, genuine cross-device synchronization, plugin installation, GitHub writes, or native app launch. A single state shared by two rendered device frames is a visual demonstration.
+Unknown routes go to `/`. A signed-out visit to any route shows Welcome and returns to that route after sign-in.
+
+## Component shape
+
+```
+src/
+  app/
+    routes.tsx          route table, guards for signed-out
+    Shell.tsx           frame + header + rail + paper + footer readout
+  shell/
+    Rail.tsx  Header.tsx  Paper.tsx  Footer.tsx  ScopePicker.tsx  Sheet.tsx  Notice.tsx
+  features/
+    leftoff/  LeftOff.tsx  LeftOffEmpty.tsx
+    memories/ Book.tsx  Composer.tsx  MemoryEntry.tsx  BookSearch.tsx
+    tasks/    TaskList.tsx  TaskDetail.tsx  TaskEdit.tsx  BlockedSheet.tsx  Timeline.tsx  UpdateComposer.tsx
+    projects/ ProjectList.tsx  ProjectPage.tsx  NewProjectSheet.tsx  RepositoryLinks.tsx
+    connections/ Apps.tsx  Consent.tsx  Connected.tsx
+    settings/ Settings.tsx
+```
+
+Existing repositories (`features/*/repository.ts`) and models stay. The shell and features above replace `Workspace.tsx`, `TaskWorkspace.tsx`, `Connections.tsx` and the view switch in `main.tsx`.
+
+## Not in v1
+
+- Dark theme (one reference board: BookDark).
+- Phone layouts (four reference boards). The phone becomes a native Android app with app intents.
+- Skills. Removed from the project.
+- Resume. Satchel holds context; it does not launch work.
+- Correction history view. The "N revisions" link exists; what it opens is v2.

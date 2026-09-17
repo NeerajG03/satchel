@@ -2,18 +2,26 @@
 
 8 September 2026. This is a conceptual boundary map, not an implementation plan or selected technology stack.
 
-## Implemented companion structure — 11 September 2026
+## Implemented companion structure — 17 September 2026
 
-The pilot uses React/TypeScript with Vite and Supabase Auth/PostgreSQL. `src/main.tsx` owns application startup, authentication and the outer frame. `src/Workspace.tsx` coordinates the active scope and draft lifecycle. Feature modules own their domain responsibilities:
+The pilot uses React/TypeScript with Vite, react-router and Supabase Auth/PostgreSQL. `src/main.tsx` mounts the router inside the auth provider. Routes, the shell and the features follow [design/screen-map.md](../design/screen-map.md):
 
 | Module | Responsibility |
 |---|---|
-| `features/memories/model.ts` | Explicit personal/project scope union, content types, field limits and summary projections |
-| `features/memories/repository.ts` | List/read/save/correct/delete operations, scoped lookup, timeout use and stable-ID checks |
-| `features/memories/MemoryEditor.tsx` | One controlled editor for all implemented scopes, with a visible destination |
-| `features/memories/MemoryList.tsx` | Summary display, on-demand details and correction/deletion controls |
-| `features/projects/repository.ts` | Project listing, creation and repository links |
-| `features/projects/ScopeSidebar.tsx` | Personal/project navigation and project creation form |
+| `app/routes.tsx` | Route table. Every destination and detail page has a URL. Unknown routes go to `/`. |
+| `app/auth.tsx` | Session state, GitHub sign-in and sign-out, return-to path for signed-out visits |
+| `app/scope.ts` | The `?scope=me|project:<id>` query and its labels |
+| `app/readout.tsx` | Footer readout and header status word, set per page with `useFooter` |
+| `app/useLoad.ts` | Page loading, in-place error text, busy actions, conflict detection |
+| `app/stores.ts` | One place that builds the four repositories from the signed-in client |
+| `shell/*` | Hardware frame, header, rail, footer and the scope picker |
+| `ui/*` | Buttons, chips, lights, fields, notices, segments, sheet, menu, provenance |
+| `styles/*` | Tokens (copied from `design/tokens.css`), base, shell, components, pages |
+| `features/memories/*` | Model, repository, Book page, composer and entry |
+| `features/tasks/*` | Model, repository, list, capture, detail, edit, timeline, update composer, blocked sheet |
+| `features/projects/*` | Repository, list, new-project sheet, project page, repository links |
+| `features/connections/*` | Repository, Apps, Consent, Connected pages |
+| `features/settings/Settings.tsx` | Account, export, forgetting |
 | `request.mjs` | Bounded request execution shared by the repositories |
 | `server/repository-hint-handler.mjs` | Validates and stages a short-lived repository identity without returning project or memory data |
 
