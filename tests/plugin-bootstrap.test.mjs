@@ -44,8 +44,11 @@ test('startup detects a GitHub origin without exposing remote credentials',()=>{
 test('built packages stay in sync with their shared sources',()=>{
   // Nothing else fails when integrations/shared changes without re-running build-plugins.
   const shared=path=>readFileSync(new URL(`../integrations/shared/${path}`,import.meta.url),'utf8');
+  // A reference left behind breaks progressive disclosure silently, so every skill file is checked.
+  const skillFiles=['SKILL.md','references/memory.md','references/tasks.md','references/projects.md']
+    .map(file=>[`context/${file}`,`skills/context/${file}`]);
   for(const host of ['codex','claude'])
-    for(const [source,built] of [['bootstrap.mjs','scripts/bootstrap.mjs'],['memory/SKILL.md','skills/memory/SKILL.md']])
+    for(const [source,built] of [['bootstrap.mjs','scripts/bootstrap.mjs'],...skillFiles])
       assert.equal(readFileSync(new URL(`../integrations/${host}/satchel/${built}`,import.meta.url),'utf8'),shared(source),
         `integrations/${host}/satchel/${built} is stale; run node scripts/build-plugins.mjs`);
 });

@@ -23,7 +23,7 @@ Run Claude login in an interactive terminal. In Satchel's consent page, select p
 
 The Claude account UI accepted the existing Claude 0.1.1 package through **Customize → Plugins → Add plugin → Upload plugin**. Package the contents of `integrations/claude/satchel`, including dotfiles, as a ZIP. The manifest must be at `.claude-plugin/plugin.json` inside the archive.
 
-The uploaded `satchel@My Uploads` is enabled in the pilot account. Claude recognized all five files, one skill, one connector, and two SessionStart hook groups (`startup|clear|compact` bootstrap and `clear|compact` MCP). Recognition in this UI is not evidence that a Code cloud session executes the hooks.
+The uploaded `satchel@My Uploads` is enabled in the pilot account. Claude recognized every file in the package, one skill, one connector, and two SessionStart hook groups (`startup|clear|compact` bootstrap and `clear|compact` MCP). Recognition in this UI is not evidence that a Code cloud session executes the hooks. That upload was five files; the package now ships eight, because the skill carries three progressively disclosed reference files alongside `SKILL.md`.
 
 The pilot Team workspace currently shows the Satchel connector as **Not added**, with **Connect disabled**, and no custom-connector creation control. [Anthropic's documented Team setup](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) requires an Owner or Primary Owner to add it under **Organization settings → Connectors → Add → Custom → Web**, using `https://satchel-pi.vercel.app/api/mcp`. Members then connect individually and authorize their own Satchel scopes. Do not copy local OAuth credentials into a cloud environment.
 

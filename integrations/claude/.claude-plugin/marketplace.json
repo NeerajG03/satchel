@@ -1,5 +1,5 @@
 {
   "name": "satchel-dev",
   "owner": {"name": "Satchel"},
-  "plugins": [{"name": "satchel", "source": "./satchel", "description": "Personal and project memory across your agents."}]
+  "plugins": [{"name": "satchel", "source": "./satchel", "description": "Personal and project memory, tasks and projects across your agents."}]
 }
