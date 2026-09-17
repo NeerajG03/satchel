@@ -129,6 +129,9 @@ test('MCP exposes revision-safe task operations without turning links into fetch
       handoff:async args=>{calls.push(['handoff',args]);return {task:{id:taskId,revision:2},handoff:{id:args.handoff_id}};},
       comment:async args=>{calls.push(['comment',args]);return {id:args.update_id,kind:'comment'};},
       progress:async args=>{calls.push(['progress',args]);return {task:{id:taskId,revision:2},update:{id:args.update_id,kind:'progress'}};},
+      setParent:async args=>{calls.push(['parent',args]);return {task:{id:taskId,revision:2},parent_id:args.parent_id};},
+      addDependency:async args=>{calls.push(['add-dependency',args]);return {task:{id:taskId,revision:2},depends_on_task_id:args.depends_on_task_id};},
+      removeDependency:async args=>{calls.push(['remove-dependency',args]);return {task:{id:taskId,revision:2},removed_task_id:args.depends_on_task_id};},
       addResource:async args=>{calls.push(['resource',args]);return {task:{id:taskId,revision:2},resource:{external_url:args.url}};},
     },
   };
@@ -138,24 +141,35 @@ test('MCP exposes revision-safe task operations without turning links into fetch
   try {
     const tools=(await client.listTools()).tools;
     assert.equal(tools.find(tool=>tool.name==='list_tasks').annotations.readOnlyHint,true);
-    assert.equal(tools.find(tool=>tool.name==='record_handoff').annotations.idempotentHint,true);
-    assert.equal(tools.find(tool=>tool.name==='record_task_progress').annotations.idempotentHint,true);
+    assert.equal(tools.find(tool=>tool.name==='record_task_update').annotations.idempotentHint,true);
+    assert.equal(tools.find(tool=>tool.name==='edit_task').annotations.idempotentHint,true);
     assert.equal(tools.find(tool=>tool.name==='add_task_resource').annotations.openWorldHint,false);
+    assert.deepEqual(tools.filter(tool=>tool.name.includes('task')).map(tool=>tool.name).sort(),[
+      'add_task_resource','create_task','edit_task','list_tasks','read_task','record_task_update',
+    ]);
     const listed=await call('list_tasks',{project_id:projectId,statuses:['ready']});
     assert.match(listed.content[0].text,/Fixture/);
     assert.match((await call('list_tasks',{project_id:null})).content[0].text,/Fixture/);
     await call('create_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,title:'Fixture'});
     await call('create_task',{request_id:crypto.randomUUID(),id:crypto.randomUUID(),project_id:null,title:'Personal fixture'});
-    await call('transition_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,revision:1,status:'in_progress'});
-    await call('record_handoff',{request_id:crypto.randomUUID(),handoff_id:crypto.randomUUID(),id:taskId,
-      project_id:projectId,revision:1,next_action:'Continue'});
-    await call('add_task_comment',{request_id:crypto.randomUUID(),update_id:crypto.randomUUID(),id:taskId,
-      project_id:projectId,body:'Useful context'});
-    await call('record_task_progress',{request_id:crypto.randomUUID(),update_id:crypto.randomUUID(),id:taskId,
-      project_id:projectId,revision:1,summary:'Implemented the next slice',next_action:'Verify it'});
+    await call('edit_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,revision:1,
+      change:{kind:'state',status:'in_progress'}});
+    await call('record_task_update',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,
+      entry:{kind:'handoff',entry_id:crypto.randomUUID(),revision:1,next_action:'Continue'}});
+    await call('record_task_update',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,
+      entry:{kind:'comment',entry_id:crypto.randomUUID(),body:'Useful context'}});
+    await call('record_task_update',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,
+      entry:{kind:'progress',entry_id:crypto.randomUUID(),revision:1,summary:'Implemented the next slice',next_action:'Verify it'}});
+    const relatedId=crypto.randomUUID();
+    await call('edit_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,revision:1,
+      change:{kind:'parent',parent_id:relatedId}});
+    await call('edit_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,revision:1,
+      change:{kind:'add_dependency',depends_on_task_id:relatedId}});
+    await call('edit_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,revision:1,
+      change:{kind:'remove_dependency',depends_on_task_id:relatedId}});
     await call('add_task_resource',{request_id:crypto.randomUUID(),resource_id:crypto.randomUUID(),id:taskId,
       project_id:projectId,revision:1,label:'Docs',url:'https://example.com/doc'});
-    assert.deepEqual(calls.map(entry=>entry[0]),['create','create','transition','handoff','comment','progress','resource']);
+    assert.deepEqual(calls.map(entry=>entry[0]),['create','create','transition','handoff','comment','progress','parent','add-dependency','remove-dependency','resource']);
     const invalid=await call('add_task_resource',{request_id:crypto.randomUUID(),resource_id:crypto.randomUUID(),id:taskId,
       project_id:projectId,revision:1,label:'Unsafe',url:'http://example.com'});
     assert.equal(invalid.isError,true);

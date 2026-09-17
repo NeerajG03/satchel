@@ -54,6 +54,20 @@ export function TaskWorkspace({db}:{db:SupabaseClient}) {
     if(status==='blocked'&&!reason.trim())return;
     await run(async()=>{const task=await taskStore.transition(selected,crypto.randomUUID(),status,reason);setSelected({...selected,...task});setDraft(task);setTasks(items=>replaceTask(items,task));setBlockedReason('');setNotice(`Moved to ${status.replace('_',' ')}.`);});
   }
+  async function refreshPlanning(taskId:string,message:string) {
+    const task=await taskStore.read(projectId,taskId);setSelected(task);setDraft(task);setTasks(task.scope_tasks);setNotice(message);
+  }
+  async function setParent(event:FormEvent<HTMLFormElement>) {event.preventDefault();if(!selected)return;
+    const parentId=String(new FormData(event.currentTarget).get('parent_id')??'')||null;
+    await run(async()=>{const result=await taskStore.setParent(selected,crypto.randomUUID(),parentId);await refreshPlanning(result.task.id,'Task hierarchy updated.');});
+  }
+  async function addDependency(event:FormEvent<HTMLFormElement>) {event.preventDefault();if(!selected)return;
+    const element=event.currentTarget;const dependencyId=String(new FormData(element).get('dependency_id')??'');if(!dependencyId)return;
+    await run(async()=>{const result=await taskStore.addDependency(selected,crypto.randomUUID(),dependencyId);await refreshPlanning(result.task.id,'Dependency added.');element.reset();});
+  }
+  async function removeDependency(dependencyId:string) {if(!selected)return;
+    await run(async()=>{const result=await taskStore.removeDependency(selected,crypto.randomUUID(),dependencyId);await refreshPlanning(result.task.id,'Dependency removed.');});
+  }
   async function addHandoff(event:FormEvent<HTMLFormElement>) {event.preventDefault();if(!selected)return;
     const element=event.currentTarget;const form=new FormData(element);const summary=String(form.get('summary')??'');const nextAction=String(form.get('next_action')??'');
     await run(async()=>{const result=await taskStore.handoff(selected,crypto.randomUUID(),crypto.randomUUID(),{
@@ -112,6 +126,14 @@ export function TaskWorkspace({db}:{db:SupabaseClient}) {
         </form>
         <section className="task-section"><h2>Move task</h2><label>Blocker <span className="muted">(required only when moving to blocked)</span><input maxLength={2000} value={blockedReason} disabled={busy} onChange={event=>setBlockedReason(event.target.value)} placeholder={selected.blocked_reason||'What is preventing progress?'}/></label>
           <div className="state-actions">{STATES.map(state=><button key={state} disabled={busy||state===selected.status||(state==='blocked'&&!blockedReason.trim())} onClick={()=>void transition(state)}>{state.replace('_',' ')}</button>)}</div></section>
+        <section className="task-section"><h2>Planning</h2>
+          <p className="muted">Hierarchy groups work. Dependencies determine whether this task is actionable.</p>
+          <p><strong>{selected.actionable?'Actionable now':'Not actionable'}</strong>{selected.blocked_by_ids.length>0&&` · waiting on ${selected.blocked_by_ids.length} task${selected.blocked_by_ids.length===1?'':'s'}`}</p>
+          <form className="inline-form relation-form" onSubmit={setParent}><label>Parent task<select key={selected.parent_id??'root'} name="parent_id" defaultValue={selected.parent_id??''} disabled={busy}><option value="">No parent</option>{selected.scope_tasks.filter(task=>task.id!==selected.id).map(task=><option key={task.id} value={task.id}>{task.title}</option>)}</select></label><button disabled={busy}>Set parent</button></form>
+          <div className="relation-list"><h3>Depends on</h3>{selected.dependency_ids.length===0?<p className="muted">No dependencies.</p>:selected.dependency_ids.map(id=>{const task=selected.scope_tasks.find(item=>item.id===id);return <div className="resource-row" key={id}><span>{task?.title??id}{selected.blocked_by_ids.includes(id)&&<span className="fine muted"> · unfinished</span>}</span><button className="quiet" disabled={busy} onClick={()=>void removeDependency(id)}>Remove</button></div>;})}</div>
+          <form className="inline-form relation-form" onSubmit={addDependency}><label>Add dependency<select name="dependency_id" defaultValue="" required disabled={busy}><option value="" disabled>Select a task</option>{selected.scope_tasks.filter(task=>task.id!==selected.id&&!selected.dependency_ids.includes(task.id)).map(task=><option key={task.id} value={task.id}>{task.title}</option>)}</select></label><button disabled={busy}>Add dependency</button></form>
+          {selected.child_count>0&&<p className="fine">Contains {selected.child_count} child task{selected.child_count===1?'':'s'}.</p>}
+        </section>
         <section className="task-section"><h2>Resources</h2>{selected.resources?.map(resource=><div className="resource-row" key={resource.id}><span>{resource.label} <span className="fine muted">· {resource.upload_status}</span></span>
           {resource.kind==='external_url'?<a href={resource.external_url??'#'} target="_blank" rel="noreferrer">Open ↗</a>:resource.upload_status==='verified'?<button className="quiet" onClick={()=>void run(()=>taskStore.download(resource))}>Download</button>:null}</div>)}
           <form className="inline-form" onSubmit={addLink}><label>Link label<input name="label" required maxLength={200} disabled={busy}/></label><label>HTTPS URL<input name="url" type="url" required pattern="https://.*" disabled={busy}/></label><button disabled={busy}>Attach link</button></form>
@@ -153,8 +175,8 @@ export function TaskWorkspace({db}:{db:SupabaseClient}) {
           <button className="primary" disabled={busy||!draft.title.trim()}>Capture task</button></form>
         {loading?<p role="status">Loading tasks…</p>:tasks.length===0?<div className="empty"><h2>No tasks yet.</h2><p>Capture the next thing worth carrying forward.</p></div>:
           <div className="task-list">{tasks.map(task=><article key={task.id}><div className="task-card-heading"><h2>{task.title}</h2><span className={`task-state ${task.status}`}>{task.status.replace('_',' ')}</span></div>
-            <p>{task.next_action||'No next action yet.'}</p>{task.blocked_reason&&<p className="notice">Blocked: {task.blocked_reason}</p>}
-            <div className="memory-meta"><span className="fine muted">{task.priority} · revision {task.revision}</span><button className="quiet" disabled={busy} onClick={()=>void open(task)}>Open</button></div></article>)}</div>}
+            <p>{task.next_action||'No next action yet.'}</p>{task.blocked_reason&&<p className="notice">Blocked: {task.blocked_reason}</p>}{task.blocked_by_ids.length>0&&<p className="notice">Waiting on {task.blocked_by_ids.length} task{task.blocked_by_ids.length===1?'':'s'}.</p>}
+            <div className="memory-meta"><span className="fine muted">{task.priority} · revision {task.revision}{task.parent_id?' · child task':''}{task.actionable?' · actionable':''}</span><button className="quiet" disabled={busy} onClick={()=>void open(task)}>Open</button></div></article>)}</div>}
       </>}
     </section>
   </div>;

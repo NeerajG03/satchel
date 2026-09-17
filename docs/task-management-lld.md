@@ -73,6 +73,12 @@ One append-only work timeline with two explicit kinds. A `comment` is lightweigh
 
 Every event touches `tasks.last_activity_at`, allowing comments and other append-only activity to reorder task lists without pretending the canonical task content changed.
 
+### `task_parent_edges` and `task_dependencies`
+
+`task_parent_edges` gives a task at most one structural parent. `task_dependencies` records directed prerequisite edges. Both sides carry composite same-owner/same-scope foreign keys. Mutation functions serialize graph edits per owner and scope, reject self-links and recursively reject cycles before changing the task revision.
+
+`task_planning` is a security-invoker read projection over RLS-protected tables. It adds `parent_id`, all dependency IDs, unfinished `blocked_by_ids`, `child_count` and derived `actionable`. A task is actionable only when it is ready or in progress, has a non-empty next action and every prerequisite is done.
+
 ### `task_resources`
 
 A constrained union:
@@ -133,6 +139,9 @@ Signed URLs are not used by the first slice. If added later, they must be short-
 | `record_task_handoff` | `{task,handoff}` | same-task supersession/resources, task patch + append-only handoff + event |
 | `add_task_comment` | update | append-only discussion/resource references; no task revision conflict |
 | `record_task_progress` | `{task,update}` | task patch + structured progress/resource references + event |
+| `set_task_parent` | `{task,parent_id}` | same-scope parent, hierarchy cycle rejection, revision + event |
+| `add_task_dependency` | `{task,depends_on_task_id}` | same-scope prerequisite, dependency cycle rejection, revision + event |
+| `remove_task_dependency` | `{task,removed_task_id}` | expected revision, revision + event when an edge existed |
 | `add_task_resource` | `{task,resource}` | HTTPS only, no fetch, revision + event |
 | `reserve_task_file` | `{task,resource}` | upload capability, immutable key, expected checksum/size |
 | `finalize_task_file` | resource | checks Storage size/checksum, verified/failed event |
@@ -148,20 +157,19 @@ The production MCP server exposes:
 - `list_tasks(project_id, statuses?)` (`null` means personal tasks)
 - `read_task(project_id, id)`
 - `create_task(request_id, id, project_id, …)`
-- `update_task(request_id, id, project_id, revision, …)`
-- `transition_task(request_id, id, project_id, revision, status, blocked_reason)`
-- `record_handoff(request_id, handoff_id, id, project_id, revision, …)`
-- `add_task_comment(request_id, update_id, id, project_id, body, resource_ids)`
-- `record_task_progress(request_id, update_id, id, project_id, revision, …)`
+- `edit_task(request_id, id, project_id, revision, change)` where `change.kind` is `content`, `state`, `parent`, `add_dependency` or `remove_dependency`
+- `record_task_update(request_id, id, project_id, entry)` where `entry.kind` is `comment`, `progress` or `handoff`
 - `add_task_resource(request_id, resource_id, id, project_id, revision, label, url, …)`
 
 Lists are bounded and return `complete`. Reads include comments, progress updates, handoffs, verified resources and events. Writes require explicit user intent and a stable request ID; task-changing writes also require the current revision. MCP stores external links but never downloads them. Binary file transfer remains a companion operation.
+
+The six task tools are intentionally intent-level rather than one tool per SQL function. The database keeps narrow atomic routines for authorization, invariants and auditability; `TaskService` dispatches the two discriminated MCP mutations to those routines. This reduces tool-selection ambiguity without creating an untyped generic mutation endpoint.
 
 ## Companion flow
 
 1. Choose **For me** or a project; **For me** is available even with zero projects.
 2. Capture a task with title, optional outcome and next action.
-3. Open it to edit the full contract or transition state.
+3. Open it to edit the full contract, set its parent/dependencies or transition state.
 4. Attach an HTTPS reference or reserve/upload/verify a private file.
 5. Add comments during discussion, record structured progress while continuing, and use a handoff when work stops or ownership changes.
 6. Export the selected personal/project scope manifest and every verified stored object.
@@ -211,14 +219,14 @@ The companion's selected-scope export performs steps 1 and 2. `npm run task-stor
 4. **Storage operations** — private bucket provisioning, upload verification, abandoned-upload cleanup, restore drill.
 5. **Release hardening** — hosted migration, advisors, browser evidence, observability and rollback/export runbook.
 6. **Work timeline** — append-only comments and structured progress updates with verified resource references and one chronological activity surface.
-7. **Planning graph** — scoped hierarchy, dependency integrity and derived actionability; never infer relationships from display IDs.
+7. **Planning graph** — scoped hierarchy, dependency integrity and derived actionability; never infer relationships from display IDs. **Implemented.**
 8. **Automation** — durable event delivery, opt-in webhooks and expiring agent leases after the underlying task contracts stabilize.
 
 Slices are deployable checkpoints, not alternate designs. A slice is complete only when its contract and denial paths are tested.
 
 ## Current implementation checkpoint
 
-Slices 1–3 and the provisioning/cleanup/export mechanics for slice 4 are implemented. Slice 6 is deployed: the task-update migrations are live, the new-table advisor findings are clear, and the production companion renders both **For me** and project task scopes. The hosted base migrations and private bucket are also live, and hosted rollback-only project and personal-agent RPC smokes pass. Cleanup scheduling, a restore drill, planning graph design and broader signed-in browser mutation evidence remain release-hardening work.
+Slices 1–3 and the provisioning/cleanup/export mechanics for slice 4 are implemented. Slices 6 and 7 are deployed with work updates, same-scope planning constraints, serialized cycle-safe mutations, derived actionability, a six-tool MCP surface, companion operations and export coverage. The hosted base migrations and private bucket are live, and hosted rollback-only project and personal-agent RPC smokes pass. Cleanup scheduling, a restore drill and broader signed-in browser mutation evidence remain release-hardening work.
 
 ## Automation and Gig hook lessons
 

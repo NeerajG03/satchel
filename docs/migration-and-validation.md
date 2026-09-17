@@ -53,7 +53,7 @@ Use one bounded triage for old proposals. Archive unresolved items outside activ
 2. **Prove continuity with synthetic data.** Test a real supported phone/laptop pair against the chosen service and host integrations. Gate: save, retrieve, correct, revoke, fail, export, and laptop-off behavior are evidenced.
 3. **Resolve storage and installation choices.** Select the smallest architecture that passes the tests. In parallel where practical, prepare a reviewed private skill package without removing the registry. Gate: actual per-host installation and a representative second-machine script run.
 4. **Move selected content.** Preserve provenance, IDs, scope, correction links, source access, and useful skill dependencies. Gate: validated records and source mappings, no blanket upload of JEFF home.
-5. **Cut over tasks per project.** Verify issue state, dependency links, typed attributes, handoffs, and original-ID mapping. Gate: one authority for migrated records, with usable historical lookup.
+5. **Cut over selected tasks.** Verify personal/project scope, state, dependency links, typed attributes, handoffs, and original-ID mapping. Gate: Supabase is the one authority for migrated records, with usable historical lookup.
 6. **Retire duplicate runtime last.** Finish or preserve sessions, uncommitted code, hooks, and tool dependencies first. Gate: normal work no longer needs the removed component; useful Python/specialized tools still run.
 7. **Evaluate daily use.** Measure repeated explanations, missed saves, stale facts, failed retrievals, setup friction, cost, and maintenance time. Improve the demonstrated problem rather than automatically adding a curator or fleet.
 
@@ -73,7 +73,7 @@ These are proposed gates, not a scheduled implementation plan. An archive is not
 | Project/access isolation | Similar names, work/personal boundaries, and revoked access cannot leak context through search or caches |
 | Companion identity | Direct phone saves do not depend on a separate Claude/Codex grant |
 | Effective-client preview | Matches what that connection can retrieve; manual export is labeled separately |
-| Task operations | Supported surfaces can perform the required GitHub operations; missing dependency/metadata support is visible |
+| Task operations | Supported surfaces can perform Satchel task operations; hierarchy/dependencies, conflicts and unavailable resources remain visible |
 | Multi-repo completion | A partial PR cannot prematurely complete the overall task |
 | Code transfer | Recipient can access the referenced code or is told it remains unavailable |
 | Skill installation | Correct source/version/scope is established in each tested host |

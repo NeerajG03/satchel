@@ -46,13 +46,13 @@ This is the user-facing direction expressed as a proposed architecture: one shar
 | Companion | Direct user interaction, configuration, inspection, correction, setup guidance, verification results | Control over every app's internal settings |
 | Native integration package | Host-specific discovery, workflow instructions, service connection configuration | All private skills installed or supported on every device |
 | Backing memory store | Canonical revisions and deletion/correction semantics | Independent copies in every native memory database |
-| GitHub | Authoritative V1 task records | One repository per Satchel project |
+| Supabase task store | Authoritative personal/project task records, planning graph and history | A repository requirement or external-tracker synchronization |
 | Existing skill sources | Versioned reusable workflows | Satchel ownership of every third-party package |
 | Native AI apps | Conversations, model selection, execution, workspace/session lifecycle | Guaranteed equivalent capabilities across their surfaces |
 
 ## Proposed request path
 
-A connected host identifies its authorized session and the requested project. The service resolves the project, checks effective access, retrieves current records and permitted source context, and returns a bounded result with IDs, provenance, and revisions. Live task operations go through the GitHub backend.
+A connected host identifies its authorized session and the requested personal/project scope. The service checks effective access, retrieves current records and permitted source context, and returns a bounded result with IDs, provenance, revisions and derived task actionability. Live task operations go through Supabase functions behind `TaskService`; GitHub objects are optional HTTPS resources.
 
 Writes need permission checks, idempotency, revision checks, and honest acknowledgement. Search indexes must be permission-aware and invalidated on relevant changes. Exact API schemas, tool names, search technology, and storage transaction mechanisms remain open.
 
@@ -80,7 +80,7 @@ A catalog and context service should stay useful without a large dashboard, auto
 4. Private skill distribution and evidence of installed/ready state.
 5. Native versus responsive-web Android delivery and share-to-save behavior.
 6. Context selection and refresh without assuming automatic retrieval.
-7. GitHub metadata mapping, limits, concurrency, and failure recovery.
+7. Optional external-resource integrations, limits, concurrency, and failure recovery.
 8. Deep links and handoff behavior that each destination actually supports.
 
 These questions are not resolved by the current artifact. Use the [validation scenarios](migration-and-validation.md) to make the architecture concrete before declaring it ready to build at full scope.

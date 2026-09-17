@@ -21,9 +21,18 @@ export type Task = {
   closed_at: string | null;
 };
 
-export type TaskSummary = Pick<Task,
+export type TaskPlanning = Task & {
+  parent_id: string | null;
+  dependency_ids: string[];
+  blocked_by_ids: string[];
+  child_count: number;
+  actionable: boolean;
+};
+
+export type TaskSummary = Pick<TaskPlanning,
   'id' | 'project_id' | 'title' | 'status' | 'priority' | 'next_action' |
-  'blocked_reason' | 'revision' | 'updated_at' | 'last_activity_at'>;
+  'blocked_reason' | 'revision' | 'updated_at' | 'last_activity_at' | 'parent_id' |
+  'dependency_ids' | 'blocked_by_ids' | 'child_count' | 'actionable'>;
 
 export type TaskResource = {
   id: string;
@@ -89,12 +98,13 @@ export type TaskEvent = {
   created_at: string;
 };
 
-export type TaskDetail = Task & {
+export type TaskDetail = TaskPlanning & {
   handoffs: TaskHandoff[];
   updates: TaskUpdate[];
   resources: TaskResource[];
   update_resource_refs: TaskUpdateResourceRef[];
   events: TaskEvent[];
+  scope_tasks: TaskSummary[];
 };
 
 export type TaskDraft = Pick<Task, 'title' | 'outcome' | 'why' | 'done_when' | 'next_action' | 'priority'>;
@@ -102,12 +112,17 @@ export const EMPTY_TASK: TaskDraft = {
   title: '', outcome: '', why: '', done_when: [], next_action: '', priority: 'medium',
 };
 
-export function taskSummary(task: Task): TaskSummary {
+export function taskSummary(task: Task&Partial<TaskPlanning>,previous?:TaskSummary): TaskSummary {
   const {id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at}=task;
-  return {id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at};
+  return {id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at,
+    parent_id:task.parent_id??previous?.parent_id??null,
+    dependency_ids:task.dependency_ids??previous?.dependency_ids??[],
+    blocked_by_ids:task.blocked_by_ids??previous?.blocked_by_ids??[],
+    child_count:task.child_count??previous?.child_count??0,
+    actionable:task.actionable??previous?.actionable??false};
 }
 
 export function replaceTask(tasks: TaskSummary[], task: Task): TaskSummary[] {
-  return [taskSummary(task),...tasks.filter(item=>item.id!==task.id)]
+  return [taskSummary(task,tasks.find(item=>item.id===task.id)),...tasks.filter(item=>item.id!==task.id)]
     .sort((a:TaskSummary,b:TaskSummary)=>b.last_activity_at.localeCompare(a.last_activity_at)||a.id.localeCompare(b.id));
 }

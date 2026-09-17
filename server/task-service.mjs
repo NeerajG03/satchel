@@ -16,8 +16,8 @@ export function taskService(db, connectionStatus) {
   return {
     async list(projectId,statuses) {
       await requireScope(projectId);
-      let query=db.from('tasks').select(
-        'id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at',
+      let query=db.from('task_planning').select(
+        'id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at,parent_id,dependency_ids,blocked_by_ids,child_count,actionable',
         {count:'exact'},
       );
       query=(projectId===null?query.is('project_id',null):query.eq('project_id',projectId))
@@ -29,17 +29,19 @@ export function taskService(db, connectionStatus) {
     },
     async read(projectId,id) {
       await requireScope(projectId);
-      const taskBase=db.from('tasks').select('*').eq('id',id);
+      const taskBase=db.from('task_planning').select('*').eq('id',id);
       const task=await result((projectId===null?taskBase.is('project_id',null):taskBase.eq('project_id',projectId)).maybeSingle());
       if(!task)throw {code:'P0002'};
-      const [handoffs,updates,resources,updateResourceRefs,events]=await Promise.all([
+      const planningBase=db.from('task_planning').select('id,title,status,parent_id,dependency_ids,blocked_by_ids,child_count,actionable');
+      const [scopeTasks,handoffs,updates,resources,updateResourceRefs,events]=await Promise.all([
+        result((projectId===null?planningBase.is('project_id',null):planningBase.eq('project_id',projectId)).order('last_activity_at',{ascending:false}).limit(201)),
         result((projectId===null?db.from('task_handoffs').select('*').is('project_id',null):db.from('task_handoffs').select('*').eq('project_id',projectId)).eq('task_id',id).order('created_at')),
         result((projectId===null?db.from('task_updates').select('*').is('project_id',null):db.from('task_updates').select('*').eq('project_id',projectId)).eq('task_id',id).order('created_at')),
         result((projectId===null?db.from('task_resources').select('*').is('project_id',null):db.from('task_resources').select('*').eq('project_id',projectId)).eq('task_id',id).order('created_at')),
         result((projectId===null?db.from('task_update_resource_refs').select('update_id,resource_id').is('project_id',null):db.from('task_update_resource_refs').select('update_id,resource_id').eq('project_id',projectId)).eq('task_id',id)),
         result((projectId===null?db.from('task_events').select('*').is('project_id',null):db.from('task_events').select('*').eq('project_id',projectId)).eq('task_id',id).order('created_at')),
       ]);
-      return {...task,handoffs,updates,resources,update_resource_refs:updateResourceRefs,events};
+      return {...task,scope_tasks:scopeTasks,handoffs,updates,resources,update_resource_refs:updateResourceRefs,events};
     },
     async create(args) {
       await requireScope(args.project_id,'write');
@@ -90,6 +92,27 @@ export function taskService(db, connectionStatus) {
         p_completed:args.completed,p_decisions:args.decisions,p_remaining:args.remaining,
         p_blockers:args.blockers,p_next_action:args.next_action,p_status:args.status,
         p_blocked_reason:args.blocked_reason,p_resource_ids:args.resource_ids,
+      }));
+    },
+    async setParent(args) {
+      await requireScope(args.project_id,'write');
+      return result(db.rpc('set_task_parent',{
+        p_request_id:args.request_id,p_task_id:args.id,p_expected_revision:args.revision,
+        p_parent_task_id:args.parent_id,
+      }));
+    },
+    async addDependency(args) {
+      await requireScope(args.project_id,'write');
+      return result(db.rpc('add_task_dependency',{
+        p_request_id:args.request_id,p_task_id:args.id,p_expected_revision:args.revision,
+        p_depends_on_task_id:args.depends_on_task_id,
+      }));
+    },
+    async removeDependency(args) {
+      await requireScope(args.project_id,'write');
+      return result(db.rpc('remove_task_dependency',{
+        p_request_id:args.request_id,p_task_id:args.id,p_expected_revision:args.revision,
+        p_depends_on_task_id:args.depends_on_task_id,
       }));
     },
     async addResource(args) {

@@ -5,6 +5,9 @@ import type {Task,TaskDetail,TaskDraft,TaskResource,TaskStatus,TaskSummary,TaskU
 type TaskMutationResult={task:Task};
 type ResourceMutationResult=TaskMutationResult&{resource:TaskResource};
 type ProgressMutationResult=TaskMutationResult&{update:TaskUpdate};
+type PlanningMutationResult=TaskMutationResult&{parent_id?:string|null;depends_on_task_id?:string;removed_task_id?:string};
+
+const PLANNING_SUMMARY='id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at,parent_id,dependency_ids,blocked_by_ids,child_count,actionable';
 
 async function sha256(file:File):Promise<string> {
   const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
@@ -27,8 +30,7 @@ export function createTaskRepository(db:SupabaseClient) {
   }
   return {
     async list(projectId:string|null):Promise<TaskSummary[]> {
-      const base=db.from('tasks')
-        .select('id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at');
+      const base=db.from('task_planning').select(PLANNING_SUMMARY);
       const scoped=projectId===null?base.is('project_id',null):base.eq('project_id',projectId);
       const {data,error}=await requestWithTimeout(signal=>scoped
         .order('last_activity_at',{ascending:false}).order('id').limit(201).abortSignal(signal));
@@ -36,25 +38,27 @@ export function createTaskRepository(db:SupabaseClient) {
       return (data??[]) as TaskSummary[];
     },
     async read(projectId:string|null,id:string):Promise<TaskDetail> {
-      const taskBase=db.from('tasks').select('*').eq('id',id);
+      const taskBase=db.from('task_planning').select('*').eq('id',id);
+      const scopeTaskBase=db.from('task_planning').select(PLANNING_SUMMARY);
       const handoffBase=db.from('task_handoffs').select('*').eq('task_id',id);
       const updateBase=db.from('task_updates').select('*').eq('task_id',id);
       const resourceBase=db.from('task_resources').select('*').eq('task_id',id);
       const updateResourceBase=db.from('task_update_resource_refs').select('update_id,resource_id').eq('task_id',id);
       const eventBase=db.from('task_events').select('*').eq('task_id',id);
       const taskQuery=(projectId===null?taskBase.is('project_id',null):taskBase.eq('project_id',projectId)).maybeSingle();
+      const scopeTaskQuery=(projectId===null?scopeTaskBase.is('project_id',null):scopeTaskBase.eq('project_id',projectId)).order('last_activity_at',{ascending:false}).limit(201);
       const handoffQuery=(projectId===null?handoffBase.is('project_id',null):handoffBase.eq('project_id',projectId)).order('created_at');
       const updateQuery=(projectId===null?updateBase.is('project_id',null):updateBase.eq('project_id',projectId)).order('created_at');
       const resourceQuery=(projectId===null?resourceBase.is('project_id',null):resourceBase.eq('project_id',projectId)).order('created_at');
       const updateResourceQuery=(projectId===null?updateResourceBase.is('project_id',null):updateResourceBase.eq('project_id',projectId));
       const eventQuery=(projectId===null?eventBase.is('project_id',null):eventBase.eq('project_id',projectId)).order('created_at');
-      const [task,handoffs,updates,resources,updateResourceRefs,events]=await Promise.all([
-        taskQuery,handoffQuery,updateQuery,resourceQuery,updateResourceQuery,eventQuery,
+      const [task,scopeTasks,handoffs,updates,resources,updateResourceRefs,events]=await Promise.all([
+        taskQuery,scopeTaskQuery,handoffQuery,updateQuery,resourceQuery,updateResourceQuery,eventQuery,
       ]);
-      for(const response of [task,handoffs,updates,resources,updateResourceRefs,events])if(response.error)throw response.error;
+      for(const response of [task,scopeTasks,handoffs,updates,resources,updateResourceRefs,events])if(response.error)throw response.error;
       if(!task.data)throw {code:'P0002'};
       return {...task.data,handoffs:handoffs.data??[],updates:updates.data??[],resources:resources.data??[],
-        update_resource_refs:updateResourceRefs.data??[],events:events.data??[]} as TaskDetail;
+        update_resource_refs:updateResourceRefs.data??[],events:events.data??[],scope_tasks:scopeTasks.data??[]} as TaskDetail;
     },
     create(projectId:string|null,id:string,requestId:string,draft:TaskDraft):Promise<Task> {
       return rpc('create_task',{p_project_id:projectId,p_id:id,p_request_id:requestId,
@@ -87,6 +91,18 @@ export function createTaskRepository(db:SupabaseClient) {
         p_decisions:input.decisions,p_remaining:input.remaining,p_blockers:input.blockers,
         p_next_action:input.nextAction,p_status:input.status,p_blocked_reason:input.blockedReason,
         p_resource_ids:input.resourceIds});
+    },
+    setParent(task:Task,requestId:string,parentId:string|null):Promise<PlanningMutationResult> {
+      return rpc('set_task_parent',{p_request_id:requestId,p_task_id:task.id,
+        p_expected_revision:task.revision,p_parent_task_id:parentId});
+    },
+    addDependency(task:Task,requestId:string,dependsOnTaskId:string):Promise<PlanningMutationResult> {
+      return rpc('add_task_dependency',{p_request_id:requestId,p_task_id:task.id,
+        p_expected_revision:task.revision,p_depends_on_task_id:dependsOnTaskId});
+    },
+    removeDependency(task:Task,requestId:string,dependsOnTaskId:string):Promise<PlanningMutationResult> {
+      return rpc('remove_task_dependency',{p_request_id:requestId,p_task_id:task.id,
+        p_expected_revision:task.revision,p_depends_on_task_id:dependsOnTaskId});
     },
     addLink(task:Task,requestId:string,resourceId:string,label:string,url:string):Promise<ResourceMutationResult> {
       return rpc('add_task_resource',{p_request_id:requestId,p_id:resourceId,p_task_id:task.id,

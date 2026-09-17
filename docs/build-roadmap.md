@@ -49,7 +49,7 @@ I recommend one code repository, one small application service, and one managed 
 | Canonical application data | Managed PostgreSQL for accounts, grants, project catalog, explicit memory and revisions, skill references | Validate the schema, access isolation, correction transactions, deletion and restoration before adopting it |
 | Retrieval | Scoped lookups and PostgreSQL full-text search as the first measured baseline | Recall for ordinary language; introduce semantic retrieval only if measured misses justify it; [PostgreSQL text search](https://www.postgresql.org/docs/current/textsearch-intro.html) |
 | Identity | Established authentication implementation plus a compatible OAuth authorization server for AI connections | Select a provider/library only after the MCP authorization experiment; website login alone does not implement agent authorization |
-| Tasks | Supabase Postgres functions behind TaskService; personal/project scopes; private Storage for files | Live migration and bucket verified; cleanup scheduling, export/restore drill and broader browser mutation evidence remain |
+| Tasks | Supabase Postgres functions behind TaskService; personal/project scopes; comments/progress/handoffs; hierarchy/dependencies; private Storage for files | Work timeline and planning graph are live; cleanup scheduling, export/restore drill and broader browser mutation evidence remain |
 | Skill sources | Versioned existing source repositories/packages; Satchel stores references and configuration intent | Private source access, install paths, version pinning and evidence per target |
 | Hosting | Evaluate a complete free-tier deployment; Vercel and Firebase are candidates raised by the user | Web/API/MCP/auth/storage fit, usage limits, region, billing requirements and recovery; no purchase or deployment selected yet |
 | Delivery | GitHub CI checks, reproducible container build, staging before production, separately versioned native packages | Release promotion, schema compatibility, rollback and plugin review/update delays |
@@ -93,7 +93,7 @@ Each item needs a short written decision, an accountable owner when scheduled, a
 | S07 | Retrieval | How is a project selected? Which rules are always available? How are scope, relevance, freshness and token budget handled? | Context assembly contract and a small evaluation set including missed and irrelevant records |
 | S08 | Memory writes | What counts as an explicit save? How does an agent show the statement and scope? How are duplicates and corrections handled? | Save/correct/forget contracts with provenance and acknowledgement; brainstorming does not become memory |
 | S09 | API and MCP | Which minimal tools exist? How do errors, pagination, size limits, compatibility and retries work? | Versioned contracts and real tool traces, including denied and ambiguous requests |
-| S10 | Task backend | Which issue operations and metadata are necessary? How do project routing, external edits and unavailable GitHub behave? | GitHub authorization decision, mapping document, adapter contract and failure tests |
+| S10 | Task backend | Which task operations and planning relationships are necessary? How do personal/project routing, conflicts, resources and unavailable files behave? | Supabase task contract, composite-scope constraints, MCP/UI operations and failure tests |
 | S11 | Skill delivery | Who owns each package? How is private content accessed? What gets installed on which machine, at what version and scope? | One instructions-only skill and one dependency-bearing skill installed and verified on appropriate targets |
 | S12 | Deployment | Which provider, region, environments, domains, secrets and database plan? What runs while the laptop is off? | Reproducible staging deploy and a costed production proposal |
 | S13 | Reliability | What latency/freshness targets? Which operations retry? Do webhook or indexing workloads need durable jobs? | Timeout/retry rules, stale-state UI and recovery tests; add jobs only for required workloads |
@@ -171,13 +171,14 @@ OpenAI documents testing the MCP connection before the complete packaged plugin,
 
 ### U06 — Tasks and handoffs
 
-- [ ] Connect selected GitHub resources only when the user enables tasks.
-- [ ] Define create/find/update/complete/reopen flows and deliberate project routing.
+- [x] Support personal and project task scopes without requiring a repository.
+- [x] Define create/find/update/complete/reopen flows and deliberate scope routing.
+- [x] Add comments, structured progress, hierarchy, dependencies and derived actionability.
 - [ ] Define a handoff that includes work completed, validation actually performed, blockers, next action and accessible code references.
 - [ ] Use real destination links where available and a clear copy fallback elsewhere.
 - [ ] Explain unavailable code and partial multi-repository completion; a handoff does not transfer local files.
 
-**Output:** one real issue followed from initial work in one host to continuation in another. See [Tasks and handoffs](tasks-and-handoffs.md).
+**Output:** one Satchel task followed from initial work in one host to continuation in another. See [Tasks and handoffs](tasks-and-handoffs.md).
 
 ### U07 — Skills and sharing
 
@@ -272,7 +273,7 @@ Named-memory follow-up (`gig-27f1.1`): name, description and optional More info 
 
 ### Phase 4: Add tasks and skill portability [PENDING]
 
-- [ ] 4.1 Add GitHub authorization and the internal task adapter; verify issue operations and project destinations.
+- [x] 4.1 Add the Supabase task authority and internal TaskService; verify personal/project operations and planning relationships.
 - [ ] 4.2 Implement portable handoffs and test continuation with accessible code across hosts.
 - [ ] 4.3 Add skill source/catalog management and platform-specific installation guidance/status.
 - [ ] 4.4 Verify private skill access, version changes and a dependency-bearing skill on a second machine.

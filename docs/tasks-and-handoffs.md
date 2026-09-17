@@ -10,9 +10,11 @@ An existing GitHub issue, pull request, repository, Notion page or document can 
 
 ## V1 operations
 
-The companion and connected agents can list, read, create, update and transition tasks; add append-only comments; record structured progress and handoffs; attach HTTPS links; and inspect event history. The companion also uploads private files, downloads them through authenticated Storage access and exports database records plus verified objects.
+The companion and connected agents can list, read, create, update and transition tasks; organize hierarchy and dependencies; add append-only comments; record structured progress and handoffs; attach HTTPS links; and inspect event history. The companion also uploads private files, downloads them through authenticated Storage access and exports database records plus verified objects.
 
 Every write has a stable request ID. Content/state writes require the current task revision. A lost response is retried with the same ID and identical payload; a stale revision is a conflict, not an overwrite.
+
+Agents see six task tools: list, read, create, edit, record an update and attach an external resource. `edit_task` uses a typed change kind for content, state, parent or dependency edits; `record_task_update` uses a typed entry kind for comment, progress or handoff. The database operations remain separate and atomic behind this smaller MCP surface.
 
 ## Comment, progress update, or handoff
 
@@ -21,6 +23,12 @@ Every write has a stable request ID. Content/state writes require the current ta
 - A **handoff** is the stronger boundary used when work stops or ownership/context changes. It additionally carries validation evidence and supports explicit supersession.
 
 All three appear as durable continuation context. They are not interchangeable labels for the same free-form note.
+
+## Planning relationships
+
+A task may have one parent and any number of dependencies, all within the same owner and personal/project scope. Parent edges describe decomposition; dependency edges mean the task cannot be acted on until each prerequisite is done. The database rejects self-links, cross-scope links, hierarchy cycles and dependency cycles.
+
+Actionability is derived rather than stored: a task is actionable when it is `ready` or `in_progress`, has a concrete next action and has no unfinished dependency. Closing or reopening a prerequisite therefore changes downstream actionability without rewriting every dependent task.
 
 ## A handoff is portable work evidence
 
@@ -43,7 +51,7 @@ Do not claim validation that was not performed. A branch, commit, PR or artifact
 
 1. Resolve an authorized personal or project task scope.
 2. List active tasks and choose one explicitly.
-3. Read the latest task, comments, progress updates, handoffs, verified resources and events.
+3. Read the latest task, planning relationships and actionability, comments, progress updates, handoffs, verified resources and events.
 4. Check that referenced code, documents and files are reachable.
 5. Continue the next action in the current environment or present a bounded handoff when launch/transfer is unavailable.
 6. Record new evidence and state using the current revision.

@@ -21,6 +21,29 @@ const taskContent={
   why:z.string().max(4000).default(''),done_when:z.array(z.string().trim().min(1).max(500)).max(20).default([]),
   next_action:z.string().max(1000).default(''),priority:taskPriority.default('medium'),
 };
+const taskEdit=z.discriminatedUnion('kind',[
+  z.object({kind:z.literal('content'),...taskContent}),
+  z.object({kind:z.literal('state'),status:taskStatus,blocked_reason:z.string().max(2000).default('')}),
+  z.object({kind:z.literal('parent'),parent_id:z.uuid().nullable()}),
+  z.object({kind:z.literal('add_dependency'),depends_on_task_id:z.uuid()}),
+  z.object({kind:z.literal('remove_dependency'),depends_on_task_id:z.uuid()}),
+]);
+const updateList=z.array(z.string().trim().min(1).max(1000)).max(50).default([]);
+const taskUpdate=z.discriminatedUnion('kind',[
+  z.object({kind:z.literal('comment'),entry_id:z.uuid(),body:z.string().trim().min(1).max(4000),
+    resource_ids:z.array(z.uuid()).max(50).default([])}),
+  z.object({kind:z.literal('progress'),entry_id:z.uuid(),revision:z.number().int().positive(),
+    summary:z.string().trim().min(1).max(4000),completed:updateList,decisions:updateList,
+    remaining:updateList,blockers:updateList,next_action:z.string().max(1000).nullable().default(null),
+    status:taskStatus.nullable().default(null),blocked_reason:z.string().max(2000).default(''),
+    resource_ids:z.array(z.uuid()).max(50).default([])}),
+  z.object({kind:z.literal('handoff'),entry_id:z.uuid(),revision:z.number().int().positive(),
+    supersedes_ids:z.array(z.uuid()).max(20).default([]),completed:updateList,decisions:updateList,
+    validation:z.array(z.record(z.string(),z.unknown())).max(50).default([]),remaining:updateList,
+    blockers:updateList,next_action:z.string().trim().min(1).max(1000),summary:z.string().max(4000).default(''),
+    status:taskStatus.nullable().default(null),blocked_reason:z.string().max(2000).default(''),
+    resource_ids:z.array(z.uuid()).max(50).default([])}),
+]);
 const textResult=data=>({content:[{type:'text',text:JSON.stringify(data)}]});
 const errorText=error=>({
   '42501':'Access denied. Check the connection and granted memory or task scopes in Satchel.',
@@ -121,36 +144,26 @@ export function createMemoryServer(service) {
   if(service.tasks) {
     register('list_tasks','List bounded task summaries in one explicit task scope. Use project_id=null for personal tasks; otherwise use an authorized project UUID. Filter by state when useful and check complete before claiming the list is exhaustive.',
       {project_id:taskProject,statuses:z.array(taskStatus).max(5).optional()},a=>service.tasks.list(a.project_id,a.statuses));
-    register('read_task','Read one task with its append-only comments, progress updates, handoffs, verified resources, and event history.',
+    register('read_task','Read one task with its planning relationships, derived actionability, comments, progress updates, handoffs, verified resources, and event history.',
       {project_id:taskProject,id:z.uuid()},a=>service.tasks.read(a.project_id,a.id));
     register('create_task','Create a personal or project Satchel task only when the user explicitly asks. Use project_id=null for personal scope. Reuse request_id and id with the identical payload when retrying a lost response.',
       {request_id:z.uuid(),id:z.uuid(),project_id:taskProject,...taskContent},a=>service.tasks.create(a),writeAnnotations);
-    register('update_task','Update task content using the current revision. Re-read after a conflict; never overwrite a newer revision blindly.',
-      {request_id:z.uuid(),...taskIdentity,...taskContent},a=>service.tasks.update(a),writeAnnotations);
-    register('transition_task','Move a task between inbox, ready, in progress, blocked, and done using the current revision. A blocked task requires a reason.',
-      {request_id:z.uuid(),...taskIdentity,status:taskStatus,blocked_reason:z.string().max(2000).default('')},
-      a=>service.tasks.transition(a),writeAnnotations);
-    register('record_handoff','Append a structured handoff and update the task next action atomically. Reference only verified resources already attached to this task.',
-      {request_id:z.uuid(),handoff_id:z.uuid(),...taskIdentity,
-        supersedes_ids:z.array(z.uuid()).max(20).default([]),completed:z.array(z.string().max(1000)).max(50).default([]),
-        decisions:z.array(z.string().max(1000)).max(50).default([]),validation:z.array(z.record(z.string(),z.unknown())).max(50).default([]),
-        remaining:z.array(z.string().max(1000)).max(50).default([]),blockers:z.array(z.string().max(1000)).max(50).default([]),
-        next_action:z.string().trim().min(1).max(1000),summary:z.string().max(4000).default(''),
-        status:taskStatus.nullable().default(null),blocked_reason:z.string().max(2000).default(''),
-        resource_ids:z.array(z.uuid()).max(50).default([])},a=>service.tasks.handoff(a),writeAnnotations);
-    register('add_task_comment','Append a lightweight task comment without changing task content or invalidating another editor. Reference only verified resources already attached to this task.',
-      {request_id:z.uuid(),update_id:z.uuid(),project_id:taskProject,id:z.uuid(),
-        body:z.string().trim().min(1).max(4000),resource_ids:z.array(z.uuid()).max(50).default([])},
-      a=>service.tasks.comment(a),writeAnnotations);
-    register('record_task_progress','Append a structured progress update and atomically advance the task revision, next action, and optional state. Use a handoff instead when work is stopping or ownership is changing.',
-      {request_id:z.uuid(),update_id:z.uuid(),...taskIdentity,summary:z.string().trim().min(1).max(4000),
-        completed:z.array(z.string().trim().min(1).max(1000)).max(50).default([]),
-        decisions:z.array(z.string().trim().min(1).max(1000)).max(50).default([]),
-        remaining:z.array(z.string().trim().min(1).max(1000)).max(50).default([]),
-        blockers:z.array(z.string().trim().min(1).max(1000)).max(50).default([]),
-        next_action:z.string().max(1000).nullable().default(null),status:taskStatus.nullable().default(null),
-        blocked_reason:z.string().max(2000).default(''),resource_ids:z.array(z.uuid()).max(50).default([])},
-      a=>service.tasks.progress(a),writeAnnotations);
+    register('edit_task','Apply one explicit revision-safe task edit: replace content, transition state, set/clear the parent, or add/remove one dependency. Relationship edits are same-scope and cycle-safe. Re-read after a conflict.',
+      {request_id:z.uuid(),...taskIdentity,change:taskEdit},a=>{
+        const base={request_id:a.request_id,project_id:a.project_id,id:a.id,revision:a.revision};
+        if(a.change.kind==='content')return service.tasks.update({...base,...a.change});
+        if(a.change.kind==='state')return service.tasks.transition({...base,...a.change});
+        if(a.change.kind==='parent')return service.tasks.setParent({...base,...a.change});
+        if(a.change.kind==='add_dependency')return service.tasks.addDependency({...base,...a.change});
+        return service.tasks.removeDependency({...base,...a.change});
+      },writeAnnotations);
+    register('record_task_update','Append one continuation entry: a lightweight comment, structured progress, or a handoff. Progress and handoffs require the current revision because they update canonical task state; comments do not.',
+      {request_id:z.uuid(),project_id:taskProject,id:z.uuid(),entry:taskUpdate},a=>{
+        const base={request_id:a.request_id,project_id:a.project_id,id:a.id};
+        if(a.entry.kind==='comment')return service.tasks.comment({...base,...a.entry,update_id:a.entry.entry_id});
+        if(a.entry.kind==='progress')return service.tasks.progress({...base,...a.entry,update_id:a.entry.entry_id});
+        return service.tasks.handoff({...base,...a.entry,handoff_id:a.entry.entry_id});
+      },writeAnnotations);
     register('add_task_resource','Attach a typed HTTPS reference to a task. This stores the link only and never fetches its contents.',
       {request_id:z.uuid(),resource_id:z.uuid(),...taskIdentity,label:z.string().trim().min(1).max(200),
         url:z.url({protocol:/^https$/}),resource_type:z.enum(['reference','document','image','artifact','repository','pull_request']).default('reference'),

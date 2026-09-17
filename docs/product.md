@@ -45,7 +45,7 @@ The design should be judged by reduced repetition and reliable handoffs. Merely 
 | Plugin | An installable package for an AI platform that can expose workflows and a connection to Satchel |
 | Installation | A particular plugin or skill version made available in a particular host environment |
 | Connection | An authenticated relationship with an app or source, with an explicit access boundary |
-| Task | A project-scoped unit of work whose authoritative state lives in Satchel's Supabase database |
+| Task | A personal or project-scoped unit of work whose authoritative state lives in Satchel's Supabase database |
 | Handoff | A portable account of completed work, decisions, validation, code state, blockers, and next steps |
 
 These concepts must remain distinct in storage and the interface. In particular, a skill appearing in your library does not establish that it is installed or runnable on every device.
@@ -136,7 +136,7 @@ Satchel being hosted does not mean every external source must be copied into its
 | Responsive web companion | Project, memory, connection, skill, task/handoff, and configuration flows |
 | Android experience | Comfortable phone access to the same account; native packaging and share-to-save remain delivery choices |
 | Native ecosystem plugins | A small Satchel integration for supported hosts, with tested installation and retrieval behavior |
-| GitHub task integration | Real task operations behind the internal backend boundary |
+| Supabase task system | Personal/project tasks, planning relationships, continuity evidence and resources behind the internal service boundary |
 | Portable data and setup documentation | Export, recovery, per-platform instructions, capability limits, and version visibility |
 
 There is no new general chat client, model router, provider billing aggregator, persistent persona roster, curator, remote worker fleet, or duplicate task database in the initial scope. Existing apps own conversations, agent execution, worktrees, native scheduling, and model selection. Satchel may link to their outputs and guide setup.

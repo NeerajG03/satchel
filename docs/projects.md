@@ -10,27 +10,27 @@ Examples:
 
 | Project | Resources | Reusable skills | Tasks |
 |---|---|---|---|
-| Satchel | Product docs, design files, eventual code repositories | Review, writing tests, interface design | GitHub implementation issues |
-| Release workflow | Backend and frontend repositories, release guidance | Release procedure | GitHub tasks created for Satchel-managed work |
-| Reimbursements | Rules, templates, restricted receipts and statements | Reimbursement workflow | Monthly claim issues with appropriately limited evidence |
-| Interview preparation | Restricted notes and selected reference material | Relevant preparation procedure | Optional task links; no required code repository |
+| Satchel | Product docs, design files, code repositories | Review, writing tests, interface design | Satchel tasks with optional GitHub links |
+| Release workflow | Backend and frontend repositories, release guidance | Release procedure | Satchel tasks organized by hierarchy and dependencies |
+| Reimbursements | Rules, templates, restricted receipts and statements | Reimbursement workflow | Monthly Satchel tasks with appropriately limited evidence |
+| Interview preparation | Restricted notes and selected reference material | Relevant preparation procedure | Optional Satchel tasks; no required code repository |
 
 These are examples, not imported projects. Existing team tickets in other systems remain externally owned and unsupported by V1 task operations.
 
 ## Proposed project record
 
-Keep a stable ID, display name and aliases, brief, lifecycle state, audience/access partition, source references, task destinations, skill references, important decision references, and revision metadata. Store large artifacts elsewhere and link them.
+Keep a stable ID, display name and aliases, brief, lifecycle state, audience/access partition, source references, skill references, important decision references, and revision metadata. Store large artifacts elsewhere and link them.
 
 The brief should answer: what are we doing, why, what is in scope, what is decided, what is open, and where does the evidence live? It should remain readable without a particular AI app.
 
 Repository references identify the remote and any relevant role. Local clone paths belong to a device/environment mapping. A path on one Mac cannot be the project's global identity.
 
-Task destinations specify the GitHub repository where a new issue should be created. A project with no code can use an explicitly chosen private task repository; it does not require an otherwise empty repository per project. If there are several destinations, ask only when routing is genuinely ambiguous. No repository should be created implicitly just because the user adds a project.
+Tasks are stored directly in the project scope in Supabase. GitHub issues, repositories and pull requests may be attached as typed HTTPS resources, but they do not define the project or task identity. No repository is created implicitly when the user adds a project or task.
 
 ## Lifecycle
 
 1. Create the brief and stable identity.
-2. Link resources and choose the task destination where needed.
+2. Link resources and capture project tasks where needed.
 3. Set the access boundary and grant selected app connections access.
 4. Associate relevant skills without automatically installing them everywhere.
 5. Retrieve the brief, current decisions, relevant repo context, and live tasks during work.
