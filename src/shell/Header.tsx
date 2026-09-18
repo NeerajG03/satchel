@@ -17,7 +17,7 @@ export function Header() {
   const { status } = useReadout();
   // In the desktop shell the header doubles as the window title bar: drag to move, double-click to zoom.
   return <header className="top hw" data-tauri-drag-region={isDesktop || undefined}>
-    <Link to="/" className="wordmark"><SatchelMark size={28} />satchel</Link>
+    <Link to="/" className="wordmark"><SatchelMark size={28} ring />satchel</Link>
     <div className="topmeta">
       <span className="hide-narrow">{todayLine()}</span>
       {user && <Light color={status.light} word={status.word} />}
