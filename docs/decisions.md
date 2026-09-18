@@ -26,6 +26,7 @@ As of 18 September 2026. Explicit user statements outrank inherited reports, rec
 | D18 | Private Supabase Storage holds task files with a reserve/upload/verify lifecycle | User accepted the Supabase-native review, including separate upload capability, immutable object paths and export of database records plus objects |
 | D19 | Tasks have lightweight comments and structured progress updates in addition to handoffs | User explicitly called out ongoing progress and comment updates as useful; comments do not conflict with task edits, while progress atomically advances task state/next action |
 | D20 | Task hierarchy and dependencies are explicit same-scope graph edges | Preserves Gig's useful planning model without making display IDs relational; cycles and cross-scope edges are rejected and actionability is derived from live prerequisite state |
+| D21 | Mac companion is the same web app in a Tauri shell, unsigned, shipped from GitHub | User wants one app that later carries microphone capture and dictation; no Apple Developer ID or App Store. Sign-in returns through `satchel://auth/callback`; agent consent stays on the hosted web |
 
 The notebook/hardware style is the current user-supplied visual direction. The particular font, rotated navigation, opening screen, and component behavior still need final decisions. “Your work, with you” is the working tagline proposed during naming; the name was explicitly selected, not a complete brand system.
 

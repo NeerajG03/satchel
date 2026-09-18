@@ -1,4 +1,5 @@
-import { createBrowserRouter, Navigate, useSearchParams } from 'react-router';
+import { createBrowserRouter, createHashRouter, Navigate, useSearchParams } from 'react-router';
+import { isDesktop } from '../platform';
 import { Shell } from '../shell/Shell';
 import { LeftOff } from '../features/leftoff/LeftOff';
 import { Book } from '../features/memories/Book';
@@ -20,7 +21,8 @@ function AuthorizeRedirect() {
   return <Navigate replace to={id ? `/apps/consent?authorization_id=${encodeURIComponent(id)}` : '/apps'} />;
 }
 
-export const router = createBrowserRouter([
+// The desktop shell loads index.html from the app bundle, so routes live in the hash there.
+export const router = (isDesktop ? createHashRouter : createBrowserRouter)([
   { path: '/apps/connected/:partner', Component: Connected },
   {
     path: '/', Component: Shell,

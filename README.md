@@ -50,7 +50,7 @@ npm test        # runs the real migrations in PGlite
 npm run build
 ```
 
-[Development setup](docs/development.md) walks through the Supabase project, GitHub OAuth app, storage bucket and Vercel deploy. [Architecture](docs/architecture.md) explains the pieces.
+[Development setup](docs/development.md) walks through the Supabase project, GitHub OAuth app, storage bucket and Vercel deploy. [Mac companion](docs/desktop.md) covers the native Mac build of the same app. [Architecture](docs/architecture.md) explains the pieces.
 
 ## Repository layout
 

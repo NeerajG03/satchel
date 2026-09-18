@@ -1,11 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
+import { isDesktop } from './platform';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 // Only the public project key belongs in the browser. RLS enforces data access.
 export const client = url && key && !url.includes('your-project') && key !== 'your-publishable-key'
-  ? createClient(url, key, { auth: { flowType: 'pkce', detectSessionInUrl: true } })
+  // In the desktop shell the OAuth code arrives through a satchel:// link, not the page URL.
+  ? createClient(url, key, { auth: { flowType: 'pkce', detectSessionInUrl: !isDesktop } })
   : null;
 
 export function errorMessage(error: unknown, operation: 'load' | 'save' = 'save'): string {
