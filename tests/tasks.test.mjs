@@ -44,6 +44,12 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
     const hook=(await db.query('select satchel_access_token_hook($1) result',[
       {user_id:owner,client_id:client,claims:{sub:owner,client_id:client,aud:'authenticated'}},
     ])).rows[0].result.claims;
+    await call({sub:other},'select authorize_agent_v2($1,$2,false,$3,false,false,$4,true,true)',[
+      client,client,[],[otherProject],
+    ]);
+    const otherHook=(await db.query('select satchel_access_token_hook($1) result',[
+      {user_id:other,client_id:client,claims:{sub:other,client_id:client,aud:'authenticated'}},
+    ])).rows[0].result.claims;
 
     const taskId=crypto.randomUUID(),createRequest=crypto.randomUUID();
     const createArgs=[createRequest,taskId,project,'Ship task management','Continuity works','Avoid lost work',['MCP can resume'],'Implement the slice','high'];
@@ -166,9 +172,22 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
     });
 
     await t.test('task grant does not expose other owners or projects',async()=>{
+      const otherTask=crypto.randomUUID();
+      await call({sub:other},'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',[
+        crypto.randomUUID(),otherTask,otherProject,'Other owner task','Private','',[],'Keep private','medium',
+      ]);
       assert.deepEqual((await call(hook,'select id from projects')).map(row=>row.id),[project]);
       assert.equal((await call(hook,'select * from tasks')).length,3);
-      assert.deepEqual(await call({...hook,sub:other},'select * from tasks'),[]);
+      assert.deepEqual(await call(otherHook,'select * from tasks where id=$1',[taskId]),[]);
+      assert.deepEqual(await call(user,'select * from tasks where id=$1',[otherTask]),[]);
+      assert.deepEqual(await call({sub:other},'select * from tasks where id=$1',[taskId]),[]);
+      assert.deepEqual(await call({sub:other},'select * from task_handoffs where task_id=$1',[taskId]),[]);
+      assert.deepEqual(await call({sub:other},'select * from task_resources where task_id=$1',[taskId]),[]);
+      assert.deepEqual(await call({sub:other},'select * from task_updates where task_id=$1',[taskId]),[]);
+      assert.deepEqual(await call({sub:other},'select * from task_events where task_id=$1',[taskId]),[]);
+      await assert.rejects(call({sub:other},'select * from transition_task($1,$2,9,$3,$4)',[
+        crypto.randomUUID(),taskId,'done','',
+      ]),{code:'P0002'});
       await assert.rejects(call(hook,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',[
         crypto.randomUUID(),crypto.randomUUID(),otherProject,'Nope','','',[],'','medium',
       ]),{code:'42501'});
@@ -220,6 +239,11 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
       const verified=await call(hook,'select * from finalize_task_file($1,$2)',[finalizeRequest,resourceId]);
       assert.equal(verified[0].upload_status,'verified');
       assert.equal((await call(hook,'select * from finalize_task_file($1,$2)',[finalizeRequest,resourceId]))[0].upload_status,'verified');
+      assert.equal((await call({sub:other},'select private.can_read_task_object($1) allowed',[reserved.resource.object_key]))[0].allowed,false);
+      assert.equal((await call(otherHook,'select private.can_read_task_object($1) allowed',[reserved.resource.object_key]))[0].allowed,false);
+      await assert.rejects(call(otherHook,'select * from finalize_task_file($1,$2)',[
+        crypto.randomUUID(),resourceId,
+      ]),{code:'42501'});
       await assert.rejects(call(hook,'select cleanup_task_file($1,$2)',[owner,resourceId]),{code:'42501'});
     });
 

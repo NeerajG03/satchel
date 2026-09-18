@@ -1,6 +1,6 @@
 # Decision ledger
 
-As of 10 September 2026. Explicit user statements outrank inherited reports, recommendations, and prototype behavior.
+As of 18 September 2026. Explicit user statements outrank inherited reports, recommendations, and prototype behavior.
 
 ## Agreed direction
 
@@ -79,6 +79,10 @@ The notebook/hardware style is the current user-supplied visual direction. The p
 - Pricing, public distribution, self-hosting, organization collaboration, and remote execution, none of which has been committed.
 
 Name research found another portable AI knowledge project named [Satchel](https://github.com/virgilvox/satchel). The user chose the name after that overlap was reported. The private repository name is decided; domain/trademark availability and public branding work have not been completed.
+
+## Implementation findings: 18 September
+
+The repository-hint staging endpoint remains an intentionally anonymous, write-only bridge because the local lifecycle hook may run before MCP OAuth is ready. This is acceptable only for the private pilot: input is limited to a high-entropy session key plus normalized GitHub repository identity, the request is capped at 1 KiB and exact fields, rows expire after five minutes, and authenticated consumption still checks owner repository links and the current connection grant. Possession of a live session key can still disrupt automatic project selection, and an anonymous endpoint retains denial-of-service exposure. Edge rate controls and alerting are required before broader public exposure. See the [pre-launch security audit](checkpoints/security-audit-2026-09-18.md).
 
 ## Implementation findings: 10 September
 
