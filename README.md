@@ -72,6 +72,10 @@ After a change under `integrations/shared/`, run `npm run plugins:build` and com
 
 Satchel grew out of JEFF, an earlier personal context project. The older reports under `docs/archive/` are kept unchanged as a reasoning trail. They are not the current specification. Start with [the product document](docs/product.md), [the decision ledger](docs/decisions.md) and [the design notes](design/README.md).
 
+## License
+
+MIT. Use it as a base for your own thing, change it, ship it. Keep the copyright and license notice from [LICENSE](LICENSE) in your copy. That is the only condition.
+
 ## Platform references
 
 - [Claude Code: plugins](https://code.claude.com/docs/en/plugins)
