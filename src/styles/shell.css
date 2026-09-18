@@ -171,5 +171,7 @@
   overflow: hidden;
 }
 /* Header and rail stay put; only the paper scrolls, so the traffic lights never cover the rail. */
-:root[data-desktop] .paper { overflow-y: auto; }
+:root[data-desktop] .paper { overflow-y: auto; min-height: 0; box-shadow: var(--shadow-paper-inset); }
+:root[data-desktop] .rail { overflow-y: auto; }
+:root[data-desktop] .paper::before { display: none; } /* an absolute overlay would scroll away with the content */
 :root[data-desktop] .top { padding-left: 104px; user-select: none; -webkit-user-select: none; }

@@ -153,6 +153,8 @@ a.entry:hover { text-decoration: none; background: linear-gradient(to right, var
 .sheet::backdrop { background: #1f1b1766; animation: fade var(--t-hover) var(--ease) both; }
 .sheet .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .picker { position: relative; }
+/* The scope picker sits at the left of its toolbar, so its list opens to the right and stays inside the paper. */
+.picker .drop { left: 0; right: auto; }
 .drop {
   position: absolute; right: 0; top: calc(100% + 8px); width: var(--drop-w); max-width: 90vw; background: var(--paper);
   border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-drop); padding: 12px;
