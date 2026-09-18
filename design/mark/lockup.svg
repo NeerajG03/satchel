@@ -5,7 +5,7 @@
     <rect width="180" height="180" rx="22" fill="#26231F"/>
     <rect x="14" y="14" width="152" height="152" rx="14" fill="#F4F0E7"/>
     <path d="M14 28a14 14 0 0 1 14-14h124a14 14 0 0 1 14 14v8H14z" fill="#26231F"/>
-    <circle cx="150" cy="30" r="6" fill="#E4571E"/>
+    <circle cx="150" cy="25" r="6" fill="#E4571E"/>
     <text x="90" y="118" text-anchor="middle" font-family="Caveat, cursive" font-weight="600" font-size="88" fill="#1F1B17">s</text>
   </g>
   <text x="71" y="46" font-family="Caveat, cursive" font-weight="600" font-size="38" fill="#EEE7DB">satchel</text>
