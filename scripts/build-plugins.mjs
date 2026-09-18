@@ -5,7 +5,7 @@ import {resolve,join} from 'node:path';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const name='satchel';
 const description='Personal and project memory, tasks and projects across your agents.';
-const versions={claude:'0.1.6',codex:'0.1.3'};
+const versions={claude:'0.1.6',codex:'0.1.4'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
@@ -17,7 +17,13 @@ for(const host of ['codex','claude']) {
     displayName:'Satchel',shortDescription:'Your memory, tasks and projects, across your agents.',
     longDescription:'Load memory and task summaries automatically, read details on demand, and explicitly save or revise memories, tasks and projects with scoped access.',
     developerName:'Satchel',category:'Productivity',capabilities:['Read','Write'],defaultPrompt:'Use my Satchel context for this task.',
+    websiteURL:'https://satchel-pi.vercel.app',brandColor:'#E4571E',logo:'./assets/logo.png',composerIcon:'./assets/icon.png',
   }}:common;
+  if(host==='codex'){
+    await mkdir(join(target,'assets'),{recursive:true});
+    await cp(join(root,'design/mark/logo-512.png'),join(target,'assets/logo.png'));
+    await cp(join(root,'design/mark/icon-256.png'),join(target,'assets/icon.png'));
+  }
   await writeFile(join(target,`.${host}-plugin`,'plugin.json'),JSON.stringify(manifest,null,2)+'\n');
   const mcp={type:'http',url:'https://satchel-pi.vercel.app/api/mcp',
     ...(host==='codex'?{required:true,startup_timeout_sec:10}:{})};

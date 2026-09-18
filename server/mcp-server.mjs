@@ -61,7 +61,13 @@ const errorText=error=>({
 }[error?.code] ?? 'Satchel request failed. Reload before retrying a write: it may have completed.');
 
 export function createMemoryServer(service) {
-  const server=new McpServer({name:'satchel',version:'0.1.0'});
+  const server=new McpServer({name:'satchel',title:'Satchel',version:'0.1.0',
+    websiteUrl:'https://satchel-pi.vercel.app',
+    description:'Your memory, tasks and projects, across your agents.',
+    icons:[
+      {src:'https://satchel-pi.vercel.app/mark.svg',mimeType:'image/svg+xml',sizes:['any']},
+      {src:'https://satchel-pi.vercel.app/mark-512.png',mimeType:'image/png',sizes:['512x512']},
+    ]});
   async function consumeLifecycleHint(sessionKey,event) {
     if(!['SessionStart','PostCompact'].includes(event))return {staged:false};
     for(let attempt=0;attempt<13;attempt++) {
