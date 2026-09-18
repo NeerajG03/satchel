@@ -23,6 +23,14 @@ const VIEWS: { key: View; label: string; test: (task: TaskSummary) => boolean }[
   { key: 'all', label: 'All', test: () => true },
 ];
 
+const VIEW_KEY = 'satchel-task-view';
+function savedView(): View {
+  try { const value = localStorage.getItem(VIEW_KEY); if (VIEWS.some(item => item.key === value)) return value as View; }
+  catch { /* Storage unavailable: show every task. */ }
+  return 'all';
+}
+function rememberView(view: View) { try { localStorage.setItem(VIEW_KEY, view); } catch { /* The choice still applies to this page. */ } }
+
 export function TaskList() {
   const stores = useStores();
   const navigate = useNavigate();
@@ -44,7 +52,8 @@ export function TaskList() {
   const projectList = projects.data ?? [];
   const all = tasks.data ?? [];
   const counts = Object.fromEntries(VIEWS.map(item => [item.key, all.filter(item.test).length])) as Record<View, number>;
-  const current: View = view ?? (counts.actionable > 0 ? 'actionable' : 'all');
+  // The URL wins; otherwise fall back to the last state the user picked here, and to All before any pick.
+  const current: View = view ?? savedView();
   const needle = query.trim().toLowerCase();
   const filtered = all.filter(VIEWS.find(item => item.key === current)!.test)
     .filter(task => !needle || `${task.title} ${task.next_action}`.toLowerCase().includes(needle));
@@ -91,7 +100,7 @@ export function TaskList() {
       onOpen={() => setComposeOpen(true)} onCancel={() => { setComposeOpen(false); action.clear(); if (compose) setParam('compose', null); }} onSave={capture} />
 
     <div className="between wrap">
-      <Segments label="Task state" value={current} onChange={next => setParam('view', next)} items={VIEWS.map(item => ({ key: item.key, label: item.label, count: counts[item.key] }))} />
+      <Segments label="Task state" value={current} onChange={next => { rememberView(next as View); setParam('view', next); }} items={VIEWS.map(item => ({ key: item.key, label: item.label, count: counts[item.key] }))} />
       <label className="search"><span aria-hidden="true">⌕</span>
         <input type="search" placeholder="Title or next action" aria-label="Search tasks" value={query} onChange={event => setParam('q', event.target.value || null)} />
       </label>

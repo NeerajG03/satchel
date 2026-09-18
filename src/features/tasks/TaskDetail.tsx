@@ -7,6 +7,7 @@ import { projectScope, scopeName, scopeQuery } from '../../app/scope';
 import { actorLabel, count, fullDate, stateWord } from '../../app/format';
 import type { TaskDetail as Detail, TaskStatus, TaskSummary } from './model';
 import { Button, LinkButton } from '../../ui/Button';
+import { TornPageIcon } from '../../ui/TornPageIcon';
 import { Menu } from '../../ui/Menu';
 import { LoadError, Notice, Skeleton } from '../../ui/Notice';
 import { Provenance } from '../../ui/Provenance';
@@ -127,7 +128,7 @@ export function TaskDetail() {
       <Link to={`/tasks${scopeQuery(scope)}`} className="fine">← Tasks · {label}</Link>
       <div className="row" style={{ gap: 8 }}>
         <LinkButton to={`/tasks/${task.id}/edit${scopeQuery(scope)}`}>Edit</LinkButton>
-        <LinkButton to={`/tasks/${task.id}/delete${scopeQuery(scope)}`} look="quiet">Delete</LinkButton>
+        <LinkButton to={`/tasks/${task.id}/delete${scopeQuery(scope)}`} look="quiet" className="tear" aria-label="Delete task" title="Delete task"><TornPageIcon /></LinkButton>
         <Menu label="Move to" disabled={move.busy}>{close => STATES.filter(state => state !== task.status).map(state =>
           <button key={state} type="button" role="menuitem" className="option" onClick={() => { close(); void moveTo(state); }}><span>{stateWord(state)}</span>{state === 'blocked' && <span className="fine muted">needs a reason</span>}</button>)}
         </Menu>
