@@ -30,6 +30,8 @@ Everything under `design/mockup/`, `design/prototype/` and `design/archive/` is 
 
 **Controls.** Every clickable thing is a native `button`, `a href`, `input`, `select` or `textarea`. Nothing clickable on a `div`. Paper buttons are 40 px, radius 8. Rail items and hardware keys are 44 px. Use the pieces in `src/ui/` (Button, Chip, Light, Field, Notice, Sheet, Menu, Segments, Provenance, Empty) before writing new ones.
 
+**The mark.** Never redraw it. The source is [design/mark/](../../../design/mark/): `mark.svg` at 32 px and up, `mark-small.svg` (no glyph) below that, `lockup.svg` for mark plus wordmark. In code use `SatchelMark` from `src/ui/SatchelMark.tsx`. Its rules live on the Mark board in `design/canvas/gen.mjs` and in `design/mark/README.md`: three parts only, the light is always orange, clear space equals the paper inset, never crop the frame. On a dark background (the header, the rail, any hardware) pass `ring` so a 1 px paper ring keeps the frame from sinking into the hardware. App icons and other places that mask or crop, such as the macOS Dock, get a full-bleed hardware background with the mark inset, never the bare mark; see `src-tauri/icons/source.svg`.
+
 **Motion.** One curve, `cubic-bezier(.2,.7,.2,1)`, three durations from the tokens. Errors, confirmations and the consent page never animate in. Reduced motion turns everything into a swap.
 
 **Voice.** Address the user. Say the source and the destination: "Said on your phone", "Saved by Codex". Plain words, short sentences. No slogans inside working screens. An error says what failed, what is safe, and one thing to do. Take strings from `design/copy.md`. If a string is new, add it there first.
