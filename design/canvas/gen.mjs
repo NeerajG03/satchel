@@ -613,7 +613,7 @@ const connected = ({ partner, app, rightBg, rightInk, rightMuted, rightAccent, r
     <div style="display:flex; flex-direction:column; gap:16px; position:relative;">
       <span style="font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:${rightMuted};">Next</span>
       <h2 style="font-family:${rightFont}; font-size:44px; line-height:1.1; font-weight:400; letter-spacing:-.02em; margin:0; color:${rightInk};">Go back to ${app}.</h2>
-      <p style="margin:0; font-size:16px; line-height:1.55; color:${rightMuted}; max-width:420px;">Your next chat starts with your memory index already loaded. You can close this tab.</p>
+      <p style="margin:0; font-size:16px; line-height:1.55; color:${rightMuted}; max-width:420px;">Sending you back so it can finish signing in. Your next chat starts with your memory index already loaded.</p>
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center;"><a href="#" style="display:inline-flex; align-items:center; min-height:44px; padding:0 20px; border-radius:999px; background:${rightAccent}; color:${rightAccent === '#FFFFFF' ? '#000000' : '#FFFFFF'}; font-weight:500; position:relative; font-size:14px; text-decoration:none;">Return to ${app}</a><span style="font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:${rightMuted};">${note}</span></div>
   </section>

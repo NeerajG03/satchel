@@ -19,6 +19,11 @@ export function Connected() {
   const look = PARTNER[partner] ?? { name: ret?.name ?? 'your app', className: 'partner-plain' };
   const appName = PARTNER[partner] ? look.name : ret?.name ?? look.name;
   const safeReturn = ret?.url && /^https?:\/\//i.test(ret.url) ? ret.url : null;
+  useEffect(() => {
+    if (!safeReturn) return;
+    const timer = setTimeout(() => location.replace(safeReturn), 1500);
+    return () => clearTimeout(timer);
+  }, [safeReturn]);
 
   return <div className="split">
     <section className="satchel">
@@ -34,8 +39,8 @@ export function Connected() {
       {look.mark && <span className="partner-lockup"><Mark svg={look.mark} className="partner-lockup-mark" />{look.name}</span>}
       <span className="eyebrow" style={{ color: 'inherit', opacity: 0.6 }}>Next</span>
       <h2 style={{ fontSize: 34 }}>Go back to {appName}.</h2>
-      <p className="lede">Your next chat starts with your memory index already loaded. You can close this tab.</p>
-      {safeReturn ? <a href={safeReturn} className="btn" style={{ alignSelf: 'flex-start' }}>Return to {appName}</a>
+      <p className="lede">{safeReturn ? 'Sending you back so it can finish signing in. Your next chat starts with your memory index already loaded.' : 'Your next chat starts with your memory index already loaded.'}</p>
+      {safeReturn ? <a href={safeReturn} className="btn" style={{ alignSelf: 'flex-start' }}>Return to {appName} now</a>
         : <span className="fine" style={{ opacity: 0.7 }}>It is waiting for this window.</span>}
     </section>
   </div>;

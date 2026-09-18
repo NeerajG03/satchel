@@ -124,7 +124,7 @@
 ## Connected (Satchel × partner)
 
 - Left: Connected / {app} can now read your Satchel. / Only the scopes you just allowed. Change or revoke them any time in Apps. / Back to Apps
-- Right: Connection complete / Satchel is connected to {app}. / Your next conversation starts with your memory index already loaded. You can close this tab. / Return to {app}
+- Right: Connection complete / Satchel is connected to {app}. / Sending you back so it can finish signing in. Your next conversation starts with your memory index already loaded. / Return to {app} now
 
 ## Settings
 
