@@ -29,14 +29,15 @@ export async function handleDeepLink(db: SupabaseClient, raw: string): Promise<D
   // Agent consent must happen on the hosted web app, which owns the OAuth return address.
   if (url.searchParams.has('authorization_id')) {
     const { openUrl } = await import('@tauri-apps/plugin-opener');
-    await openUrl(`${hostedOrigin}/?authorization_id=${encodeURIComponent(url.searchParams.get('authorization_id') ?? '')}`);
+    await openUrl(`${hostedOrigin}/authorize?authorization_id=${encodeURIComponent(url.searchParams.get('authorization_id') ?? '')}`);
     return { kind: 'ignored' };
   }
   if (!raw.startsWith(desktopAuthCallback)) return { kind: 'ignored' };
   if (url.searchParams.has('error')) {
     return url.searchParams.get('error') === 'access_denied'
       ? { kind: 'cancelled' }
-      : { kind: 'error', message: url.searchParams.get('error_description') ?? 'GitHub sign-in could not be completed.' };
+      // Fixed sentence on purpose: any local link can carry an error_description, so it is never shown.
+      : { kind: 'error', message: 'GitHub sign-in could not be completed. Nothing was created. Try again.' };
   }
   const code = url.searchParams.get('code');
   if (!code) return { kind: 'ignored' };
