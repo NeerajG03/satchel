@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router';
 import { RETURN_URL_KEY } from './Consent';
 import { Light } from '../../ui/Light';
 import { CLAUDE_MARK, CODEX_MARK, Mark } from './marks';
+import { SatchelMark } from '../../ui/SatchelMark';
 
 const PARTNER: Record<string, { name: string; className: string; mark?: string }> = {
   claude: { name: 'Claude', className: 'partner-claude', mark: CLAUDE_MARK },
@@ -21,7 +22,7 @@ export function Connected() {
 
   return <div className="split">
     <section className="satchel">
-      <span className="wordmark">satchel</span>
+      <span className="wordmark"><SatchelMark size={34} />satchel</span>
       <Light color="green" word="Connected" verify />
       <h2 style={{ fontSize: 34 }}>{appName} can now read your Satchel.</h2>
       <p className="lede">Only what you just allowed. Change or revoke it any time in Apps.</p>

@@ -21,9 +21,11 @@
 .wordmark {
   font: 600 var(--text-mark)/1 var(--font-mark);
   color: var(--hw-text);
-  position: relative;
-  top: -2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
 }
+.wordmark .mark { flex: none; }
 .wordmark:hover { color: var(--hw-text); text-decoration: none; }
 .topmeta {
   display: flex;
@@ -114,7 +116,7 @@
 .split { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
 .split > section { display: flex; flex-direction: column; justify-content: center; gap: var(--s-4); padding: 80px 72px; }
 .split .satchel { background: var(--paper); color: var(--ink); }
-.split .satchel .wordmark { color: var(--ink); font-size: 40px; }
+.split .satchel .wordmark { color: var(--ink); font-size: 40px; gap: 14px; }
 .split > section { position: relative; overflow: hidden; }
 .split > section > * { position: relative; z-index: 1; }
 .split .partner-mark { position: absolute; z-index: 0; right: -4%; bottom: -8%; width: 54%; max-width: 520px; aspect-ratio: 1; pointer-events: none; }
