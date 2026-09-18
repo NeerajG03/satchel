@@ -53,6 +53,18 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       assert.deepEqual(await call({...codex,sub:other},'select * from memories'),[]);
       assert.deepEqual(await call({...codex,satchel_grant_id:crypto.randomUUID()},'select * from memories'),[]);
     });
+    await t.test('connection rows and revoke operations remain owner-scoped even for the same client id',async()=>{
+      await call({sub:other},'select authorize_agent($1,$1,true,$2,false)',[ca,[]]);
+      const otherClaims=(await db.query('select satchel_access_token_hook($1) result',[
+        {user_id:other,client_id:ca,claims:{sub:other,client_id:ca,aud:'authenticated'}},
+      ])).rows[0].result.claims;
+      assert.equal((await call(otherClaims,'select agent_connection_status() result'))[0].result.client_id,ca);
+      assert.deepEqual(await call(otherClaims,'select * from memories'),[]);
+      assert.equal((await call({sub:other},'select client_id from agent_connections')).length,1);
+      await call({sub:other},'select revoke_agent($1)',[ca]);
+      assert.notEqual((await call(codex,'select agent_connection_status() result'))[0].result,null);
+      assert.equal((await call(otherClaims,'select agent_connection_status() result'))[0].result,null);
+    });
     await t.test('read-only tokens cannot write through RPC or direct table operations',async()=>{
       await assert.rejects(call(codex,'select save_memory($1,null,$2,$3,$4)',[crypto.randomUUID(),'new','summary','']),{code:'42501'});
       assert.deepEqual(await call(codex,"update memories set description='hacked' returning id"),[]);
@@ -143,6 +155,12 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       }catch(e){await db.exec('rollback');throw e;}
       assert.equal((await call(claude,'select activate_agent_repository_hint($1) id',[denied]))[0].id,null);
       await assert.rejects(call({},'select activate_agent_repository_hint($1)',[crypto.randomUUID()]),{code:'42501'});
+      await db.exec('begin; set local role anon;');
+      try {
+        await db.query("select set_config('request.jwt.claims','{}',true)");
+        await assert.rejects(db.query('select * from agent_repository_hints'),{code:'42501'});
+        await db.exec('rollback');
+      }catch(e){await db.exec('rollback');throw e;}
     });
     await t.test('revoke blocks an unexpired token immediately and re-consent cannot revive it',async()=>{
       await call(user,'select revoke_agent($1)',[ca]);

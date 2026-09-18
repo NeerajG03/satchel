@@ -3,15 +3,26 @@ import {SUPABASE_URL} from './http-handler.mjs';
 
 const sessionPattern=/^[A-Za-z0-9_-]{16,200}$/;
 const repositoryPattern=/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/;
+const maximumHintBytes=1024;
+const hintFields=new Set(['session_key','provider','repository']);
 
 export function parseRepositoryHint(body) {
   let value=body;
   if(Buffer.isBuffer(value))value=value.toString('utf8');
   if(typeof value==='string') {
-    if(Buffer.byteLength(value,'utf8')>1024)throw Error('Invalid hint');
+    if(Buffer.byteLength(value,'utf8')>maximumHintBytes)throw Error('Invalid hint');
     value=JSON.parse(value);
   }
   if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Invalid hint');
+  // Vercel normally supplies parsed JSON, so Content-Length and the raw-string
+  // branch are not sufficient size controls. Reject oversized or expanded
+  // objects here as well, and keep the anonymous bridge to its three intended
+  // fields instead of accepting arbitrary attacker-controlled baggage.
+  let serialized;
+  try {serialized=JSON.stringify(value);}
+  catch {throw Error('Invalid hint');}
+  if(Buffer.byteLength(serialized,'utf8')>maximumHintBytes
+    ||Object.keys(value).some(key=>!hintFields.has(key)))throw Error('Invalid hint');
   const session_key=value.session_key;
   const provider=typeof value.provider==='string'?value.provider.trim().toLowerCase():'';
   const repository=typeof value.repository==='string'?value.repository.trim().toLowerCase():'';
@@ -23,7 +34,7 @@ export function parseRepositoryHint(body) {
 export async function handleRepositoryHint(req,res,makeClient=createClient) {
   res.setHeader('Cache-Control','no-store');
   if(req.method!=='POST'){res.writeHead(405,{Allow:'POST'});return res.end();}
-  if(Number(req.headers['content-length']??0)>1024){res.writeHead(413);return res.end();}
+  if(Number(req.headers['content-length']??0)>maximumHintBytes){res.writeHead(413);return res.end();}
   let hint;
   try {hint=parseRepositoryHint(req.body);}
   catch {res.writeHead(400);return res.end();}

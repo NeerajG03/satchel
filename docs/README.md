@@ -1,6 +1,6 @@
 # Satchel documentation
 
-Updated 11 September 2026. Satchel has a browser-tested hosted web pilot at [satchel-pi.vercel.app](https://satchel-pi.vercel.app); the broader product and agent integrations remain in development.
+Updated 18 September 2026. Satchel has a browser-tested hosted web pilot at [satchel-pi.vercel.app](https://satchel-pi.vercel.app); the broader product and agent integrations remain in development.
 
 Start with [The product](product.md). It explains what Satchel is for, what someone should be able to do, and the intended experience.
 
@@ -16,6 +16,7 @@ Start with [The product](product.md). It explains what Satchel is for, what some
 | [Current memory hooks](memory-hooks.md) | Which events run, what is injected, and what repeats on each prompt? |
 | [Skills management — parked direction](skills-management-direction.md) | What user-specific skill selection and delivery experience should we return to later? |
 | [Native agent evidence](checkpoints/native-agent-pilot.md) | Which real-client behaviors passed and what still needs release validation? |
+| [Pre-launch security audit](checkpoints/security-audit-2026-09-18.md) | Which isolation boundaries passed locally, what was fixed, and which two-account checks remain before launch? |
 | [Current web pilot checkpoint](checkpoints/web-memory-pilot-2.md) | What works in the real browser, including personal memory, and where can development resume? |
 | [Build roadmap](build-roadmap.md) | What must we decide, how do we build and deploy it, and how do users install, onboard and use it? |
 | [Projects](projects.md) | What is a project, and how do repositories, documents, tasks, and native app projects relate? |
