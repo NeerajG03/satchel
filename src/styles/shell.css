@@ -115,14 +115,25 @@
 .split > section { display: flex; flex-direction: column; justify-content: center; gap: var(--s-4); padding: 80px 72px; }
 .split .satchel { background: var(--paper); color: var(--ink); }
 .split .satchel .wordmark { color: var(--ink); font-size: 40px; }
-.split .partner-claude { background: #faf9f5; color: #141413; font-family: Georgia, 'Times New Roman', serif; }
+.split > section { position: relative; overflow: hidden; }
+.split > section > * { position: relative; z-index: 1; }
+.split .partner-mark { position: absolute; z-index: 0; right: -4%; bottom: -8%; width: 54%; max-width: 520px; aspect-ratio: 1; pointer-events: none; }
+.split .partner-mark svg { width: 100%; height: 100%; display: block; }
+.split .partner-lockup { display: inline-flex; align-items: center; gap: 0.3em; font-size: 40px; line-height: 1; letter-spacing: -0.02em; font-weight: 500; }
+.split .partner-lockup-mark { width: 0.8em; height: 0.8em; display: inline-block; }
+.split .partner-lockup-mark svg { width: 100%; height: 100%; display: block; }
+.split .partner-claude .partner-lockup { font-family: 'Newsreader', Georgia, serif; font-weight: 500; color: #fff; }
+.split .partner-openai .partner-lockup { font-weight: 600; font-size: 34px; }
+.split .partner-claude { background: #d97757; color: #fff; font-family: Georgia, 'Times New Roman', serif; }
 .split .partner-claude h2 { font-family: inherit; font-weight: 400; }
-.split .partner-claude .lede { color: #5c5a55; }
-.split .partner-claude .btn { background: #d97757; border-color: #d97757; color: #141413; }
+.split .partner-claude .lede { color: #fbe9e0; }
+.split .partner-claude .btn { background: #141413; border-color: #141413; color: #fff; }
+.split .partner-claude .partner-mark { color: #fff; opacity: 0.16; }
 .split .partner-openai { background: #000; color: #fff; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
 .split .partner-openai h2 { font-family: inherit; font-weight: 500; letter-spacing: -0.02em; }
 .split .partner-openai .lede { color: #b3b3b3; }
 .split .partner-openai .btn { background: #fff; border-color: #fff; color: #000; }
+.split .partner-openai .partner-mark { color: #fff; opacity: 0.1; }
 .split .partner-plain { background: var(--hw); color: var(--hw-text); }
 .split .partner-plain .lede { color: var(--hw-muted); }
 .split .partner-plain .btn { background: var(--orange); border-color: var(--orange); color: var(--ink); }

@@ -22,7 +22,7 @@ Hardware frame around a paper panel. The rail sits on the hardware at the left w
 | `/projects/:id` | Project · ProjectEmpty | Brief, linked codebases, apps with access, activity, tasks, memories. | Empty version leads with the brief field and three starts. |
 | `/apps` | AppsEmpty · Apps | Connected apps with lights, scopes and revoke. | Empty version is the three install steps. |
 | `/apps/consent?authorization_id=` | Consent | An app asks for access. Memory and Tasks side by side, Select all / None, quick-start row. | Already the entry point when `authorization_id` is present. |
-| `/apps/connected/:client` | ConnectedClaude · ConnectedCodex | Plain split acknowledgement after Allow. | Right half follows the partner's look. No logos. |
+| `/apps/connected/:client` | ConnectedClaude · ConnectedCodex | Plain split acknowledgement after Allow. | Right half is the partner’s colour (Claude clay, Codex black) with the partner’s mark faint behind the text. |
 | `/settings` | Settings | Account, export, forgetting explained. | No Appearance, no delete. |
 
 Unknown routes go to `/`. A signed-out visit to any route shows Welcome and returns to that route after sign-in.
