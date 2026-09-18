@@ -50,6 +50,7 @@ export function Apps() {
   const live = data?.connections.filter(c => !c.revoked_at) ?? [];
   useFooter(data ? `${count(live.length, 'app')} connected` : '', data && live.length === 0 ? { light: 'amber', word: 'No apps connected' } : undefined);
   const [host, setHost] = useState<Host>('claude');
+  const [showSteps, setShowSteps] = useState(false);
   async function copyPrompt() { try { await navigator.clipboard.writeText(PROMPT[host]); announce(`Prompt for ${HOST_NAMES[host]} copied`); } catch { announce('Copy failed'); } }
 
   async function revoke(app: Connection) {
@@ -65,8 +66,12 @@ export function Apps() {
     {page.error && <LoadError what="Your apps" onReload={page.reload} />}
     {page.loading && !data && <Skeleton rows={3} />}
     {action.error && <SaveError message={action.error} />}
-    {data && live.length === 0 && <>
-      <p className="muted" style={{ maxWidth: 620 }}>Nothing is connected yet. An app gets only the memory and task scopes you grant when it first asks. You can revoke later.</p>
+    {data && live.length === 0 && <p className="muted" style={{ maxWidth: 620 }}>Nothing is connected yet. An app gets only the memory and task scopes you grant when it first asks. You can revoke later.</p>}
+    {data && live.length > 0 && <div className="between wrap">
+      <p className="fine muted">To connect another app, install the plugin there and run its login command. It sends you here to a consent page. <Link to="/settings">Settings</Link> explains export and forgetting.</p>
+      <Button small aria-expanded={showSteps} onClick={() => setShowSteps(value => !value)}>{showSteps ? 'Hide setup steps' : 'Connect another app'}</Button>
+    </div>}
+    {data && (live.length === 0 || showSteps) && <>
       <div className="steps lead-wide">
         <div className="step"><span className="n">01 · In your terminal</span><h3>Install the Satchel plugin</h3><p className="muted">Both apps install from the same public catalog. Pick yours.</p>
           <div className="row wrap"><Button small look={host === 'claude' ? 'primary' : 'default'} onClick={() => setHost('claude')}>Claude Code</Button><Button small look={host === 'codex' ? 'primary' : 'default'} onClick={() => setHost('codex')}>Codex</Button></div>
@@ -75,7 +80,8 @@ export function Apps() {
           <Button small onClick={() => void copyPrompt()}>Copy prompt for {HOST_NAMES[host]}</Button></div>
         <div className="step"><span className="n">02 · In the app</span><h3>Sign in</h3><p className="muted">The login command opens Satchel in your browser with a consent page. Nothing is granted until you allow it.</p>
           <CommandBlock lines={[LOGIN[host]]} label={`${HOST_NAMES[host]} login command`} /></div>
-        <div className="step"><span className="n">03 · Back here</span><h3>See it connected</h3><p className="muted">The app appears in this list with a green light once you allow it.</p><Light color="amber" word="Waiting for the first connection" /></div>
+        <div className="step"><span className="n">03 · Back here</span><h3>See it connected</h3><p className="muted">The app appears in this list with a green light once you allow it.</p>
+          {live.length === 0 ? <Light color="amber" word="Waiting for the first connection" /> : <Light color="green" word={`${count(live.length, 'app')} connected so far`} />}</div>
       </div>
       <Notice>What a connected app can never do: read scopes you didn’t grant, save without both write permission and your explicit ask, or see More info in bulk. Hooks read names and descriptions only.</Notice>
     </>}
@@ -83,6 +89,5 @@ export function Apps() {
       {live.map(app => <AppCard key={app.client_id} app={app} projects={data.projects} busy={action.busy} confirming={confirmId === app.client_id}
         onAskRevoke={ask => setConfirmId(ask ? app.client_id : null)} onRevoke={() => void revoke(app)} />)}
     </div>}
-    {data && live.length > 0 && <p className="fine muted">To connect another app, install the plugin there and run its login command. It sends you here to a consent page. <Link to="/settings">Settings</Link> explains export and forgetting.</p>}
   </>;
 }
