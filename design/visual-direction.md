@@ -64,3 +64,7 @@ One curve, `cubic-bezier(.2,.7,.2,1)`. Three durations: 120 ms taps, 180 ms hove
 ## Out of scope for v1
 
 Dark theme. Phone. Both are v2, see [decisions.md](decisions.md).
+
+## The mark
+
+The logo is the shell shrunk to a square: hardware frame with radius 22 on a 180 grid, paper inset 14 with radius 14, a 22 tall header band, one orange LED at top right, and a Caveat 600 "s" in ink on the paper. Below 32 px the "s" is dropped and the three shapes carry it. The light is always orange in the logo. State colours belong to the app. Wordmark is "satchel" in Caveat 600, paper ink on hardware, gap to the mark 42% of the mark's height. Files and grid notes are in [mark/](mark/).

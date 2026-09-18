@@ -1,291 +1,389 @@
 {
   "v": 3,
   "attachments": {},
-  "createdOnFiles": {
-    "v": 1,
-    "at": "2026-09-17T07:06:50.427Z"
+  "boards": {
+    "Apps.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Apps",
+      "w": 1280,
+      "x": 1360,
+      "y": 7200
+    },
+    "AppsEmpty.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Apps \u00b7 none connected",
+      "w": 1280,
+      "x": 0,
+      "y": 7200
+    },
+    "Book.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Book",
+      "w": 1280,
+      "x": 1360,
+      "y": 2400
+    },
+    "BookCorrect.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Book \u00b7 correcting + forget",
+      "w": 1280,
+      "x": 2720,
+      "y": 2400
+    },
+    "BookDark.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Book \u00b7 dark theme (v2 reference)",
+      "w": 1280,
+      "x": 4080,
+      "y": 2400
+    },
+    "BookEmpty.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Book \u00b7 empty",
+      "w": 1280,
+      "x": 0,
+      "y": 2400
+    },
+    "BookSearch.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Book \u00b7 search results",
+      "w": 1280,
+      "x": 1360,
+      "y": 6000
+    },
+    "Components.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Components \u00b7 focus and long content",
+      "w": 1280,
+      "x": 8160,
+      "y": 6000
+    },
+    "ConnectedClaude.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Satchel \u00d7 Claude",
+      "w": 1280,
+      "x": 4080,
+      "y": 7200
+    },
+    "ConnectedCodex.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Satchel \u00d7 OpenAI",
+      "w": 1280,
+      "x": 5440,
+      "y": 7200
+    },
+    "Consent.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Consent request",
+      "w": 1280,
+      "x": 2720,
+      "y": 7200
+    },
+    "Corners.dc.html": {
+      "h": 560,
+      "is_interactive": true,
+      "title": "Corners \u00b7 leak and fix",
+      "w": 1280,
+      "x": 4080,
+      "y": 0
+    },
+    "Direction.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Direction",
+      "w": 1280,
+      "x": 0,
+      "y": 0
+    },
+    "Errors.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Errors and conflicts",
+      "w": 1280,
+      "x": 6800,
+      "y": 6000
+    },
+    "Headings.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Headings \u00b7 serif vs handwriting",
+      "w": 1280,
+      "x": 5440,
+      "y": 0
+    },
+    "LeftOffEmpty.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Left off \u00b7 first run",
+      "w": 1280,
+      "x": 1360,
+      "y": 1200
+    },
+    "Main.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Left off",
+      "w": 1280,
+      "x": 2720,
+      "y": 1200
+    },
+    "Motion.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Motion",
+      "w": 1280,
+      "x": 2720,
+      "y": 0
+    },
+    "PhoneBook.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "v2 Android ref \u00b7 Book",
+      "w": 390,
+      "x": 470,
+      "y": 8400
+    },
+    "PhoneConsent.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "v2 Android ref \u00b7 More",
+      "w": 390,
+      "x": 1410,
+      "y": 8400
+    },
+    "PhoneLeftOff.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "v2 Android ref \u00b7 Left off",
+      "w": 390,
+      "x": 0,
+      "y": 8400
+    },
+    "PhoneTask.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "v2 Android ref \u00b7 Task",
+      "w": 390,
+      "x": 940,
+      "y": 8400
+    },
+    "Project.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Project",
+      "w": 1280,
+      "x": 1360,
+      "y": 3600
+    },
+    "ProjectEmpty.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Project \u00b7 new and empty",
+      "w": 1280,
+      "x": 2720,
+      "y": 3600
+    },
+    "ProjectNew.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "New project sheet",
+      "w": 1280,
+      "x": 2720,
+      "y": 6000
+    },
+    "Projects.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Projects",
+      "w": 1280,
+      "x": 0,
+      "y": 3600
+    },
+    "ScopePicker.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Scope picker \u00b7 open",
+      "w": 1280,
+      "x": 0,
+      "y": 6000
+    },
+    "Settings.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Settings",
+      "w": 1280,
+      "x": 6800,
+      "y": 7200
+    },
+    "Task.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Task detail",
+      "w": 1280,
+      "x": 2720,
+      "y": 4800
+    },
+    "TaskBlocked.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Task \u00b7 move to Blocked",
+      "w": 1280,
+      "x": 5440,
+      "y": 6000
+    },
+    "TaskEdit.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Task \u00b7 editing",
+      "w": 1280,
+      "x": 4080,
+      "y": 6000
+    },
+    "Tasks.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Tasks",
+      "w": 1280,
+      "x": 1360,
+      "y": 4800
+    },
+    "TasksEmpty.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Tasks \u00b7 empty",
+      "w": 1280,
+      "x": 0,
+      "y": 4800
+    },
+    "Welcome.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Welcome (signed out)",
+      "w": 1280,
+      "x": 0,
+      "y": 1200
+    },
+    "Mark.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "title": "Mark \u00b7 logo and wordmark",
+      "w": 1280,
+      "y": 0,
+      "x": 1360
+    }
   },
-  "title": "Satchel UI Redesign",
+  "createdOnFiles": {
+    "at": "2026-09-17T07:06:50.427Z",
+    "v": 1
+  },
+  "designSystems": [],
   "launch": {
     "view": "canvas"
   },
-  "pages": [],
-  "boards": {
-    "Direction.dc.html": {
+  "notes": {
+    "row0": {
+      "kind": "title1",
+      "maxW": 6720,
+      "text": "Design system, the mark, motion, the corner fix, and the heading font question",
+      "w": 240,
       "x": 0,
-      "y": 0,
-      "w": 1280,
-      "h": 820,
-      "title": "Direction",
-      "is_interactive": true
+      "y": -240
     },
-    "Motion.dc.html": {
-      "x": 1360,
-      "y": 0,
-      "w": 1280,
-      "h": 820,
-      "title": "Motion",
-      "is_interactive": true
-    },
-    "Corners.dc.html": {
-      "x": 2720,
-      "y": 0,
-      "w": 1280,
-      "h": 560,
-      "title": "Corners · leak and fix",
-      "is_interactive": true
-    },
-    "Headings.dc.html": {
-      "x": 4080,
-      "y": 0,
-      "w": 1280,
-      "h": 820,
-      "title": "Headings · serif vs handwriting",
-      "is_interactive": true
-    },
-    "Welcome.dc.html": {
+    "row1": {
+      "kind": "title1",
+      "maxW": 4000,
+      "text": "Arrive: sign in, first run, then where you left off",
+      "w": 240,
       "x": 0,
-      "y": 1200,
-      "w": 1280,
-      "h": 820,
-      "title": "Welcome (signed out)",
-      "is_interactive": true
+      "y": 960
     },
-    "LeftOffEmpty.dc.html": {
-      "x": 1360,
-      "y": 1200,
-      "w": 1280,
-      "h": 820,
-      "title": "Left off · first run",
-      "is_interactive": true
-    },
-    "Main.dc.html": {
-      "x": 2720,
-      "y": 1200,
-      "w": 1280,
-      "h": 820,
-      "title": "Left off",
-      "is_interactive": true
-    },
-    "BookEmpty.dc.html": {
+    "row2": {
+      "kind": "title1",
+      "maxW": 5360,
+      "text": "The book: empty, filled, correcting and forgetting, dark theme",
+      "w": 240,
       "x": 0,
-      "y": 2400,
-      "w": 1280,
-      "h": 820,
-      "title": "Book · empty",
-      "is_interactive": true
+      "y": 2160
     },
-    "Book.dc.html": {
-      "x": 1360,
-      "y": 2400,
-      "w": 1280,
-      "h": 820,
-      "title": "Book",
-      "is_interactive": true
-    },
-    "BookCorrect.dc.html": {
-      "x": 2720,
-      "y": 2400,
-      "w": 1280,
-      "h": 820,
-      "title": "Book · correcting + forget",
-      "is_interactive": true
-    },
-    "BookDark.dc.html": {
-      "x": 4080,
-      "y": 2400,
-      "w": 1280,
-      "h": 820,
-      "title": "Book · dark theme (v2 reference)",
-      "is_interactive": true
-    },
-    "Projects.dc.html": {
+    "row3": {
+      "kind": "title1",
+      "maxW": 4000,
+      "text": "Projects: list, a full project, a brand new one",
+      "w": 240,
       "x": 0,
-      "y": 3600,
-      "w": 1280,
-      "h": 820,
-      "title": "Projects",
-      "is_interactive": true
+      "y": 3360
     },
-    "Project.dc.html": {
-      "x": 1360,
-      "y": 3600,
-      "w": 1280,
-      "h": 820,
-      "title": "Project",
-      "is_interactive": true
-    },
-    "ProjectEmpty.dc.html": {
-      "x": 2720,
-      "y": 3600,
-      "w": 1280,
-      "h": 820,
-      "title": "Project · new and empty",
-      "is_interactive": true
-    },
-    "TasksEmpty.dc.html": {
+    "row4": {
+      "kind": "title1",
+      "maxW": 4000,
+      "text": "Tasks: empty, list, task detail with timeline",
+      "w": 240,
       "x": 0,
-      "y": 4800,
-      "w": 1280,
-      "h": 820,
-      "title": "Tasks · empty",
-      "is_interactive": true
+      "y": 4560
     },
-    "Tasks.dc.html": {
-      "x": 1360,
-      "y": 4800,
-      "w": 1280,
-      "h": 820,
-      "title": "Tasks",
-      "is_interactive": true
-    },
-    "Task.dc.html": {
-      "x": 2720,
-      "y": 4800,
-      "w": 1280,
-      "h": 820,
-      "title": "Task detail",
-      "is_interactive": true
-    },
-    "ScopePicker.dc.html": {
+    "row5": {
+      "kind": "title1",
+      "maxW": 8000,
+      "text": "v1 details: the picker open, sheets, edit, search, errors, and component states",
+      "w": 240,
       "x": 0,
-      "y": 6000,
-      "w": 1280,
-      "h": 820,
-      "title": "Scope picker · open",
-      "is_interactive": true
+      "y": 5760
     },
-    "BookSearch.dc.html": {
-      "x": 1360,
-      "y": 6000,
-      "w": 1280,
-      "h": 820,
-      "title": "Book · search results",
-      "is_interactive": true
-    },
-    "ProjectNew.dc.html": {
-      "x": 2720,
-      "y": 6000,
-      "w": 1280,
-      "h": 820,
-      "title": "New project sheet",
-      "is_interactive": true
-    },
-    "TaskEdit.dc.html": {
-      "x": 4080,
-      "y": 6000,
-      "w": 1280,
-      "h": 820,
-      "title": "Task · editing",
-      "is_interactive": true
-    },
-    "TaskBlocked.dc.html": {
-      "x": 5440,
-      "y": 6000,
-      "w": 1280,
-      "h": 820,
-      "title": "Task · move to Blocked",
-      "is_interactive": true
-    },
-    "Errors.dc.html": {
-      "x": 6800,
-      "y": 6000,
-      "w": 1280,
-      "h": 820,
-      "title": "Errors and conflicts",
-      "is_interactive": true
-    },
-    "Components.dc.html": {
-      "x": 8160,
-      "y": 6000,
-      "w": 1280,
-      "h": 820,
-      "title": "Components · focus and long content",
-      "is_interactive": true
-    },
-    "AppsEmpty.dc.html": {
+    "row6": {
+      "kind": "title1",
+      "maxW": 8000,
+      "text": "Apps and settings: empty, connected, consent request, settings",
+      "w": 240,
       "x": 0,
-      "y": 7200,
-      "w": 1280,
-      "h": 820,
-      "title": "Apps · none connected",
-      "is_interactive": true
+      "y": 6960
     },
-    "Apps.dc.html": {
-      "x": 1360,
-      "y": 7200,
-      "w": 1280,
-      "h": 820,
-      "title": "Apps",
-      "is_interactive": true
-    },
-    "Consent.dc.html": {
-      "x": 2720,
-      "y": 7200,
-      "w": 1280,
-      "h": 820,
-      "title": "Consent request",
-      "is_interactive": true
-    },
-    "ConnectedClaude.dc.html": {
-      "x": 4080,
-      "y": 7200,
-      "w": 1280,
-      "h": 820,
-      "title": "Satchel × Claude",
-      "is_interactive": true
-    },
-    "ConnectedCodex.dc.html": {
-      "x": 5440,
-      "y": 7200,
-      "w": 1280,
-      "h": 820,
-      "title": "Satchel × OpenAI",
-      "is_interactive": true
-    },
-    "Settings.dc.html": {
-      "x": 6800,
-      "y": 7200,
-      "w": 1280,
-      "h": 820,
-      "title": "Settings",
-      "is_interactive": true
-    },
-    "PhoneLeftOff.dc.html": {
+    "rowPhone": {
+      "kind": "title1",
+      "maxW": 2600,
+      "text": "v2 reference only: phone becomes a native Android app with app intents",
+      "w": 240,
       "x": 0,
-      "y": 8400,
-      "w": 390,
-      "h": 844,
-      "title": "v2 Android ref · Left off",
-      "is_interactive": true
+      "y": 8160
     },
-    "PhoneBook.dc.html": {
-      "x": 470,
-      "y": 8400,
-      "w": 390,
-      "h": 844,
-      "title": "v2 Android ref · Book",
-      "is_interactive": true
+    "stickyEmpty": {
+      "color": "orange",
+      "size": 24,
+      "text": "Empty states follow one rule: say what the place is for, give the single action that fills it, and offer a look at the full version. The first-run Left off page is the strongest example.",
+      "w": 420,
+      "x": 4120,
+      "y": 1200
     },
-    "PhoneTask.dc.html": {
-      "x": 940,
-      "y": 8400,
-      "w": 390,
-      "h": 844,
-      "title": "v2 Android ref · Task",
-      "is_interactive": true
+    "stickyScope": {
+      "color": "orange",
+      "size": 24,
+      "text": "Scope picker replaces the project chips and the sidebar list. Same control on Book and Tasks. It locks while a draft is open and says why.",
+      "w": 420,
+      "x": 5480,
+      "y": 2400
     },
-    "PhoneConsent.dc.html": {
-      "x": 1410,
-      "y": 8400,
-      "w": 390,
-      "h": 844,
-      "title": "v2 Android ref · More",
-      "is_interactive": true
+    "stickyTask": {
+      "color": "orange",
+      "size": 24,
+      "text": "The task page puts the next action first, then one composer with three modes (comment, progress, handoff) instead of three long forms. Everything else moves to the right column.",
+      "w": 420,
+      "x": 4120,
+      "y": 4800
     }
   },
   "order": [
     "Direction.dc.html",
+    "Mark.dc.html",
     "Motion.dc.html",
     "Corners.dc.html",
     "Headings.dc.html",
@@ -320,87 +418,6 @@
     "PhoneTask.dc.html",
     "PhoneConsent.dc.html"
   ],
-  "notes": {
-    "row0": {
-      "x": 0,
-      "y": -240,
-      "text": "Design system, motion, the corner fix, and the heading font question",
-      "kind": "title1",
-      "maxW": 5360
-    },
-    "row1": {
-      "x": 0,
-      "y": 960,
-      "text": "Arrive: sign in, first run, then where you left off",
-      "kind": "title1",
-      "maxW": 4000
-    },
-    "row2": {
-      "x": 0,
-      "y": 2160,
-      "text": "The book: empty, filled, correcting and forgetting, dark theme",
-      "kind": "title1",
-      "maxW": 5360
-    },
-    "row3": {
-      "x": 0,
-      "y": 3360,
-      "text": "Projects: list, a full project, a brand new one",
-      "kind": "title1",
-      "maxW": 4000
-    },
-    "row4": {
-      "x": 0,
-      "y": 4560,
-      "text": "Tasks: empty, list, task detail with timeline",
-      "kind": "title1",
-      "maxW": 4000
-    },
-    "row5": {
-      "x": 0,
-      "y": 5760,
-      "text": "v1 details: the picker open, sheets, edit, search, errors, and component states",
-      "kind": "title1",
-      "maxW": 9440
-    },
-    "row6": {
-      "x": 0,
-      "y": 6960,
-      "text": "Apps and settings: empty, connected, consent request, settings",
-      "kind": "title1",
-      "maxW": 8080
-    },
-    "rowPhone": {
-      "x": 0,
-      "y": 8160,
-      "text": "v2 reference only: phone becomes a native Android app with app intents",
-      "kind": "title1",
-      "maxW": 2600
-    },
-    "stickyEmpty": {
-      "x": 4120,
-      "y": 1200,
-      "w": 420,
-      "text": "Empty states follow one rule: say what the place is for, give the single action that fills it, and offer a look at the full version. The first-run Left off page is the strongest example.",
-      "color": "orange",
-      "size": "m"
-    },
-    "stickyScope": {
-      "x": 5480,
-      "y": 2400,
-      "w": 420,
-      "text": "Scope picker replaces the project chips and the sidebar list. Same control on Book and Tasks. It locks while a draft is open and says why.",
-      "color": "orange",
-      "size": "m"
-    },
-    "stickyTask": {
-      "x": 4120,
-      "y": 4800,
-      "w": 420,
-      "text": "The task page puts the next action first, then one composer with three modes (comment, progress, handoff) instead of three long forms. Everything else moves to the right column.",
-      "color": "orange",
-      "size": "m"
-    }
-  },
-  "designSystems": []
+  "pages": [],
+  "title": "Satchel UI Redesign"
 }

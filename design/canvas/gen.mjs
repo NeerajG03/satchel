@@ -823,9 +823,51 @@ const components = page({ w: 1280, h: 820, body: `<div style="width:1280px; heig
     <span class="fine muted">Chips and readouts stay on one line and never wrap. Titles and descriptions wrap as far as they need. Over-tall beats clipped.</span>`)}
 </div>` });
 
+
+/* ---------------- Mark: the logo ---------------- */
+// Built on a 180 grid. Frame radius 22, paper inset 14 with radius 14, header 22 tall, LED r6 at (150,30), Caveat "s" in ink.
+const markSvg = (size, { light = false, glyph = true } = {}) => `<svg width="${size}" height="${size}" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Satchel"><rect width="180" height="180" rx="22" fill="#26231F"/><rect x="14" y="14" width="152" height="152" rx="14" fill="#F4F0E7"/><path d="M14 28a14 14 0 0 1 14-14h124a14 14 0 0 1 14 14v8H14z" fill="#26231F"/><circle cx="150" cy="30" r="6" fill="#E4571E"/>${glyph ? `<text x="90" y="118" text-anchor="middle" font-family="Caveat, cursive" font-weight="600" font-size="88" fill="#1F1B17">s</text>` : ''}</svg>`;
+const lockup = (h) => `<div style="display:inline-flex; align-items:center; gap:${Math.round(h*.42)}px; background:#26231F; border-radius:${Math.round(h*.35)}px; padding:${Math.round(h*.35)}px ${Math.round(h*.6)}px ${Math.round(h*.35)}px ${Math.round(h*.35)}px;">${markSvg(h)}<span style="font:600 ${Math.round(h*.95)}px/1 'Caveat',cursive; color:#EEE7DB; position:relative; top:-${Math.round(h*.05)}px;">satchel</span></div>`;
+const mark = page({ w: 1280, h: 820, body: `<div style="width:1280px; height:820px; background:#DED8CC; padding:40px 52px; display:grid; grid-template-columns:1.1fr 1fr 1fr; grid-template-rows:auto auto auto; gap:26px 36px; box-sizing:border-box; align-content:start;">
+  <div style="grid-column:1/-1; display:flex; justify-content:space-between; align-items:flex-end;"><div class="col" style="gap:8px;"><span class="eyebrow">Mark · the app's own shell, shrunk</span><h1 class="h1" style="font-size:38px;">One mark, one wordmark, one family.</h1></div><span class="prov">Decided 18 Sep · option A mark + option E wordmark</span></div>
+
+  <div class="col" style="gap:12px;"><span class="eyebrow">The mark</span>
+    <div style="display:flex; gap:24px; align-items:flex-end; background:#F4F0E7; border-radius:14px; padding:24px;">${markSvg(160)}<div class="col" style="gap:14px; align-items:flex-start;">${markSvg(64)}${markSvg(32)}${markSvg(16, { glyph: false })}<span class="prov">160 · 64 · 32 · 16</span></div></div>
+    <p style="margin:0; font-size:14px; line-height:1.5;">Dark frame, paper inset, one orange light. It is the shell from every page. At 16 px the "s" goes and the light stays; three shapes still read.</p></div>
+
+  <div class="col" style="gap:12px;"><span class="eyebrow">Construction · 180 grid</span>
+    <div style="background:#F4F0E7; border-radius:14px; padding:24px; display:flex; justify-content:center;"><svg width="220" height="220" viewBox="-20 -20 220 220" xmlns="http://www.w3.org/2000/svg"><g opacity=".55">${markSvg(180).replace(/<svg[^>]*>|<\/svg>/g,'')}</g><g fill="none" stroke="#B8451A" stroke-width="1" stroke-dasharray="3 3"><rect x="0" y="0" width="180" height="180" rx="22"/><rect x="14" y="14" width="152" height="152" rx="14"/><line x1="14" y1="36" x2="166" y2="36"/><circle cx="150" cy="30" r="6"/><line x1="90" y1="-14" x2="90" y2="194"/><line x1="-14" y1="90" x2="194" y2="90"/></g><g font-family="DM Mono, monospace" font-size="9" fill="#B8451A"><text x="2" y="-6">r22</text><text x="18" y="12">inset 14 · r14</text><text x="120" y="52">header 22</text><text x="128" y="20">led r6</text></g></svg></div>
+    <p style="margin:0; font-size:14px; line-height:1.5;">Frame radius is 12% of the side. Paper inset is 8%. Header is 12%. LED sits 17% in from the top right and is 7% wide. Scale the grid, never redraw.</p></div>
+
+  <div class="col" style="gap:12px;"><span class="eyebrow">Rules</span>
+    <div class="col" style="gap:8px; font-size:14px; line-height:1.5; background:#F4F0E7; border-radius:14px; padding:20px 22px;">
+      <span><strong>Always</strong> three parts: frame, paper, light. Nothing else goes inside.</span>
+      <span><strong>Light</strong> is orange, top right, and never turns green or red in the logo. State lives in the app, not the mark.</span>
+      <span><strong>Wordmark</strong> is Caveat 600 in paper ink on hardware. Never on paper, never in another face.</span>
+      <span><strong>Clear space</strong> around the mark equals the paper inset. Never crop the frame.</span>
+      <span><strong>On light</strong> backgrounds the frame is the edge. On dark ones add a 1 px paper ring so the frame does not sink.</span>
+    </div></div>
+
+  <div style="grid-column:1/-1; display:grid; grid-template-columns:1.1fr 1fr 1fr; gap:36px;">
+    <div class="col" style="gap:12px;"><span class="eyebrow">Lockup · mark + wordmark</span>
+      <div style="display:flex; flex-direction:column; gap:16px; align-items:flex-start; background:#F4F0E7; border-radius:14px; padding:24px;">${lockup(40)}${lockup(26)}<div style="display:flex; align-items:center; gap:14px; background:#26231F; border-radius:10px; padding:10px 18px 10px 12px; width:100%; box-sizing:border-box;">${markSvg(26)}<span style="font:600 26px/1 'Caveat',cursive; color:#EEE7DB;">satchel</span><span class="prov" style="margin-left:auto; color:#A79E90;">Wed 18 Sep</span><span class="led green"></span><span style="font-size:12px; color:#EEE7DB;">Synced</span></div></div>
+      <p style="margin:0; font-size:14px; line-height:1.5;">Gap between mark and word is 42% of the mark's height. In the header, the mark sits where the wordmark alone sat today.</p></div>
+    <div class="col" style="gap:12px;"><span class="eyebrow">Where it goes</span>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:14px; background:#F4F0E7; border-radius:14px; padding:20px;">
+        ${[['Browser tab', markSvg(16,{glyph:false}), '#FFFFFF'], ['Dark tab', `<div style="border-radius:3px; box-shadow:0 0 0 1px #F4F0E7;">${markSvg(16,{glyph:false})}</div>`, '#1F1B17'], ['Plugin icon', markSvg(48), '#FFFFFF'], ['Android launcher', `<div style="border-radius:50%; overflow:hidden; width:56px; height:56px; background:#26231F; display:flex; align-items:center; justify-content:center;">${markSvg(44)}</div>`, '#E9E4DA'], ['Consent header', lockup(20), '#FFFFFF'], ['Export cover', markSvg(56), '#F4F0E7']].map(([l, m, bg]) => `<div class="col" style="gap:8px; align-items:center;"><div style="width:100%; height:72px; background:${bg}; border:1px solid #D9D1C4; border-radius:8px; display:flex; align-items:center; justify-content:center;">${m}</div><span class="prov">${l}</span></div>`).join('')}
+      </div></div>
+    <div class="col" style="gap:12px;"><span class="eyebrow">Files</span>
+      <div class="col" style="gap:8px; font-size:14px; line-height:1.5; background:#F4F0E7; border-radius:14px; padding:20px 22px;">
+        <span class="mono fine">design/mark/mark.svg</span><span class="muted" style="font-size:13px;">Full mark with the s. Use at 32 px and up.</span>
+        <span class="mono fine">design/mark/mark-small.svg</span><span class="muted" style="font-size:13px;">No glyph. Favicon, 16 and 24 px.</span>
+        <span class="mono fine">design/mark/lockup.svg</span><span class="muted" style="font-size:13px;">Mark + wordmark on hardware. Loads Caveat from Google Fonts, so it is for the web. For print, outline the text first.</span>
+      </div></div>
+  </div>
+</div>` });
+
 /* ---------------- Write everything ---------------- */
 const files = {
-  'Direction.dc.html': direction, 'Motion.dc.html': motion, 'Headings.dc.html': headings, 'Corners.dc.html': corners, 'ConnectedClaude.dc.html': connectedClaude, 'ConnectedCodex.dc.html': connectedCodex,
+  'Direction.dc.html': direction, 'Mark.dc.html': mark, 'Motion.dc.html': motion, 'Headings.dc.html': headings, 'Corners.dc.html': corners, 'ConnectedClaude.dc.html': connectedClaude, 'ConnectedCodex.dc.html': connectedCodex,
   'Welcome.dc.html': welcome, 'LeftOffEmpty.dc.html': leftOffEmpty, 'Main.dc.html': leftOff,
   'BookEmpty.dc.html': bookEmpty, 'Book.dc.html': book, 'BookCorrect.dc.html': bookCorrect, 'BookDark.dc.html': bookDark,
   'Projects.dc.html': projects, 'Project.dc.html': project, 'ProjectEmpty.dc.html': projectEmpty,
@@ -839,7 +881,7 @@ for (const [name, html] of Object.entries(files)) writeFileSync(out + name, html
 // Canvas layout: rows of desktop boards (1280x820), 80 px between, title notes 240 px above each row.
 const W = 1280, H = 820, GX = 80, ROW = 1200;
 const rows = [
-  ['Design system, motion, the corner fix, and the heading font question', ['Direction.dc.html', 'Motion.dc.html', 'Corners.dc.html', 'Headings.dc.html']],
+  ['Design system, the mark, motion, the corner fix, and the heading font question', ['Direction.dc.html', 'Mark.dc.html', 'Motion.dc.html', 'Corners.dc.html', 'Headings.dc.html']],
   ['Arrive: sign in, first run, then where you left off', ['Welcome.dc.html', 'LeftOffEmpty.dc.html', 'Main.dc.html']],
   ['The book: empty, filled, correcting and forgetting, dark theme', ['BookEmpty.dc.html', 'Book.dc.html', 'BookCorrect.dc.html', 'BookDark.dc.html']],
   ['Projects: list, a full project, a brand new one', ['Projects.dc.html', 'Project.dc.html', 'ProjectEmpty.dc.html']],
@@ -847,7 +889,7 @@ const rows = [
   ['v1 details: the picker open, sheets, edit, search, errors, and component states', ['ScopePicker.dc.html', 'BookSearch.dc.html', 'ProjectNew.dc.html', 'TaskEdit.dc.html', 'TaskBlocked.dc.html', 'Errors.dc.html', 'Components.dc.html']],
   ['Apps and settings: empty, connected, consent request, settings', ['AppsEmpty.dc.html', 'Apps.dc.html', 'Consent.dc.html', 'ConnectedClaude.dc.html', 'ConnectedCodex.dc.html', 'Settings.dc.html']],
 ];
-const titles = { 'Direction.dc.html': 'Direction', 'Welcome.dc.html': 'Welcome (signed out)', 'LeftOffEmpty.dc.html': 'Left off · first run', 'Main.dc.html': 'Left off', 'BookEmpty.dc.html': 'Book · empty', 'Book.dc.html': 'Book', 'BookCorrect.dc.html': 'Book · correcting + forget', 'BookDark.dc.html': 'Book · dark theme', 'Projects.dc.html': 'Projects', 'Project.dc.html': 'Project', 'ProjectEmpty.dc.html': 'Project · new and empty', 'TasksEmpty.dc.html': 'Tasks · empty', 'Tasks.dc.html': 'Tasks', 'Task.dc.html': 'Task detail', 'AppsEmpty.dc.html': 'Apps · none connected', 'Apps.dc.html': 'Apps', 'Consent.dc.html': 'Consent request', 'Settings.dc.html': 'Settings', 'ScopePicker.dc.html': 'Scope picker · open', 'BookSearch.dc.html': 'Book · search results', 'ProjectNew.dc.html': 'New project sheet', 'TaskEdit.dc.html': 'Task · editing', 'TaskBlocked.dc.html': 'Task · move to Blocked', 'Errors.dc.html': 'Errors and conflicts', 'Components.dc.html': 'Components · focus and long content', 'Motion.dc.html': 'Motion', 'Headings.dc.html': 'Headings · serif vs handwriting', 'MainScript.dc.html': 'Left off · Caveat heading (option A)', 'Corners.dc.html': 'Corners · leak and fix', 'ConnectedClaude.dc.html': 'Satchel × Claude', 'ConnectedCodex.dc.html': 'Satchel × OpenAI', 'BookDark.dc.html': 'Book · dark theme (v2 reference)', 'PhoneLeftOff.dc.html': 'v2 Android ref · Left off', 'PhoneBook.dc.html': 'v2 Android ref · Book', 'PhoneTask.dc.html': 'v2 Android ref · Task', 'PhoneConsent.dc.html': 'v2 Android ref · More' };
+const titles = { 'Direction.dc.html': 'Direction', 'Mark.dc.html': 'Mark · logo and wordmark', 'Welcome.dc.html': 'Welcome (signed out)', 'LeftOffEmpty.dc.html': 'Left off · first run', 'Main.dc.html': 'Left off', 'BookEmpty.dc.html': 'Book · empty', 'Book.dc.html': 'Book', 'BookCorrect.dc.html': 'Book · correcting + forget', 'BookDark.dc.html': 'Book · dark theme', 'Projects.dc.html': 'Projects', 'Project.dc.html': 'Project', 'ProjectEmpty.dc.html': 'Project · new and empty', 'TasksEmpty.dc.html': 'Tasks · empty', 'Tasks.dc.html': 'Tasks', 'Task.dc.html': 'Task detail', 'AppsEmpty.dc.html': 'Apps · none connected', 'Apps.dc.html': 'Apps', 'Consent.dc.html': 'Consent request', 'Settings.dc.html': 'Settings', 'ScopePicker.dc.html': 'Scope picker · open', 'BookSearch.dc.html': 'Book · search results', 'ProjectNew.dc.html': 'New project sheet', 'TaskEdit.dc.html': 'Task · editing', 'TaskBlocked.dc.html': 'Task · move to Blocked', 'Errors.dc.html': 'Errors and conflicts', 'Components.dc.html': 'Components · focus and long content', 'Motion.dc.html': 'Motion', 'Headings.dc.html': 'Headings · serif vs handwriting', 'MainScript.dc.html': 'Left off · Caveat heading (option A)', 'Corners.dc.html': 'Corners · leak and fix', 'ConnectedClaude.dc.html': 'Satchel × Claude', 'ConnectedCodex.dc.html': 'Satchel × OpenAI', 'BookDark.dc.html': 'Book · dark theme (v2 reference)', 'PhoneLeftOff.dc.html': 'v2 Android ref · Left off', 'PhoneBook.dc.html': 'v2 Android ref · Book', 'PhoneTask.dc.html': 'v2 Android ref · Task', 'PhoneConsent.dc.html': 'v2 Android ref · More' };
 const boards = {}, order = [], notes = {};
 rows.forEach(([title, list], r) => {
   const y = r * ROW;
