@@ -10,10 +10,14 @@
 | App opens to the welcome page with the notebook theme and app icon | Verified | Window titled Satchel at 1100×760; screenshot from the user |
 | Continue with GitHub opens the default browser | Verified | User completed sign-in in the browser |
 | `satchel://auth/callback` returns to the app and signs in | Verified | User signed in; Left off page showed synced tasks, memory and apps |
-| Memory, tasks, projects and apps pages load | Verified for load | Left off page rendered live data. Saves not yet exercised in the shell |
-| External links open in the browser, not inside the shell | Pending | |
-| Window size and position persist across relaunch | Pending | |
+| Memory, tasks, projects and apps pages load and save | Verified | User saved a memory from the shell; Left off, Book and Apps rendered live data |
+| External links open in the browser, not inside the shell | Verified | Sign-in link opened the default browser through the opener plugin |
+| Window size and position persist across relaunch | Verified | Relaunch restored a user-resized 1512×949 window |
 | Second launch focuses the existing window | Verified | Second `open` left one process running |
+
+| Header and rail stay fixed; only the paper scrolls | Verified | User confirmed on the Apps and Book pages |
+| Popovers stay inside the scrolling paper | Verified | Scope picker opens fully after anchoring it to the left |
+| Unsigned DMG built by the Desktop workflow on a macOS runner | Pending | Tag `desktop-v0.1.0` pushed; see the release |
 
 ## Not covered
 
