@@ -113,7 +113,7 @@
 }
 .foot .readout { color: var(--ink); animation: fade var(--t-hover) var(--ease) both; }
 
-.split { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
+.split { position: relative; min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
 .split > section { display: flex; flex-direction: column; justify-content: center; gap: var(--s-4); padding: 80px 72px; }
 .split .satchel { background: var(--paper); color: var(--ink); }
 .split .satchel .wordmark { color: var(--ink); font-size: 40px; gap: 14px; }
@@ -140,7 +140,7 @@
 .split .partner-plain .lede { color: var(--hw-muted); }
 .split .partner-plain .btn { background: var(--orange); border-color: var(--orange); color: var(--ink); }
 .split .seam {
-  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  position: absolute; z-index: 2; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: 56px; height: 56px; border-radius: 50%; background: var(--ink); color: var(--paper);
   display: flex; align-items: center; justify-content: center; font: 500 22px var(--font-mono);
   box-shadow: 0 10px 30px #0004;
