@@ -159,11 +159,16 @@
 
 /* Desktop shell: the window is the frame. macOS traffic lights float over the header's left edge. */
 :root[data-desktop] body { background: var(--hw); }
+:root[data-desktop] body { overflow: hidden; }
 :root[data-desktop] .frame {
   max-width: none;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   margin: 0;
   border-radius: 0;
   box-shadow: none;
+  overflow: hidden;
 }
+/* Header and rail stay put; only the paper scrolls, so the traffic lights never cover the rail. */
+:root[data-desktop] .paper { overflow-y: auto; }
 :root[data-desktop] .top { padding-left: 104px; user-select: none; -webkit-user-select: none; }
