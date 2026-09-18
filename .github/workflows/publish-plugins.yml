@@ -1,0 +1,40 @@
+name: Publish plugin catalog
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'integrations/**'
+      - 'scripts/build-plugins.mjs'
+      - 'scripts/publish-plugins.mjs'
+      - '.github/workflows/publish-plugins.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency: publish-plugins
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run plugins:publish
+      - uses: actions/checkout@v4
+        with:
+          repository: NeerajG03/satchel-plugins
+          token: ${{ secrets.CATALOG_TOKEN }}
+          path: catalog
+      - name: Copy the built catalog over the checkout
+        run: rsync -a --delete --exclude .git dist/plugins/ catalog/
+      - name: Commit and push if anything changed
+        working-directory: catalog
+        run: |
+          git config user.name "Neeraj"
+          git config user.email "neeraj@different.ai"
+          git add -A .
+          if git diff --cached --quiet; then echo "Catalog already current"; exit 0; fi
+          claude=$(node -p "require('./claude/satchel/.claude-plugin/plugin.json').version")
+          codex=$(node -p "require('./codex/satchel/.codex-plugin/plugin.json').version")
+          git commit -m "Publish Satchel plugin catalog (claude $claude, codex $codex)"
+          git push
