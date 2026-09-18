@@ -17,7 +17,7 @@
 
 | Header and rail stay fixed; only the paper scrolls | Verified | User confirmed on the Apps and Book pages |
 | Popovers stay inside the scrolling paper | Verified | Scope picker opens fully after anchoring it to the left |
-| Unsigned DMG built by the Desktop workflow on a macOS runner | Pending | Tag `desktop-v0.1.0` pushed; see the release |
+| Unsigned DMG built by the Desktop workflow on a macOS runner | Verified | `Satchel_0.1.0_aarch64.dmg` (3.2 MB) attached to the `desktop-v0.1.0` release |
 
 ## Not covered
 
