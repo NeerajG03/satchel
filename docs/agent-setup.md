@@ -49,16 +49,16 @@ The hook includes authorized personal memory plus the conversation's explicitly 
 
 ## Install for anyone
 
-Both packages are published to the public catalog [NeerajG03/satchel-plugins](https://github.com/NeerajG03/satchel-plugins). A user needs no access to this repository.
+This public repository is the catalog. `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json` at the root point at the generated packages under `integrations/`.
 
 ```sh
 # Claude Code
-claude plugin marketplace add NeerajG03/satchel-plugins
+claude plugin marketplace add NeerajG03/satchel
 claude plugin install satchel@satchel
 claude mcp login plugin:satchel:satchel
 
 # Codex
-codex plugin marketplace add NeerajG03/satchel-plugins
+codex plugin marketplace add NeerajG03/satchel
 codex plugin add satchel@satchel
 codex mcp login satchel
 ```
@@ -69,12 +69,12 @@ The login command opens the consent page in the browser. After Allow, start a fr
 
 ```sh
 npm ci
-node scripts/build-plugins.mjs
-node scripts/publish-plugins.mjs            # writes dist/plugins
-claude plugin validate dist/plugins/claude/satchel
+npm run plugins:build
+claude plugin validate .
+claude plugin validate integrations/claude/satchel
 ```
 
-`publish-plugins.mjs` assembles the catalog: both built packages, `.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json` and a README. The `Publish plugin catalog` workflow runs it on every push to `main` that touches `integrations/` or the two scripts, then commits `dist/plugins` to the `main` branch of the catalog repository. It needs a `CATALOG_TOKEN` repository secret: a fine-grained GitHub token with contents read and write on `NeerajG03/satchel-plugins` only. Without the secret the workflow fails and the catalog keeps its last contents. Run it by hand from the Actions tab when needed. Both hosts pin nothing, so a new push is a new version once the manifest version is bumped in `build-plugins.mjs`. Both packages are generated from `integrations/shared`; edit shared source and rebuild, rather than editing generated copies. The local `satchel-dev` directory catalog under `integrations/claude` still works for development.
+`build-plugins.mjs` generates both packages from `integrations/shared` and writes the two marketplace files at the repository root. Commit all of it. Installing reads `main` directly, so a merged commit is a release once the version in `build-plugins.mjs` is bumped. Edit shared source and rebuild, never the generated copies. The local `satchel-dev` directory catalog under `integrations/claude` still works for development.
 
 The bootstrap requires Node.js on PATH. Current validation is on macOS; other operating systems and ordinary mobile ChatGPT/Claude chats are not validated targets.
 

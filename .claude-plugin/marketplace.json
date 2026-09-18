@@ -1,0 +1,17 @@
+{
+  "name": "satchel",
+  "description": "The Satchel plugin for Claude Code: your memory, tasks and projects across your agents.",
+  "owner": {
+    "name": "Satchel",
+    "url": "https://github.com/NeerajG03/satchel"
+  },
+  "plugins": [
+    {
+      "name": "satchel",
+      "source": "./integrations/claude/satchel",
+      "description": "Personal and project memory, tasks and projects across your agents.",
+      "version": "0.1.6",
+      "category": "productivity"
+    }
+  ]
+}

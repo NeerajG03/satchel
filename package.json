@@ -13,8 +13,7 @@
     "test": "node --test tests/*.test.mjs",
     "task-storage:provision": "node scripts/provision-task-storage.mjs",
     "task-storage:cleanup": "node scripts/cleanup-task-files.mjs",
-    "plugins:build": "node scripts/build-plugins.mjs",
-    "plugins:publish": "node scripts/build-plugins.mjs && node scripts/publish-plugins.mjs"
+    "plugins:build": "node scripts/build-plugins.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

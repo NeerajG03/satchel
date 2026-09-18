@@ -15,18 +15,18 @@ The hosted pilot is at [satchel-pi.vercel.app](https://satchel-pi.vercel.app). S
 
 ## Connect Claude Code or Codex
 
-The plugins live in the public catalog [NeerajG03/satchel-plugins](https://github.com/NeerajG03/satchel-plugins). You do not need this repository.
+This repository is also the plugin catalog. The marketplace files sit at the root and point at the packages under `integrations/`.
 
 ```sh
 # Claude Code
-claude plugin marketplace add NeerajG03/satchel-plugins
+claude plugin marketplace add NeerajG03/satchel
 claude plugin install satchel@satchel
 claude mcp login plugin:satchel:satchel
 ```
 
 ```sh
 # Codex
-codex plugin marketplace add NeerajG03/satchel-plugins
+codex plugin marketplace add NeerajG03/satchel
 codex plugin add satchel@satchel
 codex mcp login satchel
 ```
@@ -60,12 +60,13 @@ npm run build
 | `api/`, `server/` | Vercel functions and the MCP server |
 | `supabase/migrations/` | Schema, RLS and database functions |
 | `tests/` | SQL and contract tests, run with `node --test` |
+| `.claude-plugin/`, `.agents/` | Marketplace files, generated. This repo is the catalog |
 | `integrations/` | Plugin source in `shared/`, generated packages for `claude/` and `codex/` |
-| `scripts/` | Build and publish the plugin catalog, storage maintenance |
+| `scripts/` | Build the plugin packages and marketplace files, storage maintenance |
 | `docs/` | Product, architecture, decisions and setup. `docs/archive/` is frozen history |
 | `design/` | The design system, canvas boards and their generator |
 
-Changes to `integrations/` on `main` republish the plugin catalog automatically. See [the publish section](docs/agent-setup.md#build-and-publish).
+After a change under `integrations/shared/`, run `npm run plugins:build` and commit the generated packages and marketplace files. Installs read them straight from `main`. See [build and publish](docs/agent-setup.md#build-and-publish).
 
 ## Where it came from
 

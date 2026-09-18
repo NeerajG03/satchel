@@ -1,6 +1,6 @@
 export type Host = 'claude' | 'codex';
 
-export const CATALOG = 'NeerajG03/satchel-plugins';
+export const CATALOG = 'NeerajG03/satchel';
 
 export const HOST_NAMES: Record<Host, string> = { claude: 'Claude Code', codex: 'Codex' };
 
