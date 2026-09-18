@@ -7,6 +7,7 @@ import { count, whenText } from '../../app/format';
 import { scopeQuery } from '../../app/scope';
 import type { ProjectRepositoryLink } from './repository';
 import { Button, LinkButton } from '../../ui/Button';
+import { TornPageIcon } from '../../ui/TornPageIcon';
 import { TextArea } from '../../ui/Field';
 import { Light } from '../../ui/Light';
 import { LoadError, Notice, SaveError, Skeleton } from '../../ui/Notice';
@@ -77,7 +78,7 @@ export function ProjectPage() {
 
   return <>
     <div className="between wrap"><Link to="/projects" className="fine">← Projects</Link>
-      <div className="row" style={{ gap: 8 }}><LinkButton to={`/book${scopeQuery(scope)}`}>Open its book</LinkButton><LinkButton to={`/tasks${scopeQuery(scope)}`}>Open its tasks</LinkButton><LinkButton to={`/projects/${id}/delete`} look="quiet">Delete</LinkButton></div></div>
+      <div className="row" style={{ gap: 8 }}><LinkButton to={`/projects/${id}/delete`} look="quiet" className="tear" aria-label="Delete project" title="Delete project"><TornPageIcon /></LinkButton><LinkButton to={`/book${scopeQuery(scope)}`}>Open its book</LinkButton><LinkButton to={`/tasks${scopeQuery(scope)}`}>Open its tasks</LinkButton></div></div>
     <div className="col" style={{ gap: 10 }}>
       <span className="eyebrow">Project</span>
       <h1>{project.name}</h1>

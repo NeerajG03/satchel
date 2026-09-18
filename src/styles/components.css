@@ -17,9 +17,10 @@
 .btn.danger { background: var(--red); color: var(--paper); border-color: transparent; }
 .btn.danger:hover:not(:disabled) { background: #8f1f19; color: var(--paper); }
 .btn.tear { color: var(--accent); padding: 0 10px; min-width: var(--control-h); }
-.btn.tear:hover:not(:disabled) { background: color-mix(in srgb, var(--orange) 12%, transparent); color: var(--red); }
+.btn.tear:hover:not(:disabled), .btn.tear[aria-expanded='true'] { background: color-mix(in srgb, var(--orange) 12%, transparent); color: var(--red); }
+.btn.tear.sm { min-width: var(--control-h-sm); padding: 0 6px; }
 .btn.tear .torn-piece { transition: transform var(--t-hover) var(--ease); transform-origin: 12px 17px; }
-.btn.tear:hover:not(:disabled) .torn-piece { transform: translateY(2px) rotate(-6deg); }
+.btn.tear:hover:not(:disabled) .torn-piece, .btn.tear[aria-expanded='true'] .torn-piece { transform: translateY(2px) rotate(-6deg); }
 .btn.sm { min-height: var(--control-h-sm); padding: 0 12px; font-size: 13px; }
 .btn.link { background: none; border: 0; padding: 0; min-height: 0; color: var(--accent); font-weight: 500; }
 .btn.link:hover { color: var(--orange); text-decoration: underline; text-underline-offset: 3px; }
