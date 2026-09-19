@@ -1,0 +1,3979 @@
+{
+  "projects": [
+    {
+      "slug": "cardinal-ledger",
+      "name": "Cardinal ledger",
+      "brief": "Work: the Go payments ledger service that books entries and drives settlement"
+    },
+    {
+      "slug": "orbit-console",
+      "name": "Orbit console",
+      "brief": "Work: the Next.js internal dashboard ops uses to look at merchants and payouts"
+    },
+    {
+      "slug": "warehouse-dbt",
+      "name": "Warehouse models",
+      "brief": "Work: dbt models and Airflow jobs that feed the finance and growth dashboards"
+    },
+    {
+      "slug": "parcelping",
+      "name": "ParcelPing",
+      "brief": "Side product: shipment tracking alerts for small Indian D2C stores"
+    },
+    {
+      "slug": "tax-fy26",
+      "name": "Taxes FY26",
+      "brief": "Filing, advance tax and proofs for financial year 2025-26 and the new one"
+    },
+    {
+      "slug": "expense-claims",
+      "name": "Expense claims",
+      "brief": "Reimbursements at work, bills, forex conversion and the payroll portal"
+    },
+    {
+      "slug": "half-marathon-2026",
+      "name": "Half marathon",
+      "brief": "Training block for the Bengaluru half in December 2026"
+    },
+    {
+      "slug": "knee-rehab",
+      "name": "Knee rehab",
+      "brief": "Physio and strength work for the right knee that flared up in May"
+    },
+    {
+      "slug": "flat-move-hsr",
+      "name": "HSR flat move",
+      "brief": "Moving to the new flat in HSR Layout and everything that broke after"
+    },
+    {
+      "slug": "car-and-insurance",
+      "name": "Car and insurance",
+      "brief": "The i20, its service schedule, insurance renewals and FASTag admin"
+    },
+    {
+      "slug": "schengen-visa",
+      "name": "Schengen visa",
+      "brief": "Visa paperwork and appointment for the Portugal and Spain trip"
+    },
+    {
+      "slug": "sourdough",
+      "name": "Sourdough",
+      "brief": "Keeping a starter alive and getting a loaf I actually like"
+    },
+    {
+      "slug": "film-photography",
+      "name": "Film photography",
+      "brief": "Shooting 35mm on an old Olympus, developing and scanning the backlog"
+    },
+    {
+      "slug": "reading-2026",
+      "name": "Reading 2026",
+      "brief": "What I am reading this year and the notes I keep meaning to write up"
+    },
+    {
+      "slug": "rust-kv-store",
+      "name": "Rust KV store",
+      "brief": "Learning Rust by building a small write ahead log key value store"
+    },
+    {
+      "slug": "wedding-divya",
+      "name": "Divya's wedding",
+      "brief": "Cousin's wedding in Kochi in November and my bit of the logistics"
+    },
+    {
+      "slug": "goa-trip-march",
+      "name": "Goa trip",
+      "brief": "The March trip with the college group, mostly settled now"
+    }
+  ],
+  "tasks": [
+    {
+      "slug": "cl-idempotency-keys",
+      "project": "cardinal-ledger",
+      "title": "Make the capture endpoint idempotent with client supplied keys",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "cl-settlement-retry-backoff",
+      "project": "cardinal-ledger",
+      "title": "Add jittered backoff to the settlement retry worker",
+      "status": "done",
+      "closed_at": "2026-04-22"
+    },
+    {
+      "slug": "cl-drop-legacy-payout-table",
+      "project": "cardinal-ledger",
+      "title": "Drop the legacy payouts_v1 table after backfill",
+      "status": "blocked",
+      "closed_at": null
+    },
+    {
+      "slug": "cl-pg-connection-pool-tuning",
+      "project": "cardinal-ledger",
+      "title": "Tune pgbouncer pool sizes so the ledger stops starving",
+      "status": "done",
+      "closed_at": "2026-02-11"
+    },
+    {
+      "slug": "cl-audit-webhook-signing",
+      "project": "cardinal-ledger",
+      "title": "Review webhook signature verification for replay gaps",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "cl-refund-partial-support",
+      "project": "cardinal-ledger",
+      "title": "Support partial refunds without double booking entries",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "cl-oncall-runbook-refresh",
+      "project": "cardinal-ledger",
+      "title": "Rewrite the on call runbook after the March incident",
+      "status": "done",
+      "closed_at": "2026-06-30"
+    },
+    {
+      "slug": "cl-merchant-balance-cache",
+      "project": "cardinal-ledger",
+      "title": "Cache merchant balances without going stale on writes",
+      "status": "inbox",
+      "closed_at": null
+    },
+    {
+      "slug": "oc-dark-mode-tokens",
+      "project": "orbit-console",
+      "title": "Move dark mode off hardcoded hex to tokens",
+      "status": "done",
+      "closed_at": "2026-03-09"
+    },
+    {
+      "slug": "oc-replace-moment-with-temporal",
+      "project": "orbit-console",
+      "title": "Rip out moment.js and use Temporal polyfill",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "oc-virtualise-txn-table",
+      "project": "orbit-console",
+      "title": "Virtualise the transactions table, it dies past 5k rows",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "oc-a11y-audit-fixes",
+      "project": "orbit-console",
+      "title": "Fix the keyboard trap findings from the accessibility audit",
+      "status": "blocked",
+      "closed_at": null
+    },
+    {
+      "slug": "oc-csv-export-timezone-bug",
+      "project": "orbit-console",
+      "title": "CSV export was shifting dates by a day for ops",
+      "status": "done",
+      "closed_at": "2026-05-18"
+    },
+    {
+      "slug": "oc-merchant-search-fuzzy",
+      "project": "orbit-console",
+      "title": "Make merchant search forgiving about spelling",
+      "status": "inbox",
+      "closed_at": null
+    },
+    {
+      "slug": "wh-incremental-models-rewrite",
+      "project": "warehouse-dbt",
+      "title": "Rewrite the big fact models as incremental",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "wh-settlement-mart-v2",
+      "project": "warehouse-dbt",
+      "title": "Second pass at the settlement mart with the new grain",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "wh-airflow-to-dagster-spike",
+      "project": "warehouse-dbt",
+      "title": "Spike moving orchestration off Airflow",
+      "status": "inbox",
+      "closed_at": null
+    },
+    {
+      "slug": "wh-fix-duplicate-merchant-rows",
+      "project": "warehouse-dbt",
+      "title": "Kill the duplicate merchant rows in dim_merchant",
+      "status": "done",
+      "closed_at": "2026-01-29"
+    },
+    {
+      "slug": "wh-freshness-alerts",
+      "project": "warehouse-dbt",
+      "title": "Alert when source freshness breaks before finance notices",
+      "status": "blocked",
+      "closed_at": null
+    },
+    {
+      "slug": "pp-razorpay-switch",
+      "project": "parcelping",
+      "title": "Switch billing from Stripe to Razorpay for Indian cards",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "pp-carrier-quota-alerts",
+      "project": "parcelping",
+      "title": "Warn me before the carrier API quota runs out",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "pp-landing-page-rewrite",
+      "project": "parcelping",
+      "title": "Rewrite the landing page around one promise",
+      "status": "done",
+      "closed_at": "2026-02-02"
+    },
+    {
+      "slug": "pp-churn-email-sequence",
+      "project": "parcelping",
+      "title": "Write the three emails that go out when a store goes quiet",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "pp-gst-invoice-generation",
+      "project": "parcelping",
+      "title": "Generate proper GST invoices for Indian customers",
+      "status": "blocked",
+      "closed_at": null
+    },
+    {
+      "slug": "pp-delete-account-flow",
+      "project": "parcelping",
+      "title": "Let people actually delete their account and data",
+      "status": "done",
+      "closed_at": "2026-07-06"
+    },
+    {
+      "slug": "tax-advance-q2-payment",
+      "project": "tax-fy26",
+      "title": "Pay the September advance tax instalment",
+      "status": "done",
+      "closed_at": "2026-09-14"
+    },
+    {
+      "slug": "tax-80c-elss-topup",
+      "project": "tax-fy26",
+      "title": "Top up ELSS to fill the 80C gap",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "tax-foreign-income-side",
+      "project": "tax-fy26",
+      "title": "Work out how the side product dollars get declared",
+      "status": "blocked",
+      "closed_at": null
+    },
+    {
+      "slug": "tax-ca-handover-docs",
+      "project": "tax-fy26",
+      "title": "Put together the folder the CA keeps asking for",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "tax-hra-rent-receipts",
+      "project": "tax-fy26",
+      "title": "Get rent receipts and the landlord PAN sorted",
+      "status": "done",
+      "closed_at": "2026-04-05"
+    },
+    {
+      "slug": "ec-march-travel-batch",
+      "project": "expense-claims",
+      "title": "File the March offsite travel bills as one batch",
+      "status": "done",
+      "closed_at": "2026-04-11"
+    },
+    {
+      "slug": "ec-conference-flights-claim",
+      "project": "expense-claims",
+      "title": "Claim the Singapore conference flights and hotel",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "ec-lost-cab-receipts",
+      "project": "expense-claims",
+      "title": "Chase the cab receipts I never downloaded",
+      "status": "blocked",
+      "closed_at": null
+    },
+    {
+      "slug": "ec-forex-rate-sheet",
+      "project": "expense-claims",
+      "title": "Keep one sheet of the rates finance will accept",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "hm-register-bengaluru-race",
+      "project": "half-marathon-2026",
+      "title": "Register for the December half",
+      "status": "done",
+      "closed_at": "2026-08-20"
+    },
+    {
+      "slug": "hm-build-base-40k-week",
+      "project": "half-marathon-2026",
+      "title": "Build up to a forty kilometre week without breaking",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "hm-buy-new-shoes",
+      "project": "half-marathon-2026",
+      "title": "Replace the shoes, they are past 800 km",
+      "status": "done",
+      "closed_at": "2026-05-30"
+    },
+    {
+      "slug": "hm-tuesday-track-group",
+      "project": "half-marathon-2026",
+      "title": "Find a Tuesday track group near Kanakapura Road",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "hm-long-run-fuelling",
+      "project": "half-marathon-2026",
+      "title": "Figure out what to eat on runs over 15 km",
+      "status": "inbox",
+      "closed_at": null
+    },
+    {
+      "slug": "kr-physio-assessment",
+      "project": "knee-rehab",
+      "title": "Get the knee looked at properly by a sports physio",
+      "status": "done",
+      "closed_at": "2026-06-12"
+    },
+    {
+      "slug": "kr-daily-glute-routine",
+      "project": "knee-rehab",
+      "title": "Do the boring glute routine every day for six weeks",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "kr-mri-if-no-progress",
+      "project": "knee-rehab",
+      "title": "Book an MRI only if there is no change by October",
+      "status": "blocked",
+      "closed_at": null
+    },
+    {
+      "slug": "kr-pool-running-swap",
+      "project": "knee-rehab",
+      "title": "Swap one run a week for the pool",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "fm-notice-to-old-landlord",
+      "project": "flat-move-hsr",
+      "title": "Give the old landlord written notice",
+      "status": "done",
+      "closed_at": "2026-01-15"
+    },
+    {
+      "slug": "fm-recover-security-deposit",
+      "project": "flat-move-hsr",
+      "title": "Get the rest of the deposit back",
+      "status": "blocked",
+      "closed_at": null
+    },
+    {
+      "slug": "fm-packers-quotes",
+      "project": "flat-move-hsr",
+      "title": "Get three quotes from packers and pick one",
+      "status": "done",
+      "closed_at": "2026-02-06"
+    },
+    {
+      "slug": "fm-water-purifier",
+      "project": "flat-move-hsr",
+      "title": "Get a purifier installed in the new kitchen",
+      "status": "done",
+      "closed_at": "2026-03-01"
+    },
+    {
+      "slug": "fm-bedroom-seepage",
+      "project": "flat-move-hsr",
+      "title": "Sort out the damp patch on the bedroom wall",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "fm-change-address-everywhere",
+      "project": "flat-move-hsr",
+      "title": "Update the address on bank, Aadhaar and everything else",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "fm-second-ac-service",
+      "project": "flat-move-hsr",
+      "title": "Service the AC in the second bedroom before summer",
+      "status": "inbox",
+      "closed_at": null
+    },
+    {
+      "slug": "ci-renew-car-insurance",
+      "project": "car-and-insurance",
+      "title": "Renew the car policy before it lapses",
+      "status": "done",
+      "closed_at": "2026-07-28"
+    },
+    {
+      "slug": "ci-60k-service",
+      "project": "car-and-insurance",
+      "title": "Book the sixty thousand kilometre service",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "ci-fastag-kyc",
+      "project": "car-and-insurance",
+      "title": "Redo the FASTag KYC, it got deactivated",
+      "status": "done",
+      "closed_at": "2026-03-20"
+    },
+    {
+      "slug": "ci-clutch-noise",
+      "project": "car-and-insurance",
+      "title": "Find out what the noise on the clutch pedal is",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "ci-sell-or-keep",
+      "project": "car-and-insurance",
+      "title": "Decide whether to keep the car at all",
+      "status": "inbox",
+      "closed_at": null
+    },
+    {
+      "slug": "sv-vfs-appointment",
+      "project": "schengen-visa",
+      "title": "Book the VFS appointment slot",
+      "status": "done",
+      "closed_at": "2026-06-02"
+    },
+    {
+      "slug": "sv-bank-statement-six-months",
+      "project": "schengen-visa",
+      "title": "Get six months of stamped bank statements",
+      "status": "done",
+      "closed_at": "2026-05-26"
+    },
+    {
+      "slug": "sv-travel-insurance",
+      "project": "schengen-visa",
+      "title": "Buy travel insurance that meets the cover rule",
+      "status": "done",
+      "closed_at": "2026-06-01"
+    },
+    {
+      "slug": "sv-cover-letter",
+      "project": "schengen-visa",
+      "title": "Write the cover letter explaining the trip",
+      "status": "done",
+      "closed_at": "2026-05-29"
+    },
+    {
+      "slug": "sv-collect-passport",
+      "project": "schengen-visa",
+      "title": "Collect the passport from the centre",
+      "status": "done",
+      "closed_at": "2026-06-25"
+    },
+    {
+      "slug": "sv-real-itinerary",
+      "project": "schengen-visa",
+      "title": "Plan the trip we actually want, not the one on the form",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "sd-revive-starter",
+      "project": "sourdough",
+      "title": "Bring the starter back from the fridge",
+      "status": "done",
+      "closed_at": "2026-01-08"
+    },
+    {
+      "slug": "sd-banneton-and-lame",
+      "project": "sourdough",
+      "title": "Buy a banneton and a proper scoring blade",
+      "status": "done",
+      "closed_at": "2026-01-20"
+    },
+    {
+      "slug": "sd-open-crumb",
+      "project": "sourdough",
+      "title": "Get an open crumb without the loaf going flat",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "sd-whole-wheat-fifty",
+      "project": "sourdough",
+      "title": "Try a fifty percent whole wheat loaf",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "fp-develop-backlog",
+      "project": "film-photography",
+      "title": "Get the eleven undeveloped rolls to a lab",
+      "status": "blocked",
+      "closed_at": null
+    },
+    {
+      "slug": "fp-scanner-or-lab",
+      "project": "film-photography",
+      "title": "Decide between buying a scanner and paying the lab",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "fp-light-leak-om10",
+      "project": "film-photography",
+      "title": "Reseal the light leak on the old Olympus",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "fp-wall-prints",
+      "project": "film-photography",
+      "title": "Pick six frames and get them printed for the wall",
+      "status": "inbox",
+      "closed_at": null
+    },
+    {
+      "slug": "rd-finish-dune-messiah",
+      "project": "reading-2026",
+      "title": "Finish Dune Messiah, it has been open since December",
+      "status": "done",
+      "closed_at": "2026-02-18"
+    },
+    {
+      "slug": "rd-annotate-ddia",
+      "project": "reading-2026",
+      "title": "Read the data systems book with actual notes this time",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "rd-cancel-kindle-unlimited",
+      "project": "reading-2026",
+      "title": "Cancel the Kindle subscription I never use",
+      "status": "done",
+      "closed_at": "2026-04-30"
+    },
+    {
+      "slug": "rk-wal-append-only",
+      "project": "rust-kv-store",
+      "title": "Get the append only write ahead log working",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "rk-crash-recovery-tests",
+      "project": "rust-kv-store",
+      "title": "Test recovery from a half written record",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "rk-read-lsm-paper",
+      "project": "rust-kv-store",
+      "title": "Read the original LSM tree paper properly",
+      "status": "done",
+      "closed_at": "2026-05-04"
+    },
+    {
+      "slug": "rk-borrow-checker-notes",
+      "project": "rust-kv-store",
+      "title": "Write down what finally made lifetimes click",
+      "status": "done",
+      "closed_at": "2026-03-15"
+    },
+    {
+      "slug": "wed-flights-kochi",
+      "project": "wedding-divya",
+      "title": "Book flights to Kochi for the wedding week",
+      "status": "done",
+      "closed_at": "2026-08-08"
+    },
+    {
+      "slug": "wed-kurta-fitting",
+      "project": "wedding-divya",
+      "title": "Get the kurta stitched and fitted in time",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "wed-gift-decision",
+      "project": "wedding-divya",
+      "title": "Decide on the gift, cash or the thing she mentioned",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "wed-reception-speech",
+      "project": "wedding-divya",
+      "title": "Write two minutes for the reception",
+      "status": "inbox",
+      "closed_at": null
+    },
+    {
+      "slug": "wed-cousins-cab",
+      "project": "wedding-divya",
+      "title": "Sort a cab for the cousins coming from Thrissur",
+      "status": "blocked",
+      "closed_at": null
+    },
+    {
+      "slug": "gt-book-stay-assagao",
+      "project": "goa-trip-march",
+      "title": "Book the house in Assagao",
+      "status": "done",
+      "closed_at": "2026-01-25"
+    },
+    {
+      "slug": "gt-settle-split",
+      "project": "goa-trip-march",
+      "title": "Settle the split so nobody owes anybody",
+      "status": "done",
+      "closed_at": "2026-03-30"
+    },
+    {
+      "slug": "renew-passport-appointment",
+      "project": null,
+      "title": "Book the passport renewal appointment before it expires",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "dentist-cleaning",
+      "project": null,
+      "title": "Go for the cleaning the dentist keeps texting about",
+      "status": "done",
+      "closed_at": "2026-05-21"
+    },
+    {
+      "slug": "back-up-photos-to-nas",
+      "project": null,
+      "title": "Get eleven years of photos onto the NAS",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "cancel-unused-subscriptions",
+      "project": null,
+      "title": "Go through the card statement and cancel the dead ones",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "call-amma-about-diwali",
+      "project": null,
+      "title": "Call Amma and settle where Diwali is happening",
+      "status": "inbox",
+      "closed_at": null
+    },
+    {
+      "slug": "fix-standing-desk-wobble",
+      "project": null,
+      "title": "Tighten or replace the wobbly desk legs",
+      "status": "inbox",
+      "closed_at": null
+    },
+    {
+      "slug": "replace-phone-screen",
+      "project": null,
+      "title": "Get the cracked phone screen replaced",
+      "status": "done",
+      "closed_at": "2026-02-25"
+    },
+    {
+      "slug": "move-money-to-liquid-fund",
+      "project": null,
+      "title": "Move the idle savings into a liquid fund",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "update-resume-linkedin",
+      "project": null,
+      "title": "Update the resume and the profile, both are two years old",
+      "status": "blocked",
+      "closed_at": null
+    },
+    {
+      "slug": "donate-old-clothes",
+      "project": null,
+      "title": "Give away the two bags of clothes in the loft",
+      "status": "done",
+      "closed_at": "2026-01-31"
+    },
+    {
+      "slug": "nas-offsite-backup",
+      "project": null,
+      "title": "Set up an offsite copy of the NAS",
+      "status": "blocked",
+      "closed_at": null
+    },
+    {
+      "slug": "get-new-spectacles",
+      "project": null,
+      "title": "New glasses, the prescription changed",
+      "status": "done",
+      "closed_at": "2026-07-19"
+    },
+    {
+      "slug": "blog-post-idempotency",
+      "project": null,
+      "title": "Write the blog post about idempotency keys",
+      "status": "in_progress",
+      "closed_at": null
+    },
+    {
+      "slug": "voter-address-change",
+      "project": null,
+      "title": "Change the address on the voter roll",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "annual-health-checkup",
+      "project": null,
+      "title": "Book the yearly blood work",
+      "status": "ready",
+      "closed_at": null
+    },
+    {
+      "slug": "air-purifier-filter",
+      "project": null,
+      "title": "Order the replacement filter before December smog",
+      "status": "inbox",
+      "closed_at": null
+    }
+  ],
+  "memories": [
+    {
+      "statement": "Never use em dashes in anything written for me. Commas or a full stop instead.",
+      "source": "please stop with the long dashes. use a comma or just start a new sentence, i hate how they look",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Write at about an eighth grade reading level, plain words over clever ones.",
+      "source": "keep the words simple. if a normal person wouldnt say it out loud dont write it",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "It is fine to start a sentence with But, And or So.",
+      "source": "starting with but is fine btw, i do it when i talk",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Prefers repeating the same plain word twice over reaching for a fancier synonym.",
+      "source": "if the word is slow just say slow again, dont go find sluggish",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Wants hedges like I think or seems to be left in, not edited out into confident claims.",
+      "source": "the softeners are on purpose. seems to be, i feel, that kind of thing. leave them",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Dislikes metaphors in technical writing, wants the actual mechanism described.",
+      "source": "no ships sailing, no orchestras. just say what the code does",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Bullet lists should be under six items, otherwise turn them into prose.",
+      "source": "keep any list under six items. past that turn it into sentences, remember that",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Never sign commits or pull request text as a co-author on their behalf.",
+      "source": "do not put yourself as coauthor on my commits, thats a compliance thing at work not a preference",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Commit messages are imperative mood, one line, no body unless something is genuinely non obvious.",
+      "source": "commit subject imperative. add, fix, drop. body only if future me would be confused",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Works from a home desk in HSR Layout, Bengaluru, IST, and most deep work happens between 6am and 10am.",
+      "source": "mornings are the only time my brain works, 6 to 10, after that its meetings and mush",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Will not take meetings before 10am unless it is a production incident.",
+      "source": "anything before 10 gets declined unless prod is on fire",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Vegetarian, eats eggs, does not eat fish or chicken even when travelling.",
+      "source": "veg but i do eat eggs. no fish. people always assume fish is ok in kerala, its not for me",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Lactose does not agree with them past about one cup of milk a day, curd is fine though.",
+      "source": "milk more than a cup and my stomach is done. curd somehow is fine, no idea why",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Drinks filter coffee twice a day and nothing with caffeine after 3pm.",
+      "source": "two filter coffees, morning and around 2. after 3 nothing or i just lie awake",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Uses Neovim for everything except when a debugger is needed, then VS Code.",
+      "source": "nvim daily driver. i only open vscode when i need to step through something",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Terminal is Ghostty with zsh, and tmux for anything long running.",
+      "source": "switched to ghostty in feb, zsh, tmux for the long stuff",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Prefers tabs in Go and two space indents everywhere else.",
+      "source": "go gets tabs obviously, everything else 2 spaces. 4 feels like shouting",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Wants code comments only where the reason is not obvious, never comments that restate the line.",
+      "source": "dont write // increment i. write why we skip the first row",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Hates being given three options when one is clearly better, wants a recommendation with the reason.",
+      "source": "dont give me a menu. pick one and tell me why, ill argue if i disagree",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Wants to be told when something they asked for is a bad idea, even if they pushed for it.",
+      "source": "if im wrong say so early. i would rather be annoyed now than stuck friday",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Reads long answers badly on the phone, so keep the first paragraph enough to act on.",
+      "source": "half the time im reading this on my phone in a cab. front load it",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Prefers a diagram or a small worked example over a paragraph of explanation.",
+      "source": "draw it. even ascii. i just understand pictures faster than text",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Full legal name on documents is spelled with a single r in the middle and people keep doubling it.",
+      "source": "its one r not two, every insurance form gets it wrong and then the claim bounces",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Blood group is O positive.",
+      "source": "o positive, wrote it on the race form again",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Allergic to sulfa drugs, it showed up as a rash when they were nineteen.",
+      "source": "sulfa is a no. had a rash for a week in college and the doctor wrote it in the file",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Wears contacts on run days and glasses the rest of the time.",
+      "source": "contacts only when i run, otherwise glasses, cant be bothered",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Prefers UPI for anything under five thousand rupees and the credit card above that for the points.",
+      "source": "upi for small stuff, card above 5k so the points add up",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Banks with HDFC for salary and keeps a separate current account for the side product money.",
+      "source": "salary goes to hdfc, side stuff has its own account so i dont mix them at tax time",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Will not install an app when the website works, especially for banks and airlines.",
+      "source": "if the site works im not installing the app. they all want my contacts",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Turns off notifications for everything except calls from family and PagerDuty.",
+      "source": "phone is silent except amma, appa and pagerduty. thats it",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Keeps a paper notebook for the day's three things and everything else goes digital.",
+      "source": "three things on paper every morning, rest lives in the tool",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Says they are bad at remembering names and wants people's roles repeated when mentioned.",
+      "source": "remind me who someone is when you bring them up, im terrible with names",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Dates should be written as 14 Mar 2026, never 03/14 or 14/03, because the ambiguity has bitten them.",
+      "source": "write dates like 14 Mar 2026. the slash format caused a real mess with a vendor once",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Money in rupees should be written with the Indian comma grouping, 1,25,000 not 125,000.",
+      "source": "lakh grouping please. 1,25,000. the other way reads wrong to me",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Timezones in anything shared with the team get written as IST with the UTC offset in brackets.",
+      "source": "always say IST and the utc offset, half the team is in lisbon now",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Does not want to be called by a nickname in anything written for other people.",
+      "source": "full name in writing to others. the short version is for friends",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Gets migraines roughly once a month, usually after a bad night, and screens make it worse.",
+      "source": "the headache thing showed up again. once a month more or less, always after bad sleep",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Sleep target is seven and a half hours and they know they get about six on weeknights.",
+      "source": "i need 7.5, i get 6. thats the whole problem in one line",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Cannot work with music that has words in it, instrumental or nothing.",
+      "source": "lyrics kill it for me. instrumental or silence",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Prefers to be given the answer first and the reasoning after, not the other way round.",
+      "source": "answer first then tell me how you got there. i read the top and decide if i care about the rest",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Thinks apologising in chat replies is a waste of a line, just fix the thing.",
+      "source": "stop saying sorry, just say what changed",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Wants numbers rounded sensibly in prose but exact in tables.",
+      "source": "in a sentence say about 4 lakh. in the table give me the actual number",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Prefers Postgres over anything else and is suspicious of new databases without a reason.",
+      "source": "default to postgres in anything you suggest to me. i need a real reason to move off it",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Does not like mocks in tests, prefers a real database in a container.",
+      "source": "note this one, no mocks. real pg in docker, it takes 2 seconds",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Writes tests for the bug first, then the fix, and considers a fix without a test unfinished.",
+      "source": "test that fails, then the fix. otherwise i dont believe it",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Rents, does not own a house, and is not planning to buy in Bengaluru at current prices.",
+      "source": "everyone asks when im buying. at these prices, never, the rent is a third of the emi",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Parents live in Chennai and they visit roughly every two months.",
+      "source": "chennai trip again in a few weeks, i go every couple of months",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Younger sister Meera is doing her masters in Manipal and calls on Sunday evenings.",
+      "source": "meera calls sunday evenings, she is in manipal till next june",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Speaks Malayalam at home, Tamil with neighbours, and writes only in English.",
+      "source": "malayalam at home, tamil outside, but i cant write either properly",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Has a mild fear of driving at night on highways after an incident on the Mysore road.",
+      "source": "i dont drive highways after dark anymore, not since the mysore road thing",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Prefers trains over flights for anything under eight hours when the timing works.",
+      "source": "if the train is under 8 hours ill take the train, airports eat the time anyway",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Keeps passwords in 1Password and will not type a credential into a chat or a shared doc.",
+      "source": "everything is in 1password. never paste a key into a doc, i will find out",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Wants secrets referenced by name, never by value, in anything generated for them.",
+      "source": "reference the env var name not the value, always",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Thinks most meetings should have been a written update and says so often.",
+      "source": "again a meeting that was three sentences. write it down instead",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Prefers async written updates in the morning over standups.",
+      "source": "let me type my update at 9 and skip the call",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Gets restless on calls longer than 45 minutes and will start doing other work.",
+      "source": "past 45 min on a call im not there anymore, im answering slack",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Does not want emojis in anything written for them, in chat or in documents.",
+      "source": "no emojis please, it makes serious things look cheap",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Used to be fine with emoji in Slack reactions but now finds even that noisy.",
+      "source": "i used to say reactions are fine but honestly even those are noise now",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Keeps a running list of words they overuse, currently just, actually, and basically.",
+      "source": "im overusing just and basically again, call it out if you see it",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Calls the coffee shop below the flat Third Wave and goes there when the house is too quiet.",
+      "source": "went down to third wave to work, house was too quiet today",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Right handed but mouses with the left hand because of an old wrist problem.",
+      "source": "mouse is on the left, wrist thing from 2021, everyone asks",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Uses a split keyboard and cannot type properly on a laptop keyboard for more than an hour.",
+      "source": "the split board ruined me for laptop typing, an hour and my shoulders are up at my ears",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Deletes email rather than archiving, and keeps the inbox under twenty.",
+      "source": "i delete. archive is just a landfill with better branding",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Will not sign up for anything that needs a phone number if email works.",
+      "source": "not giving my number to another startup, email or nothing",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Thinks in terms of what breaks at 10x, and asks that question of every design.",
+      "source": "always ask what happens at 10x. if the answer is we rewrite it, fine, but say it now",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Prefers boring technology and says the exciting part should be the product not the stack.",
+      "source": "boring stack, interesting product. thats the whole philosophy",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Will not work on anything gambling or lending adjacent, turned down a job over it in 2024.",
+      "source": "no betting, no predatory lending. said no to a good offer over that and id do it again",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Budget for tools is about two thousand rupees a month and anything above needs a real reason.",
+      "source": "i give myself 2k a month for software, past that i have to justify it to myself",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Keeps Sunday afternoons free of anything scheduled, that is the rule they break least.",
+      "source": "sunday afternoon is nothing. no calls no errands. its the one thing i actually hold",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Fasts from screens on Sunday from about noon until evening.",
+      "source": "trying no screens sunday afternoon, its been about six weeks now",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Wants long documents to open with what changed and what they need to decide.",
+      "source": "top of any doc: whats different and what do you want from me. rest can be below",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Prefers the word wrong over incorrect and broken over degraded.",
+      "source": "say broken not degraded. degraded is what you write when you dont want to admit it",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Asks for the file path every time so they can jump straight there.",
+      "source": "always give me the path, full path, i keep having to ask",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Gets seasonal allergies in October and November, mostly in the mornings.",
+      "source": "october again, nose is gone by 7am every day",
+      "band": "heard",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Thinks their own writing gets worse when they try to sound smart and wants it kept a bit unpolished.",
+      "source": "leave it slightly rough. every time i polish it starts sounding like linkedin",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Has a standing rule not to ship anything to production on a Friday after 2pm.",
+      "source": "nothing goes out friday afternoon. learnt that the hard way in 2024",
+      "band": "said",
+      "project": null,
+      "task": null
+    },
+    {
+      "statement": "Cardinal is a Go service and the team agreed to stay on Go 1.23 until the payout migration is finished.",
+      "source": "we are not bumping go until payouts are done. ritu was firm about it",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Ritu Sabharwal is the tech lead on Cardinal and reviews anything that touches double entry booking.",
+      "source": "ritu has to look at anything near the booking code, thats the rule she set",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Fahad on SRE owns the pgbouncer config and should be pinged before any pool change.",
+      "source": "fahad owns pgbouncer, ping him first, i learnt that after the feb thing",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Every money amount inside Cardinal is stored in paise as an int64, never a float, never a decimal string.",
+      "source": "paise, int64, everywhere. if you see a float in the money path thats a bug not a style choice",
+      "band": "said",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Ledger entries are append only and nothing is ever updated in place, corrections are new reversing entries.",
+      "source": "we never update a row in entries. you write the opposite entry. thats the whole model",
+      "band": "said",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "The service handles about 2.4 million bookings a day with a peak around 9pm IST.",
+      "source": "2.4m a day now, peak is 9pm, food delivery merchants mostly",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "p99 on the capture endpoint should stay under 180ms and it sat around 240ms through July.",
+      "source": "slo is 180 on capture, we were at 240 all july and nobody said anything",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "The repo is github.com/vellum-pay/cardinal and the main branch is protected with two approvals.",
+      "source": "cardinal repo needs two approvals on main now, slowed everything down but fair",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Integration tests run against a real Postgres in Docker and take about four minutes locally.",
+      "source": "make test spins up pg, four minutes, i usually go make coffee",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "There is a soak test environment called kestrel that mirrors production traffic at ten percent.",
+      "source": "kestrel is the soak env, 10 percent shadow traffic. use it before anything risky goes out",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Idempotency keys should be scoped to merchant plus key, not global, because two merchants reuse the same UUIDs.",
+      "source": "scope the key by merchant. two of our merchants literally send the same uuids, saw it in the logs",
+      "band": "said",
+      "project": "cardinal-ledger",
+      "task": "cl-idempotency-keys"
+    },
+    {
+      "statement": "Idempotency records expire after 48 hours, which was chosen to match the longest retry window a client uses.",
+      "source": "48 hours on the idempotency rows. thats the longest anyone retries, checked with the top ten merchants",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": "cl-idempotency-keys"
+    },
+    {
+      "statement": "The stored response body for a replayed request must be byte identical, not regenerated.",
+      "source": "store the actual bytes we sent. dont re render it, the timestamps drift and clients diff it",
+      "band": "said",
+      "project": "cardinal-ledger",
+      "task": "cl-idempotency-keys"
+    },
+    {
+      "statement": "Sneha wants the replayed response to carry a header saying it was a replay, ops asked for that.",
+      "source": "sneha wants an x-replayed header so support can tell. easy enough",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": "cl-idempotency-keys"
+    },
+    {
+      "statement": "Concurrent requests with the same idempotency key should return 409 while the first is in flight, not block.",
+      "source": "if two land at once the second gets a 409 conflict. blocking just moves the pileup",
+      "band": "said",
+      "project": "cardinal-ledger",
+      "task": "cl-idempotency-keys"
+    },
+    {
+      "statement": "The settlement retry worker uses exponential backoff with full jitter and caps at fifteen minutes.",
+      "source": "full jitter, cap 15 min. the AWS blog post one, not the half jitter variant",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": "cl-settlement-retry-backoff"
+    },
+    {
+      "statement": "Before the backoff change, retries were clustering every sixty seconds and hammering the bank partner.",
+      "source": "everything retried at exactly 60s so we sent the partner a wall of traffic once a minute. embarrassing",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": "cl-settlement-retry-backoff"
+    },
+    {
+      "statement": "The bank partner rate limit is 40 requests per second per merchant and they do not publish it anywhere.",
+      "source": "40 rps per merchant, we found out by getting throttled, its not in their docs",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": "cl-settlement-retry-backoff"
+    },
+    {
+      "statement": "After the jitter change, failed settlement volume dropped from about 3,200 a day to under 400.",
+      "source": "3200 failures a day down to like 380. best two line change ive shipped",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": "cl-settlement-retry-backoff"
+    },
+    {
+      "statement": "The legacy payouts_v1 table cannot be dropped until finance signs off on the seven year retention question.",
+      "source": "cant drop payouts_v1, legal says seven years and nobody has confirmed the archive covers it",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "payouts_v1 has 41 million rows and two views still reading from it that nobody owns.",
+      "source": "41m rows and two views pointing at it, git blame says a guy who left in 2023",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "The backfill from payouts_v1 to the new table finished in April and the row counts matched exactly.",
+      "source": "backfill done april, counts matched to the row which honestly surprised me",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Pool sizes ended at 25 per instance with a max of 300 across the fleet, decided with Fahad.",
+      "source": "25 per pod, 300 total, fahad worked it back from the pg max_connections",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": "cl-pg-connection-pool-tuning"
+    },
+    {
+      "statement": "The pool starvation only showed up during the 9pm peak and looked like random timeouts for weeks.",
+      "source": "it only broke at 9pm so it looked random. took three weeks to see the pattern",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": "cl-pg-connection-pool-tuning"
+    },
+    {
+      "statement": "Transaction mode pooling broke prepared statements and they had to turn off statement caching in the driver.",
+      "source": "transaction pooling killed prepared stmts, had to disable the cache in pgx. cost us maybe 4 percent",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": "cl-pg-connection-pool-tuning"
+    },
+    {
+      "statement": "Webhook signatures use HMAC SHA256 over the raw body with a five minute timestamp tolerance.",
+      "source": "hmac sha256 on the raw bytes, 5 min tolerance on the timestamp",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Signature comparison must be constant time and there is at least one place in the codebase using plain equality.",
+      "source": "found a == on a signature in the partner callback handler. thats the actual thing to fix",
+      "band": "said",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Three merchants are still on the old signing key and cannot be rotated until they redeploy.",
+      "source": "three merchants on the old key. one of them says their dev left. wonderful",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Partial refunds must never let the total refunded exceed the captured amount, enforced in the database not the app.",
+      "source": "put the check constraint in pg. app level checks lose races, we already proved that",
+      "band": "said",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "A partial refund books two entries, a debit to the merchant balance and a credit to the refund clearing account.",
+      "source": "debit merchant, credit refund clearing. same as full refund just smaller",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Karthik found that the refund API already accepts an amount field that has been silently ignored since 2024.",
+      "source": "karthik found we take an amount param on refunds and just ignore it. some merchants have been sending it for two years",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "The March incident was caused by a settlement job running twice after a Kubernetes rollout, not by the code.",
+      "source": "march outage was a double run during a rollout. the code was fine, the deploy wasnt",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "The runbook now starts with how to stop the settlement worker, because that is the first thing anyone needs.",
+      "source": "put the kill switch at the top of the runbook. nobody reads past the first screen at 3am",
+      "band": "said",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "On call rotation is one week, handover is Wednesday 11am, and there are six people in it.",
+      "source": "week long rotation, handover wednesday 11, six of us",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Balance caching is risky because ops reads balances right after a write and expects them to be right.",
+      "source": "the problem with caching balance is support refreshes the page immediately after and screenshots the wrong number",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Reads of merchant balance are about 90 percent of all ledger queries.",
+      "source": "90 percent of our reads are just what is this merchants balance. thats why im even thinking about a cache",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "The team writes design docs in Notion but the decision record lives in the repo as a numbered ADR.",
+      "source": "notion for the discussion, adr in the repo for the decision. otherwise notion eats it",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Feature flags go through LaunchDarkly and every flag needs an owner and a removal date in the description.",
+      "source": "every flag gets an owner and a date it dies. we had 140 flags last year, it was a swamp",
+      "band": "said",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Deploys happen twice a day at 11am and 4pm IST and nothing goes out on Fridays after lunch.",
+      "source": "write this down, deploy windows are 11 and 4 ist, and friday afternoon is frozen",
+      "band": "said",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Database migrations are forward only and a rollback means writing a new migration.",
+      "source": "no down migrations. if you need to undo it you write a new one",
+      "band": "said",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Anything that adds a column must ship with a default or it locks the table, learnt in the Feb outage.",
+      "source": "add column without a default and pg rewrites the table. we took prod down for eleven minutes learning that",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Error wrapping uses fmt.Errorf with %w and never errors.New in a code path that crosses a package boundary.",
+      "source": "%w always, so the caller can check. errors.New only for sentinel values",
+      "band": "said",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Logging is structured JSON with slog and the merchant id goes on every line as a field not in the message.",
+      "source": "merchant_id is a field not part of the string. grep is not a log system",
+      "band": "said",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Metrics live in Prometheus, dashboards in Grafana, and traces in Tempo, all self hosted.",
+      "source": "prom, grafana, tempo, all ours. datadog quote was 40 lakh a year",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Ana Marques joined from Lisbon in June and is ramping on the settlement side.",
+      "source": "ana started in june, lisbon, she is picking up settlement. good questions so far",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Lisbon overlap is only about three hours a day so anything for Ana needs to be written down.",
+      "source": "we get maybe 3 hours with lisbon. if its not written ana doesnt get it",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "The settlement file format the bank expects is fixed width and one wrong space rejects the whole file.",
+      "source": "fixed width, and if one field is off by a space the bank rejects the entire batch, no partial",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Settlement cutoff is 6pm IST and anything after goes the next working day, which merchants never remember.",
+      "source": "6pm cutoff. every single merchant asks why their money moved tomorrow",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Thinks the ledger should eventually be its own service separate from the payments API but there is no appetite.",
+      "source": "i keep saying split the ledger out. nobody wants to hear it this quarter",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Quarterly planning happens in the first week of the quarter and Sneha runs it.",
+      "source": "planning first week, sneha runs it, bring numbers not feelings",
+      "band": "heard",
+      "project": "cardinal-ledger",
+      "task": null
+    },
+    {
+      "statement": "Orbit is Next.js 15 on the app router with server components for everything that is not interactive.",
+      "source": "app router, server components by default, client only where you actually click things",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "Styling is Tailwind with a small set of design tokens, no component library.",
+      "source": "tailwind plus our own tokens. we tried shadcn and ended up fighting it",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "Dark mode is the default because ops sit in a dim room on night shift.",
+      "source": "dark is default. the night shift folks asked and honestly they are right",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "There were 74 hardcoded hex colours before the token cleanup and eleven of them were nearly the same grey.",
+      "source": "74 hex values in the codebase. eleven shades of almost the same grey. how",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "Tokens are named by role like surface, surface-raised, text-muted, not by colour name.",
+      "source": "name them by what they do not what they look like. no more slate-700 in jsx",
+      "band": "said",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "moment.js is about 70 kilobytes of the bundle and only used in four files.",
+      "source": "moment is 70kb for four files. thats absurd",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "The date library swap must not change how relative times read, ops rely on 2 hours ago wording.",
+      "source": "keep the wording the same. ops read 2 hours ago at a glance, dont make it 2h",
+      "band": "said",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "The transactions table renders every row and the browser locks up somewhere past five thousand.",
+      "source": "past 5k rows chrome just stops. we render all of them, no windowing at all",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": "oc-virtualise-txn-table"
+    },
+    {
+      "statement": "Ops need the table to stay searchable with ctrl+F, which rules out naive virtualisation.",
+      "source": "they use ctrl F on the table. if i virtualise it that breaks and they will hate me",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": "oc-virtualise-txn-table"
+    },
+    {
+      "statement": "Decided to keep a print view that renders everything, so ctrl+F users have a path.",
+      "source": "compromise, a print view that renders the lot. slow but its there when they need it",
+      "band": "said",
+      "project": "orbit-console",
+      "task": "oc-virtualise-txn-table"
+    },
+    {
+      "statement": "The accessibility audit found a keyboard trap in the merchant filter drawer that nobody can escape without a mouse.",
+      "source": "the filter drawer traps focus and esc does nothing. thats the worst one on the list",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "The a11y fixes are blocked on a design decision about whether the drawer becomes a modal.",
+      "source": "cant fix the focus thing until design says if its a modal or a sidebar. been waiting three weeks",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "The CSV export bug came from formatting dates in the server timezone which is UTC while ops read them as IST.",
+      "source": "server is utc, ops are ist, so a 1am transaction showed as the previous day. classic",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": "oc-csv-export-timezone-bug"
+    },
+    {
+      "statement": "Exports now write an ISO timestamp with the offset and a separate human column in IST.",
+      "source": "two columns now, iso with offset and a readable ist one. finance wanted both",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": "oc-csv-export-timezone-bug"
+    },
+    {
+      "statement": "Merchant names in the data have inconsistent spacing and case, so exact search misses obvious matches.",
+      "source": "someone searched Zephyr Foods and got nothing because the row says ZEPHYR  FOODS with two spaces",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "Postgres trigram search is probably enough for merchant lookup, no need for a search engine.",
+      "source": "pg_trgm will do. we are not adding elastic for 9000 merchants",
+      "band": "said",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "Divyansh does the design work for Orbit and prefers Figma comments over Slack.",
+      "source": "divyansh wants feedback in figma not slack, fair enough, it gets lost otherwise",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "There are about 60 daily active users of Orbit and they are all internal ops and finance people.",
+      "source": "60 people use this thing, all internal. i keep forgetting that when i worry about performance",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "Playwright tests run on pull requests and take eleven minutes, which is the main thing slowing reviews.",
+      "source": "playwright takes 11 min on every pr. thats the bottleneck now, not the review",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "Wants the console to feel fast more than it needs new features, most complaints are about waiting.",
+      "source": "nobody asks for features. they ask why the page takes 4 seconds. thats the roadmap",
+      "band": "said",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "The Orbit repo is separate from Cardinal and talks to it over an internal gRPC API.",
+      "source": "separate repo, grpc to cardinal. the proto lives in a third repo which is annoying",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "Deploy to Vercel on merge to main, previews on every pull request.",
+      "source": "vercel, main deploys, prs get previews. that part works well",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "Refuses to add any client side analytics to the console since everyone using it is a colleague.",
+      "source": "im not putting posthog in an internal tool. ask them, they sit two desks away",
+      "band": "said",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "The bundle budget is 250 kilobytes gzipped for the first load and it is currently at 310.",
+      "source": "budget is 250kb, we are at 310. the moment thing is a chunk of it",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "Ops keep asking for a bulk action to hold payouts for several merchants at once.",
+      "source": "third time someone asked for bulk hold. maybe thats actually the next thing",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "The old console was a Django admin and people still say the admin when they mean Orbit.",
+      "source": "people still call it the admin. it hasnt been django since 2024",
+      "band": "heard",
+      "project": "orbit-console",
+      "task": null
+    },
+    {
+      "statement": "The warehouse is BigQuery with dbt, orchestrated by Airflow running on a small GKE cluster.",
+      "source": "bq, dbt, airflow on gke. nothing exotic",
+      "band": "heard",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "The daily dbt run costs about 1,100 rupees a day in BigQuery scan and most of it is three models.",
+      "source": "1100 a day in scan and three models are basically all of it",
+      "band": "heard",
+      "project": "warehouse-dbt",
+      "task": "wh-incremental-models-rewrite"
+    },
+    {
+      "statement": "Full refresh of fct_transactions takes 38 minutes and is the reason the morning dashboards are late.",
+      "source": "fct_transactions full refresh is 38 min. thats why finance sees stale numbers at 9",
+      "band": "heard",
+      "project": "warehouse-dbt",
+      "task": "wh-incremental-models-rewrite"
+    },
+    {
+      "statement": "Incremental models need a late arriving data window of three days because the bank sends corrections.",
+      "source": "three day lookback window, the bank sends fixes up to 48 hours late and i dont trust that either",
+      "band": "said",
+      "project": "warehouse-dbt",
+      "task": "wh-incremental-models-rewrite"
+    },
+    {
+      "statement": "The new settlement mart grain is one row per settlement batch per merchant, not per transaction.",
+      "source": "grain is batch x merchant. v1 was per txn and nobody could reconcile it to the bank file",
+      "band": "said",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "Priya in finance is the only person who actually uses the settlement mart and she should review the v2 columns.",
+      "source": "priya is the only real user. get her to look at the column list before i build it",
+      "band": "heard",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "The duplicate merchant rows came from a source table that soft deletes without a flag on the export.",
+      "source": "dupes were soft deleted rows coming through the export with no is_deleted column. lovely",
+      "band": "heard",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "dim_merchant now has a uniqueness test on merchant_id and it has not failed since January.",
+      "source": "unique test on merchant_id, green since jan",
+      "band": "heard",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "Freshness alerts are blocked because the Airflow instance cannot reach Slack through the new egress rules.",
+      "source": "cant alert to slack, network team locked egress in august and my ticket is still open",
+      "band": "heard",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "Finance notices stale data before any alert does, which is the actual embarrassment.",
+      "source": "priya pings me before the monitoring does. every time. thats the problem im solving",
+      "band": "heard",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "The Dagster spike is a personal interest more than a real need and should not eat sprint time.",
+      "source": "honestly the dagster thing is me being curious. airflow is fine. keep it to a weekend",
+      "band": "said",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "All dbt models are named with a prefix, stg_ for staging, int_ for intermediate, fct_ and dim_ for marts.",
+      "source": "stg, int, fct, dim. if it doesnt have a prefix it doesnt get merged",
+      "band": "said",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "Every model must have a description and at least one test, enforced in CI.",
+      "source": "no description no merge. it was chaos before",
+      "band": "said",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "Timezone in the warehouse is UTC everywhere and conversion to IST happens only in the BI layer.",
+      "source": "remember this, warehouse stays utc. only metabase converts to ist",
+      "band": "said",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "BI is Metabase and there are about 200 saved questions, most of them abandoned.",
+      "source": "200 questions in metabase, maybe 20 get opened. someone should clean it",
+      "band": "heard",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "The word settlement means something different in the warehouse than in Cardinal, and it confuses new people.",
+      "source": "settlement in dbt means the bank batch, in cardinal it means the payout job. ana got confused and she was right to",
+      "band": "heard",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "Refuses to build a metric in dbt that finance has not written down a definition for.",
+      "source": "if nobody can write the definition in one sentence im not building the column",
+      "band": "said",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "Only spends about one day a week on the warehouse, the rest is Cardinal.",
+      "source": "warehouse gets maybe a day a week. thats why everything there takes a month",
+      "band": "heard",
+      "project": "warehouse-dbt",
+      "task": null
+    },
+    {
+      "statement": "ParcelPing sends shipment status alerts to buyers for small Shopify and WooCommerce stores in India.",
+      "source": "its just where is my order emails done properly, for tiny stores who cant build it",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "As of September there are 63 paying stores and monthly revenue is about 47,000 rupees.",
+      "source": "63 paying, 47k mrr this month. slow but its going up",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Churn is roughly four stores a month and almost all of them are stores that stopped selling.",
+      "source": "i lose 4 a month and mostly its because the shop itself died, not because they hate me",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Pricing is 499 rupees a month for up to 500 shipments and 1,499 above that.",
+      "source": "499 and 1499. i keep wondering if the lower tier is too cheap",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "The stack is Remix on Fly.io with a Postgres on Neon and a single background worker.",
+      "source": "remix, fly, neon, one worker. whole thing costs me about 2400 a month to run",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Infrastructure cost is about 2,400 rupees a month and the carrier API is the biggest single line.",
+      "source": "the tracking api is more than half the bill now",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Works on ParcelPing on Saturday mornings and one or two weekday evenings, no more.",
+      "source": "saturday morning and maybe two evenings. if it needs more than that im doing it wrong",
+      "band": "said",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Will not take funding for the side product, it is meant to stay small and pay for itself.",
+      "source": "no investors. the point is it stays small and i can kill it whenever",
+      "band": "said",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Support email is answered within a day and that response time is the main thing customers mention.",
+      "source": "people keep saying you actually reply. thats apparently rare and its my whole moat",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Stripe does not work well for Indian cards because of the recurring mandate rules, which is why the switch is happening.",
+      "source": "stripe keeps failing renewals on indian cards, the mandate stuff. thats the whole reason im moving",
+      "band": "heard",
+      "project": "parcelping",
+      "task": "pp-razorpay-switch"
+    },
+    {
+      "statement": "About 38 percent of card renewals were failing on Stripe and most succeeded on retry with UPI autopay.",
+      "source": "38 percent of renewals bounced. upi autopay works way better here",
+      "band": "heard",
+      "project": "parcelping",
+      "task": "pp-razorpay-switch"
+    },
+    {
+      "statement": "Existing Stripe subscriptions will be left to run out rather than migrated, only new signups go to Razorpay.",
+      "source": "not migrating the old ones. new signups on razorpay, the rest just age out. less risk",
+      "band": "said",
+      "project": "parcelping",
+      "task": "pp-razorpay-switch"
+    },
+    {
+      "statement": "Razorpay settles to the current account in T+2 and that is slower than Stripe was.",
+      "source": "t+2 with razorpay. stripe was faster but stripe also wasnt getting paid so",
+      "band": "heard",
+      "project": "parcelping",
+      "task": "pp-razorpay-switch"
+    },
+    {
+      "statement": "The webhook handler needs to be idempotent because Razorpay retries aggressively on any non 200.",
+      "source": "razorpay will hammer the webhook if you dont return 200. make the handler idempotent first not second",
+      "band": "said",
+      "project": "parcelping",
+      "task": "pp-razorpay-switch"
+    },
+    {
+      "statement": "The carrier API plan allows 50,000 lookups a month and August hit 44,000.",
+      "source": "50k lookups on the plan, august was 44k. one more decent customer and i blow through it",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "When the quota runs out the tracking silently stops updating, which is worse than an error page.",
+      "source": "the bad part is it fails quiet. tracking just stops moving and the customer thinks the parcel is stuck",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Wants the quota warning at 70 percent and again at 90, by email not Slack.",
+      "source": "warn me at 70 and 90. email, i dont want another slack integration",
+      "band": "said",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "The landing page rewrite cut it to one headline, three lines of copy and a screenshot.",
+      "source": "killed the feature grid. one line, three sentences, a screenshot. thats it",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Signup conversion went from about 1.8 percent to 3.1 percent after the landing page rewrite.",
+      "source": "1.8 to 3.1 percent. small numbers but it nearly doubled",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "The headline that worked was about the buyer not the store owner, stop answering where is my order.",
+      "source": "the line that worked talks about the buyer, not features. took me four tries to see that",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Churn emails should sound like a person noticing, not a system firing, and must be short.",
+      "source": "the emails should read like i noticed, not like a drip campaign. three lines max each",
+      "band": "said",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "A store counts as quiet after fourteen days with no shipments created.",
+      "source": "14 days no shipments and i consider them gone quiet",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "The last email in the churn sequence should offer to cancel for them, not try to save them.",
+      "source": "the last one should just say want me to cancel it. people remember that",
+      "band": "said",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "GST invoices are blocked because the business is not registered and turnover is still under the threshold.",
+      "source": "cant issue proper gst invoices till i register, and registering means compliance every month. not yet",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Four customers have asked for a GST invoice and two said they would leave without one.",
+      "source": "four have asked, two said theyd have to leave. thats maybe 3k a month at risk",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "The GST registration threshold for services is twenty lakh and the side product is nowhere near it.",
+      "source": "20 lakh threshold for services. im at like 5.6 lakh a year, so its optional",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Account deletion removes shipment data immediately and billing records after seven years.",
+      "source": "delete wipes the shipments right away, billing rows stay 7 years because tax",
+      "band": "heard",
+      "project": "parcelping",
+      "task": "pp-delete-account-flow"
+    },
+    {
+      "statement": "Deletion is a soft delete for 30 days then a hard purge run by a weekly job.",
+      "source": "30 day window then the purge job takes it. gives people a way back if they panic",
+      "band": "heard",
+      "project": "parcelping",
+      "task": "pp-delete-account-flow"
+    },
+    {
+      "statement": "Building account deletion properly took a weekend and only two people have ever used it.",
+      "source": "spent a whole saturday on delete account. two people used it. still glad i built it",
+      "band": "heard",
+      "project": "parcelping",
+      "task": "pp-delete-account-flow"
+    },
+    {
+      "statement": "A status page would mostly reduce support email during carrier outages, which are not even their fault.",
+      "source": "half my support mail is during delhivery outages. a status page would cut that",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "The biggest customer is a candle store in Jaipur doing about 900 shipments a month.",
+      "source": "biggest one is a candle shop in jaipur, 900 shipments. nice people, they send me photos",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Most signups come from one Reddit comment in r/IndianStartups from January that still gets traffic.",
+      "source": "still getting signups from a reddit comment i left in january. marketing is weird",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Tried Google Ads for a month, spent 8,000 rupees, and got two signups who both churned.",
+      "source": "8k on ads, two signups, both gone in a month. not doing that again",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Emails are sent through Resend and the sending domain is separate from the main domain.",
+      "source": "resend, and mail goes from a subdomain so if reputation tanks the main domain survives",
+      "band": "said",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Never send marketing and transactional mail from the same subdomain.",
+      "source": "keep the marketing sender and the alert sender apart. if one gets flagged the other still lands",
+      "band": "said",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "The product has no mobile app and there are no plans for one.",
+      "source": "people ask for an app. its a dashboard you look at once a week, no",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Onboarding takes a store owner about four minutes and the drop off is at the API key step.",
+      "source": "four minutes to onboard, and everyone stalls where they have to paste the shopify key",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Wants to hit one lakh a month in revenue before thinking about anything bigger.",
+      "source": "1 lakh mrr and then ill think about what this is. before that its a hobby with customers",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Refunds are given without argument if someone asks within the first month.",
+      "source": "someone asks for money back in month one, they get it, no questions. costs me nothing",
+      "band": "said",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Considered selling the product in March and decided against it because the offer was 4 lakh.",
+      "source": "got an offer for 4 lakh in march. thats less than a year of revenue, said no",
+      "band": "heard",
+      "project": "parcelping",
+      "task": null
+    },
+    {
+      "statement": "Files taxes under the old regime because HRA and 80C together beat the new slabs for them.",
+      "source": "remember im on the old regime. rent plus 80c beats the new slabs for me, dont assume otherwise",
+      "band": "said",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "The CA is Ramesh Iyer in Jayanagar and he wants everything by the third week of June.",
+      "source": "ramesh wants the folder by third week of june or he starts calling",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "CA fee is 9,500 rupees for the return and he charges extra if there is foreign income.",
+      "source": "9500 for the filing, more if the dollar income is in there",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "The September advance tax instalment was 68,400 rupees, paid on the fourteenth.",
+      "source": "paid 68400 on the 14th. cutting it close again",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": "tax-advance-q2-payment"
+    },
+    {
+      "statement": "Advance tax is due in four instalments on 15 June, 15 September, 15 December and 15 March.",
+      "source": "15 jun, 15 sep, 15 dec, 15 mar. i forget the june one every single year",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": "tax-advance-q2-payment"
+    },
+    {
+      "statement": "Missing an advance tax instalment costs one percent a month under section 234C, which is cheap but annoying.",
+      "source": "234c is 1 percent a month. its not much money, i just hate paying it for nothing",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": "tax-advance-q2-payment"
+    },
+    {
+      "statement": "The 80C gap this year is about 42,000 rupees after EPF and the term insurance premium.",
+      "source": "epf plus term premium leaves me 42k short of the 1.5 lakh",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "Prefers ELSS over PPF for the 80C top up because of the three year lock in instead of fifteen.",
+      "source": "elss over ppf. three years versus fifteen, not close",
+      "band": "said",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "The ELSS is a Parag Parikh fund held since 2022 and they add to the same one rather than opening new folios.",
+      "source": "same elss every year, i dont want six folios to track",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "Side product revenue from foreign customers is small, about 62,000 rupees for the year, but it changes the filing form.",
+      "source": "62k from abroad. tiny money, but it pushes me to itr3 and ramesh charges more",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "Not sure whether the side product income is business income or other sources, and the CA gave two different answers.",
+      "source": "ramesh said business income in june and other sources in august. i need a straight answer",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "Foreign inward remittance needs a FIRC or a bank advice and Razorpay does not give one easily.",
+      "source": "need the firc for the dollar payments. razorpay support has been useless about it",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "The CA folder needs Form 16, the AIS download, rent receipts, the mutual fund capital gains statement and the bank interest certificate.",
+      "source": "form16, ais, rent receipts, cams statement, interest cert. thats the list every year and i still forget one",
+      "band": "said",
+      "project": "tax-fy26",
+      "task": "tax-ca-handover-docs"
+    },
+    {
+      "statement": "AIS and the bank statement disagreed by about 3,200 rupees of interest last year and the AIS was right.",
+      "source": "ais and the bank were off by 3200. turns out the bank cert missed a small fd",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": "tax-ca-handover-docs"
+    },
+    {
+      "statement": "Keeps tax documents in a Proton Drive folder per financial year, never in email.",
+      "source": "one folder per fy in proton. i stopped keeping them in gmail after the storage thing",
+      "band": "said",
+      "project": "tax-fy26",
+      "task": "tax-ca-handover-docs"
+    },
+    {
+      "statement": "Rent is 38,000 a month and the landlord PAN is needed because that crosses the one lakh a year line.",
+      "source": "38k rent so i need the landlords pan, over 1 lakh a year you have to give it",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": "tax-hra-rent-receipts"
+    },
+    {
+      "statement": "The new landlord took three weeks to send his PAN and it delayed the HRA proof submission.",
+      "source": "chased him for three weeks for the pan. payroll deadline nearly went past",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": "tax-hra-rent-receipts"
+    },
+    {
+      "statement": "Last year's refund was 21,700 rupees and it came in about six weeks.",
+      "source": "refund was 21700, took six weeks. faster than i expected honestly",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "Has never had a notice from the department and is mildly paranoid about keeping it that way.",
+      "source": "no notices ever and im superstitious about it. i over document everything",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "Capital gains this year are small, about 14,000 rupees of long term from an old index fund sale.",
+      "source": "sold a bit of the index fund, 14k ltcg, under the exemption anyway",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "Wants a written summary of tax numbers rather than a spreadsheet, spreadsheets get stale.",
+      "source": "just write me the numbers in a paragraph. i never open the sheet again after making it",
+      "band": "said",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "Thinks the tax portal is genuinely better than it was three years ago and says so when people complain.",
+      "source": "the portal is actually fine now. people complain out of habit",
+      "band": "heard",
+      "project": "tax-fy26",
+      "task": null
+    },
+    {
+      "statement": "Reimbursements go through the RazorpayX Payroll portal and the description field is capped at 175 characters.",
+      "source": "save this, the description box is 175 chars max. always cut to fit, dont make me trim it",
+      "band": "said",
+      "project": "expense-claims",
+      "task": null
+    },
+    {
+      "statement": "Finance rejects any claim without a bill image, even for a 60 rupee auto ride.",
+      "source": "no bill no money, even for a 60 rupee auto. i get it but still",
+      "band": "heard",
+      "project": "expense-claims",
+      "task": null
+    },
+    {
+      "statement": "Claims must be filed within 60 days of the expense date or they need a manager exception.",
+      "source": "keep this in mind for claims, 60 day limit, past that i need an exception from ritu",
+      "band": "said",
+      "project": "expense-claims",
+      "task": null
+    },
+    {
+      "statement": "The March offsite batch came to 18,450 rupees across nine bills and was paid in the April cycle.",
+      "source": "march offsite was 18450, nine bills, came with april salary",
+      "band": "heard",
+      "project": "expense-claims",
+      "task": null
+    },
+    {
+      "statement": "Filing bills as one batch per trip is faster than one claim per bill, finance prefers it too.",
+      "source": "batch per trip not per bill. shanti in finance told me that and it halved the back and forth",
+      "band": "said",
+      "project": "expense-claims",
+      "task": null
+    },
+    {
+      "statement": "The Singapore conference claim is 84,200 rupees, mostly the flight and three nights of hotel.",
+      "source": "singapore is 84200 total. flight was 41k, hotel 33k, rest is food and the airport train",
+      "band": "heard",
+      "project": "expense-claims",
+      "task": "ec-conference-flights-claim"
+    },
+    {
+      "statement": "Foreign currency bills must use the card statement rate, not the rate on the day, and finance checks.",
+      "source": "use the rate the card actually charged. i tried xe.com rates once and shanti sent it all back",
+      "band": "said",
+      "project": "expense-claims",
+      "task": "ec-conference-flights-claim"
+    },
+    {
+      "statement": "Each foreign claim needs the matching line from the card statement attached as a separate image.",
+      "source": "they want the statement line too, cropped, per claim. tedious but thats the rule",
+      "band": "heard",
+      "project": "expense-claims",
+      "task": "ec-conference-flights-claim"
+    },
+    {
+      "statement": "About 2,300 rupees of cab receipts from June are gone because the app only keeps 90 days of history.",
+      "source": "uber only keeps 90 days. roughly 2300 worth of rides i cant prove anymore",
+      "band": "heard",
+      "project": "expense-claims",
+      "task": null
+    },
+    {
+      "statement": "Bank statement lines can sometimes stand in for a lost receipt if the amount and merchant are clear.",
+      "source": "shanti said a statement line might do if the merchant name is obvious. worth trying for the big ones",
+      "band": "heard",
+      "project": "expense-claims",
+      "task": null
+    },
+    {
+      "statement": "Wants one sheet with the forex rates already used so the next claim does not restart the argument.",
+      "source": "just keep a sheet of rates ive already used and they accepted. stop relitigating it every time",
+      "band": "said",
+      "project": "expense-claims",
+      "task": null
+    },
+    {
+      "statement": "The August team lunch bills add up to about 6,800 rupees across four receipts.",
+      "source": "four lunch bills, 6800ish, still in the drawer",
+      "band": "heard",
+      "project": "expense-claims",
+      "task": null
+    },
+    {
+      "statement": "Shanti Rao in finance processes claims on Tuesdays and Fridays only.",
+      "source": "shanti runs the batch tuesday and friday. file monday night and it goes out tuesday",
+      "band": "heard",
+      "project": "expense-claims",
+      "task": null
+    },
+    {
+      "statement": "Reimbursement money lands with the next salary, so filing late by a day costs a whole month.",
+      "source": "it comes with salary. miss the cutoff by a day and you wait a month. thats the real deadline",
+      "band": "heard",
+      "project": "expense-claims",
+      "task": null
+    },
+    {
+      "statement": "Target for the December half is under two hours and the current realistic estimate is 2:08.",
+      "source": "sub 2 is the goal. right now im honestly a 2:08 guy, so theres work",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Best half so far is 2:14 from the 2024 race in Kanteerava.",
+      "source": "2:14 in 2024 and i was dying at the end",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Runs at Cubbon Park on Saturdays and around the neighbourhood on weekdays because of traffic.",
+      "source": "cubbon on saturday, otherwise loops near the house. i am not running on sarjapur road",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Will not run after 7am in summer, it gets too hot and the air is bad.",
+      "source": "out by 6 or i dont go. by 7:30 its unbearable",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Easy pace is around 6:40 per kilometre and tempo is about 5:30.",
+      "source": "easy is 6:40ish, tempo around 5:30. i go too fast on easy days, always",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Registration for the December half cost 1,800 rupees and closed on 25 August.",
+      "source": "1800 for the bib, registered on the 20th, it shut on the 25th",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Race day is 13 December 2026 and the start is at 5:30am from Kanteerava Stadium.",
+      "source": "put this somewhere you will find it. race is 13 dec, 5:30 am start, kanteerava",
+      "band": "said",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "The plan is to add no more than ten percent of weekly distance at a time.",
+      "source": "ten percent a week max. i broke that rule in may and thats why the knee went",
+      "band": "said",
+      "project": "half-marathon-2026",
+      "task": "hm-build-base-40k-week"
+    },
+    {
+      "statement": "Currently at about 28 kilometres a week, up from 12 in July.",
+      "source": "28k this week. was at 12 in july so thats decent",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": "hm-build-base-40k-week"
+    },
+    {
+      "statement": "Every fourth week is a down week at about 60 percent of the previous volume.",
+      "source": "cut back every 4th week to 60 percent. thats the bit i always skip and regret",
+      "band": "said",
+      "project": "half-marathon-2026",
+      "task": "hm-build-base-40k-week"
+    },
+    {
+      "statement": "The long run goes on Sunday morning early so the rest of the day stays free.",
+      "source": "long run sunday at 5:30, done by 8, then the day is mine",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": "hm-build-base-40k-week"
+    },
+    {
+      "statement": "New shoes are Asics Novablast 5, bought for 12,999 rupees at the store in Indiranagar.",
+      "source": "novablast 5, 12999, bought them in person because sizing online is a lottery",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": "hm-buy-new-shoes"
+    },
+    {
+      "statement": "Rotates two pairs, the new ones for long runs and the older Pegasus for short easy days.",
+      "source": "two pairs in rotation. new ones for long, old pegs for the short stuff",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": "hm-buy-new-shoes"
+    },
+    {
+      "statement": "The old shoes had 860 kilometres on them and the midsole was visibly flat on one side.",
+      "source": "860k on the old pair and the left one was leaning. probably part of the knee problem",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": "hm-buy-new-shoes"
+    },
+    {
+      "statement": "There is a track group that meets at Jayanagar on Tuesdays at 5:45am, 500 rupees a month.",
+      "source": "jayanagar group, tuesday 5:45, 500 a month. thats a 25 min drive though",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Worried a track group will make them race every session, which is how the knee got hurt before.",
+      "source": "my worry with a group is i will race everyone every tuesday. thats exactly how i broke myself",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Cannot eat anything solid within two hours of running, it sits badly.",
+      "source": "for any food planning, nothing solid two hours before a run. thats a hard one",
+      "band": "said",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Gels make them nauseous so the plan is to try dates and salted lemon water instead.",
+      "source": "gels make me want to throw up. going to try dates and nimbu paani with salt",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Uses a Garmin Forerunner 55 and does not want a fancier watch.",
+      "source": "forerunner 55 is plenty. i dont need a watch that tells me my readiness score",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Does not upload runs to Strava anymore, stopped in April because of the comparison.",
+      "source": "came off strava in april. i was running for the kudos and it made me stupid",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Used to say Strava was good motivation, which is the opposite of what they say now.",
+      "source": "i used to tell everyone strava keeps you honest. i clearly dont believe that anymore",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Resting heart rate is about 54 and it goes up to 60 when sleep is bad.",
+      "source": "rhr sits at 54, jumps to 60 when im sleeping badly. its a decent warning light",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Bengaluru AQI above 120 means an indoor session instead of a run.",
+      "source": "if aqi is over 120 i skip it. not worth the lungs",
+      "band": "said",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "Thinks the December race is mostly an excuse to keep training through the year.",
+      "source": "the race is just a deadline. the point is i keep going out",
+      "band": "heard",
+      "project": "half-marathon-2026",
+      "task": null
+    },
+    {
+      "statement": "The right knee pain is on the outside of the joint and started after a fast 16k in May.",
+      "source": "remember this for anything training related. right knee, outside of the joint, started after a hard 16k in may",
+      "band": "said",
+      "project": "knee-rehab",
+      "task": null
+    },
+    {
+      "statement": "The physio diagnosed it as IT band related with weak glute medius on the right side.",
+      "source": "physio says it band, and my right glute basically doesnt fire. she showed me on the single leg test",
+      "band": "heard",
+      "project": "knee-rehab",
+      "task": "kr-physio-assessment"
+    },
+    {
+      "statement": "The physio is Dr Anjali Menon at a clinic in Koramangala, 1,200 rupees a session.",
+      "source": "anjali menon in koramangala, 1200 a session, she is direct which i like",
+      "band": "heard",
+      "project": "knee-rehab",
+      "task": "kr-physio-assessment"
+    },
+    {
+      "statement": "She said running through it is fine as long as pain stays under a three out of ten and does not linger.",
+      "source": "she said keep it under 3 out of 10 and if it hurts the next morning you went too far",
+      "band": "heard",
+      "project": "knee-rehab",
+      "task": "kr-physio-assessment"
+    },
+    {
+      "statement": "The daily routine is clamshells, side lying leg raises, single leg bridges and a wall sit, about twelve minutes.",
+      "source": "clamshells, side raises, single leg bridge, wall sit. 12 minutes and its so boring",
+      "band": "heard",
+      "project": "knee-rehab",
+      "task": "kr-daily-glute-routine"
+    },
+    {
+      "statement": "Does the rehab routine right after the morning coffee because doing it later never happens.",
+      "source": "i do it right after coffee. if i leave it to evening it just doesnt happen",
+      "band": "heard",
+      "project": "knee-rehab",
+      "task": "kr-daily-glute-routine"
+    },
+    {
+      "statement": "Has done the routine 31 days out of the last 45, tracked with a tick on the paper notebook.",
+      "source": "31 out of 45. not perfect but way better than last time i tried this",
+      "band": "heard",
+      "project": "knee-rehab",
+      "task": "kr-daily-glute-routine"
+    },
+    {
+      "statement": "An MRI is around 8,500 rupees at the diagnostic centre and is only worth it if nothing changes by October.",
+      "source": "mri is 8500. anjali said dont bother unless october comes and nothings moved",
+      "band": "heard",
+      "project": "knee-rehab",
+      "task": null
+    },
+    {
+      "statement": "Does not want to see an orthopaedic surgeon first because the last one went straight to talking about surgery.",
+      "source": "last ortho i saw talked about arthroscopy in four minutes. not doing that again unless i have to",
+      "band": "heard",
+      "project": "knee-rehab",
+      "task": null
+    },
+    {
+      "statement": "The pool at the apartment complex is open 6am to 9am and is usually empty on weekdays.",
+      "source": "pool is open 6 to 9 and nobody uses it on weekdays. no excuse really",
+      "band": "heard",
+      "project": "knee-rehab",
+      "task": null
+    },
+    {
+      "statement": "Cannot actually swim properly, which is why pool running with a belt is the plan.",
+      "source": "i cant swim, thats the awkward part. so its the float belt and jogging in the deep end",
+      "band": "heard",
+      "project": "knee-rehab",
+      "task": null
+    },
+    {
+      "statement": "The knee is fine walking and on stairs, it only complains past about eight kilometres.",
+      "source": "stairs fine, walking fine. its only past 8k that it starts talking",
+      "band": "heard",
+      "project": "knee-rehab",
+      "task": null
+    },
+    {
+      "statement": "Ice after long runs helped more than the anti inflammatory tablets did.",
+      "source": "ice works better than the tablets honestly. and no stomach issues",
+      "band": "heard",
+      "project": "knee-rehab",
+      "task": null
+    },
+    {
+      "statement": "Refuses to take painkillers before a run to get through it, calls that borrowing.",
+      "source": "taking a pill to run through pain is just borrowing. i wont do it",
+      "band": "said",
+      "project": "knee-rehab",
+      "task": null
+    },
+    {
+      "statement": "The new flat is a two bedroom on the fourth floor in HSR Sector 2, moved in on 28 February 2026.",
+      "source": "2bhk, 4th floor, hsr sector 2. moved in on the 28th feb",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "Rent is 38,000 a month with 2,400 maintenance, and the deposit was six months.",
+      "source": "38k plus 2400 maintenance. six month deposit which still stings",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "The lease is eleven months from 1 March 2026 with a five percent escalation clause.",
+      "source": "remember the lease, 11 months from 1 mar 2026, 5 percent bump if we renew",
+      "band": "said",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "Gave the old landlord two months written notice on 15 January, as the agreement required.",
+      "source": "sent notice on the 15th jan, two months, by email and a printed copy because he is old school",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "The old deposit was 1,80,000 and only 1,20,000 came back, he deducted 60,000 for painting and cleaning.",
+      "source": "1.8 lakh deposit, got 1.2 back. he kept 60k for painting a flat i left clean",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": "fm-recover-security-deposit"
+    },
+    {
+      "statement": "Has move in photos with timestamps from 2023 that show the walls were already marked.",
+      "source": "i have photos from the day i moved in 2023 with the marks already on the wall. thats my case",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": "fm-recover-security-deposit"
+    },
+    {
+      "statement": "Considering a notice through a lawyer for the deposit but the lawyer would cost more than the amount at stake.",
+      "source": "legal notice is 15k and id maybe get 40k. thats a bad trade unless i do it out of spite",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": "fm-recover-security-deposit"
+    },
+    {
+      "statement": "Packers quotes came in at 18,000, 24,500 and 31,000 and the middle one was chosen.",
+      "source": "18k, 24.5k, 31k. took the middle one because the cheap guys had no insurance",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": "fm-packers-quotes"
+    },
+    {
+      "statement": "The movers broke one glass shelf and paid 1,500 towards it without much argument.",
+      "source": "they broke a shelf and coughed up 1500. could have been worse",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": "fm-packers-quotes"
+    },
+    {
+      "statement": "Always photograph every box and the back of the TV before movers touch anything.",
+      "source": "photo everything before they pack. the tv cable layout especially, i forgot last time",
+      "band": "said",
+      "project": "flat-move-hsr",
+      "task": "fm-packers-quotes"
+    },
+    {
+      "statement": "The water purifier is an RO with a mineral stage, 14,500 rupees, installed on 1 March.",
+      "source": "ro with the mineral thing, 14500 installed. hsr water is properly hard",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "The purifier service contract is 3,600 a year and covers two filter changes.",
+      "source": "amc is 3600, two filter changes. probably worth it, the filters alone are 1400 each",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "The damp patch is on the shared wall with the neighbour's bathroom and appeared after the June rains.",
+      "source": "the wet patch is on the wall behind their bathroom. showed up right after the june rain",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "The association says it is the neighbour's plumbing and the neighbour says it is the building, so nothing is happening.",
+      "source": "association blames the flat next door, they blame the building. classic. meanwhile my wall is wet",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "Landlord agreed in writing over WhatsApp to pay for the seepage repair if it is a structural issue.",
+      "source": "got the landlord to say on whatsapp he will pay if its structural. screenshot saved",
+      "band": "said",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "Address still needs changing on the bank, Aadhaar, the driving licence and the mutual fund KYC.",
+      "source": "bank, aadhaar, dl, kyc. four places and each one wants a different proof",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "The rental agreement plus an electricity bill is enough address proof for most places.",
+      "source": "rent agreement and a power bill covers most of them. aadhaar is the fussy one",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "The second bedroom AC has not been serviced since before the move and it smells when it runs.",
+      "source": "the spare room ac smells when you turn it on. definitely needs a clean",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "Electricity bill runs about 2,100 a month and doubled in April and May with the AC.",
+      "source": "2100 normally, went to 4200 in april and may. the ac is the whole difference",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "Water comes from a tanker twice a week in summer and the borewell the rest of the year.",
+      "source": "tankers twice a week march to june. everyone in hsr deals with this",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "Broadband is ACT Fibernet, 100 Mbps, 1,180 a month, and it drops for about an hour most weeks.",
+      "source": "act 100mbps, 1180. goes down about an hour a week which i have just accepted",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "Has a backup 5G connection for calls because the broadband cannot be trusted during an incident.",
+      "source": "jio hotspot as backup. cant be the guy whose internet died during an outage call",
+      "band": "said",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "The building has a generator but it does not cover the AC points, only lights and fans.",
+      "source": "generator covers lights and fans, not the ac. found that out in a may power cut",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "Neighbour in 4B is Mr Rajagopal and he runs the residents WhatsApp group with an iron fist.",
+      "source": "rajagopal in 4b runs the group. he will post about your slippers being outside the door",
+      "band": "heard",
+      "project": "flat-move-hsr",
+      "task": null
+    },
+    {
+      "statement": "The car is a 2019 Hyundai i20 petrol, manual, currently at about 57,000 kilometres.",
+      "source": "2019 i20, manual, 57k on the clock",
+      "band": "heard",
+      "project": "car-and-insurance",
+      "task": null
+    },
+    {
+      "statement": "Insurance renewed on 28 July for 14,200 rupees comprehensive with zero depreciation.",
+      "source": "renewed 28 july, 14200, kept zero dep because the plastic bits cost a fortune",
+      "band": "heard",
+      "project": "car-and-insurance",
+      "task": "ci-renew-car-insurance"
+    },
+    {
+      "statement": "No claim bonus is at 45 percent and one claim would drop it to zero, so small dents get paid in cash.",
+      "source": "ncb is 45 percent. a 6000 rupee dent is not worth losing that, i just pay",
+      "band": "said",
+      "project": "car-and-insurance",
+      "task": "ci-renew-car-insurance"
+    },
+    {
+      "statement": "Switched insurer from ICICI Lombard to Digit this year and saved about 2,800 rupees.",
+      "source": "moved to digit, saved 2800. renewal quote from the old lot was silly",
+      "band": "heard",
+      "project": "car-and-insurance",
+      "task": "ci-renew-car-insurance"
+    },
+    {
+      "statement": "The 60,000 km service is due around December and the last one cost 11,400 at the authorised centre.",
+      "source": "60k service due december, last one was 11400 at the dealer",
+      "band": "heard",
+      "project": "car-and-insurance",
+      "task": null
+    },
+    {
+      "statement": "Considering moving to a trusted local garage in Bommanahalli for servicing now the warranty is over.",
+      "source": "warranty is done so maybe the local guy in bommanahalli. dealer is double for the same oil",
+      "band": "heard",
+      "project": "car-and-insurance",
+      "task": null
+    },
+    {
+      "statement": "FASTag got deactivated because the KYC was tied to the old address.",
+      "source": "fastag died because the kyc had the old address. two hours at the bank to fix it",
+      "band": "heard",
+      "project": "car-and-insurance",
+      "task": null
+    },
+    {
+      "statement": "The clutch pedal makes a squeak on release that gets worse in the morning and goes away after ten minutes.",
+      "source": "squeaks when i let the clutch out, worse when cold, gone after ten minutes of driving",
+      "band": "heard",
+      "project": "car-and-insurance",
+      "task": null
+    },
+    {
+      "statement": "One mechanic said it is just the pedal bush and another said the clutch release bearing, which is a much bigger job.",
+      "source": "one guy says its a bush and 800 rupees, other says release bearing and 18k. big gap",
+      "band": "heard",
+      "project": "car-and-insurance",
+      "task": null
+    },
+    {
+      "statement": "The car does about 400 kilometres a month, which barely justifies keeping it.",
+      "source": "400k a month. thats like 13 a day. cabs would honestly be cheaper",
+      "band": "heard",
+      "project": "car-and-insurance",
+      "task": null
+    },
+    {
+      "statement": "Keeps the car mainly for Chennai trips and airport runs at odd hours.",
+      "source": "i keep it for the chennai drive and 4am airport runs. thats the whole case for it",
+      "band": "heard",
+      "project": "car-and-insurance",
+      "task": null
+    },
+    {
+      "statement": "Parking in the new building is one covered slot included in the maintenance.",
+      "source": "one covered slot, included. that was actually a big reason i took this flat",
+      "band": "heard",
+      "project": "car-and-insurance",
+      "task": null
+    },
+    {
+      "statement": "The Schengen application went through the Portuguese consulate because the first entry is Lisbon.",
+      "source": "applied to portugal since we land in lisbon first. thats the rule, first entry or longest stay",
+      "band": "heard",
+      "project": "schengen-visa",
+      "task": null
+    },
+    {
+      "statement": "The visa was granted for 30 days, multiple entry, valid from 10 October to 20 December 2026.",
+      "source": "save the visa dates, 30 days multiple entry, valid 10 oct to 20 dec",
+      "band": "said",
+      "project": "schengen-visa",
+      "task": null
+    },
+    {
+      "statement": "VFS charged 2,140 rupees in service fees on top of the 80 euro visa fee.",
+      "source": "80 euro visa plus 2140 vfs fee plus courier. adds up",
+      "band": "heard",
+      "project": "schengen-visa",
+      "task": "sv-vfs-appointment"
+    },
+    {
+      "statement": "The VFS centre in Bengaluru is at Global Tech Park and the slot was 9:20am on 2 June.",
+      "source": "vfs at global tech park, 9:20 slot, reached at 8:45 and still waited an hour",
+      "band": "heard",
+      "project": "schengen-visa",
+      "task": "sv-vfs-appointment"
+    },
+    {
+      "statement": "Appointment slots open at midnight and get taken within about ten minutes.",
+      "source": "slots drop at midnight and are gone in ten minutes. i sat there refreshing like it was concert tickets",
+      "band": "heard",
+      "project": "schengen-visa",
+      "task": "sv-vfs-appointment"
+    },
+    {
+      "statement": "Bank statements needed a physical stamp from the branch, a PDF download was rejected.",
+      "source": "they wouldnt take the downloaded pdf. had to go to the branch and get it stamped page by page",
+      "band": "heard",
+      "project": "schengen-visa",
+      "task": null
+    },
+    {
+      "statement": "The consulate wanted a closing balance of at least 1,10,000 rupees for a nine day trip.",
+      "source": "rough rule was about 70 euro a day so i made sure the balance was over 1.1 lakh",
+      "band": "heard",
+      "project": "schengen-visa",
+      "task": null
+    },
+    {
+      "statement": "Travel insurance had to cover 30,000 euro of medical and cost 2,650 rupees for the trip length.",
+      "source": "30k euro medical minimum. got it for 2650, tata aig",
+      "band": "heard",
+      "project": "schengen-visa",
+      "task": null
+    },
+    {
+      "statement": "The cover letter was one page, said exactly who is travelling, when, where they stay and who pays.",
+      "source": "one page. who, when, where, who is paying. thats all they read anyway",
+      "band": "said",
+      "project": "schengen-visa",
+      "task": null
+    },
+    {
+      "statement": "The employer NOC letter had to mention approved leave dates and that the job continues after.",
+      "source": "hr letter needed the leave dates and a line saying i still have a job when i come back",
+      "band": "heard",
+      "project": "schengen-visa",
+      "task": null
+    },
+    {
+      "statement": "Passport came back in 18 days, faster than the 25 VFS quoted.",
+      "source": "18 days, they said 25. nice surprise for once",
+      "band": "heard",
+      "project": "schengen-visa",
+      "task": null
+    },
+    {
+      "statement": "The trip is nine days in November with Kiran, mostly Lisbon, Porto and three days in Madrid.",
+      "source": "9 days with kiran. lisbon, porto, then madrid. flights not booked yet",
+      "band": "heard",
+      "project": "schengen-visa",
+      "task": null
+    },
+    {
+      "statement": "The itinerary submitted with the visa had hotel bookings that were free cancellation and were cancelled after.",
+      "source": "booked refundable hotels for the application and cancelled them once the visa came. everyone does this",
+      "band": "heard",
+      "project": "schengen-visa",
+      "task": null
+    },
+    {
+      "statement": "Wants at least two full days with nothing planned on this trip, unlike the Goa one.",
+      "source": "two empty days minimum. goa was scheduled to death and i came back tired",
+      "band": "said",
+      "project": "schengen-visa",
+      "task": null
+    },
+    {
+      "statement": "Passport expires in March 2028 so it comfortably clears the three months after return rule.",
+      "source": "passport good till march 2028, no problem there",
+      "band": "heard",
+      "project": "schengen-visa",
+      "task": null
+    },
+    {
+      "statement": "Will carry a printed copy of everything because the consulate advice said phones are not accepted at the border.",
+      "source": "printing all of it. border guys dont want to look at your phone",
+      "band": "heard",
+      "project": "schengen-visa",
+      "task": null
+    },
+    {
+      "statement": "The starter is called Ammachi and is about three years old, kept in the fridge between bakes.",
+      "source": "the starter is ammachi, three years now. fridge most of the time, i bake maybe twice a month",
+      "band": "heard",
+      "project": "sourdough",
+      "task": null
+    },
+    {
+      "statement": "Reviving the starter after two months in the fridge took four feeds over two days.",
+      "source": "took four feeds to get her going again. day one she smelt like nail polish",
+      "band": "heard",
+      "project": "sourdough",
+      "task": null
+    },
+    {
+      "statement": "A sharp acetone smell means the starter is hungry, not dead.",
+      "source": "that nail polish smell just means feed me. i used to throw it out thinking it was gone",
+      "band": "heard",
+      "project": "sourdough",
+      "task": null
+    },
+    {
+      "statement": "The banneton is a nine inch round and the lame was a cheap one that works fine.",
+      "source": "9 inch round banneton, 1100 rupees. the lame was 350 and does the job",
+      "band": "heard",
+      "project": "sourdough",
+      "task": null
+    },
+    {
+      "statement": "Rice flour in the banneton stops sticking where wheat flour does not.",
+      "source": "rice flour in the basket. wheat flour glues itself on and then you tear the loaf",
+      "band": "said",
+      "project": "sourdough",
+      "task": null
+    },
+    {
+      "statement": "Bengaluru kitchen sits around 26 degrees so bulk ferment takes about five hours, less in April.",
+      "source": "26 in the kitchen so bulk is around 5 hours. in april it was done in 3.5 and i overproofed twice",
+      "band": "heard",
+      "project": "sourdough",
+      "task": "sd-open-crumb"
+    },
+    {
+      "statement": "Hydration is at 72 percent and going higher just makes the dough impossible to handle with Indian flour.",
+      "source": "72 percent. tried 80 and it was soup. our maida is not the same as what the youtube people use",
+      "band": "heard",
+      "project": "sourdough",
+      "task": "sd-open-crumb"
+    },
+    {
+      "statement": "The last three loaves were dense at the bottom, which is probably underproofing not the shaping.",
+      "source": "dense at the base again. i think its under not the shaping, the top is fine",
+      "band": "heard",
+      "project": "sourdough",
+      "task": "sd-open-crumb"
+    },
+    {
+      "statement": "Bakes in a Dutch oven at 250 for twenty minutes with the lid on, then 220 for twenty five without.",
+      "source": "write the bake down so i stop looking it up. 250 lid on 20 min, 220 lid off 25",
+      "band": "said",
+      "project": "sourdough",
+      "task": "sd-open-crumb"
+    },
+    {
+      "statement": "Whole wheat at fifty percent will need more water and a shorter bulk because it ferments faster.",
+      "source": "with atta youll need more water and it goes faster. plan for maybe 4 hours not 5",
+      "band": "heard",
+      "project": "sourdough",
+      "task": null
+    },
+    {
+      "statement": "Uses Aashirvaad atta for whole wheat bakes because it is the most consistent one available locally.",
+      "source": "aashirvaad is boring but its the same every bag. the fancy stone ground stuff varies too much",
+      "band": "heard",
+      "project": "sourdough",
+      "task": null
+    },
+    {
+      "statement": "Weighs everything in grams and does not trust cup measurements for bread at all.",
+      "source": "grams only. cups for bread is how you get a different loaf every time",
+      "band": "said",
+      "project": "sourdough",
+      "task": null
+    },
+    {
+      "statement": "Bakes on Saturday evening so the loaf is ready for Sunday breakfast.",
+      "source": "saturday evening bake, sunday morning toast. thats the rhythm",
+      "band": "heard",
+      "project": "sourdough",
+      "task": null
+    },
+    {
+      "statement": "Gives away about half of every loaf, usually to the neighbours in 4B and 3A.",
+      "source": "half of it goes next door. i cant eat a whole loaf and it makes rajagopal nicer to me",
+      "band": "heard",
+      "project": "sourdough",
+      "task": null
+    },
+    {
+      "statement": "Tried a bread machine once and hated it, says the whole point is the hands.",
+      "source": "bought a bread machine in 2023, sold it in a month. the point is doing it with your hands",
+      "band": "heard",
+      "project": "sourdough",
+      "task": null
+    },
+    {
+      "statement": "Salt goes in after the autolyse, never with the initial mix.",
+      "source": "salt after autolyse. it slows the gluten if you put it in at the start",
+      "band": "said",
+      "project": "sourdough",
+      "task": null
+    },
+    {
+      "statement": "Shoots on an Olympus OM10 that belonged to their father, bought around 1984.",
+      "source": "its appas om10 from 84. the meter still works which is a small miracle",
+      "band": "heard",
+      "project": "film-photography",
+      "task": null
+    },
+    {
+      "statement": "There are eleven undeveloped rolls in a box, some going back to the Goa trip in March.",
+      "source": "eleven rolls sitting in the box. some are from goa which was six months ago",
+      "band": "heard",
+      "project": "film-photography",
+      "task": null
+    },
+    {
+      "statement": "Developing is blocked because the lab in Bengaluru that did colour closed in July.",
+      "source": "the c41 lab shut in july. now its either mumbai by courier or nothing",
+      "band": "heard",
+      "project": "film-photography",
+      "task": null
+    },
+    {
+      "statement": "Sending film by courier to Mumbai costs about 400 rupees a batch and takes two weeks.",
+      "source": "400 to courier a batch to bombay, two weeks turnaround. annoying but its the only option",
+      "band": "heard",
+      "project": "film-photography",
+      "task": null
+    },
+    {
+      "statement": "A decent film scanner is around 28,000 rupees and would pay for itself after roughly forty rolls.",
+      "source": "scanner is 28k. lab scans are about 350 a roll so its 40 rolls to break even. i shoot maybe 15 a year",
+      "band": "heard",
+      "project": "film-photography",
+      "task": null
+    },
+    {
+      "statement": "Leaning towards paying the lab because scanning at home is the part they would stop doing.",
+      "source": "i know myself, id scan three rolls and then the scanner sits there. paying the lab is probably right",
+      "band": "heard",
+      "project": "film-photography",
+      "task": null
+    },
+    {
+      "statement": "The light leak shows as an orange streak on the right edge of every frame.",
+      "source": "orange streak down the right side on every shot. classic door seal gone",
+      "band": "heard",
+      "project": "film-photography",
+      "task": null
+    },
+    {
+      "statement": "Replacement light seal foam kits cost 600 rupees and the job is mostly scraping out old sticky foam.",
+      "source": "600 for the foam kit. the actual work is scraping forty years of gunk out of the channel",
+      "band": "heard",
+      "project": "film-photography",
+      "task": null
+    },
+    {
+      "statement": "Shoots mostly Kodak Gold 200 because it is forgiving and cheaper than the alternatives.",
+      "source": "gold 200, always. portra is beautiful and 900 rupees a roll, no thanks",
+      "band": "heard",
+      "project": "film-photography",
+      "task": null
+    },
+    {
+      "statement": "Prefers film for travel and the phone for everything else, and never carries both.",
+      "source": "film when im travelling, phone the rest of the time. carrying both means i use neither",
+      "band": "heard",
+      "project": "film-photography",
+      "task": null
+    },
+    {
+      "statement": "Thinks the discipline of 36 frames is the actual reason film is worth it, not the look.",
+      "source": "its not the grain. its that you get 36 and you think before each one",
+      "band": "heard",
+      "project": "film-photography",
+      "task": null
+    },
+    {
+      "statement": "Wants six prints for the living room wall, black frames, no mats.",
+      "source": "six prints, black frames, no mount board. i dont want it looking like a gallery",
+      "band": "said",
+      "project": "film-photography",
+      "task": null
+    },
+    {
+      "statement": "Aiming for eighteen books this year and is at eleven as of September.",
+      "source": "track this for me, 18 books is the target and im on 11 right now",
+      "band": "said",
+      "project": "reading-2026",
+      "task": null
+    },
+    {
+      "statement": "Dune Messiah took fourteen months to finish and was worth it in the last fifty pages only.",
+      "source": "finally done with messiah. fourteen months. the last fifty pages justify the rest, barely",
+      "band": "heard",
+      "project": "reading-2026",
+      "task": "rd-finish-dune-messiah"
+    },
+    {
+      "statement": "Reading the data systems book one chapter a week with notes in the margins, not a separate file.",
+      "source": "one chapter a week, writing in the book itself. the separate notes file never gets reopened",
+      "band": "heard",
+      "project": "reading-2026",
+      "task": null
+    },
+    {
+      "statement": "Cancelled the Kindle subscription because 199 a month for books that never got opened was silly.",
+      "source": "199 a month and i read one book on it all year. cancelled",
+      "band": "heard",
+      "project": "reading-2026",
+      "task": null
+    },
+    {
+      "statement": "Buys physical books from Blossoms on Church Street and refuses to feel bad about the shelf space.",
+      "source": "blossoms every couple of months. people say get an ereader, no",
+      "band": "heard",
+      "project": "reading-2026",
+      "task": null
+    },
+    {
+      "statement": "Abandons a book at page eighty if it is not working, a rule adopted in 2025.",
+      "source": "page 80 and if i dont care i stop. best reading decision i ever made",
+      "band": "said",
+      "project": "reading-2026",
+      "task": null
+    },
+    {
+      "statement": "The Rust project is a key value store with a write ahead log, built purely to learn the language.",
+      "source": "its a kv store with a wal. nobody will use it, thats fine, its a language exercise",
+      "band": "heard",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "Works on it on weeknights after dinner, usually an hour, three or four nights a week.",
+      "source": "an hour after dinner, three or four nights. slow but it adds up",
+      "band": "heard",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "Each WAL record is a length prefix, a CRC32 checksum, then the payload.",
+      "source": "length, crc32, payload. same shape as most wals, no point inventing",
+      "band": "heard",
+      "project": "rust-kv-store",
+      "task": "rk-wal-append-only"
+    },
+    {
+      "statement": "Decided to fsync on every write for now and measure before making it configurable.",
+      "source": "fsync every write. i know its slow. measure first then decide, otherwise its just cargo culting",
+      "band": "said",
+      "project": "rust-kv-store",
+      "task": "rk-wal-append-only"
+    },
+    {
+      "statement": "The in memory index is a BTreeMap from key to file offset, rebuilt on startup by replaying the log.",
+      "source": "btreemap key to offset, replay the log on boot to build it. simple and it works",
+      "band": "heard",
+      "project": "rust-kv-store",
+      "task": "rk-wal-append-only"
+    },
+    {
+      "statement": "Got stuck for two evenings on borrowing the writer while also reading the index, solved it by splitting the struct.",
+      "source": "two nights fighting the borrow checker. answer was my struct was doing two jobs. splitting it fixed everything",
+      "band": "heard",
+      "project": "rust-kv-store",
+      "task": "rk-wal-append-only"
+    },
+    {
+      "statement": "Recovery should stop at the first bad checksum and treat everything after as lost, not try to skip ahead.",
+      "source": "first bad crc, stop, truncate there. trying to skip past corruption is how you get silent garbage",
+      "band": "said",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "Plans to test recovery by truncating the log file at random byte offsets in a loop.",
+      "source": "just chop the file at random offsets a thousand times and check it always comes up clean",
+      "band": "heard",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "The LSM paper from 1996 was clearer than most blog posts written about it since.",
+      "source": "the actual 96 paper is easier to read than the blog posts explaining it. that keeps happening",
+      "band": "heard",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "Took away from the LSM paper that the whole idea is turning random writes into sequential ones.",
+      "source": "the one idea is random writes become sequential writes. everything else is bookkeeping",
+      "band": "heard",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "Lifetimes finally made sense when they stopped reading them as duration and started reading them as scope of validity.",
+      "source": "lifetimes clicked when i stopped thinking how long and started thinking valid where",
+      "band": "heard",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "Wrote that clone is fine while learning and optimising it away early just slows the learning down.",
+      "source": "just clone it. you can take the clones out later. fighting it on day one is how people quit rust",
+      "band": "said",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "Uses no external crates except anyhow and crc32fast, on purpose.",
+      "source": "only anyhow and crc32fast. the whole point is doing it myself",
+      "band": "said",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "Finds Rust error messages genuinely helpful, unlike the C++ ones they grew up with.",
+      "source": "the compiler actually tells you what to do. after c++ templates this feels like cheating",
+      "band": "heard",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "Does not want to use async in this project, blocking IO keeps it understandable.",
+      "source": "no tokio. blocking io. i want to understand what the machine is doing",
+      "band": "said",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "The repo is private and will probably stay that way until the recovery tests pass.",
+      "source": "not putting it on github until crash recovery actually works. no need for that embarrassment",
+      "band": "heard",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "Thinks about six months in that Rust is slower to write and easier to trust, and that trade is worth it.",
+      "source": "its slower to write and i trust it more. for a database thats the right trade",
+      "band": "heard",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "Wants the blog post about idempotency to borrow the WAL framing, since both are about doing a thing once.",
+      "source": "the wal stuff and the idempotency post are the same idea really. exactly once is a lie, at least once plus dedupe is the truth",
+      "band": "heard",
+      "project": "rust-kv-store",
+      "task": null
+    },
+    {
+      "statement": "Divya is a first cousin on the mother's side and the wedding is in Kochi on 21 and 22 November 2026.",
+      "source": "note the wedding dates, 21 and 22 nov, kochi. divya is ammas side of the family",
+      "band": "said",
+      "project": "wedding-divya",
+      "task": null
+    },
+    {
+      "statement": "Flights to Kochi cost 11,600 return, booked on 8 August for the 19th out and 23rd back.",
+      "source": "11600 return, out on the 19th back on the 23rd. booked early for once",
+      "band": "heard",
+      "project": "wedding-divya",
+      "task": null
+    },
+    {
+      "statement": "Staying at the family house in Kaloor, not a hotel, which saves money but means no quiet.",
+      "source": "staying at the kaloor house. free but there will be fourteen people and no quiet room",
+      "band": "heard",
+      "project": "wedding-divya",
+      "task": null
+    },
+    {
+      "statement": "The kurta is being stitched by the tailor near Jayanagar 4th Block, 3,200 rupees including the fabric.",
+      "source": "tailor in jayanagar 4th block, 3200 with cloth. first fitting was too tight at the shoulders",
+      "band": "heard",
+      "project": "wedding-divya",
+      "task": null
+    },
+    {
+      "statement": "Second fitting is on 10 October and the kurta must be ready two weeks before travel.",
+      "source": "second fitting 10 oct. i want it done two weeks early, not the night before",
+      "band": "heard",
+      "project": "wedding-divya",
+      "task": null
+    },
+    {
+      "statement": "Divya mentioned wanting a good espresso machine, which is the obvious gift but costs about 45,000.",
+      "source": "she keeps talking about an espresso machine. good idea but thats 45k, need to check with the others",
+      "band": "heard",
+      "project": "wedding-divya",
+      "task": null
+    },
+    {
+      "statement": "Thinking of splitting the espresso machine gift four ways with the other cousins.",
+      "source": "if four of us go in its 11k each. need to ask nikhil and the twins",
+      "band": "heard",
+      "project": "wedding-divya",
+      "task": null
+    },
+    {
+      "statement": "Family default for weddings is cash in an envelope and anything else is treated as showing off.",
+      "source": "in our family its cash and thats it. a gift is basically a statement, which is its own problem",
+      "band": "heard",
+      "project": "wedding-divya",
+      "task": null
+    },
+    {
+      "statement": "The reception speech should be two minutes, one story, and must not mention her job.",
+      "source": "two minutes, one story, do not talk about her work. she will kill me",
+      "band": "said",
+      "project": "wedding-divya",
+      "task": null
+    },
+    {
+      "statement": "The cab for the Thrissur cousins is stuck because nobody will confirm how many people are actually coming.",
+      "source": "cant book the cab till someone tells me if its four or seven. asked three times",
+      "band": "heard",
+      "project": "wedding-divya",
+      "task": null
+    },
+    {
+      "statement": "A Thrissur to Kochi cab is about 3,500 rupees one way and needs booking a week ahead in wedding season.",
+      "source": "3500 one way, and in november everything is booked. need to lock it by early nov",
+      "band": "heard",
+      "project": "wedding-divya",
+      "task": null
+    },
+    {
+      "statement": "Taking three days of leave for the wedding, the 19th to the 23rd, already approved.",
+      "source": "leave approved 19 to 23. told ritu in august so nobody schedules a release",
+      "band": "heard",
+      "project": "wedding-divya",
+      "task": null
+    },
+    {
+      "statement": "The Goa house in Assagao was 32,000 for three nights split seven ways.",
+      "source": "32k for the house, seven of us, worked out fine",
+      "band": "heard",
+      "project": "goa-trip-march",
+      "task": null
+    },
+    {
+      "statement": "Settling the split took three weeks and two people had to be chased, which soured the end of it.",
+      "source": "took three weeks to settle up and i had to chase two people. next time everyone pays upfront",
+      "band": "heard",
+      "project": "goa-trip-march",
+      "task": "gt-settle-split"
+    },
+    {
+      "statement": "For the next group trip, collect money before booking rather than after.",
+      "source": "rule for next time. money first then i book. im not the group bank",
+      "band": "said",
+      "project": "goa-trip-march",
+      "task": null
+    },
+    {
+      "statement": "The passport renewal has to be done before March 2028 but the appointment queue in Bengaluru is about two months out.",
+      "source": "expiry is 2028 so no rush, except the seva kendra slots are two months out so it is a bit of a rush",
+      "band": "heard",
+      "project": null,
+      "task": "renew-passport-appointment"
+    },
+    {
+      "statement": "Photos on the NAS are about 640 gigabytes going back to 2015, mostly phone photos and the film scans.",
+      "source": "640 gb, back to 2015. half of it is blurry photos of food i will never look at",
+      "band": "heard",
+      "project": null,
+      "task": "back-up-photos-to-nas"
+    },
+    {
+      "statement": "The NAS is a two bay Synology with 4 terabyte drives in mirror, bought in 2024.",
+      "source": "two bay synology, 4tb mirrored. mirror is not a backup, i know, thats the other task",
+      "band": "heard",
+      "project": null,
+      "task": "back-up-photos-to-nas"
+    },
+    {
+      "statement": "Wants the offsite copy encrypted before it leaves the house, not trusting the cloud provider with plaintext.",
+      "source": "encrypt before upload. i dont want backblaze holding my family photos in the clear",
+      "band": "said",
+      "project": null,
+      "task": "nas-offsite-backup"
+    },
+    {
+      "statement": "The subscriptions worth cutting are the design tool at 1,650 a month and a music app nobody in the house uses.",
+      "source": "figma seat 1650 and the music thing. thats 2200 a month for nothing",
+      "band": "heard",
+      "project": null,
+      "task": "cancel-unused-subscriptions"
+    },
+    {
+      "statement": "The blog post should open with the bug, not the theory, because that is how the idea actually landed.",
+      "source": "start with the double charge, not with the definition. thats how i learnt it and thats how it should read",
+      "band": "said",
+      "project": null,
+      "task": "blog-post-idempotency"
+    },
+    {
+      "statement": "The blog post is at about 900 words and needs an example that is not payments, since everyone uses payments.",
+      "source": "900 words in. i need a non payments example, everybody writes the stripe one",
+      "band": "heard",
+      "project": null,
+      "task": "blog-post-idempotency"
+    },
+    {
+      "statement": "The resume has not been touched since the 2024 title change and does not mention the ledger work at all.",
+      "source": "resume still says the old title and says nothing about cardinal. two years of work missing",
+      "band": "heard",
+      "project": null,
+      "task": "update-resume-linkedin"
+    },
+    {
+      "statement": "New glasses cost 8,900 rupees with the thinner lenses and the prescription moved to minus 3.25 in the right eye.",
+      "source": "8900 with the thin lenses. right eye went to -3.25, left is the same as before",
+      "band": "heard",
+      "project": null,
+      "task": "get-new-spectacles"
+    },
+    {
+      "statement": "The yearly blood work should include vitamin D and B12, both were low in the 2025 panel.",
+      "source": "make sure d and b12 are on the list, both were low last year and i did nothing about it",
+      "band": "said",
+      "project": null,
+      "task": "annual-health-checkup"
+    }
+  ],
+  "prompts": [
+    {
+      "text": "what was the deal with the double-charge thing we hit on capture",
+      "context": "cold-start"
+    },
+    {
+      "text": "ok keep going",
+      "context": "mid-thread"
+    },
+    {
+      "text": "what was i doing last week",
+      "context": "cold-start"
+    },
+    {
+      "text": "remind me why we cant get rid of that old payout table yet",
+      "context": "cold-start"
+    },
+    {
+      "text": "how much am i short on my section 80C this year",
+      "context": "cold-start"
+    },
+    {
+      "text": "draft the reply to the landlord about the wet wall, keep it firm but not rude",
+      "context": "cold-start"
+    },
+    {
+      "text": "whats my weekly mileage right now and how far off the plan am i",
+      "context": "cold-start"
+    },
+    {
+      "text": "go on",
+      "context": "mid-thread"
+    },
+    {
+      "text": "in parcelping, why did i decide against migrating the old subscriptions",
+      "context": "cold-start"
+    },
+    {
+      "text": "who do i need to talk to before touching the connection pool settings",
+      "context": "cold-start"
+    },
+    {
+      "text": "rewrite that last paragraph in my voice",
+      "context": "follow-up"
+    },
+    {
+      "text": "you used two long dashes in there, fix it",
+      "context": "follow-up"
+    },
+    {
+      "text": "whats the rate finance will accept for the singapore hotel bill, and while youre at it when is the next advance tax payment",
+      "context": "cold-start"
+    },
+    {
+      "text": "pick up where we left off on the wal",
+      "context": "cold-start"
+    },
+    {
+      "text": "i forgot, what temperature and how long for the dutch oven",
+      "context": "cold-start"
+    },
+    {
+      "text": "summarise everything open on cardinal-ledger",
+      "context": "cold-start"
+    },
+    {
+      "text": "anything blocked that i could unblock in twenty minutes",
+      "context": "mid-thread"
+    },
+    {
+      "text": "why did i stop posting my runs online",
+      "context": "cold-start"
+    },
+    {
+      "text": "is there a reason i cant just cache the balance",
+      "context": "mid-thread"
+    },
+    {
+      "text": "what did the physio actually say about running through it",
+      "context": "cold-start"
+    },
+    {
+      "text": "shorter",
+      "context": "follow-up"
+    },
+    {
+      "text": "make that read less like a press release",
+      "context": "follow-up"
+    },
+    {
+      "text": "what do i still owe ramesh",
+      "context": "cold-start"
+    },
+    {
+      "text": "i have two hours free this evening, whats the best use of it",
+      "context": "cold-start"
+    },
+    {
+      "text": "give me the numbers for the trip, everything ive spent so far",
+      "context": "cold-start"
+    },
+    {
+      "text": "whats the name of that lab that shut down",
+      "context": "follow-up"
+    },
+    {
+      "text": "help me write the two minutes for the reception",
+      "context": "cold-start"
+    },
+    {
+      "text": "wait, didnt i say the opposite about this a few months ago",
+      "context": "follow-up"
+    },
+    {
+      "text": "why do we have two different meanings of settlement floating around",
+      "context": "cold-start"
+    },
+    {
+      "text": "whats my position on emoji again",
+      "context": "cold-start"
+    },
+    {
+      "text": "what should i not do on a friday",
+      "context": "cold-start"
+    },
+    {
+      "text": "before i book anything, whats the rule i made after goa",
+      "context": "cold-start"
+    },
+    {
+      "text": "ok so given all that, whats the actual next step",
+      "context": "mid-thread"
+    },
+    {
+      "text": "compare what i spend on the car every month against just taking cabs",
+      "context": "cold-start"
+    },
+    {
+      "text": "list the papers the accountant wants",
+      "context": "follow-up"
+    },
+    {
+      "text": "i am at the clinic and they are asking about allergies",
+      "context": "cold-start"
+    },
+    {
+      "text": "write the cancellation email for the design tool, two lines",
+      "context": "cold-start"
+    },
+    {
+      "text": "which projects have i not touched in a month",
+      "context": "cold-start"
+    },
+    {
+      "text": "did i ever decide between the scanner and paying per roll",
+      "context": "cold-start"
+    },
+    {
+      "text": "explain why the exports were showing the wrong day, i want to put it in the blog post",
+      "context": "mid-thread"
+    },
+    {
+      "text": "that but for someone who doesnt know go",
+      "context": "follow-up"
+    },
+    {
+      "text": "whats left on the visa stuff",
+      "context": "follow-up"
+    },
+    {
+      "text": "how many books am i behind",
+      "context": "cold-start"
+    },
+    {
+      "text": "give me a one paragraph update i can paste into the team channel",
+      "context": "follow-up"
+    },
+    {
+      "text": "what breaks if traffic goes up ten times on this",
+      "context": "mid-thread"
+    },
+    {
+      "text": "im back, whats the state of the refund work",
+      "context": "cold-start"
+    },
+    {
+      "text": "did the jitter change actually help or did i imagine it",
+      "context": "follow-up"
+    },
+    {
+      "text": "whats a fair way to split the gift four ways without it getting awkward",
+      "context": "mid-thread"
+    },
+    {
+      "text": "no, i meant the other one",
+      "context": "follow-up"
+    },
+    {
+      "text": "what do i usually get wrong in my writing",
+      "context": "cold-start"
+    },
+    {
+      "text": "tighten this and take out the hedging, actually no leave the hedging, just tighten it",
+      "context": "follow-up"
+    },
+    {
+      "text": "how long does the dough take in my kitchen versus what the recipe says",
+      "context": "cold-start"
+    },
+    {
+      "text": "whats blocked on the finance side and whats blocked on the network side",
+      "context": "cold-start"
+    },
+    {
+      "text": "i need to explain the ledger model to someone joining next week",
+      "context": "cold-start"
+    },
+    {
+      "text": "what did i say about mocks",
+      "context": "cold-start"
+    },
+    {
+      "text": "how much money is sitting in unfiled bills right now",
+      "context": "cold-start"
+    },
+    {
+      "text": "book me nothing on sunday, you know the rule",
+      "context": "mid-thread"
+    },
+    {
+      "text": "whats the story with the squeak",
+      "context": "cold-start"
+    },
+    {
+      "text": "im writing the readme, what tone do i normally use",
+      "context": "mid-thread"
+    },
+    {
+      "text": "one more thing, what was the deposit deduction amount",
+      "context": "follow-up"
+    },
+    {
+      "text": "give me a checklist for the kochi trip, including the tailor",
+      "context": "cold-start"
+    },
+    {
+      "text": "what were the three things i wanted to get done today",
+      "context": "cold-start"
+    },
+    {
+      "text": "i keep forgetting this, whats our deploy window",
+      "context": "cold-start"
+    },
+    {
+      "text": "why did i pick postgres trigram over a search engine",
+      "context": "cold-start"
+    },
+    {
+      "text": "did anything come of the offer to buy the side project",
+      "context": "cold-start"
+    },
+    {
+      "text": "what should i eat before a long run given i cant do gels",
+      "context": "follow-up"
+    },
+    {
+      "text": "same thing but as a table",
+      "context": "follow-up"
+    },
+    {
+      "text": "is there anything i promised someone and never did",
+      "context": "cold-start"
+    },
+    {
+      "text": "whats my rule about adding tracking to internal tools",
+      "context": "cold-start"
+    },
+    {
+      "text": "the knee is sore again after 9k, what did we agree the threshold was",
+      "context": "cold-start"
+    },
+    {
+      "text": "help me decide whether to register for gst or keep losing those four customers",
+      "context": "mid-thread"
+    },
+    {
+      "text": "what changed in the runbook after march",
+      "context": "cold-start"
+    },
+    {
+      "text": "im on the phone with the insurance guy, what did i pay last year and with whom",
+      "context": "cold-start"
+    },
+    {
+      "text": "keep going but skip the part about the tests",
+      "context": "mid-thread"
+    },
+    {
+      "text": "which of my opinions have shifted this year",
+      "context": "cold-start"
+    }
+  ]
+}
