@@ -60,3 +60,20 @@ node eval/bench.mjs
 `bench.mjs` scores lexical, vector and hybrid against the labels, sweeps the floor for each, and reports matched-silence operating points. Vector search is exact cosine in JavaScript, which is the upper bound any pgvector index approximates, so this measures quality and says nothing about operational cost.
 
 Embeddings are cached under `eval/embeddings/` and are not committed. Regenerate them with `embed.mjs`.
+
+## Deciding
+
+```bash
+node eval/embed-variants.mjs   # indexing variants
+node eval/decide.mjs
+```
+
+`decide.mjs` is the one that settles arguments. It reports 95% bootstrap intervals and paired differences, so a number only counts when its interval excludes zero. On 69 prompts most of the differences between vector configurations do not.
+
+It also tests the two things the earlier benches never did: whether the scope multipliers help, and what should actually go into the index.
+
+Read the conclusions in [docs/memory-v2-build.md](../docs/memory-v2-build.md) section 4.9.
+
+## Adding answerless prompts
+
+The floor rests on prompts that have no correct answer, and there are only six. That is not enough to fix a threshold on. Prompts that carry no topic, or a topic nothing in the corpus covers, are the most valuable thing you can add here.

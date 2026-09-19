@@ -442,13 +442,97 @@ Hybrid is the destination, not a deferred maybe. The build order does not change
 
 It also has to be pgvector **inside Supabase**, not a separate vector service. The scope multipliers in [§5.4](memory-v2.md) have to be applied inside the ranking, not after it. A separate service can only return top-K on raw similarity, so a memory that ranked 51st but would have won after a 3x touched-project boost is already discarded before the boost can run. One database, one round trip, one set of grants.
 
-### 4.9 Remaining search decisions
+### 4.9 Final numbers, with intervals
+
+`node eval/decide.mjs`. Everything below is a paired bootstrap over the 69 answerable prompts, 2000 resamples, 95% intervals.
+
+**Most of the differences I reported are not real.**
+
+```
+system                       nDCG@10       95% CI
+lexical (IDF sum)             0.420       [0.354, 0.483]
+vector all-minilm             0.534       [0.468, 0.594]
+vector nomic                  0.528       [0.463, 0.594]
+hybrid w=0.2 lex+nomic        0.539       [0.472, 0.600]
+hybrid w=0.3 lex+minilm       0.555       [0.492, 0.617]
+
+paired differences
+  hybrid w=0.3 lex+nomic - vector nomic             +0.010  [-0.008, 0.029]  NOISE
+  hybrid w=0.3 lex+nomic - hybrid w=0.3 lex+minilm  -0.018  [-0.052, 0.013]  NOISE
+  vector nomic - vector all-minilm                  -0.006  [-0.040, 0.031]  NOISE
+  vector nomic - lexical (IDF sum)                  +0.108  [ 0.057, 0.159]  real
+```
+
+One difference survives: **vectors beat lexical.** Hybrid over pure vector, one embedding model over the other, and one fusion weight over another are all inside the noise on 69 prompts. I reported 0.555 against 0.528 as though that meant something. It does not.
+
+That simplifies the build considerably. No fusion, no `lexeme_df` materialized view, no IDF function, no refresh strategy, and no second ranker to keep in sync. One vector index and one score. The lexical work in 4.3 to 4.5 stays valuable as the fallback when no embedding is available, not as half of the production ranker.
+
+**The scope multipliers are far too aggressive, and the big ones buy nothing.**
+
+A boost multiplies a score in [0,1], so it reorders globally rather than nudging. Measured against a session sitting in one repo, once where the boosted project is the one being asked about and once where it is not:
+
+```
+mult    right-project   wrong-project    break-even hit rate
+1.05           +0.048          -0.010    18% of prompts
+1.1            +0.077          -0.022    22% of prompts
+1.25           +0.080          -0.116    59% of prompts
+1.5            +0.076          -0.333    81% of prompts
+2.0            +0.073          -0.493    87% of prompts
+3.0            +0.073          -0.508    87% of prompts
+```
+
+**1.1 captures the entire benefit of 3.0 and costs a twentieth as much when wrong.** Above 1.25 the gain is flat and only the damage grows. [§5.4](memory-v2.md) specifies 3.0 for a touched project and 2.0 for a linked one, which would need 87% of prompts in a session to be about that project just to break even. On a corpus spanning a payments ledger, sourdough and knee rehab, they are not.
+
+**The closed-task demotion is contradicted by the labels.**
+
+```
+memories hanging off a closed task: 8.5% of the corpus, 11.4% of what the labels say is relevant
+```
+
+They are *more* likely to be wanted, not less, which makes sense: a task closing does not make what you learned during it irrelevant. The `0.7` in [§5.4](memory-v2.md) should go. The `[task · closed]` annotation from [§6.2](memory-v2.md) stays, because flagging possible staleness is a different thing from ranking lower.
+
+**What to embed: just the statement.**
+
+```
+statement+source - statement: +0.015  [-0.011, 0.041]  NOISE
+nomic/scoped (project prefix): 0.508, worse than plain statement
+```
+
+Prefixing the project name actively hurts. Storing `source` remains right for the audit trail in [§4.3](memory-v2.md), but it does not belong in the index.
+
+**The gate is a dial, and the corpus is too thin to fix its value.**
+
+```
+index         gate  limit  nDCG@10  covered  silent  median rows
+statement     0.50    5      0.472    68/69     1/6            5
+statement     0.55    5      0.412    63/69     5/6            3
+statement     0.60    5      0.310    43/69     6/6            1
+stmt+source   0.50    5      0.502    67/69     1/6            5
+stmt+source   0.55    5      0.467    65/69     3/6            5
+```
+
+Coverage and silence trade against each other smoothly, which is the behaviour you want from a threshold. But **silence is measured on six prompts**, and no constant should be fixed on six samples. Getting that number right needs more answerless prompts in the corpus, which is cheap to add and is the single most useful thing to do to this eval next.
+
+Given that, I would ship the looser end. An extra row the agent ignores costs a few tokens; a missing row costs the answer, and [§6.2](memory-v2.md)'s counts line already tells the agent how much it is looking at.
+
+**The recommendation, measured end to end:**
+
+```
+nomic-embed-text over statement, cosine gate 0.55, cap 5, 1.1 boost on the in-repo project
+nDCG@10 0.523 [0.458, 0.589]   covered 67/69   silent 3/6
+```
+
+One model, one index, one score, one threshold, one small boost. No fusion and no IDF.
+
+**Cost, measured on this machine.** `all-minilm` embeds a text in 7.6 ms and `nomic-embed-text` in 40 ms, both locally through ollama with nothing leaving the machine. Since the two are statistically indistinguishable on ranking, and `nomic` only won on gating with a threshold the corpus cannot yet pin down, `all-minilm` at 45 MB and 7.6 ms is the one I would start with and re-measure.
+
+### 4.10 Remaining search decisions
 
 - **Dictionary.** `english` stems `continue` to `continu` and drops stopwords. For a corpus with product names and slugs in it, `simple` keeps more and stems nothing. Probe both against a real corpus before fixing it, and store the choice in the generated column so it is one migration to change.
 - **`unaccent`.** Available. Not needed on day one.
 - **Rank function.** `ts_rank_cd` rewards proximity; `ts_rank` does not. Using `cd` because prompts are short.
 - **Combining the two signals.** `greatest()` is the cheap choice and it means a strong trigram hit can outrank a weak FTS hit. A weighted sum is the alternative. Tune against the log, not in advance.
-- **The floor rule.** Settled in 4.8: gate on cosine, not on any lexical score. Value around 0.55 for `nomic-embed-text`, to be re-measured per model and per corpus size.
+- **The floor rule.** Gate on cosine, per 4.8. The exact value is not settled and should not be, per 4.9: it rests on six answerless prompts. Add more before fixing a constant.
 - **Index.** GIN on the generated `tsvector`, plus GIN `gin_trgm_ops` on `statement`. Both were created and used in the probes.
 
 ---
@@ -787,7 +871,8 @@ Step 7 before step 9 is deliberate. Retrieval against a hand-saved corpus is tes
 | §5.8 | FTS because vectors cost more | also because `vector` is absent from PGlite, so a vector design is untestable in the harness that exists |
 | §6 hooks table | implies both hosts behave alike | needs the asymmetry table from section 3 |
 | §12 | does not mention router placement | it is the bigger open question, because it changes what Satchel promises about transcripts |
-| §11 deferred table | pgvector waits until "the injection log shows FTS missing things that can be pointed at" | hybrid is the destination, per 4.8. Lexical alone is 2.4x worse at matched silence on labelled data. FTS is step one because it needs no model, not because it is enough. |
+| §11 deferred table | pgvector waits until "the injection log shows FTS missing things that can be pointed at" | vectors are the destination, per 4.8 and 4.9. Lexical alone is 2.4x worse at matched silence. Hybrid is not justified: it is inside the noise against pure vector. |
+| §5.4 multipliers | 3.0 touched, 2.0 linked, 0.7 closed task | about 1.1, and no closed-task demotion. 4.9 measures 3.0 as needing an 87% hit rate to break even while buying nothing over 1.1, and the labels say closed-task memories are more relevant than average, not less. |
 | §8 settings | two settings | three. The rarity gate needs to be tunable or derived from corpus size. |
 
 ---
@@ -801,7 +886,7 @@ Step 7 before step 9 is deliberate. Retrieval against a hand-saved corpus is tes
 | Does an `mcp_tool` hook result reach the model as `additionalContext` on both hosts, or only a `command` hook's stdout? | The whole retrieval path in 7.3 depends on it. The current `SessionStart` `mcp_tool` hook suggests yes on both, but that is inference from our own code working, not a documented guarantee. | Same probe, both hosts, one `command` and one `mcp_tool` side by side. |
 | Does Codex's `UserPromptSubmit` fire on the first message of a session, before or after `SessionStart`? | Ordering decides whether the first prompt can be retrieved against. | Two hooks that append timestamps to a file. |
 | Real per-prompt latency for `retrieve_memory` over Vercel to Supabase | [§5.7](memory-v2.md) budgets ~100ms against Supermemory's 4s. Vercel cold starts are the risk, not Postgres. | Time it against a seeded database before committing to a 500ms timeout. |
-| Whether `all-minilm` or `nomic-embed-text` is the right model | 4.8. One ranks better and is 5x faster, the other gates cleanly, and gating is what the product needs. | Rerun `eval/bench.mjs` once the corpus grows. The gap is small enough that corpus size may decide it. |
+| Whether `all-minilm` or `nomic-embed-text` is the right model | 4.9 says the ranking difference is noise, so it comes down to the gate, which rests on six prompts. | Add answerless prompts to the corpus, then rerun `eval/decide.mjs`. |
 | Where the embedding call runs on the read path | It sits in front of every `UserPromptSubmit`. 7.6 ms local is fine; a network call is not. | Same decision as router placement in 5.5, and it should be made once for both. |
 
 Nothing in section 10 is blocked on these except step 3, which is the test itself.

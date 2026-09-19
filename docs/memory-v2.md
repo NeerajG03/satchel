@@ -273,15 +273,14 @@ Personal scope is not configurable. Turning it off breaks what the product is fo
 Retrieval searches everything the connection is authorized for, and weights by what is actually in play. All signals are free and computed in SQL.
 
 ```
-score = text_match
-        × 3.0   project touched this session   -- saved to, read from, or already
+score = similarity
+        × 1.1   project touched this session   -- saved to, read from, or already
                                                   returned a hit this session
-        × 2.0   project linked to this repo    -- deterministic, from the git remote
+        × 1.1   project linked to this repo    -- deterministic, from the git remote
         × 1.0   everything else
-        × 0.7   the memory's task is closed    -- demote, never exclude
 ```
 
-Weights are illustrative and want tuning against the injection log (section 8). The shape is the point: **a project earns its boost by being used, not by being guessed at.** The first mention of an unrelated project wins on text alone, and from then on it ranks higher because it has actually been touched.
+Weights were measured, not guessed, in the [build plan](memory-v2-build.md) section 4.9. An earlier draft used 3.0 and 2.0 with a 0.7 demotion for closed tasks. All three were wrong. A multiplier acts on a score in [0,1], so 3.0 reorders everything globally: it gains +0.073 when it points at the project you are asking about and loses 0.493 when it does not, which needs 87% of a session's prompts to be about that one project just to break even. 1.1 gains +0.077, the same benefit, and loses 0.022. The closed-task demotion is contradicted outright: memories hanging off closed tasks are 8.5% of the corpus and 11.4% of what human labelling calls relevant. The shape is the point: **a project earns its boost by being used, not by being guessed at.** The first mention of an unrelated project wins on text alone, and from then on it ranks higher because it has actually been touched.
 
 ### 5.5 Use cases, traced
 
