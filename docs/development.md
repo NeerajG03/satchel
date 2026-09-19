@@ -37,10 +37,6 @@ GitHub account login is identity-only and separate from optional GitHub task lin
 
 [GitHub provider setup](https://supabase.com/docs/guides/auth/social-login/auth-github), [PKCE flow](https://supabase.com/docs/guides/auth/sessions/pkce-flow), [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
-## Mac app
-
-The same companion builds as a native Mac app through Tauri. See [Mac companion](desktop.md) for the sign-in flow, the `satchel://` redirect URL Supabase needs, and how to build or download it.
-
 ## Cost and architecture
 
 Working choice: Vite/React on Vercel, Supabase PostgreSQL/Auth/Storage and a stateless MCP endpoint. Browser and MCP requests use RLS plus narrowly scoped database functions. Supabase is the authority for memory and tasks; private Storage holds task bytes.

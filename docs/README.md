@@ -10,7 +10,6 @@ Start with [The product](product.md). It explains what Satchel is for, what some
 |---|---|
 | [Product](product.md) | What is Satchel, who is it for, and what should it do? |
 | [Development setup](development.md) | How do we run, configure and verify the first web foundation? |
-| [Mac companion](desktop.md) | How does the same companion build, sign in and ship as a Mac app? |
 | [Hosted web pilot](checkpoints/hosted-web-pilot.md) | Where is the app deployed, how is login configured, and what was verified on production? |
 | [Plugin pilot design](plugin-pilot-design.md) | How should the Codex/Claude packages be distributed, connected, and tested before claiming automatic memory loading? |
 | [Agent setup](agent-setup.md) | How are the installed plugins connected, served, updated and revoked? What are the startup limits? |

@@ -20,8 +20,6 @@
 - Body: Keep the decisions, preferences and next steps that make a project yours. Write them once. Every connected AI app can read them.
 - Button: Continue with GitHub
 - Under button: GitHub is only used to sign you in. Satchel never asks for repository access here.
-- Mac app only, while waiting: button reads Waiting for GitHub in your browser… with a quiet Cancel beside it; under button adds: GitHub opens in your browser and brings you back to this app.
-- Mac app only, cancelled in browser: GitHub sign-in didn’t finish. It was cancelled in the browser. Nothing was created. Try again.
 - Side list: The book / Preferences and decisions you chose to save. Names and short descriptions form an index agents read first. · Tasks and handoffs / The exact next action and the evidence the last session left behind. · Projects / One effort, its repositories and the apps allowed to see it. · Apps / Each connected agent gets only the scopes you grant. Revoke any time.
 - Footer: Satchel · Private pilot — A little less repeating yourself
 

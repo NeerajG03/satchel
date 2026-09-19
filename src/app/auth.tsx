@@ -1,8 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { client } from '../client';
-import { isDesktop } from '../platform';
-import { focusDesktopWindow, handleDeepLink, listenForDeepLinks, openDesktopSignIn } from '../desktopAuth';
 
 type Auth = {
   db: SupabaseClient | null;
@@ -12,7 +10,6 @@ type Auth = {
   error: string;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
-  cancelSignIn: () => void;
 };
 
 const AuthContext = createContext<Auth | null>(null);
@@ -41,7 +38,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!client) return;
-    const db = client;
     let active = true;
     const cancelled = new URLSearchParams(location.search).has('error') || location.hash.includes('error=');
     client.auth.getSession().then(({ data, error: authError }) => {
@@ -54,33 +50,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (active) { setUser(session?.user ?? null); setReady(true); }
     });
     if (cancelled) setError('GitHub sign-in didn’t finish. It was cancelled or timed out. Nothing was created. Try again, or check that pop-ups are allowed.');
-    // The desktop shell receives the OAuth code through a satchel:// link instead of the page URL.
-    let unlisten: (() => void) | undefined;
-    if (isDesktop) {
-      listenForDeepLinks(url => {
-        handleDeepLink(db, url).then(outcome => {
-          if (!active || outcome.kind === 'ignored') return;
-          if (outcome.kind === 'signed-in') { setError(''); void focusDesktopWindow(); }
-          else if (outcome.kind === 'cancelled') setError('GitHub sign-in didn’t finish. It was cancelled in the browser. Nothing was created. Try again.');
-          else setError(outcome.message);
-          setBusy(false);
-        });
-      }).then(stop => { if (active) unlisten = stop; else stop(); })
-        .catch(() => { if (active) setError('This app could not register for sign-in links. Quit and reopen Satchel, then try again.'); });
-    }
-    return () => { active = false; subscription.unsubscribe(); unlisten?.(); };
+    return () => { active = false; subscription.unsubscribe(); };
   }, []);
 
   async function signIn() {
     if (!client) return;
     setBusy(true); setError('');
     try {
-      if (isDesktop) { await openDesktopSignIn(client); return; }
       const { error: oauthError } = await client.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: location.origin } });
       if (oauthError) throw oauthError;
     } catch { setError('GitHub sign-in is unavailable right now. Nothing was created. Try again in a moment.'); setBusy(false); }
   }
-  function cancelSignIn() { setBusy(false); }
   async function signOut() {
     if (!client) return;
     setBusy(true); setError('');
@@ -92,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     finally { setBusy(false); }
   }
 
-  return <AuthContext.Provider value={{ db: client, user, ready, busy, error, signIn, signOut, cancelSignIn }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ db: client, user, ready, busy, error, signIn, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): Auth {

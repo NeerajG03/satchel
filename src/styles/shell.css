@@ -12,7 +12,6 @@
 
 .top {
   height: 64px;
-  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -157,21 +156,3 @@
   .split { grid-template-columns: 1fr; }
   .split .seam { display: none; }
 }
-
-/* Desktop shell: the window is the frame. macOS traffic lights float over the header's left edge. */
-:root[data-desktop] body { background: var(--hw); }
-:root[data-desktop] body { overflow: hidden; }
-:root[data-desktop] .frame {
-  max-width: none;
-  height: 100vh;
-  min-height: 0;
-  margin: 0;
-  border-radius: 0;
-  box-shadow: none;
-  overflow: hidden;
-}
-/* Header and rail stay put; only the paper scrolls, so the traffic lights never cover the rail. */
-:root[data-desktop] .paper { overflow-y: auto; min-height: 0; box-shadow: var(--shadow-paper-inset); }
-:root[data-desktop] .rail { overflow-y: auto; }
-:root[data-desktop] .paper::before { display: none; } /* an absolute overlay would scroll away with the content */
-:root[data-desktop] .top { padding-left: 104px; user-select: none; -webkit-user-select: none; }
