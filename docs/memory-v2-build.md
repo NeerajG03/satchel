@@ -324,7 +324,7 @@ D A or C               75/75       4.07         3/3   right    right
 - **B** is the only rule that gets both benchmarks and leaks no vague prompt, at a third of the coverage.
 - **C and D** are broken by short prompts. `"go on"` carries a total information ceiling of 3.9, so matching `go` alone is 100% coverage and any ratio rule waves it through. Normalising by query length fails exactly where the floor matters most.
 
-**B looks best and I am not going to claim it is.** 34 of 75 could be precision or it could be blindness, and this corpus cannot tell those apart because it has no relevance labels. What is settled is that summed IDF ranks correctly and `ts_rank_cd` does not. The floor needs a labelled set, which is a small amount of human work on top of the corpus that already exists.
+**None of these is the answer.** The corpus has since been labelled and the floor measured properly, in 4.8. The short version: no threshold on a lexical score separates "no answer" from "found it" well enough to use, and a cosine threshold does. This whole subsection is kept because the reasoning is still how you would approach it if vectors were not available.
 
 For the record, at rule A the vague prompts do go quiet, which is the behaviour the design wants:
 
@@ -373,13 +373,82 @@ session start: 76 personal + 17 projects = 8158 chars, ~2147 tokens
 | Relevance labels over the existing corpus | the one piece of human work that turns the floor from a guess into a measurement |
 | The eval harness | committed at [eval/retrieval.mjs](../eval/retrieval.mjs) with [eval/corpus.json](../eval/corpus.json). `node eval/retrieval.mjs`. Not part of `npm test`, because it measures quality and quality is read, not asserted. |
 
-### 4.7 Remaining search decisions
+### 4.8 Lexical versus vectors, measured against labels
+
+Three agents independently labelled the 75 prompts against all 413 memories, with no knowledge of any retrieval method. Grade 2 means the assistant would be wrong without it, grade 1 means it would be better with it. They produced **227 grade-2 and 314 grade-1 judgements**, a median of 3 grade-2 per prompt, and agreed that **6 prompts have no correct answer at all**. Those 6 are the ones that decide the floor.
+
+Embeddings come from a local `ollama`, so nothing leaves the machine. Vector search in the bench is exact cosine in JavaScript, which is the upper bound any pgvector index approximates. That measures quality, not operational cost.
+
+**Ranking, ungated:**
+
+```
+system                             P@5   R@5    MRR  nDCG@10
+lexical (IDF sum)                  0.212 0.405 0.593   0.420
+vector all-minilm (384d)           0.290 0.538 0.718   0.534
+vector nomic-embed-text (768d)     0.290 0.547 0.701   0.528
+hybrid RRF  lex+all-minilm         0.296 0.567 0.728   0.532
+hybrid w=0.3 lex+all-minilm        0.310 0.582 0.752   0.555
+hybrid w=0.5 lex+all-minilm        0.296 0.550 0.705   0.525
+hybrid w=0.3 lex+nomic-embed-text  0.296 0.563 0.748   0.537
+```
+
+Vectors beat lexical on every measure. Hybrid at 30% lexical beats both. That ordering was not obvious to me and it is the opposite of what section 4.7 implies.
+
+**The floor, which is what the labels were for:**
+
+```
+lexical, floor on summed IDF          vector nomic-embed-text, floor on cosine
+floor  covered  silent   R@5          floor  covered  silent   R@5
+0        69/69     0/6  0.405         0.50     68/69     1/6  0.544
+6        51/69     2/6  0.335         0.55     63/69     5/6  0.486
+7        33/69     5/6  0.402         0.60     43/69     6/6  0.552
+8        26/69     6/6  0.442         0.65     28/69     6/6  0.558
+```
+
+To silence 5 of the 6 answerless prompts, lexical has to throw away half its answerable ones. Cosine at 0.55 silences the same 5 while keeping 63 of 69.
+
+**At matched silence, which is the only fair comparison:**
+
+```
+config                               P@5   R@5    MRR  nDCG@10   silence   covered
+nomic alone, gate 0.55               0.235 0.444 0.629   0.421      83%     63/69
+hybrid w=.3 lex+nomic, gate 0.55     0.235 0.444 0.646   0.427      83%     63/69
+hybrid w=.3 lex+mini,  gate 0.55     0.232 0.442 0.657   0.430      83%     61/69
+lexical only, gate idf>=7            0.090 0.192 0.360   0.181      83%     33/69
+```
+
+Metrics are over all 69 answerable prompts, so staying silent costs a config its score. Silence is not free here.
+
+**Lexical alone is 2.4x worse than hybrid at the same silence rate.** That is the number that settles it.
+
+**Three things I had wrong, and one of them I argued at you directly.**
+
+1. I said vectors do not solve the cutoff problem, they only move it, because cosine thresholds are unstable across query length. Measured on labelled data, cosine separates far more cleanly than a summed IDF does, because IDF sums grow with query length and cosine does not. That was my argument and it was backwards.
+2. I was dismissive of Supermemory hardcoding `0.55`. On this corpus with this model, 0.55 is almost exactly the right operating point. Their constant is not the mistake. Shipping a constant without ever measuring it is.
+3. I justified FTS-first partly because pgvector is absent from PGlite. That is a testing inconvenience being used as a product argument, and it does not survive a 2.4x quality gap.
+
+**The small model is as good as the big one, and faster.**
+
+| | size | dims | embed latency | best nDCG | thresholds cleanly |
+|---|---|---|---|---|---|
+| `all-minilm` | 45 MB | 384 | **7.6 ms** | **0.555** hybrid | no, scores compress |
+| `nomic-embed-text` | 274 MB | 768 | 40 ms | 0.537 hybrid | **yes**, clean at 0.55 |
+
+Measured on this machine over 488 texts. `all-minilm` ranks slightly better and is five times faster. `nomic` gates far better, and gating is what the product needs. Ranking by either and gating on nomic's cosine differ by 0.003 nDCG, so this is a real choice with a real tradeoff rather than one model dominating.
+
+**What changes in the plan.**
+
+Hybrid is the destination, not a deferred maybe. The build order does not change, because step 7 still ships FTS and FTS still works standalone with no model and no embedding call in front of every prompt. But the framing does: FTS is step one because it is independent, not because it is sufficient. Step 8 adds `vector`, the embedding call, and the cosine gate.
+
+It also has to be pgvector **inside Supabase**, not a separate vector service. The scope multipliers in [§5.4](memory-v2.md) have to be applied inside the ranking, not after it. A separate service can only return top-K on raw similarity, so a memory that ranked 51st but would have won after a 3x touched-project boost is already discarded before the boost can run. One database, one round trip, one set of grants.
+
+### 4.9 Remaining search decisions
 
 - **Dictionary.** `english` stems `continue` to `continu` and drops stopwords. For a corpus with product names and slugs in it, `simple` keeps more and stems nothing. Probe both against a real corpus before fixing it, and store the choice in the generated column so it is one migration to change.
 - **`unaccent`.** Available. Not needed on day one.
 - **Rank function.** `ts_rank_cd` rewards proximity; `ts_rank` does not. Using `cd` because prompts are short.
 - **Combining the two signals.** `greatest()` is the cheap choice and it means a strong trigram hit can outrank a weak FTS hit. A weighted sum is the alternative. Tune against the log, not in advance.
-- **The floor rule.** Open, per 4.6. Blocked on relevance labels, not on engineering.
+- **The floor rule.** Settled in 4.8: gate on cosine, not on any lexical score. Value around 0.55 for `nomic-embed-text`, to be re-measured per model and per corpus size.
 - **Index.** GIN on the generated `tsvector`, plus GIN `gin_trgm_ops` on `statement`. Both were created and used in the probes.
 
 ---
@@ -718,7 +787,7 @@ Step 7 before step 9 is deliberate. Retrieval against a hand-saved corpus is tes
 | §5.8 | FTS because vectors cost more | also because `vector` is absent from PGlite, so a vector design is untestable in the harness that exists |
 | §6 hooks table | implies both hosts behave alike | needs the asymmetry table from section 3 |
 | §12 | does not mention router placement | it is the bigger open question, because it changes what Satchel promises about transcripts |
-| §11 deferred table | pgvector waits until "the injection log shows FTS missing things that can be pointed at" | the trigger fired already, on a 413-memory corpus, and the miss is written down in 4.6. Still not first, but no longer speculative. |
+| §11 deferred table | pgvector waits until "the injection log shows FTS missing things that can be pointed at" | hybrid is the destination, per 4.8. Lexical alone is 2.4x worse at matched silence on labelled data. FTS is step one because it needs no model, not because it is enough. |
 | §8 settings | two settings | three. The rarity gate needs to be tunable or derived from corpus size. |
 
 ---
@@ -732,6 +801,7 @@ Step 7 before step 9 is deliberate. Retrieval against a hand-saved corpus is tes
 | Does an `mcp_tool` hook result reach the model as `additionalContext` on both hosts, or only a `command` hook's stdout? | The whole retrieval path in 7.3 depends on it. The current `SessionStart` `mcp_tool` hook suggests yes on both, but that is inference from our own code working, not a documented guarantee. | Same probe, both hosts, one `command` and one `mcp_tool` side by side. |
 | Does Codex's `UserPromptSubmit` fire on the first message of a session, before or after `SessionStart`? | Ordering decides whether the first prompt can be retrieved against. | Two hooks that append timestamps to a file. |
 | Real per-prompt latency for `retrieve_memory` over Vercel to Supabase | [§5.7](memory-v2.md) budgets ~100ms against Supermemory's 4s. Vercel cold starts are the risk, not Postgres. | Time it against a seeded database before committing to a 500ms timeout. |
-| Which floor rule to ship | Section 4.6. The four candidates disagree on real prompts, and coverage alone cannot separate precision from blindness. | Label relevance by hand over [eval/corpus.json](../eval/corpus.json), then rerun `eval/retrieval.mjs`. This is the only item here that needs judgement rather than a probe. |
+| Whether `all-minilm` or `nomic-embed-text` is the right model | 4.8. One ranks better and is 5x faster, the other gates cleanly, and gating is what the product needs. | Rerun `eval/bench.mjs` once the corpus grows. The gap is small enough that corpus size may decide it. |
+| Where the embedding call runs on the read path | It sits in front of every `UserPromptSubmit`. 7.6 ms local is fine; a network call is not. | Same decision as router placement in 5.5, and it should be made once for both. |
 
 Nothing in section 10 is blocked on these except step 3, which is the test itself.

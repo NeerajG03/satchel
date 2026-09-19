@@ -40,3 +40,23 @@ Referential rules the file holds to: every `project` and `task` is an existing s
 ## Adding to it
 
 Prompts are cheap to add and the most useful thing to add. Write what you would actually type, not what you think should match. A prompt that retrieves nothing is a result, not a bug.
+
+## Labels
+
+`labels.json` is the relevance gold standard: 227 grade-2 and 314 grade-1 judgements over the 75 prompts, produced by three agents working independently with no knowledge of any retrieval method.
+
+- **2** the assistant would be wrong, or would have to ask, without this memory
+- **1** genuinely useful, but the answer is not wrong without it
+
+Six prompts have no correct answer at all. Those six are what make the floor measurable: a system that returns something for them is injecting noise.
+
+## Comparing rankers
+
+```bash
+node eval/embed.mjs    # once, needs a local ollama, nothing leaves the machine
+node eval/bench.mjs
+```
+
+`bench.mjs` scores lexical, vector and hybrid against the labels, sweeps the floor for each, and reports matched-silence operating points. Vector search is exact cosine in JavaScript, which is the upper bound any pgvector index approximates, so this measures quality and says nothing about operational cost.
+
+Embeddings are cached under `eval/embeddings/` and are not committed. Regenerate them with `embed.mjs`.
