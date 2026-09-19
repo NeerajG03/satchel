@@ -371,7 +371,7 @@ session start: 76 personal + 17 projects = 8158 chars, ~2147 tokens
 | `m_score(query, vec)` returning `total` and `best` | migration C, replacing `ts_rank_cd` |
 | A floor, rule undecided | a third setting. Do not hardcode one until the labelled set exists. |
 | Relevance labels over the existing corpus | the one piece of human work that turns the floor from a guess into a measurement |
-| The eval harness | committed at [eval/retrieval.mjs](../eval/retrieval.mjs) with [eval/corpus.json](../eval/corpus.json). `node eval/retrieval.mjs`. Not part of `npm test`, because it measures quality and quality is read, not asserted. |
+| The eval harness | committed at [eval/](../eval/). `node eval/run.mjs`. Not part of `npm test`, because it measures quality and quality is read, not asserted. Its arithmetic *is* tested, in `tests/eval-metrics.test.mjs`. |
 
 ### 4.8 Lexical versus vectors, measured against labels
 
@@ -444,7 +444,7 @@ It also has to be pgvector **inside Supabase**, not a separate vector service. T
 
 ### 4.9 Final numbers, with intervals
 
-`node eval/decide.mjs`. Everything below is a paired bootstrap over the 69 answerable prompts, 2000 resamples, 95% intervals.
+`node eval/run.mjs`. Everything below is a paired bootstrap over the answerable prompts, 2000 resamples, 95% intervals, on the 413-memory / 75-prompt version of the corpus. Section 4.11 rerun it on the larger one.
 
 **Most of the differences I reported are not real.**
 
@@ -526,13 +526,105 @@ One model, one index, one score, one threshold, one small boost. No fusion and n
 
 **Cost, measured on this machine.** `all-minilm` embeds a text in 7.6 ms and `nomic-embed-text` in 40 ms, both locally through ollama with nothing leaving the machine. Since the two are statistically indistinguishable on ranking, and `nomic` only won on gating with a threshold the corpus cannot yet pin down, `all-minilm` at 45 MB and 7.6 ms is the one I would start with and re-measure.
 
-### 4.10 Remaining search decisions
+### 4.10 Rerun on a corpus built to break it
+
+Everything above ran on 413 memories and 75 prompts, of which **six** had no correct answer. Six is not enough to measure a threshold, so the corpus was grown deliberately against its own weak spots.
+
+It is now **473 memories and 159 prompts, 114 answerable and 45 answerless**, with 373 grade-2 and 537 grade-1 judgements. The additions were written by agents given the schema and the gaps, and no knowledge of the retrieval design:
+
+- 60 memories in the shapes the set was missing: `supersession` (a newer memory contradicting an older one), `near-duplicate` (the same fact for a different project, so fetching the wrong one is a real error), `identifier`, `very-short`, `numeric`, `people`, `task-dependent`, `half-opinion`.
+- 84 prompts: 40 hard but answerable (`paraphrase`, `identifier`, `code-mixed` Hinglish, `typo`, `rambling`, `style-only`, `cross-domain`, `temporal`) and 44 with no answer at all, including **13 lexical traps** that share strong vocabulary with a memory while meaning something unrelated.
+
+Adding memories invalidated existing labels, so the older prompts were rechecked against the new rows. **14 of them had gained a correct answer** they were not credited for. An eval that skips that step quietly measures the wrong thing.
+
+**Gating is no longer marginal, it is the whole game.**
+
+```
+system                         utility     95% CI   nDCG    R@5    MRR   cover   silent
+lexical (IDF)                   0.316  [0.265, 0.365]  0.440  0.462  0.600  113/114    0/45
+vector all-minilm               0.389  [0.336, 0.442]  0.543  0.564  0.709  114/114    0/45
+vector nomic stmt+source        0.396  [0.341, 0.449]  0.552  0.570  0.738  114/114    0/45
+hybrid .3 lex+minilm            0.400  [0.345, 0.453]  0.558  0.592  0.718  114/114    0/45
+all-minilm + boost + gate       0.515  [0.453, 0.577]  0.367  0.405  0.592   80/114   40/45
+nomic + boost + gate            0.545  [0.488, 0.607]  0.454  0.488  0.654   92/114   35/45
+nomic s+s + boost + gate        0.588  [0.532, 0.644]  0.487  0.543  0.716   99/114   38/45
+```
+
+With six answerless prompts, gating looked like a wash. With 45 it is worth about 0.19 utility, which is larger than every other difference in this document put together.
+
+**Two conclusions in 4.9 were artifacts of the small corpus.** Both were reported as settled and both were wrong:
+
+```
+paired on utility against the winner, nomic s+s + boost + gate
+  all-minilm + boost + gate        -0.073 [-0.115, -0.031]  worse
+  nomic + boost + gate             -0.043 [-0.074, -0.015]  worse
+```
+
+1. Embedding `statement+source` was called noise against `statement` alone. On 159 prompts it is a real +0.043. The extra text is the user's own phrasing, which is closer to how they later ask.
+2. `all-minilm` was recommended as indistinguishable and five times faster. It is now significantly worse, by 0.073.
+
+On 69 prompts neither difference cleared the noise floor. Both do now. The lesson is about the eval, not the models: an interval that includes zero means the corpus cannot tell, not that there is nothing there.
+
+**The calibrated gate is per model, and it moves with the objective.**
+
+```
+all-minilm/statement       gate 0.43
+nomic/statement            gate 0.61
+nomic/statement+source     gate 0.62
+```
+
+A shared constant would be wrong by 0.2 cosine across these three. `run.mjs` derives it from the labels rather than taking a literal, so it re-derives when the corpus grows.
+
+**Where it is still weak, by slice:**
+
+```
+slice                  n   nDCG@10   cover   silent
+temporal                 3     0.940      3/3        -
+code-mixed               5     0.811      5/5        -
+typo                     5     0.759      5/5        -
+identifier               5     0.757      5/5        -
+rambling                 4     0.679      4/4        -
+paraphrase               9     0.467      8/9        -
+cross-domain             3     0.410      3/3        -
+style-only               6     0.174      5/6        -
+fresh-topic              8     0.000      0/4      4/4
+lexical-trap            13     0.000      0/1    10/12
+continuation             7         -        -      6/7
+uncovered                8         -        -      5/8
+```
+
+Typos, Hinglish and identifier lookups are handled well, which I did not expect from an embedding model and would not have believed without measuring. Paraphrase, the case vectors exist for, sits mid-table at 0.467.
+
+**The worst slice is the one the design already predicted.** `style-only` prompts, where the only relevant memories are standing writing rules, score 0.174. [§5.2](memory-v2.md) argued exactly this: a standing preference is relevant by category of activity, and similarity measures topic overlap, so the rules the user cares about most are the ones retrieval is worst at.
+
+Loading them instead of retrieving them fixes it:
+
+```
+style-only prompts, n=6
+  retrieval alone                       nDCG 0.174
+  with personal memories already loaded nDCG 0.772   (86 rows, once per session)
+```
+
+A 4.4x difference. This is the measurement behind [§5.3](memory-v2.md), and it is why personal scope is not a setting.
+
+Two leaks remain, both honest failures: 2 of 12 lexical traps and 3 of 8 uncovered prompts get an answer they should not. And `fresh-topic` covers 0 of 4, which is the gate being too strict on a subject the corpus barely touches.
+
+**The recommendation, which is what [eval/baseline.json](../eval/baseline.json) now holds:**
+
+```
+nomic-embed-text over statement + source, cosine gate 0.62, 1.1 in-repo boost, cap 5
+utility 0.588 [0.532, 0.644]   covered 99/114   silent 38/45
+```
+
+Plus all personal memories loaded at session start, without which the style-only slice collapses.
+
+### 4.11 Remaining search decisions
 
 - **Dictionary.** `english` stems `continue` to `continu` and drops stopwords. For a corpus with product names and slugs in it, `simple` keeps more and stems nothing. Probe both against a real corpus before fixing it, and store the choice in the generated column so it is one migration to change.
 - **`unaccent`.** Available. Not needed on day one.
 - **Rank function.** `ts_rank_cd` rewards proximity; `ts_rank` does not. Using `cd` because prompts are short.
 - **Combining the two signals.** `greatest()` is the cheap choice and it means a strong trigram hit can outrank a weak FTS hit. A weighted sum is the alternative. Tune against the log, not in advance.
-- **The floor rule.** Gate on cosine, per 4.8. The exact value is not settled and should not be, per 4.9: it rests on six answerless prompts. Add more before fixing a constant.
+- **The floor rule.** Gate on cosine, per 4.8. The value is **per model**, not a shared constant: `all-minilm` calibrates to 0.28 and `nomic-embed-text` to 0.56 on the same data, and applying nomic's threshold to minilm collapses coverage from 67 to 22 of 69. The harness now calibrates it from the labels rather than taking a literal.
 - **Index.** GIN on the generated `tsvector`, plus GIN `gin_trgm_ops` on `statement`. Both were created and used in the probes.
 
 ---

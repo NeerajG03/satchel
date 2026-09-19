@@ -1,0 +1,86 @@
+{
+ "generated": "2026-09-19",
+ "corpus": {
+  "memories": 473,
+  "prompts": 159,
+  "edgeCases": 60,
+  "answerable": 114,
+  "answerless": 45,
+  "grade2": 373,
+  "grade1": 537
+ },
+ "primary": "nomic s+s + boost + gate",
+ "gates": {
+  "all-minilm/statement": 0.43,
+  "nomic/statement": 0.61,
+  "nomic/statement+source": 0.62
+ },
+ "cap": 5,
+ "boost": 1.1,
+ "systems": {
+  "lexical (IDF)": {
+   "utility": 0.3157,
+   "ndcg": 0.4403,
+   "r5": 0.4617,
+   "mrr": 0.5996,
+   "covered": 113,
+   "silent": 0
+  },
+  "vector all-minilm": {
+   "utility": 0.3892,
+   "ndcg": 0.5428,
+   "r5": 0.5643,
+   "mrr": 0.7089,
+   "covered": 114,
+   "silent": 0
+  },
+  "vector nomic": {
+   "utility": 0.386,
+   "ndcg": 0.5383,
+   "r5": 0.557,
+   "mrr": 0.6958,
+   "covered": 114,
+   "silent": 0
+  },
+  "vector nomic stmt+source": {
+   "utility": 0.3956,
+   "ndcg": 0.5518,
+   "r5": 0.5701,
+   "mrr": 0.7378,
+   "covered": 114,
+   "silent": 0
+  },
+  "hybrid .3 lex+minilm": {
+   "utility": 0.4002,
+   "ndcg": 0.5582,
+   "r5": 0.592,
+   "mrr": 0.7182,
+   "covered": 114,
+   "silent": 0
+  },
+  "all-minilm + boost + gate": {
+   "utility": 0.5147,
+   "ndcg": 0.367,
+   "r5": 0.4053,
+   "mrr": 0.5921,
+   "covered": 80,
+   "silent": 40
+  },
+  "nomic + boost + gate": {
+   "utility": 0.5453,
+   "ndcg": 0.4535,
+   "r5": 0.4877,
+   "mrr": 0.6535,
+   "covered": 92,
+   "silent": 35
+  },
+  "nomic s+s + boost + gate": {
+   "utility": 0.5879,
+   "ndcg": 0.4867,
+   "r5": 0.5433,
+   "mrr": 0.7164,
+   "covered": 99,
+   "silent": 38
+  }
+ }
+}
