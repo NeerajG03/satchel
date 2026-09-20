@@ -11,7 +11,11 @@ for await (const chunk of process.stdin) {
 try {
   const event=JSON.parse(input);
   if(typeof event.session_id!=='string'||!/^[a-z0-9_-]{1,200}$/i.test(event.session_id))process.exit(0);
-  if(!['SessionStart','PostCompact'].includes(event.hook_event_name))process.exit(0);
+  // SessionStart only. Codex cannot emit additionalContext from PostCompact, so
+  // both packages handle compaction through the SessionStart compact source.
+  // Per-prompt retrieval is an mcp_tool hook and never reaches this script, so
+  // the prompt is not read here and cannot be.
+  if(event.hook_event_name!=='SessionStart')process.exit(0);
   let repository=null;
   try {
     const cwd=typeof event.cwd==='string'&&event.cwd.length<=4096?event.cwd:process.cwd();

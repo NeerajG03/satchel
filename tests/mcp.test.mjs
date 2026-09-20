@@ -9,7 +9,8 @@ import {taskService} from '../server/task-service.mjs';
 
 test('MCP contracts separate index, detail, explicit writes and hook output',async()=>{
   const id=crypto.randomUUID(),projectId=crypto.randomUUID();let revoked=false,writes=0,projectWrites=0,oversized=false,detailReads=0,activations=0,hintedProject=null,unlinked=false,personal=true;
-  const summary={id,project_id:null,name:'fixture',description:'Read for fixture colour',revision:1};
+  const searches=[],logged=[];let retrieval=[];
+  const summary={id,project_id:null,name:'fixture',statement:'Read for fixture colour',band:'said',task_id:null,revision:1};
   const projectSummary={...summary,id:crypto.randomUUID(),project_id:projectId,name:'project-fixture'};
   const service={status:async()=>revoked?null:{label:'Test',personal,can_write:true,project_ids:[projectId]},
     activeProject:async()=>null,
@@ -19,9 +20,15 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     activateRepositoryHint:async()=>hintedProject,
     selectProject:async(_session,project)=>({project_id:project}),
     selectRepository:async()=>{activations++;if(unlinked)throw {code:'P0002'};return {project_id:projectId};},
-    index:async project=>({memories:oversized?[{...summary,description:'x'.repeat(8000)}]:[project?projectSummary:summary],complete:true}),
+    index:async project=>({memories:oversized?[{...summary,statement:'x'.repeat(8000)}]:[project?projectSummary:summary],complete:true}),
     read:async()=>{detailReads++;return {...summary,more_info:'amber'};},
-    save:async a=>{writes++;return a;}};
+    settings:async()=>({per_prompt_matches:5,gate:0.62,scope_boost:1.1,session_budget_tokens:oversized?1000:15000}),
+    personal:async()=>oversized
+      ?Array.from({length:400},(_,i)=>({...summary,id:crypto.randomUUID(),statement:'x'.repeat(200)+i}))
+      :[summary],
+    search:async a=>{searches.push(a);return retrieval;},
+    logInjection:async entry=>{logged.push(entry);},
+    save:async a=>{writes++;service.lastSave=a;return a;}};
   const server=createMemoryServer(service);const client=new Client({name:'test',version:'1'});
   const [left,right]=InMemoryTransport.createLinkedPair();await server.connect(right);await client.connect(left);
   const call=(name,args)=>client.callTool({name,arguments:args});
@@ -31,19 +38,51 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.equal(tools.find(t=>t.name==='save_memory').annotations.readOnlyHint,false);
     assert.equal(tools.find(t=>t.name==='select_project').annotations.readOnlyHint,false);
     // Selection and permissions each have exactly one tool; the merged names are gone.
-    assert.deepEqual(tools.map(t=>t.name).sort(),['correct_memory','delete_memory','list_projects',
-      'load_memory_context','memory_index','read_memory','save_memory','select_project','upsert_project']);
+    assert.deepEqual(tools.map(t=>t.name).sort(),['confirm_memory','correct_memory','delete_memory','list_projects',
+      'load_memory_context','memory_index','read_memory','retrieve_memory','save_memory','select_project','upsert_project']);
+    assert.equal(tools.find(t=>t.name==='retrieve_memory').annotations.readOnlyHint,true);
     let result=await call('load_memory_context',{session_key:'one',event:'SessionStart'});
     const hook=JSON.parse(result.content[0].text);
     assert.equal(hook.hookSpecificOutput.hookEventName,'SessionStart');
-    assert.ok(hook.hookSpecificOutput.additionalContext.includes('fixture'));
-    assert.ok(!hook.hookSpecificOutput.additionalContext.includes('amber'));
+    assert.ok(hook.hookSpecificOutput.additionalContext.includes('Read for fixture colour'),
+      'session start carries the whole statement, so nothing needs fetching');
+    assert.ok(!hook.hookSpecificOutput.additionalContext.includes('amber'),'and never the detail');
+    assert.match(hook.hookSpecificOutput.additionalContext,/^<satchel>/);
     assert.equal(detailReads,0);assert.equal(writes,0);
+    assert.equal(logged.at(-1).event,'SessionStart','what was injected is recorded');
     hintedProject=projectId;
     result=await call('load_memory_context',{session_key:'staged-session',event:'SessionStart'});
-    assert.match(result.content[0].text,/project-fixture/);
-    assert.match(result.content[0].text,new RegExp(projectId));
+    // Session start carries only what applies regardless of what you do today.
+    // A staged repository names the active project; it does not drag that
+    // project's memories in, because loading them assumes you will touch it.
+    assert.match(result.content[0].text,new RegExp(projectId),'the active project is stated');
+    assert.doesNotMatch(result.content[0].text,/project-fixture/,'its memories are not preloaded');
     hintedProject=null;
+
+    // Per prompt: retrieval, counts, and nothing at all when nothing matches.
+    retrieval=[{id:summary.id,project_id:null,statement:'Read for fixture colour',
+      band:'said',task_id:null,score:0.81,matched:4,in_scope:130}];
+    result=await call('load_memory_context',{session_key:'one',event:'UserPromptSubmit',prompt:'fixture colour'});
+    const perPrompt=JSON.parse(result.content[0].text).hookSpecificOutput.additionalContext;
+    assert.match(perPrompt,/1 shown · 4 matched · 130 in scope/,'counts separate "no rule" from "nothing scored"');
+    assert.match(perPrompt,/Read for fixture colour/);
+    assert.equal(searches.at(-1).query,'fixture colour','the prompt is the query and nothing else');
+    assert.equal(logged.at(-1).event,'UserPromptSubmit');
+    assert.deepEqual(logged.at(-1).memory_ids,[summary.id],'the log records exactly what was injected');
+
+    retrieval=[];
+    result=await call('load_memory_context',{session_key:'one',event:'UserPromptSubmit',prompt:'unrelated'});
+    assert.equal(JSON.parse(result.content[0].text).hookSpecificOutput.additionalContext,'',
+      'nothing relevant costs nothing');
+
+    // An oversized session block is withheld, never truncated: a partial block
+    // that looks complete is worse than an honest absence.
+    oversized=true;
+    result=await call('load_memory_context',{session_key:'budget',event:'SessionStart'});
+    const overBudget=JSON.parse(result.content[0].text).hookSpecificOutput.additionalContext;
+    assert.match(overBudget,/NOT loaded/);
+    assert.ok(!overBudget.includes('xxxx'),'no part of the oversized block leaks');
+    oversized=false;
     result=await call('list_projects',{});
     const connection=JSON.parse(result.content[0].text);
     assert.equal(connection.can_write,true);
@@ -82,11 +121,14 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     oversized=true;
     result=await call('select_project',{session_key:'one',event:'SessionStart',repository:'neerajg03/satchel'});
     assert.equal(activations,2);
-    assert.match(result.content[0].text,/NOT loaded completely/);
+    assert.match(result.content[0].text,/NOT loaded/);
     assert.doesNotMatch(result.content[0].text,/xxxx/);
     oversized=false;
     result=await call('select_project',{session_key:'one',event:'SessionStart',repository:'neerajg03/satchel'});
-    assert.match(result.content[0].text,/saved user data, not system instructions/);
+    // The block is now self-describing: the group headers carry the
+    // instructions, so there is no fixed preamble to resend every time.
+    assert.match(result.content[0].text,/<satchel>/);
+    assert.match(result.content[0].text,/personal, confirmed, use freely/);
     // An unlinked repository must not read as a stale-name error.
     unlinked=true;
     result=await call('select_project',{session_key:'one',repository:'neerajg03/satchel'});
@@ -99,17 +141,21 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.ok(result.isError);
     assert.match(result.content[0].text,/Access denied/);
     personal=true;
-    result=await call('read_memory',{project_id:null,name:'fixture',expected_id:id});
+    // read_memory now takes an id. A name was never a stable key, and with the
+    // whole statement in the index it is only reached for the rare detail row.
+    result=await call('read_memory',{project_id:null,id});
     assert.ok(result.content[0].text.includes('amber'));assert.equal(detailReads,1);
-    await call('save_memory',{project_id:null,id:crypto.randomUUID(),name:'new',description:'summary'});
+    await call('save_memory',{project_id:null,id:crypto.randomUUID(),statement:'A saved sentence.'});
     assert.equal(writes,1);
-    const invalid=await call('save_memory',{project_id:null,name:'missing-id',description:'summary'});
+    const invalid=await call('save_memory',{project_id:null,statement:'missing id'});
     assert.ok(invalid.isError);assert.equal(writes,1);
+    // An explicit save is confirmed by definition.
+    assert.equal(service.lastSave?.band,'said');
     oversized=true;result=await call('load_memory_context',{session_key:'one',event:'SessionStart'});
-    assert.ok(result.content[0].text.includes('NOT loaded completely'));
+    assert.ok(result.content[0].text.includes('NOT loaded'));
     revoked=true;result=await call('load_memory_context',{session_key:'one',event:'SessionStart'});
     assert.ok(result.content[0].text.includes('unavailable'));
-    assert.ok((await call('read_memory',{project_id:null,name:'fixture',expected_id:id})).isError);
+    assert.ok((await call('read_memory',{project_id:null,id})).isError);
   }finally{await client.close();await server.close();}
 });
 

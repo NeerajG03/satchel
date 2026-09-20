@@ -52,23 +52,39 @@ test('built packages stay in sync with their shared sources',()=>{
       assert.equal(readFileSync(new URL(`../integrations/${host}/satchel/${built}`,import.meta.url),'utf8'),shared(source),
         `integrations/${host}/satchel/${built} is stale; run node scripts/build-plugins.mjs`);
 });
-test('installed package definitions load only at new conversation or compaction',()=>{
+test('installed packages retrieve per prompt and reload on every fresh context',()=>{
   for(const host of ['codex','claude']) {
     const {mcpServers}=JSON.parse(readFileSync(new URL(`../integrations/${host}/satchel/.mcp.json`,import.meta.url)));
     assert.equal(mcpServers.satchel.required,host==='codex'?true:undefined);
     const {hooks}=JSON.parse(readFileSync(new URL(`../integrations/${host}/satchel/hooks/hooks.json`,import.meta.url)));
-    assert.equal(hooks.UserPromptSubmit,undefined);
     const handlers=source=>hooks.SessionStart.filter(entry=>new RegExp(entry.matcher).test(source)).flatMap(entry=>entry.hooks);
-    assert.equal(handlers('resume').length,0);
-    assert.ok(handlers('startup').some(h=>h.type==='command'));
-    assert.ok(handlers('clear').some(h=>h.type==='mcp_tool'));
-    if(host==='claude') {
-      assert.ok(!handlers('startup').some(h=>h.type==='mcp_tool'));
-      assert.ok(handlers('compact').some(h=>h.type==='mcp_tool'));
-    } else {
-      assert.equal(handlers('compact').length,0);
-      assert.ok(hooks.SessionStart.some(entry=>entry.hooks.some(h=>h.type==='command'&&h.command.includes('${PLUGIN_ROOT}'))));
-      assert.ok(hooks.PostCompact.some(entry=>entry.hooks.some(h=>h.type==='mcp_tool')));
+
+    // Every way a context starts fresh loads the session block, resume
+    // included. It was excluded while a whole index loaded; with retrieval the
+    // block is small and a resumed session may be days stale.
+    for(const source of ['startup','clear','compact','resume']) {
+      assert.ok(handlers(source).some(h=>h.type==='command'),`${host}: no bootstrap on ${source}`);
+      assert.ok(handlers(source).some(h=>h.type==='mcp_tool'),`${host}: no memory load on ${source}`);
     }
+
+    // Codex cannot emit additionalContext from PostCompact, so a hook there
+    // would never reach the model. Compaction goes through SessionStart on
+    // both hosts instead.
+    assert.equal(hooks.PostCompact,undefined,`${host}: PostCompact cannot inject and must not be configured`);
+
+    // Retrieval runs on every prompt rather than waiting for the model to ask.
+    const [perPrompt]=hooks.UserPromptSubmit.flatMap(entry=>entry.hooks);
+    assert.equal(perPrompt.type,'mcp_tool');
+    assert.equal(perPrompt.input.event,'UserPromptSubmit');
+    assert.equal(perPrompt.input.session_key,'${session_id}');
+    // The field carrying the user's text is named differently per host.
+    assert.equal(perPrompt.input.prompt,host==='claude'?'${user_prompt}':'${prompt}');
+    assert.ok(perPrompt.timeout<=5,'a hook that delays the prompt is worse than one that misses');
+
+    const root=host==='codex'?'${PLUGIN_ROOT}':'${CLAUDE_PLUGIN_ROOT}';
+    assert.ok(hooks.SessionStart.some(entry=>entry.hooks.some(h=>h.type==='command'&&h.command.includes(root))));
+    // Only the lifecycle hook is a local command, and it never sees a prompt.
+    assert.ok(hooks.UserPromptSubmit.every(entry=>entry.hooks.every(h=>h.type!=='command')),
+      `${host}: the prompt must not be handed to a local script`);
   }
 });

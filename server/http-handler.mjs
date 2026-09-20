@@ -3,6 +3,7 @@ import {createClient} from '@supabase/supabase-js';
 import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {createMemoryServer} from './mcp-server.mjs';
 import {memoryService} from './memory-service.mjs';
+import {createEmbedder} from './embedding.mjs';
 import {taskService} from './task-service.mjs';
 
 export const RESOURCE='https://satchel-pi.vercel.app/api/mcp';
@@ -15,6 +16,13 @@ export async function verifyAgentToken(token,verificationKeys=keys) {
   if (typeof payload.client_id!=='string'||typeof payload.satchel_grant_id!=='string') throw Error('Missing grant');
   return payload;
 }
+// Built once per process rather than per request. A missing or misconfigured
+// embedder is not fatal: saves still work and retrieval reports itself
+// unavailable, which is the same degradation as the service being down.
+let embedder=null;
+try { embedder=createEmbedder(); }
+catch { /* retrieve_memory will report itself unavailable */ }
+
 export async function handleMcp(req,res) {
   res.setHeader('Cache-Control','no-store');
   res.setHeader('Access-Control-Allow-Origin','*');
@@ -28,7 +36,7 @@ export async function handleMcp(req,res) {
   const key=process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if(!key){res.writeHead(503);return res.end('Server configuration unavailable');}
   const db=createClient(SUPABASE_URL,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{headers:{Authorization:`Bearer ${token}`}}});
-  const service=memoryService(db);
+  const service=memoryService(db,embedder);
   service.tasks=taskService(db,service.status);
   try {
     if(!await service.status()){res.writeHead(403);return res.end('Connection revoked or unavailable');}

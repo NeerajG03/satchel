@@ -9,7 +9,7 @@
             "timeout": 5
           }
         ],
-        "matcher": "^(startup|clear|compact)$"
+        "matcher": "^(startup|clear|compact|resume)$"
       },
       {
         "hooks": [
@@ -24,7 +24,24 @@
             "timeout": 10
           }
         ],
-        "matcher": "^(clear|compact)$"
+        "matcher": "^(startup|clear|compact|resume)$"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:satchel:satchel",
+            "tool": "load_memory_context",
+            "input": {
+              "session_key": "${session_id}",
+              "event": "UserPromptSubmit",
+              "prompt": "${user_prompt}"
+            },
+            "timeout": 5
+          }
+        ]
       }
     ]
   }

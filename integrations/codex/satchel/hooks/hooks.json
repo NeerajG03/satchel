@@ -9,7 +9,7 @@
             "timeout": 5
           }
         ],
-        "matcher": "^(startup|clear)$"
+        "matcher": "^(startup|clear|compact|resume)$"
       },
       {
         "hooks": [
@@ -21,22 +21,14 @@
               "session_key": "${session_id}",
               "event": "SessionStart"
             },
-            "timeout": 10
+            "timeout": 10,
+            "additionalContextLimit": 6000
           }
         ],
-        "matcher": "^(startup|clear)$"
+        "matcher": "^(startup|clear|compact|resume)$"
       }
     ],
-    "PostCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${PLUGIN_ROOT}/scripts/bootstrap.mjs\"",
-            "timeout": 5
-          }
-        ]
-      },
+    "UserPromptSubmit": [
       {
         "hooks": [
           {
@@ -45,9 +37,11 @@
             "tool": "load_memory_context",
             "input": {
               "session_key": "${session_id}",
-              "event": "PostCompact"
+              "event": "UserPromptSubmit",
+              "prompt": "${prompt}"
             },
-            "timeout": 10
+            "timeout": 5,
+            "additionalContextLimit": 2000
           }
         ]
       }

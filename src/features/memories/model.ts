@@ -13,21 +13,32 @@ export function scopeProjectId(scope: MemoryScope): string | null {
   }
 }
 
-export type MemoryContent = { name: string; description: string; more_info: string };
-export const EMPTY_CONTENT: MemoryContent = { name: '', description: '', more_info: '' };
-export const MEMORY_LIMITS = { name: 100, description: 280, more_info: 40000 } as const;
+// A memory is one sentence. `source` is what the user actually typed and is
+// kept for provenance; it is never shown to an agent. `band` records whether
+// the user confirmed it or it was picked up in passing.
+export type MemoryBand = 'said' | 'heard';
+export type MemoryContent = { statement: string; name: string; more_info: string };
+export const EMPTY_CONTENT: MemoryContent = { statement: '', name: '', more_info: '' };
+export const MEMORY_LIMITS = { statement: 500, name: 100, more_info: 40000 } as const;
+
 export type MemorySummary = {
-  id: string; project_id: string | null; name: string; description: string;
+  id: string; project_id: string | null; statement: string; band: MemoryBand;
+  task_id: string | null; name: string | null; has_more_info: boolean;
   revision: number; updated_at: string;
 };
-export type Memory = MemorySummary & { more_info: string; created_at: string };
+export type Memory = MemorySummary & { source: string; more_info: string; created_at: string };
+
+// Six characters is what the agent sees, so it is what the user should see when
+// they want to talk about a particular row.
+export const handleOf = (id: string) => id.replace(/-/g, '').slice(0, 6);
 
 export function memorySummary(memory: Memory): MemorySummary {
-  const { id, project_id, name, description, revision, updated_at } = memory;
-  return { id, project_id, name, description, revision, updated_at };
+  const { id, project_id, statement, band, task_id, name, revision, updated_at } = memory;
+  return { id, project_id, statement, band, task_id, name, revision, updated_at,
+    has_more_info: Boolean(memory.more_info?.trim()) };
 }
 
 export function replaceSummary(memories: MemorySummary[], memory: Memory): MemorySummary[] {
   return [...memories.filter(item => item.id !== memory.id), memorySummary(memory)]
-    .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()) || a.id.localeCompare(b.id));
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id));
 }

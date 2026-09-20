@@ -1,9 +1,23 @@
+import {indexedText, toVectorLiteral} from './embedding.mjs';
+
 // Request-scoped adapter. RLS remains authoritative even for direct RPC calls.
-export function memoryService(db) {
+export function memoryService(db, embedder = null) {
   async function result(query) {
     const {data,error} = await query.abortSignal(AbortSignal.timeout(8000));
     if (error) throw error;
     return data;
+  }
+  // A row is only searchable once embedded. Embedding failure leaves the row
+  // saved and unsearchable rather than losing the write, because the user asked
+  // for the memory, not for the index entry.
+  async function embedRow(row) {
+    if (!embedder || !row?.id) return;
+    try {
+      const vector=await embedder.embedOne(indexedText(row));
+      await result(db.from('memories').update({
+        embedding:toVectorLiteral(vector),embedding_model:embedder.model,embedded_at:new Date().toISOString(),
+      }).eq('id',row.id));
+    } catch { /* Retrievable later by the backfill; the memory itself is saved. */ }
   }
   async function requireScope(projectId, write=false) {
     if (!await result(db.rpc('agent_can_access',{p_project_id:projectId,p_write:write})))
@@ -40,23 +54,65 @@ export function memoryService(db) {
       if(error)throw error;
       return {memories:rows,complete:count!==null&&count===rows.length&&rows.length<501};
     },
-    async read(projectId,name,id) {
+    async read(projectId,id) {
       await requireScope(projectId);
-      const row=await result(db.rpc('read_memory',{p_project_id:projectId,p_name:name}));
-      if (!row || (id && row.id!==id)) throw {code:'P0002'};
+      const row=await result(db.rpc('read_memory',{p_project_id:projectId,p_id:id}));
+      if (!row) throw {code:'P0002'};
       return row;
     },
     async save(args) {
       await requireScope(args.project_id,true);
-      return result(db.rpc('save_memory',{p_id:args.id,p_project_id:args.project_id,
-        p_name:args.name,p_description:args.description,p_more_info:args.more_info}));
+      const row=await result(db.rpc('save_memory',{p_id:args.id,p_project_id:args.project_id,
+        p_statement:args.statement,p_source:args.source??'',p_band:args.band??'said',
+        p_task_id:args.task_id??null,p_name:args.name??null,p_more_info:args.more_info??''}));
+      await embedRow(row);
+      return row;
     },
     async correct(args) {
       await requireScope(args.project_id,true);
       const row=await result(db.from('memories').select('id,project_id').eq('id',args.id).maybeSingle());
       if (!row || row.project_id!==args.project_id) throw {code:'P0002'};
-      return result(db.rpc('correct_memory',{p_id:args.id,p_revision:args.revision,
-        p_name:args.name,p_description:args.description,p_more_info:args.more_info}));
+      const updated=await result(db.rpc('correct_memory',{p_id:args.id,p_revision:args.revision,
+        p_statement:args.statement,p_name:args.name??null,p_more_info:args.more_info??''}));
+      await embedRow(updated);
+      return updated;
+    },
+    async confirm(args) {
+      await requireScope(args.project_id,true);
+      return result(db.rpc('confirm_memory',{p_id:args.id,p_revision:args.revision}));
+    },
+    // Retrieval embeds the query and lets the database rank. Scope is a boost
+    // rather than a filter, so a first mention of an unrelated project still
+    // wins on similarity alone.
+    async search(args) {
+      if (!embedder) throw {code:'PT503'};
+      const vector=await embedder.embedOne(args.query);
+      return result(db.rpc('search_memories',{
+        p_query:toVectorLiteral(vector),
+        p_in_scope:args.in_scope??null,
+        p_limit:args.limit??5,
+        p_gate:args.gate??null,
+        p_boost:args.boost??null,
+        p_exclude:args.exclude??[],
+      }));
+    },
+    personal: () => result(db.rpc('personal_memories')),
+    async settings() {
+      const rows=await result(db.from('memory_settings')
+        .select('per_prompt_matches,gate,scope_boost,session_budget_tokens').limit(1));
+      return rows?.[0]??{per_prompt_matches:5,gate:0.62,scope_boost:1.1,session_budget_tokens:15000};
+    },
+    // The log is what turns "why did it not know that" into a query, and it is
+    // the trigger for every deferred decision in the design. A failure to log
+    // must never fail the injection it was recording.
+    async logInjection(entry) {
+      try {
+        await result(db.from('memory_injections').insert({
+          id:entry.id,session_key:entry.session_key,event:entry.event,
+          query:entry.query?.slice(0,2000)??null,memory_ids:entry.memory_ids.slice(0,50),
+          matched:entry.matched,in_scope:entry.in_scope,tokens:entry.tokens,
+        }));
+      } catch { /* Losing a log row is not worth losing the context it describes. */ }
     },
     async remove(args) {
       await requireScope(args.project_id,true);

@@ -28,7 +28,7 @@ export function Workspace({ db }: { db: SupabaseClient }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [refresh, setRefresh] = useState(0);
-  const hasDraft = Boolean(content.name || content.description || content.more_info);
+  const hasDraft = Boolean(content.statement || content.name || content.more_info);
   const project = scope.kind === 'project' ? projects.find(p => p.id === scope.projectId) : undefined;
   const destination = scope.kind === 'personal' ? 'For me' : project?.name ?? 'Project';
 
@@ -66,13 +66,20 @@ export function Workspace({ db }: { db: SupabaseClient }) {
     return run(async () => {
       const current = await memoryStore.read(memory);
       setExpanded(current); setMemories(items => replaceSummary(items, current));
-      if (edit) { setEditing(current); setContent({ name: current.name, description: current.description, more_info: current.more_info }); }
+      if (edit) { setEditing(current); setContent({ statement: current.statement, name: current.name ?? '', more_info: current.more_info }); }
     });
   }
   function save() {
     return run(async () => {
       const saved = editing ? await memoryStore.correct(editing, content) : await memoryStore.save(scope, draftId, content);
       setMemories(items => replaceSummary(items, saved)); setExpanded(null); clearDraft(); setNotice('Saved to your book.');
+    });
+  }
+  function confirm(memory: MemorySummary) {
+    return run(async () => {
+      const confirmed = await memoryStore.confirm(memory);
+      setMemories(items => replaceSummary(items, confirmed));
+      setNotice('Confirmed. Satchel will use it without asking.');
     });
   }
   function remove(memory: MemorySummary) {
@@ -134,6 +141,7 @@ export function Workspace({ db }: { db: SupabaseClient }) {
           <p>{scope.kind === 'personal' ? 'Save a preference or detail you want to carry between conversations.' : 'Only what you choose to save belongs here.'}</p></div> :
         <MemoryList memories={memories} expanded={expanded} deleteTarget={deleteTarget} busy={busy} hasDraft={hasDraft}
           onRead={memory => void read(memory)} onHide={() => setExpanded(null)} onCorrect={memory => void read(memory, true)}
+          onConfirm={memory => void confirm(memory)}
           onAskDelete={setDeleteTarget} onDelete={memory => void remove(memory)} />}
     </section>
   </div>;

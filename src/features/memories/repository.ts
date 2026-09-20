@@ -11,19 +11,22 @@ export function createMemoryRepository(db: SupabaseClient) {
       if (error) throw error;
       return data ?? [];
     },
+    // Read by id. A name is an optional handle now, so it was never a key, and
+    // the list already carries every statement in full.
     async read(memory: MemorySummary): Promise<Memory> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('read_memory', {
-        p_project_id: memory.project_id, p_name: memory.name,
+        p_project_id: memory.project_id, p_id: memory.id,
       }).abortSignal(signal).single<Memory>());
       if (error) throw error;
-      // A renamed handle reused by another record must never open the wrong ID.
-      if (!data || data.id !== memory.id) throw { code: 'P0002' };
+      if (!data) throw { code: 'P0002' };
       return data;
     },
     async save(scope: MemoryScope, id: string, content: MemoryContent): Promise<Memory> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('save_memory', {
-        p_id: id, p_project_id: scopeProjectId(scope), p_name: content.name.trim(),
-        p_description: content.description.trim(), p_more_info: content.more_info,
+        p_id: id, p_project_id: scopeProjectId(scope), p_statement: content.statement.trim(),
+        // Written here, so the source is the user's own typing.
+        p_source: content.statement.trim(), p_band: 'said', p_task_id: null,
+        p_name: content.name.trim() || null, p_more_info: content.more_info,
       }).abortSignal(signal).single<Memory>());
       if (error) throw error;
       if (!data) throw new Error('Missing saved memory');
@@ -31,11 +34,21 @@ export function createMemoryRepository(db: SupabaseClient) {
     },
     async correct(memory: MemorySummary, content: MemoryContent): Promise<Memory> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('correct_memory', {
-        p_id: memory.id, p_revision: memory.revision, p_name: content.name.trim(),
-        p_description: content.description.trim(), p_more_info: content.more_info,
+        p_id: memory.id, p_revision: memory.revision, p_statement: content.statement.trim(),
+        p_name: content.name.trim() || null, p_more_info: content.more_info,
       }).abortSignal(signal).single<Memory>());
       if (error) throw error;
       if (!data) throw new Error('Missing corrected memory');
+      return data;
+    },
+    // Confirming is the whole promotion rule: the user agrees, and it stops
+    // being announced before use.
+    async confirm(memory: MemorySummary): Promise<Memory> {
+      const { data, error } = await requestWithTimeout(signal => db.rpc('confirm_memory', {
+        p_id: memory.id, p_revision: memory.revision,
+      }).abortSignal(signal).single<Memory>());
+      if (error) throw error;
+      if (!data) throw new Error('Missing confirmed memory');
       return data;
     },
     async remove(memory: MemorySummary): Promise<void> {
