@@ -121,7 +121,7 @@ This is the single most important research finding, and the design document curr
 
 1. [scripts/build-plugins.mjs:31](../scripts/build-plugins.mjs) writes a Codex `PostCompact` hook whose whole job is returning `additionalContext`. Codex does not support `additionalContext` on `PostCompact`. After a compaction on Codex, memory is not reloaded. [docs/memory-hooks.md](memory-hooks.md) documents this path as working and it does not.
 2. The same line pairs with [build-plugins.mjs:29](../scripts/build-plugins.mjs), which sets the Codex `SessionStart` matcher to `^(startup|clear)$`. Codex's own `compact` source is excluded deliberately, to avoid double loading through a `PostCompact` that cannot fire usefully. The fix is the reverse: use `^(startup|clear|compact)$` on `SessionStart` and drop `PostCompact` entirely.
-3. Both packages emit `"session_key": "${session_id}"` into an `mcp_tool` input at [build-plugins.mjs:23](../scripts/build-plugins.mjs). Codex documents that expansion. Claude Code documents that it does **not** expand `${session_id}` in configuration. If the docs are right, the Claude compact-path load has been keyed on the literal string `${session_id}` this whole time, which would silently break project selection on that path. Marked unverified in section 12 with the exact test that settles it.
+3. ~~Claude Code does not expand `${session_id}` in an `mcp_tool` input.~~ **This was wrong and I withdraw it.** A closer read of the same documentation says of an `mcp_tool` handler's `input`: "String values support `${path}` substitution from the hook's JSON input, such as `"${tool_input.file_path}"`". `session_id` is a hook JSON input field, so it substitutes. The sentence I first relied on was about command-hook paths. Both hosts support the same substitution, which is what makes a single `mcp_tool` shape work on both, and it is how the per-prompt hook gets the prompt: `${user_prompt}` on Claude, `${prompt}` on Codex.
 
 **The `Stop` open question is answered, and the design's stated reason was wrong.** [memory-v2.md §12](memory-v2.md) lists "whether a `Stop` hook can inject context for the following turn" as open, and §6.3 says "it probably cannot inject anyway". On Claude Code it can, and the documentation says the context arrives as a system message on the next turn. The conclusion not to prefetch still stands, but only on the surviving argument: the next turn may change topic. That correction goes into the design document.
 
@@ -954,6 +954,49 @@ Step 7 before step 9 is deliberate. Retrieval against a hand-saved corpus is tes
 
 ---
 
+## 10a. What is built
+
+As of this commit the retrieval path exists rather than being designed. `npm test` covers it at 113 assertions.
+
+| Piece | Where | Verified by |
+|---|---|---|
+| Memory shape: `statement`, `source`, `band`, `task_id`, optional `name` | [20260920080000_memory_v2_shape.sql](../supabase/migrations/20260920080000_memory_v2_shape.sql) | `tests/personal-memories.test.mjs`, which also proves the backfill leaves existing revisions alone |
+| pgvector column, HNSW cosine index, `search_memories`, `personal_memories` | [20260920090000_memory_v2_retrieval.sql](../supabase/migrations/20260920090000_memory_v2_retrieval.sql) | `tests/memory-retrieval.test.mjs` under a shimmed operator |
+| `memory_settings`, `memory_injections` | same migration | same |
+| Embedding, normalised, provider-agnostic | [server/embedding.mjs](../server/embedding.mjs) | `tests/embedding.test.mjs` |
+| The exact injected bytes | [server/injection-format.mjs](../server/injection-format.mjs) | `tests/injection-format.test.mjs` |
+| `retrieve_memory`, `confirm_memory`, per-prompt `load_memory_context` | [server/mcp-server.mjs](../server/mcp-server.mjs) | `tests/mcp.test.mjs` |
+| `UserPromptSubmit` on both hosts, Codex `PostCompact` removed, `resume` added | [scripts/build-plugins.mjs](../scripts/build-plugins.mjs) | `tests/plugin-bootstrap.test.mjs` |
+| One-sentence editor, handles, confirm action | `src/features/memories/` | `npm run build` |
+| Backfill and model migration | [scripts/embed-memories.mjs](../scripts/embed-memories.mjs) | guards on a missing service key |
+
+### What the tests caught that review did not
+
+- Backfilling `statement` fired the `stamp_memory_revision` before-update trigger and bumped **every** existing memory's revision. Every client holding a revision would have hit a spurious conflict on its next write, and every "last changed" date would have read as the migration date.
+- Recreating `save_memory` and `correct_memory` quietly reverted their conflict code from `PT409` to `40001`, undoing [202609110001_conflict_responses.sql](../supabase/migrations/202609110001_conflict_responses.sql) and turning an ordinary 409 back into a retryable serialization failure.
+- Postgres refuses `ON DELETE SET NULL` on a foreign key containing a generated column, so the task link could not be scope-qualified the way `tasks` keys itself.
+
+### Plain SQL was measured before reaching for an extension
+
+An exact cosine scan over `real[]` with a SQL dot product, one owner's rows:
+
+```
+   50 rows   13 ms
+  200 rows   49 ms
+  500 rows  117 ms
+ 2000 rows  462 ms
+```
+
+The per-prompt budget is around 100ms for the whole round trip. pgvector is required, not preferred, and that is now measured rather than assumed.
+
+### Still not verified against a real database
+
+`search_memories` is exercised against a shimmed `vector` domain and a plain-SQL cosine operator, because PGlite has no pgvector. That covers scope, grants, the gate, the boost, the cap, the exclusion list and the counts. It does not cover the operator itself or HNSW recall, which is approximate by construction while the eval measured an exact scan.
+
+[scripts/verify-pgvector.sql](../scripts/verify-pgvector.sql) settles both against the real instance: it confirms the extension, builds an HNSW index over 5,000 vectors, measures recall@5 against an exact scan, warns below 90%, and times the query. It is one paste into the Supabase SQL editor and it is the last thing between this and production.
+
+---
+
 ## 11. Corrections owed to [memory-v2.md](memory-v2.md)
 
 | Section | Currently says | Should say |
@@ -973,7 +1016,8 @@ Step 7 before step 9 is deliberate. Retrieval against a hand-saved corpus is tes
 
 | Question | Why it matters | How to settle it |
 |---|---|---|
-| Does Claude Code expand `${session_id}` inside an `mcp_tool` hook `input`? | Docs say no. If so, every Claude compact-path load since [build-plugins.mjs:23](../scripts/build-plugins.mjs) shipped has passed the literal string as `session_key`, and project selection on that path never worked. | Log the received `session_key` in `load_memory_context`, run `/compact` in Claude Code, read the row. Ten minutes. |
+| ~~Does Claude Code expand `${session_id}`?~~ Resolved: yes, documented for `mcp_tool` inputs on both hosts. | | |
+| HNSW recall against the exact scan the eval measured | The whole quality argument rests on exact cosine. An approximate index that agrees 70% of the time transfers 70% of it. | [scripts/verify-pgvector.sql](../scripts/verify-pgvector.sql). One paste. |
 | Is [openai/codex#45999](https://github.com/openai/codex/issues/45999) present in the installed Codex? | If `SessionStart` rejects `additionalContext` on this version, the primary Codex injection path is dead and the fallback is `systemMessage`. | Minimal hook returning `{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"x"}}`, start a session, see whether it reports failure. |
 | Does an `mcp_tool` hook result reach the model as `additionalContext` on both hosts, or only a `command` hook's stdout? | The whole retrieval path in 7.3 depends on it. The current `SessionStart` `mcp_tool` hook suggests yes on both, but that is inference from our own code working, not a documented guarantee. | Same probe, both hosts, one `command` and one `mcp_tool` side by side. |
 | Does Codex's `UserPromptSubmit` fire on the first message of a session, before or after `SessionStart`? | Ordering decides whether the first prompt can be retrieved against. | Two hooks that append timestamps to a file. |

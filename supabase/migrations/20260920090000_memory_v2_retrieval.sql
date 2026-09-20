@@ -23,7 +23,7 @@ alter table public.memories add constraint memories_embedding_pairing
 
 -- HNSW over cosine. The eval measured an exact scan, which is the ceiling this
 -- index approximates; recall against that ceiling is verified in
--- scripts/verify-pgvector.mjs against the real database, not assumed.
+-- scripts/verify-pgvector.sql against the real database, not assumed.
 create index memories_embedding_hnsw on public.memories
   using hnsw (embedding extensions.vector_cosine_ops);
 
