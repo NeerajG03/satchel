@@ -94,11 +94,18 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.deepEqual(connection.projects,[{id:projectId,name:'Fixture',brief:''}]);
     assert.equal(connection.project_ids,undefined);
     result=await call('upsert_project',{request_id:crypto.randomUUID(),project_id:crypto.randomUUID(),
-      name:'Created by agent',brief:'Fixture',repository_change:{kind:'link',repository:'NeerajG03/Satchel'}});
+      slug:'created-by-agent',name:'Created by agent',brief:'Fixture',
+      repository_change:{kind:'link',repository:'NeerajG03/Satchel'}});
     assert.equal(JSON.parse(result.content[0].text).grant_required,true);
     assert.equal(projectWrites,1);
     assert.equal((await call('upsert_project',{request_id:crypto.randomUUID(),project_id:projectId,
-      expected_revision:0,name:'Invalid revision'})).isError,true);
+      slug:'invalid-revision',expected_revision:0,name:'Invalid revision'})).isError,true);
+    // A slug is required, and a title-shaped one is rejected rather than
+    // quietly slugified into something nobody would say.
+    assert.equal((await call('upsert_project',{request_id:crypto.randomUUID(),
+      project_id:crypto.randomUUID(),name:'No slug'})).isError,true);
+    assert.equal((await call('upsert_project',{request_id:crypto.randomUUID(),
+      project_id:crypto.randomUUID(),slug:'Not A Slug',name:'Bad slug'})).isError,true);
     assert.equal(projectWrites,1);
     // Selecting by repository returns the combined index without a follow-up memory_index call.
     result=await call('select_project',{session_key:'one',repository:'neerajg03/satchel'});
@@ -209,8 +216,10 @@ test('MCP exposes revision-safe task operations without turning links into fetch
     const listed=await call('list_tasks',{project_id:projectId,statuses:['ready']});
     assert.match(listed.content[0].text,/Fixture/);
     assert.match((await call('list_tasks',{project_id:null})).content[0].text,/Fixture/);
-    await call('create_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,title:'Fixture'});
-    await call('create_task',{request_id:crypto.randomUUID(),id:crypto.randomUUID(),project_id:null,title:'Personal fixture'});
+    await call('create_task',{request_id:crypto.randomUUID(),id:taskId,slug:'fixture-task',project_id:projectId,title:'Fixture'});
+    await call('create_task',{request_id:crypto.randomUUID(),id:crypto.randomUUID(),slug:'personal-fixture',project_id:null,title:'Personal fixture'});
+    assert.equal((await call('create_task',{request_id:crypto.randomUUID(),id:crypto.randomUUID(),
+      project_id:projectId,title:'No slug'})).isError,true,'a task cannot be created without a slug');
     await call('edit_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,revision:1,
       change:{kind:'state',status:'in_progress'}});
     await call('record_task_update',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,

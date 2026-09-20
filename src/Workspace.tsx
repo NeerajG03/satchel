@@ -91,9 +91,9 @@ export function Workspace({ db }: { db: SupabaseClient }) {
       setNotice('Deleted from your book.');
     });
   }
-  function createProject(id: string, name: string, brief: string) {
+  function createProject(id: string, name: string, brief: string, slug: string) {
     return run(async () => {
-      const created = await projectStore.create(id, name, brief);
+      const created = await projectStore.create(id, name, brief, slug);
       setProjects(items => [...items.filter(item => item.id !== created.id), created]);
       chooseScope({ kind: 'project', projectId: created.id }); setNotice('Project created.');
     });

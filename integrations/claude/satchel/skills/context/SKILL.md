@@ -30,19 +30,23 @@ Never choose a scope from a directory name, a repository's contents, or a simila
 
 Grants are separate and independently denied. Memory access does not imply task access, read does not imply write, and personal access does not imply project access. Check `list_projects` when a call is denied.
 
-## Session activation
+## What arrives on its own
 
-On a new conversation (including clear) and after compaction, the local bootstrap stages the normalized GitHub repository from the workspace's Git origin, and the authenticated lifecycle hook consumes it. Treat the returned `active_project` and combined index as authoritative.
+You do not have to go and get context. Two things happen without you asking.
 
-- If staging reports a failure, `select_project` with the exact repository identity the bootstrap supplied is the one-time fallback. Never substitute a similar name.
-- Automatic loading happens only at those lifecycle events, not on ordinary messages and not on resume. Use the loaded index between them; do not add per-turn freshness checks.
-- Companion or phone edits appear on the next lifecycle load or on an explicit user-requested refresh. Re-read when the user reports a correction.
+**At the start of a conversation, after a clear, after compaction and on resume**, you receive the list of projects and every personal memory. The local bootstrap stages the workspace's GitHub origin and the authenticated hook consumes it, so the active project is named too. If staging reports a failure, `select_project` with the exact repository identity the bootstrap supplied is the one-time fallback. Never substitute a similar name.
+
+Nothing scoped to a project or a task loads here. That is deliberate: loading it would assume you are about to touch it.
+
+**On every message**, memories relevant to what the user just said are retrieved and handed to you, with counts. Read the counts. `0 matched` is a real answer and means no such memory exists, which is not the same as one existing and being held back.
+
+So do not add per-turn freshness checks, and do not re-read a scope you were already given. Search with `retrieve_memory` when you need something this conversation has not surfaced. Companion or phone edits appear at the next fresh context or on an explicit refresh request.
 
 Never claim memory or tasks loaded when a hook is disabled, untrusted, incomplete or unavailable. Say what actually happened and fall back to explicit scoped calls.
 
 ## Completeness
 
-Index and list results carry a `complete` flag. Check it before saying all memories or all tasks are in context. When it is false, say so and use explicit scoped retrieval instead.
+List results carry a `complete` flag, and retrieval carries counts. Check them before saying all memories or all tasks are in context. When the session block reports that memory was not loaded, say that plainly rather than implying you have it.
 
 ## Writes
 

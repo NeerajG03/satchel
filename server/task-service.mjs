@@ -17,7 +17,7 @@ export function taskService(db, connectionStatus) {
     async list(projectId,statuses) {
       await requireScope(projectId);
       let query=db.from('task_planning').select(
-        'id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at,parent_id,dependency_ids,blocked_by_ids,child_count,actionable',
+        'id,slug,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at,parent_id,dependency_ids,blocked_by_ids,child_count,actionable',
         {count:'exact'},
       );
       query=(projectId===null?query.is('project_id',null):query.eq('project_id',projectId))
@@ -32,7 +32,7 @@ export function taskService(db, connectionStatus) {
       const taskBase=db.from('task_planning').select('*').eq('id',id);
       const task=await result((projectId===null?taskBase.is('project_id',null):taskBase.eq('project_id',projectId)).maybeSingle());
       if(!task)throw {code:'P0002'};
-      const planningBase=db.from('task_planning').select('id,title,status,parent_id,dependency_ids,blocked_by_ids,child_count,actionable');
+      const planningBase=db.from('task_planning').select('id,slug,title,status,parent_id,dependency_ids,blocked_by_ids,child_count,actionable');
       const [scopeTasks,handoffs,updates,resources,updateResourceRefs,events]=await Promise.all([
         result((projectId===null?planningBase.is('project_id',null):planningBase.eq('project_id',projectId)).order('last_activity_at',{ascending:false}).limit(201)),
         result((projectId===null?db.from('task_handoffs').select('*').is('project_id',null):db.from('task_handoffs').select('*').eq('project_id',projectId)).eq('task_id',id).order('created_at')),
@@ -45,7 +45,10 @@ export function taskService(db, connectionStatus) {
     },
     async create(args) {
       await requireScope(args.project_id,'write');
-      return result(db.rpc('create_task',{
+      // One round trip and one transaction: a slug collision rolls the create
+      // back rather than leaving a task named after its own title.
+      return result(db.rpc('create_task_with_slug',{
+        p_slug:args.slug,
         p_request_id:args.request_id,p_id:args.id,p_project_id:args.project_id,
         p_title:args.title,p_outcome:args.outcome,p_why:args.why,
         p_done_when:args.done_when,p_next_action:args.next_action,p_priority:args.priority,

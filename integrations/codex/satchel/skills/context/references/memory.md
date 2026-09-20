@@ -1,35 +1,50 @@
 # Memory
 
-Durable facts the user explicitly asked to keep: preferences, prior decisions, standing context. Hooks read the memory index only. They never save or summarize a conversation.
+Durable facts worth carrying between conversations: preferences, decisions, standing context.
 
 ## Shape
 
-A memory has a `name` (<=100 chars), a `description` (<=280 chars) and optional `more_info` (<=40000 chars). The index carries names and descriptions only, so it stays small enough to load every session. Details are fetched on demand.
+A memory is **one sentence**. That sentence is the whole record and it is what you are given, so there is nothing to fetch before you can use it.
+
+| Field | |
+| --- | --- |
+| `statement` | the memory, up to 500 characters. This is what loads. |
+| `band` | `said` or `heard`. See below; it changes how you may use it. |
+| `task_id` | set only when the memory came out of a specific task. |
+| `name` | an optional handle. Most memories have none. |
+| `more_info` | rare. The index tells you with `has_more_info` when a row has any. |
+
+Every row also has a six-character handle, the start of its id. That is what the user sees in their app, so it is the right thing to say when you mean a particular memory.
+
+## Said and heard
+
+`heard` means Satchel picked this up from a conversation and the user has never confirmed it. **Say a heard memory out loud before you rely on it.** One sentence is enough: name what you are about to assume and carry on. If the user agrees, call `confirm_memory`. If they correct it, `correct_memory` does both at once.
+
+`said` means the user saved or confirmed it themselves. Use it without ceremony.
 
 ## Reading
 
-1. Use the index already loaded by the lifecycle hook. Call `memory_index` with an explicit `project_id` only when you need one scope that is not loaded, or when the loaded index reported `complete: false`.
-2. Scan names and descriptions for relevance.
-3. Call `read_memory` with `project_id`, `name` and `expected_id` for the few that matter.
+You are given memories two ways and should not ask for them a third.
 
-`expected_id` comes from the index and detects a rename or a reused name. Names can repeat across scopes, so the ID is what pins the record. Do not pull `more_info` for every memory: the index exists so you do not have to.
+1. **At the start of a conversation**, and after compaction, you receive every personal memory and the list of projects. Personal memories apply whatever you are working on, so they are not searched for, they are simply present.
+2. **On each message**, anything relevant to what the user just said is retrieved and handed to you, with counts: `2 shown · 5 matched · 130 in scope`. Those counts are the point. `0 matched` means there is no such memory, which is different from one existing and not being shown.
+
+Call `retrieve_memory` yourself only when you need something the turn did not surface, for example a topic the user has not named yet in this conversation. Pass `exclude` with ids already in the conversation so nothing arrives twice. Do not read a whole scope with `memory_index` to go looking; search instead.
+
+`read_memory` takes a scope and an id, and is only for the rare row whose `has_more_info` is true.
 
 ## Saving
 
-`save_memory` takes `project_id`, a fresh `id` UUID, `name`, `description` and optional `more_info`.
+`save_memory` takes `project_id`, a fresh `id` UUID, and `statement`. Optionally `source`, `task_id`, `name` and `more_info`.
 
-Save only on an explicit request to remember something. Choose personal or project scope explicitly. Do not silently copy a project secret into personal scope.
+Save only when the user asks you to remember something. Write the statement so it still makes sense in six weeks, with no pronouns pointing at this conversation. An explicit save is confirmed by definition, so it is stored as `said`.
 
-`23505` means the name is already used in that scope. That is a real collision: ask whether to correct the existing memory rather than inventing a variant name.
+`task_id` is only for a task in the same scope as the memory. A personal memory cannot hang off a project task, and the attempt is refused rather than quietly dropped.
 
-## Correcting
+## Correcting and forgetting
 
-`correct_memory` takes `project_id`, `id`, the current `revision`, and the full replacement `name`/`description`/`more_info`.
+`correct_memory` takes `project_id`, `id`, the current `revision` and the replacement `statement`. Read first so the revision is one you have actually seen. On `PT409`, re-read and show the user what changed. Correcting also confirms, because the user just told you what is true.
 
-Read the record first so the revision is one you have actually seen. On `PT409`, re-read and show the user what changed. Never overwrite an unseen correction automatically.
+`confirm_memory` takes `id` and `revision`, and does nothing else. Use it when the user agrees with a heard memory but changes nothing.
 
-## Forgetting
-
-`delete_memory` takes `project_id`, `id` and the current `revision`.
-
-Delete only the specific memory the user asked to forget. Tell them that copies already printed in earlier chats are unaffected.
+`delete_memory` takes scope, id and revision. Delete only the memory the user asked to forget, and tell them copies already printed in earlier chats are unaffected.

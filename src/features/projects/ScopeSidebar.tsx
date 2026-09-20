@@ -5,16 +5,17 @@ import type { Project } from './repository';
 type Props = {
   projects: Project[]; scope: MemoryScope; busy: boolean; navigationLocked: boolean;
   onSelect: (scope: MemoryScope) => void;
-  onCreate: (id: string, name: string, brief: string) => Promise<boolean>;
+  onCreate: (id: string, name: string, brief: string, slug: string) => Promise<boolean>;
 };
 
 export function ScopeSidebar({ projects, scope, busy, navigationLocked, onSelect, onCreate }: Props) {
   const [name, setName] = useState('');
   const [brief, setBrief] = useState('');
+  const [slug, setSlug] = useState('');
   const [id, setId] = useState(() => crypto.randomUUID());
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (await onCreate(id, name, brief)) { setName(''); setBrief(''); setId(crypto.randomUUID()); }
+    if (await onCreate(id, name, brief, slug)) { setName(''); setBrief(''); setSlug(''); setId(crypto.randomUUID()); }
   }
   return <aside>
     <div className="eyebrow">YOUR MEMORY</div>
@@ -24,12 +25,17 @@ export function ScopeSidebar({ projects, scope, busy, navigationLocked, onSelect
       <div className="eyebrow scope-label">YOUR PROJECTS</div>
       {projects.map(project => <button key={project.id}
         aria-current={scope.kind === 'project' && scope.projectId === project.id ? 'page' : undefined}
-        disabled={navigationLocked} onClick={() => onSelect({ kind: 'project', projectId: project.id })}>{project.name}</button>)}
+        disabled={navigationLocked} onClick={() => onSelect({ kind: 'project', projectId: project.id })}>
+        {project.name}<span className="muted fine"> {project.slug}</span></button>)}
     </nav>
     {navigationLocked && !busy && <p className="muted fine">Save or discard the memory draft to switch scope.</p>}
     <details><summary>New project</summary><form onSubmit={submit}>
       <label>Project name<input required maxLength={100} value={name} disabled={busy}
         onChange={e => { setName(e.target.value); setId(crypto.randomUUID()); }} /></label>
+      <label>Short name <span className="muted">(how you'll refer to it)</span>
+        <input maxLength={40} pattern="[a-z0-9]+(-[a-z0-9]+)*" value={slug} disabled={busy}
+          placeholder="cardinal-ledger"
+          onChange={e => { setSlug(e.target.value); setId(crypto.randomUUID()); }} /></label>
       <label>Brief <span className="muted">(optional)</span><textarea maxLength={1000} value={brief} disabled={busy}
         onChange={e => { setBrief(e.target.value); setId(crypto.randomUUID()); }} /></label>
       <button className="primary" disabled={busy || navigationLocked || !name.trim()}>Create project</button>

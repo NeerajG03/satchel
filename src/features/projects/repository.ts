@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
 
 export type ProjectRepositoryLink = { provider: 'github'; repository: string };
-export type Project = { id: string; name: string; brief: string; revision: number; updated_at: string; project_repositories: ProjectRepositoryLink[] };
+export type Project = { id: string; slug: string; name: string; brief: string; revision: number; updated_at: string; project_repositories: ProjectRepositoryLink[] };
 
 export function normalizeGitHubRepository(value: string): string | null {
   const input = value.trim();
@@ -24,16 +24,27 @@ export function createProjectRepository(db: SupabaseClient) {
   return {
     async list(): Promise<Project[]> {
       const { data, error } = await requestWithTimeout(signal => db.from('projects')
-        .select('id,name,brief,project_repositories(provider,repository)').order('created_at').abortSignal(signal));
+        .select('id,slug,name,brief,project_repositories(provider,repository)').order('created_at').abortSignal(signal));
       if (error) throw error;
       return (data ?? []) as Project[];
     },
-    async create(id: string, name: string, brief: string): Promise<Project> {
+    async create(id: string, name: string, brief: string, slug: string): Promise<Project> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('create_project', {
         p_id: id, p_name: name.trim(), p_brief: brief.trim(),
       }).abortSignal(signal).single<Project>());
       if (error) throw error;
       if (!data) throw new Error('Missing created project');
+      // The project always gets a slug. This only replaces the derived one with
+      // something the person would actually say, and a collision is reported
+      // rather than silently accepted.
+      const chosen = slug.trim();
+      if (chosen && chosen !== data.slug) {
+        const { error: slugError } = await requestWithTimeout(signal => db.rpc('set_slug', {
+          p_kind: 'project', p_id: id, p_slug: chosen,
+        }).abortSignal(signal));
+        if (slugError) throw slugError;
+        return { ...data, slug: chosen, project_repositories: [] };
+      }
       return { ...data, project_repositories: [] };
     },
     async linkRepository(projectId: string, value: string): Promise<ProjectRepositoryLink> {

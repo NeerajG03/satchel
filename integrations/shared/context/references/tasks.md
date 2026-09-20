@@ -1,5 +1,14 @@
 # Tasks
 
+## Slugs
+
+Every task has a `slug`: lowercase words joined by hyphens, three to forty characters, unique across all of this user's projects and tasks. It is how the user refers to the task out loud, and how you should refer to it back.
+
+`create_task` requires one. **Choose something sayable, do not derive it from the title.** "Fix the corner leak where the shell background paints through" should become `fix-consent-layout`, not `fix-the-corner-leak-where-the-shell-backgroun`. A derived slug is one nobody would type and one you will match against worse than the title.
+
+`23505` means that slug is taken. Pick another and retry; the create rolled back, so nothing was left behind.
+
+
 Satchel's database is the sole authority for a task's title, outcome, rationale, completion criteria, next action, state, priority, blocker, revision and history. A task belongs to personal scope or to a project and does not require a repository.
 
 Personal-task access is a separate grant from personal-memory access. A task scope is `project_id=null` or a project UUID that is task-authorized, which is not the same set as the memory-authorized projects.

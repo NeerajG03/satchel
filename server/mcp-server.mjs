@@ -26,6 +26,10 @@ const projectRepositoryChange=z.discriminatedUnion('kind',[
   z.object({kind:z.literal('link'),repository:z.string().trim().toLowerCase().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/).max(201)}),
   z.object({kind:z.literal('unlink'),repository:z.string().trim().toLowerCase().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/).max(201)}),
 ]);
+// Supplied, never derived. A model copies an identifier and rewrites a title,
+// so the exact match has to be on something that looks like an identifier.
+const slug=z.string().trim().toLowerCase().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).min(3).max(40)
+  .describe('A short handle the user would actually say, like fix-consent-layout. Lowercase words joined by hyphens, unique across all of this user\'s projects and tasks. Do not derive it from the title; choose something sayable. On 23505 pick another and retry.');
 const taskStatus=z.enum(['inbox','ready','in_progress','blocked','done']);
 const taskPriority=z.enum(['low','medium','high','urgent']);
 const taskProject=z.uuid().nullable().describe('null means personal tasks; otherwise an explicitly task-authorized Satchel project UUID.');
@@ -166,8 +170,8 @@ export function createMemoryServer(service) {
       try { return {...connection,projects:await service.projects()}; }
       catch(error) { return {...connection,projects_error:errorText(error)}; }
     });
-  register('upsert_project','Create or revise a Satchel project only when the user explicitly asks. Omit expected_revision to create with a new project_id; provide the current revision to update an already authorized project. A repository change links or unlinks one normalized GitHub owner/repository without disturbing other links. Creating a project never expands this connection grant: when grant_required is true, tell the user to authorize the new project before using it.',
-    {request_id:z.uuid(),project_id:z.uuid(),expected_revision:z.number().int().positive().optional(),
+  register('upsert_project','Create or revise a Satchel project only when the user explicitly asks. A slug is required and is how everything else refers to this project. Omit expected_revision to create with a new project_id; provide the current revision to update an already authorized project. A repository change links or unlinks one normalized GitHub owner/repository without disturbing other links. Creating a project never expands this connection grant: when grant_required is true, tell the user to authorize the new project before using it.',
+    {request_id:z.uuid(),project_id:z.uuid(),slug,expected_revision:z.number().int().positive().optional(),
       name:z.string().trim().min(1).max(100),brief:z.string().trim().max(1000).default(''),
       repository_change:projectRepositoryChange.default({kind:'unchanged'})},
     a=>service.upsertProject(a),writeAnnotations);
@@ -215,8 +219,8 @@ export function createMemoryServer(service) {
       {project_id:taskProject,statuses:z.array(taskStatus).max(5).optional()},a=>service.tasks.list(a.project_id,a.statuses));
     register('read_task','Read one task with its planning relationships, derived actionability, comments, progress updates, handoffs, verified resources, and event history.',
       {project_id:taskProject,id:z.uuid()},a=>service.tasks.read(a.project_id,a.id));
-    register('create_task','Create a personal or project Satchel task only when the user explicitly asks. Use project_id=null for personal scope. Reuse request_id and id with the identical payload when retrying a lost response.',
-      {request_id:z.uuid(),id:z.uuid(),project_id:taskProject,...taskContent},a=>service.tasks.create(a),writeAnnotations);
+    register('create_task','Create a personal or project Satchel task only when the user explicitly asks. A slug is required: it is how the user and you will refer to this task later. Use project_id=null for personal scope. Reuse request_id and id with the identical payload when retrying a lost response.',
+      {request_id:z.uuid(),id:z.uuid(),slug,project_id:taskProject,...taskContent},a=>service.tasks.create(a),writeAnnotations);
     register('edit_task','Apply one explicit revision-safe task edit: replace content, transition state, set/clear the parent, or add/remove one dependency. Relationship edits are same-scope and cycle-safe. Re-read after a conflict.',
       {request_id:z.uuid(),...taskIdentity,change:taskEdit},a=>{
         const base={request_id:a.request_id,project_id:a.project_id,id:a.id,revision:a.revision};

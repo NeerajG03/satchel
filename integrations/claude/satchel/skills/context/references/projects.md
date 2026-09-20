@@ -1,5 +1,12 @@
 # Projects
 
+## Slugs
+
+Every project has a `slug` on the same rules as a task's: lowercase words joined by hyphens, three to forty characters, unique across everything this user owns. `list_projects` returns it, and it is what the session block shows.
+
+`upsert_project` requires one when creating. Use the short name the user already says for the project rather than a slugified version of its full name.
+
+
 A project is the scope that memories and tasks hang off. It is always an explicit UUID from `list_projects`, never a folder name and never a name guessed from repository contents.
 
 ## Inspecting the connection

@@ -26,8 +26,9 @@ export function memoryService(db, embedder = null) {
   return {
     status: () => result(db.rpc('agent_connection_status')),
     projects: () => result(db.from('projects')
-      .select('id,name,brief,revision,updated_at,project_repositories(provider,repository)').order('name')),
-    upsertProject: args => result(db.rpc('upsert_project',{
+      .select('id,slug,name,brief,revision,updated_at,project_repositories(provider,repository)').order('name')),
+    upsertProject: args => result(db.rpc('upsert_project_with_slug',{
+      p_slug:args.slug,
       p_request_id:args.request_id,p_project_id:args.project_id,
       p_expected_revision:args.expected_revision??null,p_name:args.name,p_brief:args.brief,
       p_repository_action:args.repository_change.kind,
