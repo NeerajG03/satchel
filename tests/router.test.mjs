@@ -107,3 +107,31 @@ test('a missing key is a configuration error, not a silent no-op',async()=>{
   const router=createRouter({apiKey:undefined,fetchImpl:reply([])});
   await assert.rejects(router.route({projects,tasks,context:[],turn:['x']}),RouterError);
 });
+
+test('a model that rejects a json schema is retried in words, not abandoned',async()=>{
+  const seen=[];
+  const router=createRouter({apiKey:'x',fetchImpl:async(_url,init)=>{
+    const body=JSON.parse(init.body);
+    seen.push(Boolean(body.response_format));
+    if(body.response_format) return {ok:false,status:400,json:async()=>({})};
+    return {ok:true,status:200,json:async()=>({choices:[{message:{content:
+      JSON.stringify({memories:[{statement:'Tabs in Go.',source:'tabs in go',project:null,task:null}]})}}]})};
+  }});
+  const out=await router.route({projects:[],tasks:[],context:[],turn:['i use tabs in go']});
+  assert.deepEqual(seen,[true,false],'schema first, then words');
+  assert.equal(out.memories.length,1);
+});
+
+test('JSON wrapped in a fence or a sentence is recovered, and its contents still checked',async()=>{
+  const wrapped=text=>createRouter({apiKey:'x',fetchImpl:async()=>({ok:true,status:200,
+    json:async()=>({choices:[{message:{content:text}}]})})});
+  const payload=JSON.stringify({memories:[{statement:'Tabs in Go.',source:'tabs in go',project:null,task:null}]});
+  for(const shape of ['```json\n'+payload+'\n```','Here you go:\n'+payload,payload]){
+    const out=await wrapped(shape).route({projects:[],tasks:[],context:[],turn:['i use tabs in go']});
+    assert.equal(out.memories.length,1,`failed on ${shape.slice(0,20)}`);
+  }
+  // recovered, but a fabricated source is still dropped
+  const bad=JSON.stringify({memories:[{statement:'Spaces.',source:'i use spaces',project:null,task:null}]});
+  const out=await wrapped('```json\n'+bad+'\n```').route({projects:[],tasks:[],context:[],turn:['i use tabs in go']});
+  assert.equal(out.memories.length,0,'leniency about the wrapper is not leniency about the contents');
+});

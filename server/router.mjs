@@ -39,19 +39,33 @@ export const ROUTER_SCHEMA = {
 
 const INSTRUCTIONS = `You read the end of a conversation and decide whether the user said anything worth remembering.
 
-Return a list. Most turns return an empty list, and that is the correct answer. Do not fill the list to seem useful.
+Return a list. An empty list is a normal and correct answer. Do not add an item to seem useful.
 
-Keep something when the user states a preference, a decision, a constraint, or a durable fact about their work or their life. Something that would still be true and still be useful in six weeks.
+Keep a claim when it would still be true and still be useful in six weeks. In practice that is:
+- a preference about how they want things done: "no em dashes", "give me one recommendation, not three options"
+- a decision they made and the shape of it: "entries are append only, corrections are reversing entries"
+- a constraint or a rule: "never bump the Go version until payouts are finished"
+- a durable fact about their work or their life: a figure, a deadline, who owns what, how something is configured
+- something about a person: what they are responsible for, what they always ask for
 
 Do not keep:
-- what the assistant said or suggested. Only the user's own claims.
-- anything about the current moment: what is open, what is running, what failed just now, what you are about to do.
-- a question, or thinking out loud that the user did not land on.
-- something already obvious from the project list.
+- anything the assistant said, suggested or concluded. Only the user's own claims.
+- the current moment: what is open, what is running, what just failed, what you are about to do next
+- a question, or thinking out loud that the user did not land on
+- a one-off instruction for this task alone: "make it shorter", "try again", "use the other one"
+- a bare continuation with no content: "go on", "yeah that one", "keep going"
+
+Two worked examples.
+
+The user types: "ok so no personas in v1, and don't use em dashes anywhere. also the consent page still has that corner leak on .paper"
+You return three items: "no personas in v1" scoped to the project being worked on; "don't use em dashes anywhere" with project null, because it applies everywhere; and the corner leak scoped to the project, and to the open task about it if one is listed.
+
+The user types: "go on, and make that shorter"
+You return an empty list. Neither part is durable.
 
 For each thing you keep:
 - "statement" is the claim written clearly. Fix grammar, drop filler, resolve a pronoun whose referent is in this window, and keep the user's own vocabulary. Do not add a reason they did not give, do not widen it, and do not merge two separate claims into one.
-- "source" must be text the user actually typed in the turn being classified. Copy it. If you cannot point at the words, do not keep the item.
+- "source" must be text the user actually typed in the turn being classified. Copy it exactly. If you cannot point at the words, do not keep the item.
 - "project" is a slug from the projects list when the claim is about that project, otherwise null. Null means it applies everywhere, which is the safer mistake.
 - "task" is a slug from the open tasks list only when the claim is plainly about that task, otherwise null.
 
@@ -120,13 +134,40 @@ export function validate(payload, {turn = [], projects = [], tasks = []}) {
   return {memories: kept, dropped};
 }
 
+const JSON_FALLBACK = `Reply with JSON only, no prose and no code fence, in exactly this shape:
+{"memories":[{"statement":"...","source":"...","project":null,"task":null}]}
+An empty list is {"memories":[]}.`;
+
+/** A model told to return JSON in words sometimes wraps it in a fence or a
+ *  sentence. Recovering the object is not being lenient about the contract:
+ *  everything inside it is still validated, and a reply with no object in it
+ *  still fails. */
+function parseJson(text) {
+  const attempts = [text];
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) attempts.push(fenced[1]);
+  const braced = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
+  if (braced) attempts.push(braced);
+  for (const attempt of attempts) {
+    try { return JSON.parse(attempt.trim()); } catch { /* try the next shape */ }
+  }
+  throw new RouterError('router returned content that is not JSON');
+}
+
 export function createRouter({
   // A full URL, so any OpenAI-compatible host works without a code change.
   // Google's compatibility layer is
   // https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
-  model = process.env.SATCHEL_ROUTER_MODEL ?? 'google/gemma-4-26b-a4b-it:free',
-  url = process.env.SATCHEL_ROUTER_URL ?? 'https://openrouter.ai/api/v1/chat/completions',
-  apiKey = process.env.SATCHEL_ROUTER_KEY ?? process.env.OPENROUTER_API_KEY,
+  // Measured, not guessed. Over 24 real turns replayed from the corpus and 16
+  // that contain nothing durable, gemini-3.5-flash-lite extracted 22 of 24 and
+  // stayed quiet on all 16, at about 1.6 seconds. See eval/router.mjs.
+  //
+  // Pinned rather than -latest on purpose: the instructions below were tuned
+  // against this version, and a floating alias would move the thing the
+  // measurement describes.
+  model = process.env.SATCHEL_ROUTER_MODEL ?? 'gemini-3.5-flash-lite',
+  url = process.env.SATCHEL_ROUTER_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+  apiKey = process.env.SATCHEL_ROUTER_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY,
   timeoutMs = Number(process.env.SATCHEL_ROUTER_TIMEOUT_MS ?? 8000),
   fetchImpl = fetch,
 } = {}) {
@@ -138,14 +179,17 @@ export function createRouter({
       const body = await call(prompt, true);
       const text = body?.choices?.[0]?.message?.content;
       if (typeof text !== 'string') throw new RouterError('router returned no content');
-      let parsed;
-      try { parsed = JSON.parse(text); }
-      catch (cause) { throw new RouterError('router returned content that is not JSON', {cause}); }
+      const parsed = parseJson(text);
       return {...validate(parsed, input), prompt, raw: text, usage: body?.usage ?? null};
     },
   };
 
-  async function call(prompt, retry) {
+  // Not every model accepts a JSON schema, and the ones that do not reject the
+  // whole request rather than ignoring the field. So the schema is an
+  // optimisation: ask for it, and fall back to asking in words. That keeps the
+  // router working across providers instead of pinning it to one model's
+  // feature list.
+  async function call(prompt, retry, schema = true) {
       let response;
       try {
         response = await fetchImpl(url, {
@@ -153,9 +197,10 @@ export function createRouter({
           headers: {'content-type': 'application/json', authorization: `Bearer ${apiKey}`},
           body: JSON.stringify({
             model,
-            messages: [{role: 'user', content: prompt}],
+            messages: [{role: 'user', content: schema ? prompt : `${prompt}\n\n${JSON_FALLBACK}`}],
             temperature: 0,
-            response_format: {type: 'json_schema', json_schema: {name: 'memories', strict: true, schema: ROUTER_SCHEMA}},
+            ...(schema ? {response_format: {type: 'json_schema',
+              json_schema: {name: 'memories', strict: true, schema: ROUTER_SCHEMA}}} : {}),
           }),
           signal: AbortSignal.timeout(timeoutMs),
         });
@@ -168,6 +213,7 @@ export function createRouter({
         await new Promise(done => setTimeout(done, Math.min(Math.max(reset - Date.now(), 500), 2000)));
         return call(prompt, false);
       }
+      if (response.status === 400 && schema) return call(prompt, retry, false);
       if (!response.ok) throw new RouterError(`router returned ${response.status}`);
       return response.json();
   }

@@ -59,14 +59,18 @@ const PROVIDERS = {
 };
 
 export function createEmbedder({
-  // Defaults are the hosted path, because that is the one that works on the
-  // deployment. A local ollama is a one-variable switch for development.
+  // Gemini by default: it is the only free tier measured to survive real use,
+  // and gemini-embedding-001 honours a dimensions request, so 768 fits the
+  // indexed column rather than needing halfvec. At 768 it returns an
+  // un-normalised vector, which normalize() below already handles; the full
+  // 3072 comes back normalised. Any OpenAI-compatible host, including a local
+  // ollama, is a change of url, path and model.
   provider = process.env.SATCHEL_EMBEDDING_PROVIDER ?? 'openai',
-  model = process.env.SATCHEL_EMBEDDING_MODEL ?? 'nvidia/llama-nemotron-embed-vl-1b-v2:free',
-  url = process.env.SATCHEL_EMBEDDING_URL ?? 'https://openrouter.ai/api',
-  apiKey = process.env.SATCHEL_EMBEDDING_KEY ?? process.env.OPENROUTER_API_KEY,
+  model = process.env.SATCHEL_EMBEDDING_MODEL ?? 'gemini-embedding-001',
+  url = process.env.SATCHEL_EMBEDDING_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai',
+  apiKey = process.env.SATCHEL_EMBEDDING_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY,
   dimensions = Number(process.env.SATCHEL_EMBEDDING_DIMENSIONS ?? EMBEDDING_DIMENSIONS),
-  path = process.env.SATCHEL_EMBEDDING_PATH,
+  path = process.env.SATCHEL_EMBEDDING_PATH ?? '/embeddings',
   timeoutMs = Number(process.env.SATCHEL_EMBEDDING_TIMEOUT_MS ?? 4000),
   fetchImpl = fetch,
 } = {}) {

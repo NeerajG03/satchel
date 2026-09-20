@@ -9,9 +9,10 @@
   "grade2": 373,
   "grade1": 537
  },
- "primary": "nomic/statement+source +gate",
+ "primary": "gemini-768/statement+source +gate",
  "gates": {
   "all-minilm/statement": 0.43,
+  "gemini-768/statement+source": 0.67,
   "nemotron-2048/statement+source": 0.3,
   "nemotron-768/statement+source": 0.28,
   "nemotron3-2048/statement+source": 0.24,
@@ -60,6 +61,14 @@
    "mrr": 0.5921,
    "covered": 80,
    "silent": 40
+  },
+  "gemini-768/statement+source +gate": {
+   "utility": 0.6398,
+   "ndcg": 0.5503,
+   "r5": 0.6049,
+   "mrr": 0.7807,
+   "covered": 101,
+   "silent": 39
   },
   "nemotron-2048/statement+source +gate": {
    "utility": 0.5734,

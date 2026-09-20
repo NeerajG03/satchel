@@ -70,7 +70,7 @@ const gatedSystems={};
 const gated=name=>cap(gate(withScope(vec[name],BOOST),calibrated[name]),CAP);
 for(const name of Object.keys(vec)) gatedSystems[`${name} +gate`]=gated(name);
 const systems={...raw,...gatedSystems};
-const PRIMARY='nomic/statement+source +gate';
+const PRIMARY='gemini-768/statement+source +gate';
 if(!systems[PRIMARY]) throw new Error(`primary "${PRIMARY}" is not one of the systems`);
 
 function score(rank){

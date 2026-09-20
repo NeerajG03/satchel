@@ -20,6 +20,12 @@ const INDEXES={
   'nemotron3-2048/statement+source': {provider:'openrouter',
     model:'nvidia/nemotron-3-embed-1b:free', dimensions:2048,
     textOf:m=>`${m.statement} ${m.source}`},
+  'gemini-768/statement+source': {provider:'gemini',
+    model:'gemini-embedding-001', dimensions:768,
+    textOf:m=>`${m.statement} ${m.source}`},
+  'gemini-768/statement': {provider:'gemini',
+    model:'gemini-embedding-001', dimensions:768,
+    textOf:m=>m.statement},
   'nemotron-2048/statement+source': {provider:'openrouter',
     model:'nvidia/llama-nemotron-embed-vl-1b-v2:free', dimensions:2048,
     textOf:m=>`${m.statement} ${m.source}`},
@@ -30,10 +36,13 @@ async function embed(spec,texts){
   const out=[];
   for(let i=0;i<texts.length;i+=64){
     const batch=texts.slice(i,i+64);
-    const r=provider==='openrouter'
-      ? await fetch('https://openrouter.ai/api/v1/embeddings',{method:'POST',
-          headers:{'content-type':'application/json',
-            authorization:`Bearer ${process.env.OPENROUTER_API_KEY}`},
+    const hosted={
+      openrouter:['https://openrouter.ai/api/v1/embeddings',process.env.OPENROUTER_API_KEY],
+      gemini:['https://generativelanguage.googleapis.com/v1beta/openai/embeddings',process.env.GEMINI_API_KEY],
+    }[provider];
+    const r=hosted
+      ? await fetch(hosted[0],{method:'POST',
+          headers:{'content-type':'application/json',authorization:`Bearer ${hosted[1]}`},
           body:JSON.stringify({model,input:batch,...(dimensions?{dimensions}:{})})})
       : await fetch(`${HOST}/api/embed`,{method:'POST',headers:{'content-type':'application/json'},
           body:JSON.stringify({model,input:batch})});
@@ -50,7 +59,7 @@ async function embed(spec,texts){
     }
     if(!r.ok) throw new Error(`${model}: ${r.status} ${(await r.text()).slice(0,200)}`);
     const payload=await r.json();
-    const vectors=provider==='openrouter'?payload.data.map(d=>d.embedding):payload.embeddings;
+    const vectors=hosted?payload.data.map(d=>d.embedding):payload.embeddings;
     out.push(...vectors);
     process.stdout.write(`\r    ${out.length}/${texts.length}   `);
   }
@@ -62,9 +71,8 @@ const only=process.argv.slice(2);
 for(const [name,spec] of Object.entries(INDEXES)){
   if(only.length&&!only.includes(name)) continue;
   const {model,textOf}=spec;
-  if(spec.provider==='openrouter'&&!process.env.OPENROUTER_API_KEY){
-    console.log(`  ${name}: skipped, no OPENROUTER_API_KEY`); continue;
-  }
+  const needs={openrouter:'OPENROUTER_API_KEY',gemini:'GEMINI_API_KEY'}[spec.provider];
+  if(needs&&!process.env[needs]){ console.log(`  ${name}: skipped, no ${needs}`); continue; }
   const file=new URL(`./${name.replace(/[/+]/g,'_')}.json`,dir);
   const cache=existsSync(file)?JSON.parse(readFileSync(file,'utf8'))
     :{name,model,dims:0,memories:{},prompts:{}};

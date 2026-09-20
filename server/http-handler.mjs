@@ -26,7 +26,7 @@ catch { /* retrieve_memory will report itself unavailable */ }
 // Without a key the router is simply absent and capture does not happen, which
 // is the behaviour Satchel had before automatic capture existed.
 let router=null;
-try { router=process.env.SATCHEL_ROUTER_KEY??process.env.OPENROUTER_API_KEY?createRouter():null; }
+try { router=process.env.SATCHEL_ROUTER_KEY??process.env.GEMINI_API_KEY??process.env.OPENROUTER_API_KEY?createRouter():null; }
 catch { router=null; }
 
 export async function handleMcp(req,res) {

@@ -4,6 +4,11 @@ begin;
 -- come from eval/, measured over a labelled 473-memory corpus. See
 -- docs/memory-v2-build.md section 4.
 --
+-- The gate is per model, not a universal constant. 0.67 is what
+-- gemini-embedding-001 at 768 dimensions calibrates to; the same corpus gives
+-- 0.43 for all-minilm and 0.28 for nemotron. Changing the embedding model means
+-- recalibrating with eval/run.mjs and updating memory_settings, not guessing.
+--
 -- Supabase installs pgvector into `extensions`, and every function in this
 -- schema runs with an empty search_path, so the type, the operator and the
 -- operator class are all fully qualified below. An unqualified `<=>` would
@@ -33,7 +38,7 @@ create function public.search_memories(
   p_query extensions.vector(768),
   p_in_scope uuid default null,
   p_limit integer default 5,
-  p_gate real default 0.62,
+  p_gate real default 0.67,
   p_boost real default 1.1,
   p_exclude uuid[] default '{}'
 ) returns table(
@@ -79,7 +84,7 @@ create table public.memory_settings (
   owner_id uuid primary key default auth.uid() references auth.users(id) on delete cascade,
   per_prompt_matches integer not null default 5
     check (per_prompt_matches between 0 and 20),
-  gate real not null default 0.62 check (gate >= 0 and gate <= 1),
+  gate real not null default 0.67 check (gate >= 0 and gate <= 1),
   scope_boost real not null default 1.1 check (scope_boost >= 1 and scope_boost <= 2),
   session_budget_tokens integer not null default 15000
     check (session_budget_tokens between 1000 and 60000),
