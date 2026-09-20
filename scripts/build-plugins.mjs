@@ -7,7 +7,7 @@ const name='satchel';
 const description='Personal and project memory, tasks and projects across your agents.';
 // Memory v2 is what both packages now carry: retrieval on every prompt and
 // capture at the end of a turn.
-const versions={claude:'0.2.0',codex:'0.2.0'};
+const versions={claude:'0.2.1',codex:'0.2.1'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
