@@ -160,3 +160,87 @@ test('Stop stays silent when capture is switched off', async () => {
     assert.equal(called, false, 'nothing about the conversation may be recorded when capture is off');
   } finally { await client.close(); await server.close(); }
 });
+
+const hookOf = result => JSON.parse(result.content[0].text);
+
+async function connect(service) {
+  const server = createMemoryServer(service);
+  const client = new Client({name: 'test', version: '1'});
+  const [left, right] = InMemoryTransport.createLinkedPair();
+  await server.connect(right);
+  await client.connect(left);
+  return {client, close: async () => { await client.close(); await server.close(); }};
+}
+
+const baseSettings = {per_prompt_matches: 5, gate: 0.67, scope_boost: 1.1,
+  session_budget_tokens: 15000, capture: true, capture_window: 5};
+
+test('a dead grant says so to the person, not only to the model', async () => {
+  // This is the whole reason the notice exists. A revoked grant made every
+  // hook inject "memory unavailable" to the model and show the person
+  // nothing, so a broken Satchel and a quiet one looked identical.
+  const {client, close} = await connect({
+    status: async () => { throw {code: '42501'}; },
+    settings: async () => baseSettings,
+  });
+  try {
+    for (const event of ['SessionStart', 'UserPromptSubmit', 'Stop']) {
+      const hook = hookOf(await client.callTool({name: 'load_memory_context',
+        arguments: {session_key: 's', event, ...(event === 'UserPromptSubmit' ? {prompt: 'hi'} : {})}}));
+      assert.match(hook.systemMessage, /Satchel memory unavailable/, `${event} must tell the person`);
+    }
+  } finally { await close(); }
+});
+
+test('Stop reports a capture and stays silent otherwise, and never injects', async () => {
+  let captured = [];
+  const service = {
+    status: async () => ({label: 'Test', personal: true, can_write: true, project_ids: []}),
+    settings: async () => ({...baseSettings, capture_window: 1}),
+    recordSessionMessage: async () => {},
+    sessionWindow: async () => [{role: 'user', content: 'never bump Go until payouts ship'}],
+    projects: async () => [],
+    openTasks: async () => [],
+    captureTurn: async () => ({memories: captured, dropped: 0}),
+  };
+  const {client, close} = await connect(service);
+  try {
+    captured = [{id: 'a'}];
+    const spoke = hookOf(await client.callTool({name: 'load_memory_context',
+      arguments: {session_key: 's', event: 'Stop'}}));
+    assert.match(spoke.systemMessage, /noted 1 thing you said · unconfirmed/,
+      'a memory written without being asked for has to be announced');
+    assert.equal(spoke.hookSpecificOutput.additionalContext, '',
+      'Stop never injects: Codex cannot, so a design that used it would work on one host only');
+
+    captured = [];
+    const quiet = await client.callTool({name: 'load_memory_context',
+      arguments: {session_key: 's', event: 'Stop'}});
+    assert.equal(hookOf(quiet).systemMessage, undefined, 'capturing nothing is the normal turn and stays silent');
+  } finally { await close(); }
+});
+
+test('retrieval speaks only when it found something', async () => {
+  let rows = [];
+  const service = {
+    status: async () => ({label: 'Test', personal: true, can_write: true, project_ids: []}),
+    settings: async () => baseSettings,
+    recordSessionMessage: async () => {},
+    activeProject: async () => null,
+    search: async () => rows,
+    logInjection: async () => {},
+  };
+  const {client, close} = await connect(service);
+  const ask = () => client.callTool({name: 'load_memory_context',
+    arguments: {session_key: 's', event: 'UserPromptSubmit', prompt: 'what did we decide'}});
+  try {
+    rows = [{id: crypto.randomUUID(), statement: 'A thing.', band: 'said', score: 0.9, matched: 4, in_scope: 30}];
+    assert.match(hookOf(await ask()).systemMessage, /recalled 1 of 4 matching/,
+      'the counts are the point: 1 of 4 and 1 of 1 mean different things');
+
+    rows = [];
+    const quiet = await ask();
+    assert.equal(hookOf(quiet).systemMessage, undefined,
+      'finding nothing is the common case; a line on every prompt is noise people learn to ignore');
+  } finally { await close(); }
+});

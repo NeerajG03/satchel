@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {sessionStartBlock, promptBlock, handleOf, estimateTokens} from '../server/injection-format.mjs';
+import {sessionStartBlock, promptBlock, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
 
 const memory = (id, statement, band = 'said', task_id = null) => ({id, statement, band, task_id});
 
@@ -79,4 +79,27 @@ test('the same input always produces the same bytes, so a preview can be trusted
 test('the token estimate scales with length and is never zero for real text', () => {
   assert.ok(estimateTokens('hello world') > 0);
   assert.ok(estimateTokens('x'.repeat(380)) > estimateTokens('x'.repeat(38)));
+});
+
+test('the notice is plain, singular where it should be, and quiet by default', () => {
+  assert.equal(noticeFor('SessionStart', {projects: 1, personal: 1}),
+    'Satchel loaded · 1 project, 1 personal memory');
+  assert.equal(noticeFor('SessionStart', {projects: 3, personal: 12}),
+    'Satchel loaded · 3 projects, 12 personal memories');
+  assert.equal(noticeFor('SessionStart', {}), 'Satchel connected · nothing saved yet');
+
+  // A failure always speaks, on every event, because that is the case that was
+  // invisible before this existed.
+  for (const event of ['SessionStart', 'UserPromptSubmit', 'Stop'])
+    assert.match(noticeFor(event, {error: 'Connection revoked'}), /^Satchel memory unavailable · Connection revoked$/);
+
+  assert.equal(noticeFor('UserPromptSubmit', {shown: 2, matched: 9}), 'Satchel recalled 2 of 9 matching');
+  assert.equal(noticeFor('UserPromptSubmit', {shown: 0, matched: 0}), '', 'nothing relevant stays quiet');
+  assert.equal(noticeFor('Stop', {captured: 1}), 'Satchel noted 1 thing you said · unconfirmed');
+  assert.equal(noticeFor('Stop', {captured: 0}), '', 'most turns capture nothing');
+
+  // Withholding an oversized block is not a failure, but the person still has
+  // to know memory did not load.
+  assert.equal(noticeFor('SessionStart', {withheld: '18000 tokens over the 15000 budget'}),
+    'Satchel memory not loaded · 18000 tokens over the 15000 budget');
 });

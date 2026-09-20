@@ -72,3 +72,34 @@ export function promptBlock({rows = [], matched = 0, inScope = 0, tasks = new Ma
   }
   return lines.join('\n');
 }
+
+const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+
+/** The one line the person sees in their own terminal.
+ *
+ *  It exists because a broken Satchel and a quiet one looked identical from
+ *  where they sit. A revoked grant made every hook inject "memory unavailable"
+ *  to the model and say nothing to the person, which cost an hour of debugging
+ *  that a single line would have ended.
+ *
+ *  So the rule is: a failure always speaks, and a success speaks only when
+ *  something actually happened. Retrieval finding nothing is the common case
+ *  and stays silent, because a line on every prompt is noise people learn to
+ *  ignore, and Codex renders this as a warning. */
+export function noticeFor(event, {error, withheld, projects = 0, personal = 0,
+  shown = 0, matched = 0, captured = 0} = {}) {
+  if (error) return `Satchel memory unavailable · ${error}`;
+  if (withheld) return `Satchel memory not loaded · ${withheld}`;
+  if (event === 'SessionStart') {
+    return projects || personal
+      ? `Satchel loaded · ${plural(projects, 'project')}, ${plural(personal, 'personal memory', 'personal memories')}`
+      : 'Satchel connected · nothing saved yet';
+  }
+  // Counts, not just a number shown, because "2 of 9" and "2 of 2" mean very
+  // different things about whether anything was left behind.
+  if (event === 'UserPromptSubmit') return shown ? `Satchel recalled ${shown} of ${matched} matching` : '';
+  // A heard memory is the one thing the person must be told about: it was
+  // written without them asking, and it stays unconfirmed until they say so.
+  if (event === 'Stop') return captured ? `Satchel noted ${plural(captured, 'thing')} you said · unconfirmed` : '';
+  return '';
+}

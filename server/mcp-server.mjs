@@ -1,6 +1,6 @@
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {z} from 'zod';
-import {sessionStartBlock, promptBlock, estimateTokens} from './injection-format.mjs';
+import {sessionStartBlock, promptBlock, estimateTokens, noticeFor} from './injection-format.mjs';
 import {traced, retrieval} from './tracing.mjs';
 
 const scope=z.uuid().nullable().describe('null means personal memory; otherwise an explicitly selected project UUID.');
@@ -127,6 +127,10 @@ export function createMemoryServer(service, {ownerId} = {}) {
   async function buildContext(sessionKey,event,selectedProject,options,setOutput=()=>{},setInput=()=>{}) {
     let context;
     let logged=null;
+    // What the person sees, as opposed to what the model sees. Kept separate
+    // the whole way down: a failure has to reach them even when the model is
+    // told nothing, which is every Stop and every quiet prompt.
+    let notice='';
     try {
       const status=await service.status();
       if (!status) throw {code:'42501'};
@@ -157,11 +161,12 @@ export function createMemoryServer(service, {ownerId} = {}) {
         // now, so the input is replaced rather than left as the event name.
         setInput({turn,contextMessages:earlier.length});
         const [projects,tasks]=await Promise.all([service.projects(),service.openTasks()]);
-        await service.captureTurn(sessionKey,{
+        const capture=await service.captureTurn(sessionKey,{
           projects:projects.map(p=>({slug:p.slug,brief:p.brief})),
           tasks:tasks.map(t=>({slug:t.slug,title:t.title,project:projects.find(p=>p.id===t.project_id)?.slug??null})),
           context:earlier,turn});
-        return null;
+        notice=noticeFor('Stop',{captured:capture?.memories?.length??0});
+        return notice?{hookSpecificOutput:{hookEventName:event,additionalContext:''},systemMessage:notice}:null;
       }
       if (event==='UserPromptSubmit') {
         const prompt=resolvePrompt(options);
@@ -183,6 +188,7 @@ export function createMemoryServer(service, {ownerId} = {}) {
         lookup.end(rows.map(r=>({id:r.id,statement:r.statement,score:r.score})),
           {metadata:{shown:rows.length,matched:rows[0]?.matched??0,inScope:rows[0]?.in_scope??0}});
         if (!rows.length) return null;
+        notice=noticeFor('UserPromptSubmit',{shown:rows.length,matched:rows[0].matched});
         const tasks=await service.tasksByIds?.(rows.map(r=>r.task_id).filter(Boolean))??new Map();
         const block=promptBlock({rows,matched:rows[0].matched,inScope:rows[0].in_scope,tasks});
         logged={query:prompt,memory_ids:rows.map(r=>r.id),
@@ -203,12 +209,14 @@ export function createMemoryServer(service, {ownerId} = {}) {
         ]);
         const block=sessionStartBlock({projects,personal});
         const tokens=estimateTokens(block);
+        notice=noticeFor('SessionStart',{projects:projects.length,personal:personal.length});
         if (!block) {
           context='Satchel is connected and has nothing saved yet. Do not invent memory.';
         } else if (tokens>settings.session_budget_tokens) {
           // Withheld rather than truncated: a partial block that looks complete
           // is worse than an honest absence, because the agent cannot tell.
           context=`Satchel memory NOT loaded: ${tokens} tokens exceeds the ${settings.session_budget_tokens} budget for this session. Use retrieve_memory for anything you need; do not claim memory loaded.`;
+          notice=noticeFor(event,{withheld:`${tokens} tokens over the ${settings.session_budget_tokens} budget`});
         } else {
           context=block;
           logged={query:null,memory_ids:personal.map(m=>m.id),matched:personal.length,
@@ -216,12 +224,18 @@ export function createMemoryServer(service, {ownerId} = {}) {
         }
         if (project) context+=`\nactive project: ${project}`;
       }
-    } catch(error) {context='Satchel memory unavailable. '+errorText(error)+' Do not claim that memory loaded.';}
+    } catch(error) {
+      context='Satchel memory unavailable. '+errorText(error)+' Do not claim that memory loaded.';
+      notice=noticeFor(event,{error:errorText(error)});
+    }
     if (logged) void service.logInjection({id:crypto.randomUUID(),session_key:sessionKey,event,...logged});
     // The exact bytes the model receives, so a trace answers "what did it
     // actually see" rather than "what did we intend to send".
     setOutput(context);
-    return {hookSpecificOutput:{hookEventName:event,additionalContext:context}};
+    // Stop never injects, on either host, so a failure there reaches the
+    // person and no one else.
+    return {hookSpecificOutput:{hookEventName:event,additionalContext:event==='Stop'?'':context},
+      ...(notice?{systemMessage:notice}:{})};
   }
   function register(name,description,inputSchema,operation,annotations=readAnnotations) {
     server.registerTool(name,{description,inputSchema,annotations},async args=>{
