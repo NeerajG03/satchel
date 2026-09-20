@@ -1040,6 +1040,8 @@ pgvector is a preinstalled Supabase extension and is not documented as gated by 
 
 So the index agrees with the exact scan the eval measured, and the eval's numbers transfer.
 
+HNSW builds its graph with randomness, so a re-run gives a slightly different figure: the same script measured 98.9% on a second run. Expect a couple of tenths of a point either way, and read anything near the 90% floor as a real problem rather than a draw.
+
 Getting that number right took two corrections, and both produce a confident wrong answer rather than an error:
 
 The first version of this check filled the probe table with uniform random vectors. In 768 dimensions random vectors are all near-orthogonal, so every distance is a near-tie and the true top five is arbitrary among thousands of equals. Measured that way pgvector scores **35%** and looks broken. It is not broken. The data was. The probe now uses the real Gemini embeddings committed under `eval/embeddings`, padded to 5,000 rows with convex mixes of two real vectors so every row stays inside the real embedding cloud.
