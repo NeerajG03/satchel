@@ -1,0 +1,35 @@
+# App traps
+
+Things that have already gone wrong here, or that are shaped so they will.
+
+**`create or replace function` silently reverts an earlier migration.** Both access helpers have been replaced from an older copy and lost a branch a later migration had added. Before you replace `public.agent_can_access` or `private.agent_can_access_tasks`, read every later migration that touched it and carry forward every branch. This codebase has had that failure.
+
+**A blanket grant has no rows.** `all_projects` and `task_all_projects` are flags; `project_ids` is empty and `agent_task_grants` has nothing in it. Any code that decides access by querying the list alone denies the connection that was given everything. Check the flag first, in the database helper and in the service, both.
+
+**The old `authorize_agent` signatures hard-code the flags false, and that is deliberate.** Someone re-authorizing through an older client must come back without a blanket grant rather than keeping one. Do not "fix" the delegation to preserve the existing flags.
+
+**Revocation lives in `grant_id`, not in `revoked_at`.** Rotating the generation is what kills tokens already in flight. `revoked_at` is only the record. A change that sets the timestamp without rotating leaves every live token working.
+
+**A companion session is not an agent session.** The whole distinction is whether `auth.jwt()->>'client_id'` is null. Any new destructive routine needs the companion check written into it; there is no second net. `private.agent_can_access_tasks` also requires `client_id` to be present, so a companion never reaches it at all.
+
+**The token hook deletes `satchel_grant_id` before writing it.** That one subtraction is what stops a client supplying its own generation. Never simplify it to a plain `||` merge.
+
+**Four constants are one deployment.** `RESOURCE` and `SUPABASE_URL` in `server/http-handler.mjs`, the audience literal inside `satchel_access_token_hook`, the URL in `bootstrap.mjs`, and the `.mcp.json` URL in `scripts/build-plugins.mjs`. Change one and discovery or verification breaks in a way that looks like an auth bug.
+
+**Editing a generated plugin copy works until the next build.** `integrations/claude/satchel` and `integrations/codex/satchel` are output. The source is `integrations/shared`. A fix made in one generated copy also quietly makes the two hosts behave differently.
+
+**Sending only one prompt field is a coin flip.** Both `prompt` and `user_prompt` go out because the two hosts' documentation disagrees and one is truncated. An unsubstituted placeholder is discarded server-side, so there is no cost to keeping both.
+
+**`${last_assistant_message}` does not substitute on Codex.** Code that assumes the assistant's reply is present will quietly capture from a half conversation there. The degradation is stated, not fixed.
+
+**A 503 and a 403 mean different things at `/api/mcp`.** Null status is "you may not" and ends in 403; a throw is "we could not check" and ends in 503. Collapsing them turns a transient database failure into a message telling the person their connection was revoked.
+
+**The repository hint endpoint is anonymous.** Size is checked twice, the field list is closed to three names, and the provider and repository are pattern-matched, because Vercel hands over already-parsed JSON and `Content-Length` alone controls nothing. Any new field on that bridge is a new anonymous input.
+
+**Consent writes the grant before the approval.** Reversing it leaves a valid token with no grant row, which authenticates and then fails every call for reasons nobody can see.
+
+**A new capability is four changes.** A column, a consent control, a branch in both access helpers, and a test that proves the denial. A capability with three of the four is a permission that is granted and never checked, or checked and never grantable.
+
+**A green test that never saw a denial proves nothing.** `tests/security-audit.test.mjs` and `tests/agent-connections.test.mjs` exist to assert the no. Adding a positive-path test for a new capability is not coverage of it.
+
+**Revocation cannot recall what was already read.** Both screens say so plainly. Do not write copy that implies otherwise, and do not build a feature that promises it.
