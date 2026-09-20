@@ -29,7 +29,7 @@ const projectRepositoryChange=z.discriminatedUnion('kind',[
 ]);
 // Supplied, never derived. A model copies an identifier and rewrites a title,
 // so the exact match has to be on something that looks like an identifier.
-const slug=z.string().trim().toLowerCase().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).min(3).max(40)
+const slug=z.string().trim().toLowerCase().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).min(1).max(40)
   .describe('A short handle the user would actually say, like fix-consent-layout. Lowercase words joined by hyphens, unique across all of this user\'s projects and tasks. Do not derive it from the title; choose something sayable. On 23505 pick another and retry.');
 const taskStatus=z.enum(['inbox','ready','in_progress','blocked','done']);
 const taskPriority=z.enum(['low','medium','high','urgent']);
@@ -134,17 +134,21 @@ export function createMemoryServer(service, {ownerId} = {}) {
         const ordered=[...window].reverse();
         const turn=ordered.filter(m=>m.role==='user').slice(-settings.capture_window).map(m=>m.content);
         if (!turn.length) return null;
+        // The turn being classified is the only thing that may supply a source.
+        // Everything before it is there to understand it. Named `earlier` and
+        // not `context`: a block-scoped `context` here shadows the outer one
+        // for the whole block, and reading it before its declaration threw a
+        // ReferenceError that the catch below swallowed, so capture silently
+        // never ran.
+        const earlier=ordered.slice(0,Math.max(0,ordered.length-turn.length));
         // The turn is what this trace is actually about, and it is only known
         // now, so the input is replaced rather than left as the event name.
-        setInput({turn,contextMessages:context.length});
+        setInput({turn,contextMessages:earlier.length});
         const [projects,tasks]=await Promise.all([service.projects(),service.openTasks()]);
-        // The turn being classified is the only thing that may supply a source.
-        // Everything before it is context for understanding it.
-        const context=ordered.slice(0,Math.max(0,ordered.length-turn.length));
         await service.captureTurn(sessionKey,{
           projects:projects.map(p=>({slug:p.slug,brief:p.brief})),
           tasks:tasks.map(t=>({slug:t.slug,title:t.title,project:projects.find(p=>p.id===t.project_id)?.slug??null})),
-          context,turn});
+          context:earlier,turn});
         return null;
       }
       if (event==='UserPromptSubmit') {
@@ -161,7 +165,8 @@ export function createMemoryServer(service, {ownerId} = {}) {
             inScope:project??'personal',excluded:(options.exclude??[]).length}});
         let rows;
         try { rows=await service.search({query:prompt,in_scope:project??null,
-          limit:settings.per_prompt_matches,exclude:options.exclude??[]}); }
+          limit:settings.per_prompt_matches,gate:settings.gate,boost:settings.scope_boost,
+          exclude:options.exclude??[]}); }
         catch (error) { lookup.fail(error); throw error; }
         lookup.end(rows.map(r=>({id:r.id,statement:r.statement,score:r.score})),
           {metadata:{shown:rows.length,matched:rows[0]?.matched??0,inScope:rows[0]?.in_scope??0}});

@@ -111,13 +111,19 @@ export function memoryService(db, embedder = null, router = null) {
     async search(args) {
       if (!embedder) throw {code:'PT503'};
       const vector=await embedder.embedOne(args.query);
+      // Omitted, never null. `p_gate real default 0.67` applies when the
+      // argument is absent, and JSON null is not absent: it reaches Postgres as
+      // NULL, the filter becomes `score >= NULL`, and every row is dropped.
+      // That silenced retrieval entirely. The function now coalesces as well,
+      // but sending nothing is the honest way to mean "use the default".
+      const optional=(key,value)=>value==null?{}:{[key]:value};
       return result(db.rpc('search_memories',{
         p_query:toVectorLiteral(vector),
         p_in_scope:args.in_scope??null,
-        p_limit:args.limit??5,
-        p_gate:args.gate??null,
-        p_boost:args.boost??null,
         p_exclude:args.exclude??[],
+        ...optional('p_limit',args.limit),
+        ...optional('p_gate',args.gate),
+        ...optional('p_boost',args.boost),
       }));
     },
     personal: () => result(db.rpc('personal_memories')),
@@ -150,10 +156,17 @@ export function memoryService(db, embedder = null, router = null) {
         }));
       } catch { /* A capture that cannot be explained is bad; losing the note is worse than nothing but not worth failing the turn. */ }
     },
+    // Every column the lifecycle path reads has to be listed here. capture and
+    // capture_window were added by the router migration and never added to this
+    // select, so settings.capture was undefined on every request, automatic
+    // capture short-circuited, and the rolling window the router reads was
+    // never written. The defaults below must match the column defaults, or
+    // behaviour changes depending on whether a settings row exists.
     async settings() {
       const rows=await result(db.from('memory_settings')
-        .select('per_prompt_matches,gate,scope_boost,session_budget_tokens').limit(1));
-      return rows?.[0]??{per_prompt_matches:5,gate:0.62,scope_boost:1.1,session_budget_tokens:15000};
+        .select('per_prompt_matches,gate,scope_boost,session_budget_tokens,capture,capture_window').limit(1));
+      return rows?.[0]??{per_prompt_matches:5,gate:0.67,scope_boost:1.1,
+        session_budget_tokens:15000,capture:true,capture_window:5};
     },
     // The log is what turns "why did it not know that" into a query, and it is
     // the trigger for every deferred decision in the design. A failure to log

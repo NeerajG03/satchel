@@ -158,8 +158,14 @@ try {
     commit;
     select measure, value from public.pgvector_probe_report order by ctid;`);
 
-  const measured = Object.fromEntries(report.map(r => [r.measure, r.value]));
+  const measured = Object.fromEntries((report ?? []).map(r => [r.measure, r.value]));
   const recall = Number(measured.recall_at_5);
+  // Number(undefined) is NaN and `NaN < FLOOR` is false, so an empty report
+  // would print success and exit 0 having measured nothing. A verification tool
+  // that fails open is worse than no verification tool, because this is the
+  // check that decides whether the eval's numbers transfer at all.
+  if (!Number.isFinite(recall)) throw new Error(
+    'The probe returned no recall figure, so nothing was verified. Re-run; do not treat this as a pass.');
   console.log(`recall@5:            ${(recall * 100).toFixed(1)}%  (identical top 5 on ${measured.identical_top_5})`);
   console.log(`hnsw:                ${measured.hnsw_mean_ms}ms mean`);
   console.log(`exact scan:          ${measured.exact_mean_ms}ms mean`);

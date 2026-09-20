@@ -60,6 +60,24 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
     assert.ok(r[0].score>0.99,`expected near-1 similarity, got ${r[0].score}`);
   });
 
+  await t.test('a null argument means the default, not silence', async () => {
+    // `p_gate real default 0.67` only applies when the argument is absent. An
+    // explicit NULL is not absent: the filter became `score >= NULL`, which is
+    // NULL, which is not true, so every row was dropped and retrieval went
+    // quiet everywhere. The caller no longer sends null, but the function has
+    // to be safe for any caller that ever does.
+    const nulled=await as(alice,
+      `select * from search_memories($1::extensions.vector,null,null,null,null,null)`,[vec(1,0,0)]);
+    assert.equal(nulled.length,1,'a null gate must fall back to the default, not exclude everything');
+    assert.equal(nulled[0].statement,'Idempotency keys are scoped to merchant plus key.');
+    // A null boost would otherwise turn every in-scope score into NULL, which
+    // drops exactly the rows the boost was meant to favour.
+    const inScope=await as(alice,
+      `select * from search_memories($1::extensions.vector,$2,null,null,null,null)`,[vec(1,0,0),projectA]);
+    assert.equal(inScope.length,1,'a null boost must not erase the in-scope rows it applies to');
+    assert.ok(inScope[0].score>=nulled[0].score,'and the default boost still favours the scope');
+  });
+
   await t.test('the gate excludes everything below it', async () => {
     assert.equal((await search(alice,vec(1,0,0),{gate:0.99})).length,1);
     assert.equal((await search(alice,vec(0.6,0.8,0),{gate:0.9})).length,0);

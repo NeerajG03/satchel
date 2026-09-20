@@ -118,3 +118,30 @@ test('a rate limit is waited out once, then surfaces rather than retrying foreve
   await assert.rejects(embedder.embed(['anything']), /429/);
   assert.equal(calls, 2, 'one retry, not a loop');
 });
+
+test('each provider is asked at its own path', async () => {
+  // `path` defaulted to the string '/embeddings', so `path ?? spec.path` never
+  // fell back and the per-provider path was unreachable: ollama posted to
+  // /embeddings and got a 404. Every ollama test stubs fetch and none looked
+  // at the URL, so nothing noticed.
+  const asked = [];
+  const record = url => { asked.push(url); return ok({embeddings: [vector(1)], data: [{index: 0, embedding: vector(1)}]})(); };
+  await createEmbedder({provider: 'ollama', url: 'http://localhost:11434', fetchImpl: record}).embed(['x']);
+  await createEmbedder({provider: 'openai', url: 'https://host/v1', fetchImpl: record}).embed(['x']);
+  await createEmbedder({provider: 'openai', url: 'https://host', path: '/custom', fetchImpl: record}).embed(['x']);
+  assert.deepEqual(asked, ['http://localhost:11434/api/embed', 'https://host/v1/embeddings', 'https://host/custom']);
+});
+
+test('an out-of-order response is put back in order, not mismatched', async () => {
+  // The envelope carries an explicit index because the order is not promised,
+  // and embed() promises to preserve it: the backfill writes vectors[i] onto
+  // rows[i], so a reordered response stores each memory's vector on a
+  // different memory, with every row still holding a valid unit vector.
+  const mark = n => { const v = vector(0); v[0] = 1; v[1] = n; return v; };
+  const embedder = createEmbedder({provider: 'openai', fetchImpl: ok({data: [
+    {index: 2, embedding: mark(2)}, {index: 0, embedding: mark(0)}, {index: 1, embedding: mark(1)},
+  ]})});
+  const out = await embedder.embed(['first', 'second', 'third']);
+  for (let i = 1; i < out.length; i++)
+    assert.ok(out[i][1] > out[i - 1][1], `position ${i} came back out of order`);
+});

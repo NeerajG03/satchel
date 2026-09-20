@@ -54,9 +54,20 @@ const PROVIDERS = {
   // model that can truncate fits the column the migration already declares and
   // one that cannot needs halfvec and 2.7x the storage.
   openai: {
-    path: '/v1/embeddings',
+    // Relative to a base URL that already carries its version segment, which is
+    // the convention for all three hosts this is used with:
+    // .../v1beta/openai, https://api.openai.com/v1, https://openrouter.ai/api/v1.
+    path: '/embeddings',
     body: (model, inputs, dimensions) => ({model, input: inputs, ...(dimensions ? {dimensions} : {})}),
-    read: payload => payload?.data?.map(row => row?.embedding),
+    // Sorted by index, not taken in array order. The envelope carries an
+    // explicit index precisely because the order is not promised, and embed()
+    // promises to preserve order: the backfill writes vectors[i] onto rows[i],
+    // so a reordered response would store each memory's vector on a different
+    // memory, with every row still holding a valid unit vector and nothing to
+    // show for it but quietly wrong matches.
+    read: payload => Array.isArray(payload?.data)
+      ? [...payload.data].sort((a, b) => (a?.index ?? 0) - (b?.index ?? 0)).map(row => row?.embedding)
+      : undefined,
   },
 };
 
@@ -72,19 +83,36 @@ export function createEmbedder({
   url = process.env.SATCHEL_EMBEDDING_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai',
   apiKey = process.env.SATCHEL_EMBEDDING_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY,
   dimensions = Number(process.env.SATCHEL_EMBEDDING_DIMENSIONS ?? EMBEDDING_DIMENSIONS),
-  path = process.env.SATCHEL_EMBEDDING_PATH ?? '/embeddings',
+  path = process.env.SATCHEL_EMBEDDING_PATH,
   timeoutMs = Number(process.env.SATCHEL_EMBEDDING_TIMEOUT_MS ?? 4000),
   fetchImpl = fetch,
 } = {}) {
   const spec = PROVIDERS[provider];
   if (!spec) throw new EmbeddingError(`Unknown embedding provider ${provider}`);
 
-  async function batch(inputs, retryOn429 = true) {
-    // On the read path this is the query; on the write path it is the memory
-    // being indexed. Either way the text is the thing worth seeing later.
-    const trace = retryOn429
-      ? traceEmbedding('embed', {model, input: inputs, metadata: {dimensions, count: inputs.length}})
-      : {end() {}, fail() {}};
+  // One observation covers the whole call including the retry. Ending the span
+  // on the 429 branch was the bug: it returned into a fresh attempt with
+  // tracing disabled, so a rate-limited embedding was never ended and never
+  // recorded, losing exactly the traces worth having. Every exit now runs
+  // through end() or fail().
+  async function batch(inputs) {
+    const trace = traceEmbedding('embed', {model, input: inputs, metadata: {dimensions, count: inputs.length}});
+    try {
+      const payload = await attempt(inputs, true);
+      const vectors = spec.read(payload);
+      if (!Array.isArray(vectors) || vectors.length !== inputs.length)
+        throw new EmbeddingError(`${model} returned ${vectors?.length ?? 0} embeddings for ${inputs.length} inputs`);
+      const normalized = vectors.map(vector => normalize(vector, model, dimensions));
+      trace.end({vectors: normalized.length, dimensions: normalized[0]?.length ?? 0},
+        {usageDetails: payload?.usage ?? undefined});
+      return normalized;
+    } catch (error) {
+      trace.fail(error);
+      throw error;
+    }
+  }
+
+  async function attempt(inputs, retryOn429) {
     let response;
     try {
       response = await fetchImpl(url.replace(/\/+$/, '') + (path ?? spec.path), {
@@ -94,35 +122,20 @@ export function createEmbedder({
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (cause) {
-      const failure = new EmbeddingError(`${model} did not respond within ${timeoutMs}ms`, {cause});
-      trace.fail(failure);
-      throw failure;
+      throw new EmbeddingError(`${model} did not respond within ${timeoutMs}ms`, {cause});
     }
     // OpenRouter's free models allow 20 requests a minute per account, shared
     // across every user of this deployment. On the read path that is one
     // retrieval's worth of delay against no retrieval at all, so it is worth a
     // single short wait and no more; the caller still degrades to silence.
     if (response.status === 429 && retryOn429) {
-      const reset = Number(response.headers.get('x-ratelimit-reset')) || 0;
-      const waitMs = Math.min(Math.max(reset - Date.now(), 500), 2000);
-      await new Promise(done => setTimeout(done, waitMs));
-      return batch(inputs, false);
+      const reset = Number(response.headers?.get?.('x-ratelimit-reset')) || 0;
+      await new Promise(done => setTimeout(done, Math.min(Math.max(reset - Date.now(), 500), 2000)));
+      return attempt(inputs, false);
     }
-    if (!response.ok) {
-      const failure = new EmbeddingError(`${model} returned ${response.status}`);
-      trace.fail(failure);
-      throw failure;
-    }
-    let payload;
-    try { payload = await response.json(); }
+    if (!response.ok) throw new EmbeddingError(`${model} returned ${response.status}`);
+    try { return await response.json(); }
     catch (cause) { throw new EmbeddingError(`${model} returned a malformed response`, {cause}); }
-    const vectors = spec.read(payload);
-    if (!Array.isArray(vectors) || vectors.length !== inputs.length)
-      throw new EmbeddingError(`${model} returned ${vectors?.length ?? 0} embeddings for ${inputs.length} inputs`);
-    const normalized = vectors.map(vector => normalize(vector, model, dimensions));
-    trace.end({vectors: normalized.length, dimensions: normalized[0]?.length ?? 0},
-      {usageDetails: payload?.usage ?? undefined});
-    return normalized;
   }
 
   return {

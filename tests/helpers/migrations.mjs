@@ -5,9 +5,9 @@ const dir=new URL('../../supabase/migrations/',import.meta.url);
 export const RETRIEVAL='20260920090000_memory_v2_retrieval.sql';
 
 // PGlite has no pgvector, so the type and the distance operator are shimmed for
-// tests. Every substitution is asserted to match, so a change to the migration's
-// shape fails loudly here instead of quietly testing something else. The real
-// operator is verified against Supabase by scripts/verify-pgvector.mjs.
+// tests. The real operator and the real index are verified against Supabase by
+// scripts/verify-pgvector.mjs, which is the only place they can be.
+const EXTENSION='create extension if not exists vector with schema extensions;';
 const SHIM=`
 create schema if not exists extensions;
 grant usage on schema extensions to anon, authenticated;
@@ -22,19 +22,23 @@ $$;
 create operator extensions.<=> (leftarg=real[], rightarg=real[], function=extensions.vec_cosine_distance);
 `;
 
+/** Rewrites one migration so PGlite can run it.
+ *
+ *  Driven by what the file contains, not by its name. Keying on the filename
+ *  meant a later migration that also declared extensions.vector(768) reached
+ *  PGlite unshimmed and failed on a domain that cannot take a type modifier,
+ *  which is a confusing way to learn that the helper needed updating. */
 export function shimVector(sql){
-  const edits=[
-    [/create extension if not exists vector with schema extensions;/, SHIM],
-    [/extensions\.vector\(768\)/g, 'extensions.vector'],
-    [/create index memories_embedding_hnsw[\s\S]*?;/, '-- index omitted: no hnsw access method in the shim'],
-  ];
-  for(const [pattern,replacement] of edits){
-    assert.ok(pattern.test(sql),`the retrieval migration no longer contains ${pattern}`);
-    // A function replacer: `$$` in a replacement string is an escape and would
-    // silently break the shim's dollar quoting.
-    sql=sql.replace(pattern,()=>replacement);
-  }
-  return sql;
+  if(!sql.includes('extensions.vector'))return sql;
+  let out=sql.includes(EXTENSION)?sql.replace(EXTENSION,()=>SHIM):sql;
+  const before=out;
+  // Function replacers throughout: `$$` in a replacement string is an escape
+  // and would silently break the shim's dollar quoting.
+  out=out.replace(/extensions\.vector\(768\)/g,()=>'extensions.vector')
+         .replace(/create index \w+_hnsw[\s\S]*?;/g,()=>'-- index omitted: no hnsw access method in the shim');
+  assert.notEqual(out,before,
+    'a migration naming extensions.vector was left unshimmed, so it would fail on the domain');
+  return out;
 }
 
 export async function migrationFiles(){
@@ -47,7 +51,7 @@ export async function applyMigrations(db,{files,through}={}){
   const list=through?all.slice(0,all.indexOf(through)+1):all;
   for(const file of list){
     const sql=await readFile(new URL(file,dir),'utf8');
-    await db.exec(file===RETRIEVAL?shimVector(sql):sql);
+    await db.exec(shimVector(sql));
   }
   return list;
 }
