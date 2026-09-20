@@ -18,6 +18,10 @@
       "Read",
       "Write"
     ],
-    "defaultPrompt": "Use my Satchel context for this task."
+    "defaultPrompt": "Use my Satchel context for this task.",
+    "websiteURL": "https://satchel-pi.vercel.app",
+    "brandColor": "#E4571E",
+    "logo": "./assets/logo.png",
+    "composerIcon": "./assets/icon.png"
   }
 }

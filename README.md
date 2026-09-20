@@ -2,41 +2,82 @@
 
 **Your work, with you.**
 
-Your projects, knowledge, and ways of working—with you across your AI apps.
+Satchel keeps your memory, projects and tasks in one place and hands them to the AI coding apps you already use. You decide what gets saved. Every app sees only what you allowed it to see, and you can revoke that any time.
 
-Satchel is the next direction for JEFF: a hosted service with companion interfaces and integrations distributed through supported AI apps' plugin platforms.
+The hosted pilot is at [satchel-pi.vercel.app](https://satchel-pi.vercel.app). Sign in with GitHub. It is a personal pilot, not a product with uptime promises yet.
 
-## Status
+## What it does
 
-The web pilot is live at [satchel-pi.vercel.app](https://satchel-pi.vercel.app). GitHub sign-in, personal memory in **For me**, optional projects, named memory, on-demand details, corrections and deletion work against hosted Supabase. Codex and Claude Code plugins now connect to a scoped OAuth MCP service with explicit writes and revocation. See [agent setup and limits](docs/agent-setup.md), [native runtime evidence](docs/checkpoints/native-agent-pilot.md), and the [hosted web checkpoint](docs/checkpoints/hosted-web-pilot.md). The user has confirmed phone sign-in and use. See [development setup](docs/development.md).
+- **Memory.** Short named notes about how you work, in a personal book called *For me* or inside a project. Details load on demand, so the index stays small.
+- **Projects.** An ongoing effort with a brief, memories, tasks and linked repositories.
+- **Tasks.** Plain tasks with status, blockers, handoff notes and small file uploads. Agents can read and update them when you let them.
+- **Apps.** Claude Code and Codex connect through a plugin. When a session starts, the plugin loads your memory index. Saves happen only when you ask.
 
-## Start here
+## Connect Claude Code or Codex
 
-- [Product definition](docs/product.md): what Satchel should do and how the main experiences should work.
-- [Build roadmap](docs/build-roadmap.md): system and user decisions, proposed stack and deployment, and staged deliverables.
-- [Documentation index](docs/README.md): projects, skills and installation, memory, tasks, architecture, decisions, migration, and discussion history.
-- [Design](design/README.md): the current visual direction, original interactive prototype, review notes, and earlier explorations.
+This repository is also the plugin catalog. The marketplace files sit at the root and point at the packages under `integrations/`.
 
-Current docs distinguish agreed direction from proposed mechanisms and open choices. Historical reports and mockups are preserved unchanged; their older assumptions do not override the current product definition.
+```sh
+# Claude Code
+claude plugin marketplace add NeerajG03/satchel
+claude plugin install satchel@satchel
+claude mcp login plugin:satchel:satchel
+```
 
-## Direction
+```sh
+# Codex
+codex plugin marketplace add NeerajG03/satchel
+codex plugin add satchel@satchel
+codex mcp login satchel
+```
 
-- Keep useful context available across supported apps and devices, with explicit control over what is saved and shared.
-- Treat projects as ongoing efforts with context, resources, and tasks; repositories are resources a project can reference.
-- Treat skills as reusable instructions and, where needed, scripts and dependencies. Library membership, installation, authorization, and execution readiness are distinct.
-- Native Codex and Claude Code packages connect to one hosted service. General ChatGPT/Claude mobile chat integration and remote package releases remain unvalidated.
-- Start with GitHub Issues as the task source. A Satchel extension system for additional task sources is deferred; consuming existing AI plugin platforms is a separate decision.
-- Use explicit memory saves and corrections. Personas and a curator are outside the initial scope.
+The login command opens Satchel in your browser with a consent page. Allow the scopes you want, then start a fresh session. The Apps page shows the same steps and lets you revoke access later.
 
-## Design
+The plugin holds no memory and no credentials. It is the service address, a hook that loads your index, a small bootstrap that reads the git origin so the right project is selected, and a skill that teaches the agent the tools. See [agent setup and limits](docs/agent-setup.md).
 
-The visual direction is a personal notebook with physical controls: warm paper, readable typography, dark framing, and restrained orange accents. The mockup establishes look and feel; its interactions and sample data do not establish the product architecture. Light and dark themes are intended.
+## Run your own
 
-## Still to resolve
+Satchel is a Vite and React app on Vercel with Supabase for auth, database and storage, plus a stateless MCP endpoint under `api/`. Everything is behind row level security and narrow database functions. There is no service role key in the browser or in the MCP handler.
 
-Project boundaries, storage and sharing, skill packaging and installation per platform, permissions, supported mobile capabilities, and the boundary between hosted and local execution need a consistent specification before implementation.
+```sh
+npm ci
+cp .env.example .env.local   # your Supabase URL and publishable key
+npm run dev
+```
+
+```sh
+npm test        # runs the real migrations in PGlite
+npm run build
+```
+
+[Development setup](docs/development.md) walks through the Supabase project, GitHub OAuth app, storage bucket and Vercel deploy. [Architecture](docs/architecture.md) explains the pieces.
+
+## Repository layout
+
+| Folder | What is in it |
+|---|---|
+| `src/` | The web app |
+| `api/`, `server/` | Vercel functions and the MCP server |
+| `supabase/migrations/` | Schema, RLS and database functions |
+| `tests/` | SQL and contract tests, run with `node --test` |
+| `.claude-plugin/`, `.agents/` | Marketplace files, generated. This repo is the catalog |
+| `integrations/` | Plugin source in `shared/`, generated packages for `claude/` and `codex/` |
+| `scripts/` | Build the plugin packages and marketplace files, storage maintenance |
+| `docs/` | Product, architecture, decisions and setup. `docs/archive/` is frozen history |
+| `design/` | The design system, canvas boards and their generator |
+
+After a change under `integrations/shared/`, run `npm run plugins:build` and commit the generated packages and marketplace files. Installs read them straight from `main`. See [build and publish](docs/agent-setup.md#build-and-publish).
+
+## Where it came from
+
+Satchel grew out of JEFF, an earlier personal context project. The older reports under `docs/archive/` are kept unchanged as a reasoning trail. They are not the current specification. Start with [the product document](docs/product.md), [the decision ledger](docs/decisions.md) and [the design notes](design/README.md).
+
+## License
+
+MIT. Use it as a base for your own thing, change it, ship it. Keep the copyright and license notice from [LICENSE](LICENSE) in your copy. That is the only condition.
 
 ## Platform references
 
-- [OpenAI: Build plugins](https://learn.chatgpt.com/docs/build-plugins)
-- [Claude Code: Create plugins](https://code.claude.com/docs/en/plugins)
+- [Claude Code: plugins](https://code.claude.com/docs/en/plugins)
+- [OpenAI: build plugins](https://learn.chatgpt.com/docs/build-plugins)
+- [Supabase: OAuth server](https://supabase.com/docs/guides/auth/oauth-server)

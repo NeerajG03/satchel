@@ -47,21 +47,36 @@ Codex uses `SessionStart` for startup/clear and `PostCompact` for compaction. Bo
 
 The hook includes authorized personal memory plus the conversation's explicitly selected project. Its serialized index budget is 1,800 UTF-8 bytes, deliberately conservative relative to host context limits. If the index exceeds that budget, or database pagination is incomplete, it reports incomplete loading and directs explicit scoped retrieval. Full detail is never automatically injected. This pilot limit needs usability testing with larger memory collections.
 
-## Build and private distribution
+## Install for anyone
+
+This public repository is the catalog. `.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json` at the root point at the generated packages under `integrations/`.
+
+```sh
+# Claude Code
+claude plugin marketplace add NeerajG03/satchel
+claude plugin install satchel@satchel
+claude mcp login plugin:satchel:satchel
+
+# Codex
+codex plugin marketplace add NeerajG03/satchel
+codex plugin add satchel@satchel
+codex mcp login satchel
+```
+
+The login command opens the consent page in the browser. After Allow, start a fresh session so the hooks load the index. The Apps page in the web app shows the same commands when nothing is connected.
+
+## Build and publish
 
 ```sh
 npm ci
-node scripts/build-plugins.mjs
+npm run plugins:build
+claude plugin validate .
 claude plugin validate integrations/claude/satchel
-claude plugin marketplace add ./integrations/claude
-claude plugin install satchel@satchel-dev
 ```
 
-Use an absolute clone path if invoking marketplace commands outside the repository. The catalog above is a local development catalog, not an independently downloadable public release. A second user currently needs access to the private repository and a local clone. Clean remote install/update/rollback remains a separate release gate.
+`build-plugins.mjs` generates both packages from `integrations/shared` and writes the two marketplace files at the repository root. Commit all of it. Installing reads `main` directly, so a merged commit is a release once the version in `build-plugins.mjs` is bumped. Edit shared source and rebuild, never the generated copies. The local `satchel-dev` directory catalog under `integrations/claude` still works for development.
 
-For Codex, use the `plugin-creator` scaffold to register a personal `satchel` package, then copy the generated package to that registered source. The build script accepts the destination as its optional argument. Use the skill's `read_marketplace_name.py`, `update_plugin_cachebuster.py`, and `codex plugin add satchel@personal` update flow; do not hand-edit marketplace configuration. Re-review changed hooks in a fresh client.
-
-Both packages are generated from `integrations/shared`; edit shared source and rebuild, rather than editing generated copies. The bootstrap requires Node.js on PATH. Current validation is on macOS; other operating systems and ordinary mobile ChatGPT/Claude chats are not validated targets.
+The bootstrap requires Node.js on PATH. Current validation is on macOS; other operating systems and ordinary mobile ChatGPT/Claude chats are not validated targets.
 
 ## Hosted configuration
 

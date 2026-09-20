@@ -132,11 +132,13 @@ Memory v2 was reported working after a live end-to-end check that called `search
 
 **Rule:** smoke test the path production actually takes, not a shortcut to the same data.
 
-### Production can hold a migration that exists on no merged branch
+### A stale remote ref makes normal work look like drift
 
-`20260917170000_delete_tasks_and_projects` was applied to the live database and lives only on unmerged branches. A rebuild from migrations alone would produce a database missing `delete_task` and `delete_project`, and no test has ever run them.
+I reported that `20260917170000_delete_tasks_and_projects` was applied to production while existing on no merged branch, and that nothing tested it. Both were wrong. `git fetch` had not been run, so `origin/main` pointed at a commit from days earlier. The migration is on `main`, and `tests/delete.test.mjs` covers it.
 
-**Rule:** compare the applied ledger against the repo before touching a live database, and rehearse the chain production actually has.
+The local `main` branch was stale in the other direction too: its tip existed on the remote under a different hash, because the work had been rebased.
+
+**Rule:** `git fetch` before comparing anything against `origin/main`, and before concluding that a branch is behind, ahead or divergent. Comparing the applied migration ledger against the repo is still worth doing; just do it against a ref that is actually current.
 
 ### Keying a test helper on a filename
 

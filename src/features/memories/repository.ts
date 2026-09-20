@@ -11,6 +11,16 @@ export function createMemoryRepository(db: SupabaseClient) {
       if (error) throw error;
       return data ?? [];
     },
+    // Across every scope the row policies allow. Its own routine rather than a
+    // select, because the index carries a flag and never the detail: reading
+    // more_info here would pull up to 40,000 characters a row into the browser
+    // just to decide whether a row expands.
+    async listAll(): Promise<MemorySummary[]> {
+      const { data, error } = await requestWithTimeout(signal =>
+        db.rpc('all_memories').abortSignal(signal));
+      if (error) throw error;
+      return (data ?? []) as MemorySummary[];
+    },
     // Read by id. A name is an optional handle now, so it was never a key, and
     // the list already carries every statement in full.
     async read(memory: MemorySummary): Promise<Memory> {

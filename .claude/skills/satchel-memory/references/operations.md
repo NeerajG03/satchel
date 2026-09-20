@@ -30,9 +30,9 @@ values ('20260920130000', 'retrieval_and_slug_fixes', array[$sql$...$sql$]);
 
 ### Before you touch the live database
 
-1. **Compare the ledger against the repo.** Production holds `20260917170000_delete_tasks_and_projects`, which exists on no merged branch. A rebuild from migrations alone would produce a database without `delete_task` and `delete_project`, and no test has ever run them.
+1. **`git fetch`, then compare the ledger against the repo.** Without the fetch, a stale `origin/main` makes ordinary work look like drift: I once reported a live migration as existing on no merged branch when it was on `main` and covered by a test.
 2. **Back up what you are about to change.** Even two rows.
-3. **Rehearse the chain production actually has**, including any drift migration, against PGlite. That is what caught that `delete_task` declares `target public.tasks` as a row type while the slugs migration adds a column to that table.
+3. **Rehearse the chain production actually has** against PGlite. That is what caught that `delete_task` declares `target public.tasks` as a row type while the slugs migration adds a column to that table.
 
 ## Backfilling embeddings
 

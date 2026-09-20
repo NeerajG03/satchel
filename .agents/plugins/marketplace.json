@@ -1,0 +1,20 @@
+{
+  "name": "satchel",
+  "interface": {
+    "displayName": "Satchel"
+  },
+  "plugins": [
+    {
+      "name": "satchel",
+      "source": {
+        "source": "local",
+        "path": "./integrations/codex/satchel"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
