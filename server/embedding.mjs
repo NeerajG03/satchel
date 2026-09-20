@@ -42,7 +42,10 @@ const PROVIDERS = {
     body: (model, inputs) => ({model, input: inputs}),
     read: payload => payload?.embeddings,
   },
-  // Any OpenAI-compatible embeddings endpoint, OpenRouter included.
+  // Any OpenAI-compatible embeddings endpoint. OpenRouter and Google's
+  // compatibility layer both speak this, so moving between them is env, not
+  // code. Google's differs only in where the path sits under the base URL,
+  // which is why `path` is overridable below.
   //
   // `dimensions` matters more than it looks. pgvector indexes vectors up to
   // 2,000 dimensions and several current embedding models return 2,048, so a
@@ -63,6 +66,7 @@ export function createEmbedder({
   url = process.env.SATCHEL_EMBEDDING_URL ?? 'https://openrouter.ai/api',
   apiKey = process.env.SATCHEL_EMBEDDING_KEY ?? process.env.OPENROUTER_API_KEY,
   dimensions = Number(process.env.SATCHEL_EMBEDDING_DIMENSIONS ?? EMBEDDING_DIMENSIONS),
+  path = process.env.SATCHEL_EMBEDDING_PATH,
   timeoutMs = Number(process.env.SATCHEL_EMBEDDING_TIMEOUT_MS ?? 4000),
   fetchImpl = fetch,
 } = {}) {
@@ -72,7 +76,7 @@ export function createEmbedder({
   async function batch(inputs, retryOn429 = true) {
     let response;
     try {
-      response = await fetchImpl(url.replace(/\/+$/, '') + spec.path, {
+      response = await fetchImpl(url.replace(/\/+$/, '') + (path ?? spec.path), {
         method: 'POST',
         headers: {'content-type': 'application/json', ...(apiKey ? {authorization: `Bearer ${apiKey}`} : {})},
         body: JSON.stringify(spec.body(model, inputs, dimensions)),

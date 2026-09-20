@@ -1,7 +1,7 @@
 import {indexedText, toVectorLiteral} from './embedding.mjs';
 
 // Request-scoped adapter. RLS remains authoritative even for direct RPC calls.
-export function memoryService(db, embedder = null) {
+export function memoryService(db, embedder = null, router = null) {
   async function result(query) {
     const {data,error} = await query.abortSignal(AbortSignal.timeout(8000));
     if (error) throw error;
@@ -19,11 +19,34 @@ export function memoryService(db, embedder = null) {
       }).eq('id',row.id));
     } catch { /* Retrievable later by the backfill; the memory itself is saved. */ }
   }
+  // One turn's worth of capture. Everything the router returns has already
+  // been checked against what the user actually typed; this only resolves
+  // scope and writes.
+  async function captureTurn(sessionKey, {projects, tasks, context, turn}) {
+    const runId = crypto.randomUUID();
+    let outcome;
+    try {
+      outcome = await router.route({projects, tasks, context, turn});
+    } catch (error) {
+      await api.logRouterRun({id:runId, session_key:sessionKey, model:router.model,
+        prompt:'(not sent)', response:null, kept:0, dropped:0, error:String(error.message ?? error)});
+      return {memories:[], dropped:0};
+    }
+    const written = [];
+    for (const item of outcome.memories) {
+      try { written.push(await api.captureMemory({id:crypto.randomUUID(), ...item})); }
+      catch { /* One bad item must not lose the rest of the turn. */ }
+    }
+    await api.logRouterRun({id:runId, session_key:sessionKey, model:router.model,
+      prompt:outcome.prompt, response:outcome.raw, kept:written.length,
+      dropped:outcome.dropped.length, error:null});
+    return {memories:written, dropped:outcome.dropped.length};
+  }
   async function requireScope(projectId, write=false) {
     if (!await result(db.rpc('agent_can_access',{p_project_id:projectId,p_write:write})))
       throw {code:'42501'};
   }
-  return {
+  const api = {
     status: () => result(db.rpc('agent_connection_status')),
     projects: () => result(db.from('projects')
       .select('id,slug,name,brief,revision,updated_at,project_repositories(provider,repository)').order('name')),
@@ -98,6 +121,35 @@ export function memoryService(db, embedder = null) {
       }));
     },
     personal: () => result(db.rpc('personal_memories')),
+    // The rolling window lives here, not on the user's machine. The per-prompt
+    // hook already sends the prompt as a tool argument, so nothing extra is
+    // read from disk and no transcript is parsed on either host.
+    recordSessionMessage: (sessionKey, role, content, keep = 12) =>
+      result(db.rpc('record_session_message',
+        {p_session_key:sessionKey, p_role:role, p_content:content, p_keep:keep})),
+    sessionWindow: (sessionKey, limit = 12) =>
+      result(db.rpc('session_window', {p_session_key:sessionKey, p_limit:limit})),
+    clearSessionWindow: sessionKey =>
+      result(db.rpc('clear_session_window', {p_session_key:sessionKey})),
+    async openTasks() {
+      const rows = await result(db.from('task_planning').select('slug,title,project_id')
+        .neq('status','done').order('last_activity_at',{ascending:false}).limit(12));
+      return rows ?? [];
+    },
+    // Slug to UUID happens in the database, so the model never handles an id.
+    captureMemory: args => result(db.rpc('capture_memory', {
+      p_id:args.id, p_statement:args.statement, p_source:args.source,
+      p_project_slug:args.project ?? null, p_task_slug:args.task ?? null,
+    })),
+    async logRouterRun(entry) {
+      try {
+        await result(db.from('router_runs').insert({
+          id:entry.id, session_key:entry.session_key, model:entry.model,
+          prompt:entry.prompt.slice(0,40000), response:entry.response?.slice(0,40000) ?? null,
+          kept:entry.kept, dropped:entry.dropped, error:entry.error ?? null,
+        }));
+      } catch { /* A capture that cannot be explained is bad; losing the note is worse than nothing but not worth failing the turn. */ }
+    },
     async settings() {
       const rows=await result(db.from('memory_settings')
         .select('per_prompt_matches,gate,scope_boost,session_budget_tokens').limit(1));
@@ -123,5 +175,7 @@ export function memoryService(db, embedder = null) {
       if (!rows.length) throw {code:'PT409'};
       return {deleted_id:args.id};
     },
+    captureTurn: router ? captureTurn : null,
   };
+  return api;
 }

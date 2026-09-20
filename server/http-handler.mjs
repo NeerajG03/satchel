@@ -4,6 +4,7 @@ import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/st
 import {createMemoryServer} from './mcp-server.mjs';
 import {memoryService} from './memory-service.mjs';
 import {createEmbedder} from './embedding.mjs';
+import {createRouter} from './router.mjs';
 import {taskService} from './task-service.mjs';
 
 export const RESOURCE='https://satchel-pi.vercel.app/api/mcp';
@@ -22,6 +23,11 @@ export async function verifyAgentToken(token,verificationKeys=keys) {
 let embedder=null;
 try { embedder=createEmbedder(); }
 catch { /* retrieve_memory will report itself unavailable */ }
+// Without a key the router is simply absent and capture does not happen, which
+// is the behaviour Satchel had before automatic capture existed.
+let router=null;
+try { router=process.env.SATCHEL_ROUTER_KEY??process.env.OPENROUTER_API_KEY?createRouter():null; }
+catch { router=null; }
 
 export async function handleMcp(req,res) {
   res.setHeader('Cache-Control','no-store');
@@ -36,7 +42,7 @@ export async function handleMcp(req,res) {
   const key=process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if(!key){res.writeHead(503);return res.end('Server configuration unavailable');}
   const db=createClient(SUPABASE_URL,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{headers:{Authorization:`Bearer ${token}`}}});
-  const service=memoryService(db,embedder);
+  const service=memoryService(db,embedder,router);
   service.tasks=taskService(db,service.status);
   try {
     if(!await service.status()){res.writeHead(403);return res.end('Connection revoked or unavailable');}

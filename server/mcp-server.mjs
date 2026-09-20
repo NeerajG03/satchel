@@ -16,7 +16,7 @@ const content={
 const identity={project_id:scope,id:z.uuid(),revision:z.number().int().positive()};
 const readAnnotations={readOnlyHint:true,destructiveHint:false,openWorldHint:false};
 const writeAnnotations={readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false};
-const lifecycle=z.enum(['SessionStart','PostCompact','UserPromptSubmit']);
+const lifecycle=z.enum(['SessionStart','PostCompact','UserPromptSubmit','Stop']);
 // Only the server-side link table maps a repository to a project, so the provider stays implicit.
 const PROVIDER='github';
 const repositoryName=z.string().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/).max(201).nullable()
@@ -113,9 +113,34 @@ export function createMemoryServer(service) {
       const status=await service.status();
       if (!status) throw {code:'42501'};
       const settings=await service.settings();
+      if (event==='Stop') {
+        // Capture, and nothing injected. Claude Code can inject from Stop and
+        // Codex cannot, so a design that used it would work on one host only,
+        // and the next turn may change subject anyway.
+        if (options.last_assistant_message)
+          void service.recordSessionMessage(sessionKey,'assistant',options.last_assistant_message);
+        if (!settings.capture||!service.captureTurn) return null;
+        const window=await service.sessionWindow(sessionKey,settings.capture_window*2);
+        const ordered=[...window].reverse();
+        const turn=ordered.filter(m=>m.role==='user').slice(-settings.capture_window).map(m=>m.content);
+        if (!turn.length) return null;
+        const [projects,tasks]=await Promise.all([service.projects(),service.openTasks()]);
+        // The turn being classified is the only thing that may supply a source.
+        // Everything before it is context for understanding it.
+        const context=ordered.slice(0,Math.max(0,ordered.length-turn.length));
+        await service.captureTurn(sessionKey,{
+          projects:projects.map(p=>({slug:p.slug,brief:p.brief})),
+          tasks:tasks.map(t=>({slug:t.slug,title:t.title,project:projects.find(p=>p.id===t.project_id)?.slug??null})),
+          context,turn});
+        return null;
+      }
       if (event==='UserPromptSubmit') {
         const prompt=resolvePrompt(options);
-        if (!prompt||!settings.per_prompt_matches) return null;
+        if (!prompt) return null;
+        // Recorded whether or not anything is retrieved, because the window the
+        // router reads is built from exactly this.
+        if (settings.capture) void service.recordSessionMessage(sessionKey,'user',prompt,settings.capture_window*2);
+        if (!settings.per_prompt_matches) return null;
         let project=selectedProject;
         if (project===undefined) project=await service.activeProject(sessionKey);
         const rows=await service.search({query:prompt,in_scope:project??null,
@@ -248,14 +273,16 @@ export function createMemoryServer(service) {
   // UserPromptSubmit the prompt is the search query and nothing else; no
   // transcript, no assistant text, and nothing is written.
   server.registerTool('load_memory_context',{
-    description:'Read-only lifecycle hook. At session start and after compaction it injects the projects list and every personal memory. On UserPromptSubmit it retrieves memories relevant to that prompt. Never saves conversations.',
+    description:'Lifecycle hook. At session start and after compaction it injects the projects list and every personal memory. On UserPromptSubmit it retrieves memories relevant to that prompt. On Stop it reviews the turn that just ended and may record a memory the user stated, which arrives unconfirmed. It never stores the conversation itself beyond a short rolling window used for that review.',
     inputSchema:{session_key:session,event:lifecycle,
       prompt:z.string().max(2000).optional().describe('Only for UserPromptSubmit: the prompt to retrieve against.'),
+      last_assistant_message:z.string().max(8000).optional().describe('Only for Stop, where the host provides it: the final assistant text of the turn.'),
       user_prompt:z.string().max(2000).optional().describe('The same thing under the other host spelling; whichever actually carries text is used.'),
       exclude:z.array(z.uuid()).max(50).default([])},
     annotations:readAnnotations,
-  },async ({session_key,event,prompt,user_prompt,exclude})=>{
-    const payload=await contextPayload(session_key,event,undefined,{prompt,user_prompt,exclude});
+  },async ({session_key,event,prompt,user_prompt,last_assistant_message,exclude})=>{
+    const payload=await contextPayload(session_key,event,undefined,
+      {prompt,user_prompt,last_assistant_message,exclude});
     // Nothing relevant is a real answer. Returning an empty result keeps the
     // per-prompt cost at zero on the turns that need nothing.
     return textResult(payload??{hookSpecificOutput:{hookEventName:event,additionalContext:''}});
