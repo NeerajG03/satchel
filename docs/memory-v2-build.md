@@ -1022,13 +1022,31 @@ Free tier is 500 MB of database, two active projects, and **a project paused aft
 
 Size is not the constraint. A 768-dimension vector is 3,072 bytes, and HNSW stores the vector again, so roughly 7 KB per memory all in. 500 MB is on the order of 70,000 memories for one person, against a corpus of 473 in the eval. Halving the dimensions with `all-minilm` halves it again, and `halfvec` would halve it a third time. None of that is needed yet.
 
-pgvector is a preinstalled Supabase extension and is not documented as gated by plan, but the pricing page does not discuss extensions at all, so `verify-pgvector.sql` checks `pg_available_extensions` first and fails loudly rather than assuming.
+pgvector is a preinstalled Supabase extension and is not documented as gated by plan, but the pricing page does not discuss extensions at all, so `verify-pgvector.mjs` checks `pg_available_extensions` first and fails loudly rather than assuming. On the live project it is version 0.8.2, installed into `extensions`.
 
-### Still not verified against a real database
+### Verified against the real database
 
 `search_memories` is exercised against a shimmed `vector` domain and a plain-SQL cosine operator, because PGlite has no pgvector. That covers scope, grants, the gate, the boost, the cap, the exclusion list and the counts. It does not cover the operator itself or HNSW recall, which is approximate by construction while the eval measured an exact scan.
 
-[scripts/verify-pgvector.sql](../scripts/verify-pgvector.sql) settles both against the real instance: it confirms the extension, builds an HNSW index over 5,000 vectors, measures recall@5 against an exact scan, warns below 90%, and times the query. It is one paste into the Supabase SQL editor and it is the last thing between this and production.
+[scripts/verify-pgvector.mjs](../scripts/verify-pgvector.mjs) settles both against the live instance. Measured on 2026-09-20, at 5,000 rows with the 159 real prompt vectors as queries:
+
+| | |
+|---|---|
+| recall@5 against an exact scan | **98.7%** |
+| queries returning an identical top 5 | 154 / 159 |
+| HNSW mean | 0.85 ms |
+| exact scan mean | 28.24 ms |
+| `hnsw.ef_search` | 40, the default |
+
+So the index agrees with the exact scan the eval measured, and the eval's numbers transfer.
+
+Getting that number right took two corrections, and both produce a confident wrong answer rather than an error:
+
+The first version of this check filled the probe table with uniform random vectors. In 768 dimensions random vectors are all near-orthogonal, so every distance is a near-tie and the true top five is arbitrary among thousands of equals. Measured that way pgvector scores **35%** and looks broken. It is not broken. The data was. The probe now uses the real Gemini embeddings committed under `eval/embeddings`, padded to 5,000 rows with convex mixes of two real vectors so every row stays inside the real embedding cloud.
+
+The second version probed at 473 rows, the corpus size. At that size the planner picks a sequential scan over HNSW, so both sides of the comparison are exact and recall comes out at a flattering, meaningless **100%**. The script now reads the query plan and refuses to report a number unless `vector_probe_hnsw` is actually in it.
+
+I feel the second one is the more dangerous of the two, because it fails in the direction that looks like success.
 
 ---
 
@@ -1052,7 +1070,7 @@ pgvector is a preinstalled Supabase extension and is not documented as gated by 
 | Question | Why it matters | How to settle it |
 |---|---|---|
 | ~~Does Claude Code expand `${session_id}`?~~ Resolved: yes, documented for `mcp_tool` inputs on both hosts. | | |
-| HNSW recall against the exact scan the eval measured | The whole quality argument rests on exact cosine. An approximate index that agrees 70% of the time transfers 70% of it. | [scripts/verify-pgvector.sql](../scripts/verify-pgvector.sql). One paste. |
+| ~~HNSW recall against the exact scan the eval measured~~ Resolved: 98.7% at 5,000 rows, `ef_search` 40. See [scripts/verify-pgvector.mjs](../scripts/verify-pgvector.mjs). | | |
 | Is [openai/codex#45999](https://github.com/openai/codex/issues/45999) present in the installed Codex? | If `SessionStart` rejects `additionalContext` on this version, the primary Codex injection path is dead and the fallback is `systemMessage`. | Minimal hook returning `{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"x"}}`, start a session, see whether it reports failure. |
 | Does an `mcp_tool` hook result reach the model as `additionalContext` on both hosts, or only a `command` hook's stdout? | The whole retrieval path in 7.3 depends on it. The current `SessionStart` `mcp_tool` hook suggests yes on both, but that is inference from our own code working, not a documented guarantee. | Same probe, both hosts, one `command` and one `mcp_tool` side by side. |
 | Does Codex's `UserPromptSubmit` fire on the first message of a session, before or after `SessionStart`? | Ordering decides whether the first prompt can be retrieved against. | Two hooks that append timestamps to a file. |

@@ -118,6 +118,31 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
       /memories_embedding_pairing/,'clearing only the model must be refused too');
   });
 
+  await t.test('embedding a row is not an edit, so the revision and updated_at hold', async () => {
+    // The revision is the optimistic concurrency token. If backfilling an
+    // embedding bumps it, every client holding the old one gets a conflict it
+    // cannot explain, and re-embedding after a model change does that to the
+    // whole corpus at once.
+    const id='30000000-0000-4000-8000-0000000000bb';
+    await as(alice,'select * from save_memory($1,$2,$3)',[id,projectA,'Waiting to be embedded.']);
+    const [before]=await as(alice,'select revision, updated_at from memories where id=$1',[id]);
+    await as(alice,`update memories set embedding=$2::extensions.vector,
+      embedding_model='gemini-embedding-001', embedded_at=now() where id=$1`,[id,vec(0,1,0)]);
+    const [after]=await as(alice,'select revision, updated_at from memories where id=$1',[id]);
+    assert.equal(after.revision,before.revision,'embedding must not bump the revision');
+    assert.deepEqual(after.updated_at,before.updated_at,'and must not move updated_at');
+
+    // Re-embedding under a new model is the case that would hit every row.
+    await as(alice,`update memories set embedding=$2::extensions.vector,
+      embedding_model='some-other-model', embedded_at=now() where id=$1`,[id,vec(0,0,1)]);
+    assert.equal((await as(alice,'select revision from memories where id=$1',[id]))[0].revision,before.revision,
+      're-embedding under a different model must not bump the revision either');
+
+    // A real change still counts as one, or the token stops protecting anything.
+    const [corrected]=await as(alice,'select * from correct_memory($1,$2,$3)',[id,before.revision,'Now it says something else.']);
+    assert.equal(corrected.revision,before.revision+1,'changing the statement must still bump the revision');
+  });
+
   await t.test('personal_memories returns every personal row and no project row', async () => {
     const r=await as(alice,'select * from personal_memories()');
     assert.equal(r.length,1);

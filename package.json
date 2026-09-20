@@ -12,6 +12,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test tests/*.test.mjs",
     "memories:embed": "node scripts/embed-memories.mjs",
+    "verify:pgvector": "node scripts/verify-pgvector.mjs",
     "eval": "node eval/run.mjs",
     "task-storage:provision": "node scripts/provision-task-storage.mjs",
     "task-storage:cleanup": "node scripts/cleanup-task-files.mjs"
