@@ -171,6 +171,71 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       assert.deepEqual(await call(codex,'select * from memories'),[]);
       assert.equal((await call(await claims(ca),'select * from list_memories(null)')).length,1);
     });
+    await t.test('a listed grant stays frozen: a project made later is not in it',async()=>{
+      // This is the behaviour "select all" used to give everyone, and it is
+      // still the right behaviour when a person picks projects one by one.
+      const later=crypto.randomUUID();
+      await call(user,'select create_project($1,$2,$3)',[later,'Made after the grant','']);
+      assert.equal((await call(codex,'select agent_can_access($1,false) ok',[later]))[0].ok,false);
+      assert.deepEqual(await call(codex,'select id from projects where id=$1',[later]),[]);
+    });
+
+    await t.test('a blanket grant covers a project that did not exist when it was given',async()=>{
+      const blanket='blanket-fixture';
+      await call(user,'select authorize_agent_v3($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+        [blanket,false,true,[],true,false,true,[],true,false]);
+      const agent=await claims(blanket);
+      const later=crypto.randomUUID();
+      await call(user,'select create_project($1,$2,$3)',[later,'Created after the blanket grant','']);
+
+      assert.equal((await call(agent,'select agent_can_access($1,false) ok',[later]))[0].ok,true);
+      assert.equal((await call(agent,'select agent_can_access($1,true) ok',[later]))[0].ok,true);
+      assert.equal((await call(agent,'select id from projects where id=$1',[later]))[0].id,later);
+      // Tasks carry their capabilities per grant row, and a blanket grant has
+      // no row, so the connection level flags have to answer instead.
+      assert.equal((await call(agent,'select private.agent_can_access_tasks($1,$2) ok',[later,'read']))[0].ok,true);
+      assert.equal((await call(agent,'select private.agent_can_access_tasks($1,$2) ok',[later,'write']))[0].ok,true);
+      assert.equal((await call(agent,'select private.agent_can_access_tasks($1,$2) ok',[later,'upload']))[0].ok,false);
+
+      const status=(await call(agent,'select agent_connection_status() s'))[0].s;
+      assert.equal(status.all_projects,true,'the agent has to be able to tell a blanket grant from a list');
+      assert.deepEqual(status.project_ids,[],'and a blanket grant keeps no stale list beside it');
+
+      // Personal was not granted, so it is still a denial. Blanket means every
+      // project, not everything.
+      assert.equal((await call(agent,'select agent_can_access(null,false) ok'))[0].ok,false);
+    });
+
+    await t.test('a blanket grant is never handed out by a migration or an older client',async()=>{
+      // Existing grants must not widen on their own. The column defaults to
+      // false and the older signature has to keep meaning what it meant.
+      assert.equal((await call(user,'select all_projects from agent_connections where client_id=$1',[ca]))[0].all_projects,false);
+      await call(user,'select authorize_agent_v2($1,$1,false,$2,false,false,$3,true,false)',['blanket-fixture',[a],[a]]);
+      assert.equal((await call(user,'select all_projects from agent_connections where client_id=$1',['blanket-fixture']))[0].all_projects,false,
+        're-authorizing through the older signature must clear a blanket grant, not keep it');
+      const agent=await claims('blanket-fixture');
+      const later=(await call(user,'select id from projects where name=$1',['Created after the blanket grant']))[0].id;
+      assert.equal((await call(agent,'select agent_can_access($1,false) ok',[later]))[0].ok,false);
+    });
+
+    await t.test('revoking a blanket grant denies it immediately',async()=>{
+      const blanket='revoke-blanket';
+      await call(user,'select authorize_agent_v3($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+        [blanket,false,true,[],false,false,false,[],false,false]);
+      const agent=await claims(blanket);
+      assert.equal((await call(agent,'select agent_can_access($1,false) ok',[a]))[0].ok,true);
+      await call(user,'select revoke_agent($1)',[blanket]);
+      assert.equal((await call(agent,'select agent_can_access($1,false) ok',[a]))[0].ok,false);
+    });
+
+    await t.test('a blanket grant still cannot reach another owner',async()=>{
+      const foreign=crypto.randomUUID();
+      await call({sub:other},'select create_project($1,$2,$3)',[foreign,'Someone else project','']);
+      const agent=await claims('revoke-blanket');
+      assert.equal((await call(agent,'select agent_can_access($1,false) ok',[foreign]))[0].ok,false);
+      assert.deepEqual(await call(agent,'select id from projects where id=$1',[foreign]),[]);
+    });
+
     await t.test('grant creation cannot authorize a different owner project',async()=>{
       await assert.rejects(call({sub:other},'select authorize_agent($1,$1,false,$2,true)',[ca,[a]]),{code:'42501'});
     });

@@ -12,8 +12,13 @@ import { LoadError, Notice, SaveError, Skeleton } from '../../ui/Notice';
 import { CommandBlock } from '../../ui/CommandBlock';
 import { HOST_NAMES, INSTALL, LOGIN, PROMPT, type Host } from './install';
 
-function GrantLine({ personal, ids, projects, level }: { personal: boolean; ids: string[]; projects: Project[]; level: string }) {
-  const names = [...(personal ? ['For me'] : []), ...ids.map(id => projects.find(p => p.id === id)?.name ?? 'a removed project')];
+function GrantLine({ personal, all, ids, projects, level }: { personal: boolean; all: boolean; ids: string[]; projects: Project[]; level: string }) {
+  // A blanket grant is not a long list of names. Saying "every project" is
+  // both shorter and the only honest rendering, because the grant covers
+  // projects that do not exist yet and no list can show those.
+  const names = all
+    ? [...(personal ? ['For me'] : []), 'Every project, including new ones']
+    : [...(personal ? ['For me'] : []), ...ids.map(id => projects.find(p => p.id === id)?.name ?? 'a removed project')];
   if (!names.length) return <dd>none</dd>;
   return <dd>{names.join(', ')} <span className="muted fine">· {level}</span></dd>;
 }
@@ -24,8 +29,8 @@ function AppCard({ app, projects, busy, confirming, onAskRevoke, onRevoke }: { a
     <div className="between wrap"><h2 style={{ fontSize: 22 }}>{app.label}</h2>
       <Light color="green" word={app.can_write || app.task_can_write ? 'reads and saves' : 'reads only'} /></div>
     <dl className="grants">
-      <dt>Memory</dt><GrantLine personal={app.personal} ids={app.project_ids} projects={projects} level={app.can_write ? 'read and save' : 'read only'} />
-      <dt>Tasks</dt><GrantLine personal={app.task_personal} ids={taskIds} projects={projects} level={[app.task_can_write ? 'read, write' : 'read only', app.task_can_upload && 'upload'].filter(Boolean).join(' and ')} />
+      <dt>Memory</dt><GrantLine personal={app.personal} all={app.all_projects} ids={app.project_ids} projects={projects} level={app.can_write ? 'read and save' : 'read only'} />
+      <dt>Tasks</dt><GrantLine personal={app.task_personal} all={app.task_all_projects} ids={taskIds} projects={projects} level={[app.task_can_write ? 'read, write' : 'read only', app.task_can_upload && 'upload'].filter(Boolean).join(' and ')} />
     </dl>
     <p className="fine muted">Connected {whenText(app.created_at)} · a permission here applies to every installation using this app identity.</p>
     {!confirming && <div className="card-actions"><Button small disabled={busy} onClick={() => onAskRevoke(true)}>Revoke access</Button></div>}

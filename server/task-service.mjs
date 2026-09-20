@@ -8,8 +8,12 @@ export function taskService(db, connectionStatus) {
   async function requireScope(projectId, capability='read') {
     const status=await connectionStatus();
     if(!status)throw {code:'42501'};
+    // A blanket task grant covers every project, including ones made after the
+    // grant, so it is checked before the list. The database enforces the same
+    // rule in private.agent_can_access_tasks; this is the early, readable no.
     const projects=Array.isArray(status.task_project_ids)?status.task_project_ids:[];
-    if(projectId===null?!status.task_personal:!projects.includes(projectId))throw {code:'42501'};
+    const inScope=projectId===null?status.task_personal:(status.task_all_projects||projects.includes(projectId));
+    if(!inScope)throw {code:'42501'};
     if(capability==='write'&&!status.task_can_write)throw {code:'42501'};
     if(capability==='upload'&&!status.task_can_upload)throw {code:'42501'};
   }

@@ -37,3 +37,5 @@ The return value is the combined personal plus project index. Check `complete` b
 - `repository_change` is `{kind:'unchanged'}`, `{kind:'link', repository}` or `{kind:'unlink', repository}`, and touches one normalized lowercase `owner/repository` without disturbing other links.
 
 Creating a project does not expand this connection's grant. When the response sets `grant_required: true`, say plainly that the project exists but this connection cannot use it yet, and that the user has to authorize it in Satchel first. Do not retry the failing call in the meantime.
+
+`grant_required` comes back `false` when the connection was given every project rather than a list of them. `list_projects` reports which it is: `all_projects: true` means the grant covers projects made after it was given, so a project you just created is usable straight away. Otherwise the grant is a fixed list and a new project is outside it until the user says otherwise.

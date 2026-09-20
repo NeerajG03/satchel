@@ -33,7 +33,15 @@ The database is the only authority. The server and the UI are convenience layers
 
 **Two callers, two sets of policies.** A companion session is identified by `auth.uid()`. An agent token also carries `client_id` and `satchel_grant_id`. Agent policies check the grant row: it belongs to the owner, it is not revoked, its `grant_id` matches the token, and the requested project is in the grant. Never reuse a companion session as agent authorization, and never let an agent policy fall back to plain owner checks.
 
-**Scopes are explicit.** Personal scope is `project_id = null`. Project scope is a real UUID from the grant. There is no "all projects" read for agents, and an unknown scope must not default to personal. Personal access needs its own grant flag. A missing grant is a denial, never an empty list.
+**Scopes are explicit.** Personal scope is `project_id = null`. Project scope is a real UUID from the grant, or the connection's `all_projects` flag. An unknown scope must not default to personal. Personal access needs its own grant flag, and `all_projects` does not imply it: a blanket grant is every project, not everything. A missing grant is a denial, never an empty list.
+
+**"Every project" is a flag, never a list.** The consent page used to build "select all" as `projects.map(p => p.id)`, which froze a set of UUIDs, so a project made the next day was invisible to an app that had been given everything. `all_projects` and `task_all_projects` are the grant saying something that stays true about projects that do not exist yet. Three rules keep that safe:
+
+- It defaults to false and is never backfilled. An existing grant keeps its frozen list until the person authorizes again and sees what they are agreeing to. Widening a live grant in a migration is the same bug pointing the other way.
+- A blanket grant stores an empty `project_ids`, so a stale list can never sit beside the flag looking authoritative in the UI or in `agent_connection_status`.
+- Older signatures delegate to `authorize_agent_v3` with the flag false, so re-authorizing through an older client clears a blanket grant rather than keeping one.
+
+Everything else still applies: it is per connection, revocation still rotates `grant_id`, and it still cannot reach another owner.
 
 **Revocation is immediate.** Revoking rotates `grant_id`, so an unexpired token stops working on the next call. Re-consent must not revive an old token. Keep it that way.
 

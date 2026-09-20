@@ -12,19 +12,27 @@ import { LoadError, SaveError, Skeleton } from '../../ui/Notice';
 
 export const RETURN_URL_KEY = 'satchel-connected-return';
 
-type Group = { personal: boolean; ids: string[] };
-const NONE: Group = { personal: false, ids: [] };
+// `all` is not a shortcut for ticking every box. It is its own state, and it
+// keeps being true about projects that do not exist yet. Ticking the boxes
+// freezes a list, which is what this page used to do and what made a new
+// project invisible to an app you had already given everything to.
+type Group = { personal: boolean; all: boolean; ids: string[] };
+const NONE: Group = { personal: false, all: false, ids: [] };
 
 function ScopeGroup({ title, hint, group, projects, disabled, onChange, extras }: { title: string; hint: string; group: Group; projects: Project[]; disabled: boolean; onChange: (group: Group) => void; extras: React.ReactNode }) {
   const total = projects.length + 1;
   const chosen = (group.personal ? 1 : 0) + group.ids.length;
+  const summary = group.all ? `every project${group.personal ? ' and you' : ''}` : `${chosen} of ${total}`;
   return <fieldset className="panel" disabled={disabled} style={{ margin: 0 }}>
-    <div className="between"><legend style={{ padding: 0 }}><h3>{title}</h3></legend><span className="eyebrow">{chosen} of {total}</span></div>
+    <div className="between"><legend style={{ padding: 0 }}><h3>{title}</h3></legend><span className="eyebrow">{summary}</span></div>
     <div className="between"><span className="fine muted">{hint}</span>
-      <span className="tools"><Button look="link" small onClick={() => onChange({ personal: true, ids: projects.map(p => p.id) })}>Select all</Button><span className="muted">·</span><Button look="link" small onClick={() => onChange(NONE)}>None</Button></span></div>
+      <span className="tools"><Button look="link" small onClick={() => onChange({ personal: true, all: true, ids: [] })}>Everything</Button><span className="muted">·</span><Button look="link" small onClick={() => onChange(NONE)}>None</Button></span></div>
     <div className="list">
       <CheckField label="For me" hint={`personal ${title.toLowerCase()}`} checked={group.personal} onChange={e => onChange({ ...group, personal: e.target.checked })} />
-      {projects.map(p => <CheckField key={p.id} label={p.name} checked={group.ids.includes(p.id)} onChange={e => onChange({ ...group, ids: e.target.checked ? [...group.ids, p.id] : group.ids.filter(id => id !== p.id) })} />)}
+      <CheckField label="Every project" hint="including ones you make later" checked={group.all}
+        onChange={e => onChange({ ...group, all: e.target.checked, ids: e.target.checked ? [] : group.ids })} />
+      {projects.map(p => <CheckField key={p.id} label={p.name} disabled={group.all} checked={group.all || group.ids.includes(p.id)}
+        onChange={e => onChange({ ...group, ids: e.target.checked ? [...group.ids, p.id] : group.ids.filter(id => id !== p.id) })} />)}
     </div>
     <hr className="hr" />
     {extras}
@@ -57,15 +65,20 @@ export function Consent() {
   useEffect(() => { if (!valid) navigate('/apps', { replace: true }); }, [valid, navigate]);
 
   const projects = page.data?.projects ?? [];
-  const anyMemory = memory.personal || memory.ids.length > 0;
-  const anyTasks = tasks.personal || tasks.ids.length > 0;
-  const all = () => ({ personal: true, ids: projects.map(p => p.id) });
+  const anyMemory = memory.personal || memory.all || memory.ids.length > 0;
+  const anyTasks = tasks.personal || tasks.all || tasks.ids.length > 0;
+  const all = (): Group => ({ personal: true, all: true, ids: [] });
+  const scopeText = (group: Group) => group.all
+    ? `every project${group.personal ? ' and you' : ''}`
+    : `${(group.personal ? 1 : 0) + group.ids.length} scopes`;
 
   async function decide(approve: boolean) {
     if (!details) return;
     await action.run(async () => {
-      if (approve) await stores.connections.grant({ clientId: details.client.id, label: details.client.name, personal: memory.personal, projectIds: memory.ids, canWrite: memoryWrite,
-        taskPersonal: tasks.personal, taskProjectIds: tasks.ids, taskCanWrite: taskWrite, taskCanUpload: taskUpload });
+      if (approve) await stores.connections.grant({ clientId: details.client.id, label: details.client.name,
+        personal: memory.personal, allProjects: memory.all, projectIds: memory.ids, canWrite: memoryWrite,
+        taskPersonal: tasks.personal, taskAllProjects: tasks.all, taskProjectIds: tasks.ids,
+        taskCanWrite: taskWrite, taskCanUpload: taskUpload });
       const result = approve ? await stores.db.auth.oauth.approveAuthorization(authorizationId, { skipBrowserRedirect: true })
         : await stores.db.auth.oauth.denyAuthorization(authorizationId, { skipBrowserRedirect: true });
       if (result.error) throw result.error;
@@ -103,10 +116,10 @@ export function Consent() {
         <div className="aside-block"><div className="between"><h3>What this means</h3></div>
           <p className="fine muted">Reading means the app’s hooks get the names and descriptions of memories in these scopes. It fetches More info by name only when it needs it.</p>
           <p className="fine muted">Writing still needs your explicit ask inside the chat. The app cannot save on its own.</p>
-          <p className="fine muted">Projects you create later are not included. Add them from Apps.</p></div>
+          <p className="fine muted">“Every project” keeps being true. A project you make next month is included without asking again. Tick projects one by one instead and the list is fixed at what you choose now, so anything new stays private until you say otherwise.</p></div>
         <div className="aside-block"><div className="between"><h3>Summary</h3></div>
-          <p className="fine">Memory: {anyMemory ? `${(memory.personal ? 1 : 0) + memory.ids.length} scopes · ${memoryWrite ? 'read and save' : 'read only'}` : 'nothing'}</p>
-          <p className="fine">Tasks: {anyTasks ? `${(tasks.personal ? 1 : 0) + tasks.ids.length} scopes · ${taskWrite ? 'read and write' : 'read only'}${taskUpload ? ' · uploads' : ''}` : 'nothing'}</p></div>
+          <p className="fine">Memory: {anyMemory ? `${scopeText(memory)} · ${memoryWrite ? 'read and save' : 'read only'}` : 'nothing'}</p>
+          <p className="fine">Tasks: {anyTasks ? `${scopeText(tasks)} · ${taskWrite ? 'read and write' : 'read only'}${taskUpload ? ' · uploads' : ''}` : 'nothing'}</p></div>
       </aside>
     </div>
     {action.error && <SaveError message={action.error} />}

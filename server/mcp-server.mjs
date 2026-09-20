@@ -195,7 +195,10 @@ export function createMemoryServer(service, {ownerId} = {}) {
           project=hint.staged?hint.project:await service.activeProject(sessionKey);
         }
         const [projects,personal]=await Promise.all([
-          status.project_ids?.length||status.personal?service.projects():[],
+          // all_projects is its own scope: a blanket grant keeps no list, so
+          // checking project_ids alone would load nothing for the connection
+          // that was given everything.
+          status.all_projects||status.project_ids?.length||status.personal?service.projects():[],
           status.personal?service.personal():[],
         ]);
         const block=sessionStartBlock({projects,personal});
