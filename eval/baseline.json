@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-19",
+ "generated": "2026-09-20",
  "corpus": {
   "memories": 473,
   "prompts": 159,
@@ -9,9 +9,12 @@
   "grade2": 373,
   "grade1": 537
  },
- "primary": "nomic s+s + boost + gate",
+ "primary": "nomic/statement+source +gate",
  "gates": {
   "all-minilm/statement": 0.43,
+  "nemotron-2048/statement+source": 0.3,
+  "nemotron-768/statement+source": 0.28,
+  "nemotron3-2048/statement+source": 0.24,
   "nomic/statement": 0.61,
   "nomic/statement+source": 0.62
  },
@@ -34,14 +37,6 @@
    "covered": 114,
    "silent": 0
   },
-  "vector nomic": {
-   "utility": 0.386,
-   "ndcg": 0.5383,
-   "r5": 0.557,
-   "mrr": 0.6958,
-   "covered": 114,
-   "silent": 0
-  },
   "vector nomic stmt+source": {
    "utility": 0.3956,
    "ndcg": 0.5518,
@@ -58,7 +53,7 @@
    "covered": 114,
    "silent": 0
   },
-  "all-minilm + boost + gate": {
+  "all-minilm/statement +gate": {
    "utility": 0.5147,
    "ndcg": 0.367,
    "r5": 0.4053,
@@ -66,7 +61,31 @@
    "covered": 80,
    "silent": 40
   },
-  "nomic + boost + gate": {
+  "nemotron-2048/statement+source +gate": {
+   "utility": 0.5734,
+   "ndcg": 0.484,
+   "r5": 0.5367,
+   "mrr": 0.7178,
+   "covered": 93,
+   "silent": 36
+  },
+  "nemotron-768/statement+source +gate": {
+   "utility": 0.5587,
+   "ndcg": 0.5161,
+   "r5": 0.5726,
+   "mrr": 0.7632,
+   "covered": 102,
+   "silent": 30
+  },
+  "nemotron3-2048/statement+source +gate": {
+   "utility": 0.5599,
+   "ndcg": 0.5441,
+   "r5": 0.6011,
+   "mrr": 0.7825,
+   "covered": 110,
+   "silent": 27
+  },
+  "nomic/statement +gate": {
    "utility": 0.5453,
    "ndcg": 0.4535,
    "r5": 0.4877,
@@ -74,7 +93,7 @@
    "covered": 92,
    "silent": 35
   },
-  "nomic s+s + boost + gate": {
+  "nomic/statement+source +gate": {
    "utility": 0.5879,
    "ndcg": 0.4867,
    "r5": 0.5433,

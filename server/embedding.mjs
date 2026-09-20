@@ -21,9 +21,9 @@ export class EmbeddingError extends Error {
   constructor(message, {cause} = {}) { super(message); this.name = 'EmbeddingError'; this.cause = cause; }
 }
 
-function normalize(vector, model) {
-  if (!Array.isArray(vector) || vector.length !== EMBEDDING_DIMENSIONS)
-    throw new EmbeddingError(`${model} returned ${vector?.length ?? 'no'} dimensions, expected ${EMBEDDING_DIMENSIONS}`);
+function normalize(vector, model, expected) {
+  if (!Array.isArray(vector) || vector.length !== expected)
+    throw new EmbeddingError(`${model} returned ${vector?.length ?? 'no'} dimensions, expected ${expected}`);
   let sum = 0;
   for (const value of vector) {
     if (!Number.isFinite(value)) throw new EmbeddingError(`${model} returned a non-finite value`);
@@ -42,35 +42,53 @@ const PROVIDERS = {
     body: (model, inputs) => ({model, input: inputs}),
     read: payload => payload?.embeddings,
   },
-  // Any OpenAI-compatible embeddings endpoint.
+  // Any OpenAI-compatible embeddings endpoint, OpenRouter included.
+  //
+  // `dimensions` matters more than it looks. pgvector indexes vectors up to
+  // 2,000 dimensions and several current embedding models return 2,048, so a
+  // model that can truncate fits the column the migration already declares and
+  // one that cannot needs halfvec and 2.7x the storage.
   openai: {
     path: '/v1/embeddings',
-    body: (model, inputs) => ({model, input: inputs}),
+    body: (model, inputs, dimensions) => ({model, input: inputs, ...(dimensions ? {dimensions} : {})}),
     read: payload => payload?.data?.map(row => row?.embedding),
   },
 };
 
 export function createEmbedder({
-  provider = process.env.SATCHEL_EMBEDDING_PROVIDER ?? 'ollama',
-  model = process.env.SATCHEL_EMBEDDING_MODEL ?? 'nomic-embed-text',
-  url = process.env.SATCHEL_EMBEDDING_URL ?? 'http://127.0.0.1:11434',
-  apiKey = process.env.SATCHEL_EMBEDDING_KEY,
-  timeoutMs = Number(process.env.SATCHEL_EMBEDDING_TIMEOUT_MS ?? 2000),
+  // Defaults are the hosted path, because that is the one that works on the
+  // deployment. A local ollama is a one-variable switch for development.
+  provider = process.env.SATCHEL_EMBEDDING_PROVIDER ?? 'openai',
+  model = process.env.SATCHEL_EMBEDDING_MODEL ?? 'nvidia/llama-nemotron-embed-vl-1b-v2:free',
+  url = process.env.SATCHEL_EMBEDDING_URL ?? 'https://openrouter.ai/api',
+  apiKey = process.env.SATCHEL_EMBEDDING_KEY ?? process.env.OPENROUTER_API_KEY,
+  dimensions = Number(process.env.SATCHEL_EMBEDDING_DIMENSIONS ?? EMBEDDING_DIMENSIONS),
+  timeoutMs = Number(process.env.SATCHEL_EMBEDDING_TIMEOUT_MS ?? 4000),
   fetchImpl = fetch,
 } = {}) {
   const spec = PROVIDERS[provider];
   if (!spec) throw new EmbeddingError(`Unknown embedding provider ${provider}`);
 
-  async function batch(inputs) {
+  async function batch(inputs, retryOn429 = true) {
     let response;
     try {
       response = await fetchImpl(url.replace(/\/+$/, '') + spec.path, {
         method: 'POST',
         headers: {'content-type': 'application/json', ...(apiKey ? {authorization: `Bearer ${apiKey}`} : {})},
-        body: JSON.stringify(spec.body(model, inputs)),
+        body: JSON.stringify(spec.body(model, inputs, dimensions)),
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (cause) { throw new EmbeddingError(`${model} did not respond within ${timeoutMs}ms`, {cause}); }
+    // OpenRouter's free models allow 20 requests a minute per account, shared
+    // across every user of this deployment. On the read path that is one
+    // retrieval's worth of delay against no retrieval at all, so it is worth a
+    // single short wait and no more; the caller still degrades to silence.
+    if (response.status === 429 && retryOn429) {
+      const reset = Number(response.headers.get('x-ratelimit-reset')) || 0;
+      const waitMs = Math.min(Math.max(reset - Date.now(), 500), 2000);
+      await new Promise(done => setTimeout(done, waitMs));
+      return batch(inputs, false);
+    }
     if (!response.ok) throw new EmbeddingError(`${model} returned ${response.status}`);
     let payload;
     try { payload = await response.json(); }
@@ -78,11 +96,11 @@ export function createEmbedder({
     const vectors = spec.read(payload);
     if (!Array.isArray(vectors) || vectors.length !== inputs.length)
       throw new EmbeddingError(`${model} returned ${vectors?.length ?? 0} embeddings for ${inputs.length} inputs`);
-    return vectors.map(vector => normalize(vector, model));
+    return vectors.map(vector => normalize(vector, model, dimensions));
   }
 
   return {
-    model, provider, dimensions: EMBEDDING_DIMENSIONS,
+    model, provider, dimensions,
     /** Embeds many texts, preserving order. Throws rather than returning a hole. */
     async embed(texts) {
       const inputs = texts.map(text => {

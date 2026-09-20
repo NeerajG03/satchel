@@ -6,7 +6,7 @@ const vector = (fill = 1) => Array.from({length: EMBEDDING_DIMENSIONS}, () => fi
 const ok = body => async () => ({ok: true, status: 200, json: async () => body});
 
 test('embeddings are normalised, so a stored vector means the same as a query vector', async () => {
-  const embedder = createEmbedder({fetchImpl: ok({embeddings: [vector(3)]})});
+  const embedder = createEmbedder({provider: 'ollama', fetchImpl: ok({embeddings: [vector(3)]})});
   const [result] = await embedder.embed(['anything']);
   const length = Math.hypot(...result);
   assert.ok(Math.abs(length - 1) < 1e-9, `expected unit length, got ${length}`);
@@ -20,7 +20,7 @@ test('the openai shape is read from its own envelope', async () => {
 
 test('order is preserved across batch boundaries', async () => {
   let call = 0;
-  const embedder = createEmbedder({fetchImpl: async (_url, init) => {
+  const embedder = createEmbedder({provider: 'ollama', fetchImpl: async (_url, init) => {
     const {input} = JSON.parse(init.body);
     call++;
     return {ok: true, status: 200, json: async () => ({embeddings: input.map((_, i) => {
@@ -36,36 +36,36 @@ test('order is preserved across batch boundaries', async () => {
 });
 
 test('a wrong dimension count is refused rather than stored', async () => {
-  const embedder = createEmbedder({fetchImpl: ok({embeddings: [[1, 2, 3]]})});
+  const embedder = createEmbedder({provider: 'ollama', fetchImpl: ok({embeddings: [[1, 2, 3]]})});
   await assert.rejects(embedder.embed(['anything']), EmbeddingError);
 });
 
 test('a zero vector is refused, because it would rank against everything equally', async () => {
-  const embedder = createEmbedder({fetchImpl: ok({embeddings: [vector(0)]})});
+  const embedder = createEmbedder({provider: 'ollama', fetchImpl: ok({embeddings: [vector(0)]})});
   await assert.rejects(embedder.embed(['anything']), /zero vector/);
 });
 
 test('a non-finite value is refused', async () => {
   const bad = vector(1); bad[5] = NaN;
-  const embedder = createEmbedder({fetchImpl: ok({embeddings: [bad]})});
+  const embedder = createEmbedder({provider: 'ollama', fetchImpl: ok({embeddings: [bad]})});
   await assert.rejects(embedder.embed(['anything']), /non-finite/);
 });
 
 test('a short batch is a failure, never a silent hole', async () => {
-  const embedder = createEmbedder({fetchImpl: ok({embeddings: [vector(1)]})});
+  const embedder = createEmbedder({provider: 'ollama', fetchImpl: ok({embeddings: [vector(1)]})});
   await assert.rejects(embedder.embed(['one', 'two']), /2 inputs/);
 });
 
 test('a timeout and an error status both surface as EmbeddingError', async () => {
-  const slow = createEmbedder({timeoutMs: 5, fetchImpl: () => Promise.reject(new Error('aborted'))});
+  const slow = createEmbedder({provider: 'ollama', timeoutMs: 5, fetchImpl: () => Promise.reject(new Error('aborted'))});
   await assert.rejects(slow.embed(['anything']), EmbeddingError);
-  const failing = createEmbedder({fetchImpl: async () => ({ok: false, status: 503, json: async () => ({})})});
+  const failing = createEmbedder({provider: 'ollama', fetchImpl: async () => ({ok: false, status: 503, json: async () => ({})})});
   await assert.rejects(failing.embed(['anything']), /503/);
 });
 
 test('empty text is refused before a request is made', async () => {
   let called = false;
-  const embedder = createEmbedder({fetchImpl: async () => { called = true; return ok({})(); }});
+  const embedder = createEmbedder({provider: 'ollama', fetchImpl: async () => { called = true; return ok({})(); }});
   await assert.rejects(embedder.embed(['   ']), /empty/);
   assert.equal(called, false);
 });
@@ -82,4 +82,39 @@ test('the indexed text is statement plus source, which measured best', () => {
 
 test('a vector literal is the bracketed form Postgres parses', () => {
   assert.equal(toVectorLiteral([1, 2, 3]), '[1,2,3]');
+});
+
+test('the hosted provider is the default, because it is the one the deployment has', () => {
+  const embedder = createEmbedder({apiKey: 'x'});
+  assert.equal(embedder.provider, 'openai');
+  assert.equal(embedder.dimensions, EMBEDDING_DIMENSIONS);
+});
+
+test('dimensions are requested, so a 2048-dim model still fits the indexed column', async () => {
+  let sent;
+  const embedder = createEmbedder({
+    provider: 'openai', dimensions: 768, apiKey: 'x',
+    fetchImpl: async (_url, init) => {
+      sent = JSON.parse(init.body);
+      return {ok: true, status: 200, json: async () => ({data: [{embedding: vector(1)}]})};
+    },
+  });
+  await embedder.embed(['anything']);
+  assert.equal(sent.dimensions, 768);
+});
+
+test('a model that ignores the dimension request is refused, not stored short', async () => {
+  const embedder = createEmbedder({provider: 'openai', apiKey: 'x',
+    fetchImpl: ok({data: [{embedding: Array.from({length: 2048}, () => 1)}]})});
+  await assert.rejects(embedder.embed(['anything']), /2048 dimensions, expected 768/);
+});
+
+test('a rate limit is waited out once, then surfaces rather than retrying forever', async () => {
+  let calls = 0;
+  const embedder = createEmbedder({provider: 'openai', apiKey: 'x', fetchImpl: async () => {
+    calls++;
+    return {ok: false, status: 429, headers: {get: () => String(Date.now() + 10)}, json: async () => ({})};
+  }});
+  await assert.rejects(embedder.embed(['anything']), /429/);
+  assert.equal(calls, 2, 'one retry, not a loop');
 });

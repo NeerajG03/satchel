@@ -61,18 +61,16 @@ console.log();
 const raw={
   'lexical (IDF)':            lex,
   'vector all-minilm':        vec['all-minilm/statement'],
-  'vector nomic':             vec['nomic/statement'],
   'vector nomic stmt+source': vec['nomic/statement+source'],
   'hybrid .3 lex+minilm':     hybrid(lex,vec['all-minilm/statement'],0.3),
 };
+// Every cached index gets a gated system, so adding a model to embed.mjs is
+// enough to put it in the comparison.
+const gatedSystems={};
 const gated=name=>cap(gate(withScope(vec[name],BOOST),calibrated[name]),CAP);
-const systems={
-  ...raw,
-  'all-minilm + boost + gate': gated('all-minilm/statement'),
-  'nomic + boost + gate':      gated('nomic/statement'),
-  'nomic s+s + boost + gate':  gated('nomic/statement+source'),
-};
-const PRIMARY='nomic s+s + boost + gate';
+for(const name of Object.keys(vec)) gatedSystems[`${name} +gate`]=gated(name);
+const systems={...raw,...gatedSystems};
+const PRIMARY='nomic/statement+source +gate';
 if(!systems[PRIMARY]) throw new Error(`primary "${PRIMARY}" is not one of the systems`);
 
 function score(rank){
