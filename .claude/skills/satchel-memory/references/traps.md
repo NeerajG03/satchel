@@ -148,6 +148,14 @@ The pgvector shim was applied to one migration by name. The next migration to de
 
 Three bugs that made Memory v2 completely inert all shipped past a full green suite, because the MCP tests drove a hand-written fake service and the database tests never went through the service. The gap between them was exactly where the bugs lived.
 
+### An mcp_tool hook cannot run before the MCP servers are up
+
+`SessionStart` at launch fires before the session's MCP servers are available to hooks, so Claude Code skips the event's `mcp_tool` hooks without calling them and logs `mcp_tool hooks are not available for the 'SessionStart' hook event (no MCP client context)`. `--continue` and `--resume` count as launch. After a `/clear` or a compaction the servers are already up and the hook does run, so the same event works or does not depending only on why it fired.
+
+Satchel matched all four sources for a long time, which produced a visible hook error on every single launch and never once ran. The `mcp_tool` hook now matches `clear` and `compact` only. Launch is covered by the bootstrap `command` hook asking the model to make one `select_project` call, which is model-dependent rather than automatic.
+
+**Rule:** a hook handler type has preconditions, and the event firing is not the same as the handler being able to run.
+
 ### Shipping a feature with nothing configured to call it
 
 The router, the rolling window, `capture_memory`, `router_runs` and the entire Stop branch were all built, tested and deployed, and `build-plugins.mjs` emitted no `Stop` hook. Nothing triggered any of it.

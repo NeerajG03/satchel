@@ -62,10 +62,20 @@ test('installed packages retrieve per prompt and reload on every fresh context',
     // Every way a context starts fresh loads the session block, resume
     // included. It was excluded while a whole index loaded; with retrieval the
     // block is small and a resumed session may be days stale.
-    for(const source of ['startup','clear','compact','resume']) {
+    // The bootstrap runs on every way a context starts fresh.
+    for(const source of ['startup','clear','compact','resume'])
       assert.ok(handlers(source).some(h=>h.type==='command'),`${host}: no bootstrap on ${source}`);
+
+    // The mcp_tool hook cannot: an mcp_tool hook only runs once the session's
+    // MCP servers are available to hooks, and SessionStart at launch fires
+    // before that. Claude Code skips it and logs "no MCP client context".
+    // --continue and --resume are launch too. Configuring it there produced a
+    // visible hook error on every start and never once ran.
+    for(const source of ['clear','compact'])
       assert.ok(handlers(source).some(h=>h.type==='mcp_tool'),`${host}: no memory load on ${source}`);
-    }
+    for(const source of ['startup','resume'])
+      assert.ok(!handlers(source).some(h=>h.type==='mcp_tool'),
+        `${host}: an mcp_tool hook on ${source} can never run, so it must not be configured`);
 
     // Codex cannot emit additionalContext from PostCompact, so a hook there
     // would never reach the model. Compaction goes through SessionStart on

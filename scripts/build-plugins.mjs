@@ -54,8 +54,24 @@ for(const host of ['codex','claude']) {
   // Codex has no working PostCompact: it cannot emit additionalContext there,
   // so compaction is handled by its own SessionStart compact source instead.
   const sessionMatcher='^(startup|clear|compact|resume)$';
+  // An mcp_tool hook can only run once the session's MCP servers are available
+  // to hooks, and SessionStart at launch fires before that point. Claude Code
+  // documents this and skips the hook, logging "mcp_tool hooks are not
+  // available for the 'SessionStart' hook event (no MCP client context)".
+  // --continue and --resume count as launch too.
+  //
+  // So the mcp_tool hook is limited to the two sources that fire inside a
+  // running session, where the servers are already up. Nothing is lost: it was
+  // never going to run on the other two, and asking removed a guaranteed error
+  // on every single launch.
+  //
+  // Launch is covered by the bootstrap command hook instead, which asks the
+  // model to make one select_project call. That path is model-dependent rather
+  // than automatic, which is a real downgrade and the reason it is written
+  // down here rather than left to be rediscovered.
+  const mcpSessionMatcher='^(clear|compact)$';
   await writeFile(join(target,'hooks','hooks.json'),JSON.stringify({hooks:{
-    SessionStart:[{...bootstrap,matcher:sessionMatcher},{...lifecycleHook('SessionStart'),matcher:sessionMatcher}],
+    SessionStart:[{...bootstrap,matcher:sessionMatcher},{...lifecycleHook('SessionStart'),matcher:mcpSessionMatcher}],
     // Retrieval runs here rather than being left to the model to request. A
     // short timeout on purpose: a hook that delays the prompt is worse than a
     // hook that misses one.

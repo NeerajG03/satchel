@@ -25,7 +25,7 @@
             "additionalContextLimit": 6000
           }
         ],
-        "matcher": "^(startup|clear|compact|resume)$"
+        "matcher": "^(clear|compact)$"
       }
     ],
     "UserPromptSubmit": [
