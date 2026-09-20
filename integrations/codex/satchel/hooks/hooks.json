@@ -38,7 +38,8 @@
             "input": {
               "session_key": "${session_id}",
               "event": "UserPromptSubmit",
-              "prompt": "${prompt}"
+              "prompt": "${prompt}",
+              "user_prompt": "${user_prompt}"
             },
             "timeout": 5,
             "additionalContextLimit": 2000

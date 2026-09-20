@@ -151,6 +151,33 @@ The ring buffer is a file under the host's own scratch space keyed by `session_i
 
 ---
 
+## 3.2 How Supermemory does it on both hosts
+
+Read from the installed plugins on 20 September 2026: `~/.claude/plugins/cache/supermemory-plugins/supermemory/0.1.8/hooks/` and `~/.codex/supermemory/`. Useful because it is the one integration demonstrably working on both hosts, so where it differs from this design the difference is worth a reason.
+
+| | Supermemory | This design |
+|---|---|---|
+| Handler type | `command` on both hosts, reading stdin | `mcp_tool` on both |
+| Injection | `hookSpecificOutput.additionalContext` on stdout | same field, returned by the tool |
+| Per-prompt event | `UserPromptSubmit`, 5s timeout | same, 5s |
+| Capture event | `Stop`, `async: true`, 30s | `Stop`, async |
+| Prompt field read | `input.prompt` on **both** hosts, no fallback | both spellings sent, server picks |
+| Capture source | **the transcript file** | the prompt, passed as a tool argument |
+| Extraction | none locally; the raw turn is POSTed to `/v3/documents` | a router, still unbuilt |
+| Auth | an API key on disk, read by the hook | the host's own OAuth connection |
+
+**Three things this settles.**
+
+*The prompt field on Claude is `prompt`.* The published reference is truncated at `UserPromptSubmit`, and a summary of it says `user_prompt`. Supermemory reads `input.prompt` with no fallback anywhere in the package, and its recall fires correctly on every turn of a live session. `build-plugins.mjs` now sends both spellings, because an unsubstituted placeholder arrives as its own literal text and the server discards anything still shaped like one. That survives either answer and any later rename.
+
+*A `command` hook sidesteps the interpolation question entirely, and pays for it in credentials.* Reading stdin means never depending on `${path}` substitution. It also means the hook needs its own API key on disk, which is why Supermemory has `~/.supermemory-claude/settings.json` holding one. Satchel's hooks carry no credential and cannot: they go through the host's authenticated MCP connection, which is also what keeps grants and revocation meaningful. That is the trade, and it is the reason for `mcp_tool` rather than `command`.
+
+*They read the transcript, on both hosts.* Claude's `capture.js` takes `input.transcript_path` and diffs it against the last captured UUID; Codex's `flush.js` scans for a `.jsonl` whose name contains the session id, because Codex does not hand it over as reliably. Codex's own documentation says the transcript format "isn't a stable interface for hooks and may change over time", and Claude's says the file lags the in-memory conversation. Both are taking a risk this design declines: the user's words arrive as a tool argument from the one field that is documented, exact and lag-free.
+
+**And one thing it confirms about cost.** Nothing is summarised locally. The whole formatted turn, including tool calls, is POSTed to `/v3/documents` and extraction happens server side. That is how 19 transient items like "a Chrome tab is open at 127.0.0.1:5173" end up stored as durable facts: the client sends everything and the server decides, with a keyword list as the only filter and it off by default.
+
+---
+
 ## 4. Semantic search, proven
 
 ### 4.1 What is actually available
@@ -988,6 +1015,14 @@ An exact cosine scan over `real[]` with a SQL dot product, one owner's rows:
 ```
 
 The per-prompt budget is around 100ms for the whole round trip. pgvector is required, not preferred, and that is now measured rather than assumed.
+
+### Cost on Supabase
+
+Free tier is 500 MB of database, two active projects, and **a project paused after one week of inactivity**. That last one matters more than the size for a memory product: a week away and the next session's hook fails until the project is resumed.
+
+Size is not the constraint. A 768-dimension vector is 3,072 bytes, and HNSW stores the vector again, so roughly 7 KB per memory all in. 500 MB is on the order of 70,000 memories for one person, against a corpus of 473 in the eval. Halving the dimensions with `all-minilm` halves it again, and `halfvec` would halve it a third time. None of that is needed yet.
+
+pgvector is a preinstalled Supabase extension and is not documented as gated by plan, but the pricing page does not discuss extensions at all, so `verify-pgvector.sql` checks `pg_available_extensions` first and fails loudly rather than assuming.
 
 ### Still not verified against a real database
 

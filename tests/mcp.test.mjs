@@ -70,6 +70,11 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.equal(logged.at(-1).event,'UserPromptSubmit');
     assert.deepEqual(logged.at(-1).memory_ids,[summary.id],'the log records exactly what was injected');
 
+    // A placeholder the host did not substitute must never become the query.
+    result=await call('load_memory_context',{session_key:'one',event:'UserPromptSubmit',
+      prompt:'${prompt}',user_prompt:'fixture colour'});
+    assert.equal(searches.at(-1).query,'fixture colour','the unsubstituted spelling is discarded');
+
     retrieval=[];
     result=await call('load_memory_context',{session_key:'one',event:'UserPromptSubmit',prompt:'unrelated'});
     assert.equal(JSON.parse(result.content[0].text).hookSpecificOutput.additionalContext,'',

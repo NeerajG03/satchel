@@ -77,8 +77,11 @@ test('installed packages retrieve per prompt and reload on every fresh context',
     assert.equal(perPrompt.type,'mcp_tool');
     assert.equal(perPrompt.input.event,'UserPromptSubmit');
     assert.equal(perPrompt.input.session_key,'${session_id}');
-    // The field carrying the user's text is named differently per host.
-    assert.equal(perPrompt.input.prompt,host==='claude'?'${user_prompt}':'${prompt}');
+    // Both spellings are sent, because Claude's reference is truncated at this
+    // event and the working plugin in the wild reads `prompt`. An
+    // unsubstituted placeholder is discarded server side.
+    assert.equal(perPrompt.input.prompt,'${prompt}');
+    assert.equal(perPrompt.input.user_prompt,'${user_prompt}');
     assert.ok(perPrompt.timeout<=5,'a hook that delays the prompt is worse than one that misses');
 
     const root=host==='codex'?'${PLUGIN_ROOT}':'${CLAUDE_PLUGIN_ROOT}';

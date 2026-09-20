@@ -87,6 +87,16 @@ export function createMemoryServer(service) {
     return {active_project:project,personal_included:scopes.includes(null),
       memories:indexes.flatMap(x=>x.memories),complete:indexes.every(x=>x.complete)};
   }
+  // A hook placeholder that did not substitute arrives as its own literal text.
+  // Treating that as a query would search for "${user_prompt}" on every turn,
+  // so anything still shaped like a placeholder is discarded and the other
+  // spelling is used instead.
+  const substituted=value=>{
+    const text=typeof value==='string'?value.trim():'';
+    return /^\$\{[^}]*\}$/.test(text)?'':text;
+  };
+  const resolvePrompt=options=>substituted(options.prompt)||substituted(options.user_prompt);
+
   // Injected context is unrequested, so it is budgeted and it says what it is.
   // Session start carries only what applies no matter what you do today: the
   // projects that exist, and every personal memory. Anything scoped to a
@@ -100,7 +110,7 @@ export function createMemoryServer(service) {
       if (!status) throw {code:'42501'};
       const settings=await service.settings();
       if (event==='UserPromptSubmit') {
-        const prompt=options.prompt?.trim();
+        const prompt=resolvePrompt(options);
         if (!prompt||!settings.per_prompt_matches) return null;
         let project=selectedProject;
         if (project===undefined) project=await service.activeProject(sessionKey);
@@ -237,10 +247,11 @@ export function createMemoryServer(service) {
     description:'Read-only lifecycle hook. At session start and after compaction it injects the projects list and every personal memory. On UserPromptSubmit it retrieves memories relevant to that prompt. Never saves conversations.',
     inputSchema:{session_key:session,event:lifecycle,
       prompt:z.string().max(2000).optional().describe('Only for UserPromptSubmit: the prompt to retrieve against.'),
+      user_prompt:z.string().max(2000).optional().describe('The same thing under the other host spelling; whichever actually carries text is used.'),
       exclude:z.array(z.uuid()).max(50).default([])},
     annotations:readAnnotations,
-  },async ({session_key,event,prompt,exclude})=>{
-    const payload=await contextPayload(session_key,event,undefined,{prompt,exclude});
+  },async ({session_key,event,prompt,user_prompt,exclude})=>{
+    const payload=await contextPayload(session_key,event,undefined,{prompt,user_prompt,exclude});
     // Nothing relevant is a real answer. Returning an empty result keeps the
     // per-prompt cost at zero on the turns that need nothing.
     return textResult(payload??{hookSpecificOutput:{hookEventName:event,additionalContext:''}});

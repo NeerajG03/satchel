@@ -24,7 +24,13 @@ for(const host of ['codex','claude']) {
   // input on both hosts. The prompt field is the one name that differs: Claude
   // calls it user_prompt, Codex calls it prompt.
   const server=host==='claude'?'plugin:satchel:satchel':'satchel';
-  const promptField=host==='claude'?'${user_prompt}':'${prompt}';
+  // Both spellings are sent. Codex documents `prompt`; Claude's published
+  // reference is truncated at this event, and the one working example in the
+  // wild (the supermemory plugin) reads `prompt` with no fallback while a
+  // summary of the same docs says `user_prompt`. An unsubstituted placeholder
+  // arrives as its own literal text, which the server discards, so sending
+  // both costs nothing and survives either answer.
+  const promptFields={prompt:'${prompt}',user_prompt:'${user_prompt}'};
   const lifecycleHook=event=>({hooks:[{type:'mcp_tool',server,tool:'load_memory_context',
     input:{session_key:'${session_id}',event},timeout:10,
     ...(host==='codex'?{additionalContextLimit:6000}:{})}]});
@@ -44,7 +50,7 @@ for(const host of ['codex','claude']) {
     // short timeout on purpose: a hook that delays the prompt is worse than a
     // hook that misses one.
     UserPromptSubmit:[{hooks:[{type:'mcp_tool',server,tool:'load_memory_context',
-      input:{session_key:'${session_id}',event:'UserPromptSubmit',prompt:promptField},
+      input:{session_key:'${session_id}',event:'UserPromptSubmit',...promptFields},
       timeout:5,...(host==='codex'?{additionalContextLimit:2000}:{})}]}],
   }},null,2)+'\n');
   // The skill ships SKILL.md plus its progressively disclosed references, so copy the tree.
