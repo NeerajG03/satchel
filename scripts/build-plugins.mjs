@@ -52,6 +52,27 @@ for(const host of ['codex','claude']) {
     UserPromptSubmit:[{hooks:[{type:'mcp_tool',server,tool:'load_memory_context',
       input:{session_key:'${session_id}',event:'UserPromptSubmit',...promptFields},
       timeout:5,...(host==='codex'?{additionalContextLimit:2000}:{})}]}],
+    // Capture. Without this the router, the rolling window and every capture
+    // path exist and nothing ever calls them, which is how the whole feature
+    // shipped inert the first time.
+    //
+    // An mcp_tool and not a command, even though the build plan first said
+    // command: that reasoning assumed the rolling window lived on disk and
+    // had to be read before calling anything. It lives in the database now,
+    // so nothing local is needed and nothing proprietary leaves the server.
+    //
+    // Nothing is injected here. Claude Code can inject from Stop and Codex
+    // cannot, so a design that used it would work on one host only, and the
+    // next turn may change subject anyway.
+    //
+    // last_assistant_message exists on Claude and not on Codex, where the
+    // placeholder arrives unsubstituted and the server discards it. The Codex
+    // router therefore reads the user's messages without the replies, which
+    // is a stated degradation rather than a bug to chase.
+    Stop:[{hooks:[{type:'mcp_tool',server,tool:'load_memory_context',
+      input:{session_key:'${session_id}',event:'Stop',
+        last_assistant_message:'${last_assistant_message}'},
+      timeout:10}]}],
   }},null,2)+'\n');
   // The skill ships SKILL.md plus its progressively disclosed references, so copy the tree.
   await rm(join(target,'skills'),{recursive:true,force:true});

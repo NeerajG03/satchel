@@ -110,6 +110,34 @@ test('Stop classifies the last turn against everything before it', async () => {
   } finally { await client.close(); await server.close(); }
 });
 
+test('an unsubstituted assistant placeholder is never recorded as speech', async () => {
+  // Codex has no last_assistant_message, so the placeholder arrives as its own
+  // literal text. Recording it would put "${last_assistant_message}" into the
+  // window the router reads, on every turn, on that whole host.
+  const recorded = [];
+  const service = {
+    status: async () => ({label: 'Test', personal: true, can_write: true, project_ids: []}),
+    settings: async () => ({per_prompt_matches: 5, gate: 0.67, scope_boost: 1.1,
+      session_budget_tokens: 15000, capture: true, capture_window: 5}),
+    recordSessionMessage: async (_key, role, content) => { recorded.push({role, content}); },
+    sessionWindow: async () => [],
+    captureTurn: async () => {},
+  };
+  const server = createMemoryServer(service);
+  const client = new Client({name: 'test', version: '1'});
+  const [left, right] = InMemoryTransport.createLinkedPair();
+  await server.connect(right);
+  await client.connect(left);
+  try {
+    await client.callTool({name: 'load_memory_context', arguments: {
+      session_key: 's', event: 'Stop', last_assistant_message: '${last_assistant_message}'}});
+    assert.deepEqual(recorded, [], 'a bare placeholder is not something the assistant said');
+    await client.callTool({name: 'load_memory_context', arguments: {
+      session_key: 's', event: 'Stop', last_assistant_message: 'Real reply.'}});
+    assert.deepEqual(recorded, [{role: 'assistant', content: 'Real reply.'}]);
+  } finally { await client.close(); await server.close(); }
+});
+
 test('Stop stays silent when capture is switched off', async () => {
   let called = false;
   const service = {

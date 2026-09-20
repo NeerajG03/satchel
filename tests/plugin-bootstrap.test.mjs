@@ -84,6 +84,16 @@ test('installed packages retrieve per prompt and reload on every fresh context',
     assert.equal(perPrompt.input.user_prompt,'${user_prompt}');
     assert.ok(perPrompt.timeout<=5,'a hook that delays the prompt is worse than one that misses');
 
+    // Capture has to be triggered by something. The router, the rolling window
+    // and every capture path shipped once with nothing configured to call them.
+    const [stop]=hooks.Stop.flatMap(entry=>entry.hooks);
+    assert.equal(stop.type,'mcp_tool',`${host}: capture must not hand the turn to a local script`);
+    assert.equal(stop.input.event,'Stop');
+    assert.equal(stop.input.session_key,'${session_id}');
+    // Present on Claude, absent on Codex, where it arrives unsubstituted and
+    // the server discards it rather than recording the literal placeholder.
+    assert.equal(stop.input.last_assistant_message,'${last_assistant_message}');
+
     const root=host==='codex'?'${PLUGIN_ROOT}':'${CLAUDE_PLUGIN_ROOT}';
     assert.ok(hooks.SessionStart.some(entry=>entry.hooks.some(h=>h.type==='command'&&h.command.includes(root))));
     // Only the lifecycle hook is a local command, and it never sees a prompt.

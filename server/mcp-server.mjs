@@ -127,8 +127,12 @@ export function createMemoryServer(service, {ownerId} = {}) {
         // Capture, and nothing injected. Claude Code can inject from Stop and
         // Codex cannot, so a design that used it would work on one host only,
         // and the next turn may change subject anyway.
-        if (options.last_assistant_message)
-          void service.recordSessionMessage(sessionKey,'assistant',options.last_assistant_message);
+        // Codex has no last_assistant_message, so on that host the placeholder
+        // arrives as its own literal text. Recording it would put the string
+        // "${last_assistant_message}" into the window the router reads on
+        // every single turn.
+        const assistant=substituted(options.last_assistant_message);
+        if (assistant) void service.recordSessionMessage(sessionKey,'assistant',assistant);
         if (!settings.capture||!service.captureTurn) return null;
         const window=await service.sessionWindow(sessionKey,settings.capture_window*2);
         const ordered=[...window].reverse();

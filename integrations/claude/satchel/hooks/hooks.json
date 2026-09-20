@@ -44,6 +44,23 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "plugin:satchel:satchel",
+            "tool": "load_memory_context",
+            "input": {
+              "session_key": "${session_id}",
+              "event": "Stop",
+              "last_assistant_message": "${last_assistant_message}"
+            },
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
