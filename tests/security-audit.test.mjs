@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,readdir} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
+import {applyMigrations} from './helpers/migrations.mjs';
 
 test('security posture keeps RLS and routine privileges closed by default',async()=>{
   const db=new PGlite();
@@ -17,9 +18,7 @@ test('security posture keeps RLS and routine privileges closed by default',async
         $$select (auth.jwt()->>'sub')::uuid$$;
       grant usage on schema auth,public to authenticated,anon;
     `);
-    const migrations=new URL('../supabase/migrations/',import.meta.url);
-    for(const file of (await readdir(migrations)).filter(name=>name.endsWith('.sql')).sort())
-      await db.exec(await readFile(new URL(file,migrations),'utf8'));
+    await applyMigrations(db);
 
     const withoutRls=(await db.query(`
       select c.relname

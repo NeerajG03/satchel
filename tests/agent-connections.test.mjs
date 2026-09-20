@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,readdir} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
+import {applyMigrations} from './helpers/migrations.mjs';
 
 test('agent grants enforce isolation, writes, revocation and generation at the database boundary',async t=>{
   const db=new PGlite();
@@ -28,11 +29,10 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       create function auth.uid() returns uuid language sql stable as $$select (auth.jwt()->>'sub')::uuid$$;
       grant usage on schema auth,public to authenticated,anon;
       insert into auth.users values('${owner}'),('${other}');`);
-    const dir=new URL('../supabase/migrations/',import.meta.url);
-    for(const f of (await readdir(dir)).filter(f=>f.endsWith('.sql')).sort()) await db.exec(await readFile(new URL(f,dir),'utf8'));
+    await applyMigrations(db);
     for(const id of [a,b]) await call(user,'select create_project($1,$2,$3)',[id,id,'']);
     await call(user,'select link_project_repository($1,$2,$3)',[a,'github','neerajg03/satchel']);
-    for(const id of [null,a,b]) await call(user,'select save_memory($1,$2,$3,$4,$5)',[crypto.randomUUID(),id,'same-name','Summary','PRIVATE DETAILS']);
+    for(const id of [null,a,b]) await call(user,'select save_memory($1,$2,$3,$4,$5,$6,$7,$8)',[crypto.randomUUID(),id,'Summary','','said',null,'same-name','PRIVATE DETAILS']);
     await authorize(ca,true,[a],false);await authorize(cb,false,[b],true);
     codex=await claims(ca);claude=await claims(cb);
     await call(user,'select authorize_agent_v2($1,$1,false,$2,false,false,$3,true,false)',[taskClient,[],[a]]);
@@ -66,22 +66,22 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       assert.equal((await call(otherClaims,'select agent_connection_status() result'))[0].result,null);
     });
     await t.test('read-only tokens cannot write through RPC or direct table operations',async()=>{
-      await assert.rejects(call(codex,'select save_memory($1,null,$2,$3,$4)',[crypto.randomUUID(),'new','summary','']),{code:'42501'});
-      assert.deepEqual(await call(codex,"update memories set description='hacked' returning id"),[]);
+      await assert.rejects(call(codex,'select save_memory($1,null,$2)',[crypto.randomUUID(),'summary']),{code:'42501'});
+      assert.deepEqual(await call(codex,"update memories set statement='hacked' returning id"),[]);
       assert.deepEqual(await call(codex,'delete from memories returning id'),[]);
       await assert.rejects(call(codex,'select authorize_agent($1,$1,true,$2,true)',[ca,[a,b]]),{code:'42501'});
       await assert.rejects(call(codex,'update agent_connections set can_write=true'),{code:'42501'});
     });
     await t.test('authorized writes retain idempotent saves and revision conflicts',async()=>{
-      const id=crypto.randomUUID();const args=[id,b,'new','summary','detail'];
-      const first=await call(claude,'select * from save_memory($1,$2,$3,$4,$5)',args);
-      assert.equal((await call(claude,'select * from save_memory($1,$2,$3,$4,$5)',args))[0].revision,1);
+      const id=crypto.randomUUID();const args=[id,b,'summary'];
+      const first=await call(claude,'select * from save_memory($1,$2,$3)',args);
+      assert.equal((await call(claude,'select * from save_memory($1,$2,$3)',args))[0].revision,1);
       assert.equal(first[0].project_id,b);
-      assert.equal((await call(claude,'select * from correct_memory($1,1,$2,$3,$4)',[id,'new','corrected','detail']))[0].revision,2);
-      await assert.rejects(call(claude,'select correct_memory($1,1,$2,$3,$4)',[id,'new','stale','detail']),{code:'PT409'});
+      assert.equal((await call(claude,'select * from correct_memory($1,1,$2,$3,$4)',[id,'corrected','new','detail']))[0].revision,2);
+      await assert.rejects(call(claude,'select correct_memory($1,1,$2,$3,$4)',[id,'stale','new','detail']),{code:'PT409'});
       assert.deepEqual(await call(claude,'delete from memories where id=$1 and revision=1 returning id',[id]),[]);
       assert.equal((await call(claude,'delete from memories where id=$1 and revision=2 returning id',[id])).length,1);
-      await assert.rejects(call(claude,'select save_memory($1,null,$2,$3,$4)',[crypto.randomUUID(),'denied','summary','']),{code:'42501'});
+      await assert.rejects(call(claude,'select save_memory($1,null,$2)',[crypto.randomUUID(),'summary']),{code:'42501'});
     });
     await t.test('project upserts create atomically without expanding grants and update only authorized projects',async()=>{
       const createdId=crypto.randomUUID(),requestId=crypto.randomUUID();

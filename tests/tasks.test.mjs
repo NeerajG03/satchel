@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,readdir} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
+import {applyMigrations} from './helpers/migrations.mjs';
 
 test('Supabase-native tasks enforce grants, revisions, history, resources and idempotency',async t=>{
   const db=new PGlite();
@@ -32,9 +33,7 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
       grant usage on schema auth,public to authenticated,anon;
       insert into auth.users values('${owner}'),('${other}');
     `);
-    const dir=new URL('../supabase/migrations/',import.meta.url);
-    for(const file of (await readdir(dir)).filter(name=>name.endsWith('.sql')).sort())
-      await db.exec(await readFile(new URL(file,dir),'utf8'));
+    await applyMigrations(db);
 
     await call(user,'select create_project($1,$2,$3)',[project,'Tasks','Primary']);
     await call({sub:other},'select create_project($1,$2,$3)',[otherProject,'Other','Separate owner']);
