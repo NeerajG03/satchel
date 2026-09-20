@@ -11,6 +11,8 @@
 // and necessary; inventing is not. Any dispute about whether a memory is real
 // is settled by looking at the source.
 
+import {generation} from './tracing.mjs';
+
 export class RouterError extends Error {
   constructor(message, {cause} = {}) { super(message); this.name = 'RouterError'; this.cause = cause; }
 }
@@ -176,11 +178,33 @@ export function createRouter({
     async route(input) {
       if (!apiKey) throw new RouterError('No router key configured');
       const prompt = buildPrompt(input);
-      const body = await call(prompt, true);
+      // The whole prompt is the input on purpose. A capture is only
+      // explicable if you can see what the router was looking at, including
+      // which projects and open tasks it had to choose from.
+      const trace = generation('router', {model, input: prompt, metadata: {
+        projects: input.projects?.length ?? 0,
+        openTasks: input.tasks?.length ?? 0,
+        contextMessages: input.context?.length ?? 0,
+        turnMessages: input.turn?.length ?? 0,
+      }});
+      let body;
+      try { body = await call(prompt, true); }
+      catch (error) { trace.fail(error); throw error; }
       const text = body?.choices?.[0]?.message?.content;
-      if (typeof text !== 'string') throw new RouterError('router returned no content');
-      const parsed = parseJson(text);
-      return {...validate(parsed, input), prompt, raw: text, usage: body?.usage ?? null};
+      if (typeof text !== 'string') {
+        trace.fail(new RouterError('no content'));
+        throw new RouterError('router returned no content');
+      }
+      let parsed;
+      try { parsed = parseJson(text); }
+      catch (error) { trace.fail(error); throw error; }
+      const checked = validate(parsed, input);
+      // Kept and dropped both, because a router that is being silently filtered
+      // looks identical to one that is being conservative.
+      trace.end({kept: checked.memories, dropped: checked.dropped},
+        {usageDetails: body?.usage ?? undefined,
+         metadata: {kept: checked.memories.length, dropped: checked.dropped.length}});
+      return {...checked, prompt, raw: text, usage: body?.usage ?? null};
     },
   };
 

@@ -1,6 +1,7 @@
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {z} from 'zod';
 import {sessionStartBlock, promptBlock, estimateTokens} from './injection-format.mjs';
+import {traced, retrieval} from './tracing.mjs';
 
 const scope=z.uuid().nullable().describe('null means personal memory; otherwise an explicitly selected project UUID.');
 const session=z.string().min(1).max(200);
@@ -73,7 +74,7 @@ const errorText=error=>({
   '23514':'The supplied fields or relationships violate the Satchel contract.',
 }[error?.code] ?? 'Satchel request failed. Reload before retrying a write: it may have completed.');
 
-export function createMemoryServer(service) {
+export function createMemoryServer(service, {ownerId} = {}) {
   const server=new McpServer({name:'satchel',version:'0.1.0'});
   async function consumeLifecycleHint(sessionKey,event) {
     if(!['SessionStart','PostCompact'].includes(event))return {staged:false};
@@ -107,6 +108,15 @@ export function createMemoryServer(service) {
   // project or a task is earned by something the user said, and arrives
   // through UserPromptSubmit instead.
   async function contextPayload(sessionKey,event,selectedProject,options={}) {
+    // One trace per lifecycle event, grouped by conversation. The session is
+    // what makes a capture explicable later: you can see the retrievals that
+    // preceded it in the same session view.
+    return traced(`satchel.${event}`,
+      {sessionId:sessionKey,userId:ownerId,metadata:{event},tags:['satchel',event],
+       input:event==='UserPromptSubmit'?resolvePrompt(options):null},
+      (setOutput,setInput)=>buildContext(sessionKey,event,selectedProject,options,setOutput,setInput));
+  }
+  async function buildContext(sessionKey,event,selectedProject,options,setOutput=()=>{},setInput=()=>{}) {
     let context;
     let logged=null;
     try {
@@ -124,6 +134,9 @@ export function createMemoryServer(service) {
         const ordered=[...window].reverse();
         const turn=ordered.filter(m=>m.role==='user').slice(-settings.capture_window).map(m=>m.content);
         if (!turn.length) return null;
+        // The turn is what this trace is actually about, and it is only known
+        // now, so the input is replaced rather than left as the event name.
+        setInput({turn,contextMessages:context.length});
         const [projects,tasks]=await Promise.all([service.projects(),service.openTasks()]);
         // The turn being classified is the only thing that may supply a source.
         // Everything before it is context for understanding it.
@@ -143,8 +156,15 @@ export function createMemoryServer(service) {
         if (!settings.per_prompt_matches) return null;
         let project=selectedProject;
         if (project===undefined) project=await service.activeProject(sessionKey);
-        const rows=await service.search({query:prompt,in_scope:project??null,
-          limit:settings.per_prompt_matches,exclude:options.exclude??[]});
+        const lookup=retrieval('retrieve-memory',{input:prompt,
+          metadata:{gate:settings.gate,limit:settings.per_prompt_matches,
+            inScope:project??'personal',excluded:(options.exclude??[]).length}});
+        let rows;
+        try { rows=await service.search({query:prompt,in_scope:project??null,
+          limit:settings.per_prompt_matches,exclude:options.exclude??[]}); }
+        catch (error) { lookup.fail(error); throw error; }
+        lookup.end(rows.map(r=>({id:r.id,statement:r.statement,score:r.score})),
+          {metadata:{shown:rows.length,matched:rows[0]?.matched??0,inScope:rows[0]?.in_scope??0}});
         if (!rows.length) return null;
         const tasks=await service.tasksByIds?.(rows.map(r=>r.task_id).filter(Boolean))??new Map();
         const block=promptBlock({rows,matched:rows[0].matched,inScope:rows[0].in_scope,tasks});
@@ -178,6 +198,9 @@ export function createMemoryServer(service) {
       }
     } catch(error) {context='Satchel memory unavailable. '+errorText(error)+' Do not claim that memory loaded.';}
     if (logged) void service.logInjection({id:crypto.randomUUID(),session_key:sessionKey,event,...logged});
+    // The exact bytes the model receives, so a trace answers "what did it
+    // actually see" rather than "what did we intend to send".
+    setOutput(context);
     return {hookSpecificOutput:{hookEventName:event,additionalContext:context}};
   }
   function register(name,description,inputSchema,operation,annotations=readAnnotations) {

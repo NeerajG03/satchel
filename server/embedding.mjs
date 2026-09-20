@@ -13,6 +13,8 @@
 // means re-embedding, and pairing them in the schema is what makes that
 // detectable instead of silent.
 
+import {embedding as traceEmbedding} from './tracing.mjs';
+
 export const EMBEDDING_DIMENSIONS = 768;
 const MAX_BATCH = 64;
 const MAX_CHARS = 8000;
@@ -78,6 +80,11 @@ export function createEmbedder({
   if (!spec) throw new EmbeddingError(`Unknown embedding provider ${provider}`);
 
   async function batch(inputs, retryOn429 = true) {
+    // On the read path this is the query; on the write path it is the memory
+    // being indexed. Either way the text is the thing worth seeing later.
+    const trace = retryOn429
+      ? traceEmbedding('embed', {model, input: inputs, metadata: {dimensions, count: inputs.length}})
+      : {end() {}, fail() {}};
     let response;
     try {
       response = await fetchImpl(url.replace(/\/+$/, '') + (path ?? spec.path), {
@@ -86,7 +93,11 @@ export function createEmbedder({
         body: JSON.stringify(spec.body(model, inputs, dimensions)),
         signal: AbortSignal.timeout(timeoutMs),
       });
-    } catch (cause) { throw new EmbeddingError(`${model} did not respond within ${timeoutMs}ms`, {cause}); }
+    } catch (cause) {
+      const failure = new EmbeddingError(`${model} did not respond within ${timeoutMs}ms`, {cause});
+      trace.fail(failure);
+      throw failure;
+    }
     // OpenRouter's free models allow 20 requests a minute per account, shared
     // across every user of this deployment. On the read path that is one
     // retrieval's worth of delay against no retrieval at all, so it is worth a
@@ -97,14 +108,21 @@ export function createEmbedder({
       await new Promise(done => setTimeout(done, waitMs));
       return batch(inputs, false);
     }
-    if (!response.ok) throw new EmbeddingError(`${model} returned ${response.status}`);
+    if (!response.ok) {
+      const failure = new EmbeddingError(`${model} returned ${response.status}`);
+      trace.fail(failure);
+      throw failure;
+    }
     let payload;
     try { payload = await response.json(); }
     catch (cause) { throw new EmbeddingError(`${model} returned a malformed response`, {cause}); }
     const vectors = spec.read(payload);
     if (!Array.isArray(vectors) || vectors.length !== inputs.length)
       throw new EmbeddingError(`${model} returned ${vectors?.length ?? 0} embeddings for ${inputs.length} inputs`);
-    return vectors.map(vector => normalize(vector, model, dimensions));
+    const normalized = vectors.map(vector => normalize(vector, model, dimensions));
+    trace.end({vectors: normalized.length, dimensions: normalized[0]?.length ?? 0},
+      {usageDetails: payload?.usage ?? undefined});
+    return normalized;
   }
 
   return {

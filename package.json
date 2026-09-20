@@ -17,7 +17,11 @@
     "task-storage:cleanup": "node scripts/cleanup-task-files.mjs"
   },
   "dependencies": {
+    "@langfuse/otel": "^5.11.1",
+    "@langfuse/tracing": "^5.11.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@opentelemetry/sdk-node": "^0.222.0",
+    "@opentelemetry/sdk-trace-node": "^2.11.0",
     "@supabase/supabase-js": "^2.116.0",
     "jose": "^6.2.12",
     "react": "^19.3.0",

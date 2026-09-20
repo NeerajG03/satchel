@@ -5,6 +5,7 @@ import {createMemoryServer} from './mcp-server.mjs';
 import {memoryService} from './memory-service.mjs';
 import {createEmbedder} from './embedding.mjs';
 import {createRouter} from './router.mjs';
+import {flush} from './tracing.mjs';
 import {taskService} from './task-service.mjs';
 
 export const RESOURCE='https://satchel-pi.vercel.app/api/mcp';
@@ -37,7 +38,8 @@ export async function handleMcp(req,res) {
   if(req.method==='OPTIONS'){res.writeHead(204);return res.end();}
   if(req.method!=='POST'){res.writeHead(405,{Allow:'POST, OPTIONS'});return res.end();}
   const token=req.headers.authorization?.match(/^Bearer (\S+)$/i)?.[1];
-  try {if(!token)throw Error('Missing token');await verifyAgentToken(token);}
+  let claims;
+  try {if(!token)throw Error('Missing token');claims=await verifyAgentToken(token);}
   catch {res.writeHead(401,{'WWW-Authenticate':`Bearer resource_metadata="https://satchel-pi.vercel.app/.well-known/oauth-protected-resource", scope="openid"`});return res.end('Authentication required');}
   const key=process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if(!key){res.writeHead(503);return res.end('Server configuration unavailable');}
@@ -47,7 +49,8 @@ export async function handleMcp(req,res) {
   try {
     if(!await service.status()){res.writeHead(403);return res.end('Connection revoked or unavailable');}
   }catch{res.writeHead(503);return res.end('Unable to verify connection');}
-  const server=createMemoryServer(service);
+  // The owner, never an email or a token: enough to attribute a trace.
+  const server=createMemoryServer(service,{ownerId:typeof claims?.sub==='string'?claims.sub:undefined});
   const transport=new StreamableHTTPServerTransport({sessionIdGenerator:undefined,enableJsonResponse:true});
   res.on('close',()=>{void transport.close();void server.close();});
   try {
@@ -56,5 +59,10 @@ export async function handleMcp(req,res) {
   }catch{
     if(!res.headersSent)res.writeHead(500);
     res.end();
+  }finally{
+    // A serverless function can freeze the moment it responds, so a batched
+    // exporter would lose the spans. Flushing here costs a little latency on
+    // the way out and is the only point at which the trace is safe.
+    await flush();
   }
 }
