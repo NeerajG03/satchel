@@ -420,3 +420,21 @@ test('a rate limit tells the person what actually happened', async () => {
     assert.match(hook.hookSpecificOutput.additionalContext, /Do not claim that memory loaded/);
   } finally { await close(); }
 });
+
+test('retrieve_memory with no embedder configured says so, not that a write may have completed', async () => {
+  // memory-service.mjs threw {code:'PT503'} with no reason, which is exactly
+  // the shape errorText's fallback exists for: it fell through the code table
+  // to "Satchel request failed. Reload before retrying a write: it may have
+  // completed." retrieve_memory is read-only, and no request was even sent to
+  // an embedder, so every word of that fallback was wrong.
+  const db = recorder({agent_connection_status: {label: 'Test', personal: true, project_ids: []}});
+  const {client, close} = await connect(memoryService(db, null));
+  try {
+    const result = await client.callTool({name: 'retrieve_memory', arguments: {query: 'anything'}});
+    assert.equal(result.isError, true);
+    const {error} = JSON.parse(result.content[0].text);
+    assert.doesNotMatch(error, /Reload before retrying a write/,
+      'nothing was written, and nothing was even sent to an embedder');
+    assert.match(error, /no embedding model is configured/i);
+  } finally { await close(); }
+});

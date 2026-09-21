@@ -122,7 +122,7 @@ export function memoryService(db, embedder = null, router = null) {
     // rather than a filter, so a first mention of an unrelated project still
     // wins on similarity alone.
     async search(args) {
-      if (!embedder) throw {code:'PT503'};
+      if (!embedder) throw {code:'PT503',reason:'search is unavailable: no embedding model is configured for this connection'};
       // The query side. Named rather than passed as a flag so a call site
       // cannot quietly end up on the wrong side of the asymmetry.
       const vector=await embedder.embedQuery(args.query);
