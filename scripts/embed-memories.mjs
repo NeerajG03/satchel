@@ -47,7 +47,7 @@ for (;;) {
   }
 
   let vectors;
-  try { vectors = await embedder.embed(rows.map(indexedText)); }
+  try { vectors = await embedder.embed(rows.map(indexedText), 'document'); }
   catch (error) {
     console.error(`\nEmbedding failed, stopping with ${done} done: ${error.message}`);
     // A spent daily quota is the one failure where re-running now is pointless,

@@ -8,6 +8,7 @@ import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
 import {createMemoryServer} from '../server/mcp-server.mjs';
 import {memoryService} from '../server/memory-service.mjs';
+import {createEmbedder} from '../server/embedding.mjs';
 
 /** Records what the service actually sends, the way supabase-js would take it. */
 function recorder(responses = {}) {
@@ -28,7 +29,23 @@ function recorder(responses = {}) {
   };
 }
 
-const embedder = {model: 'test-model', embedOne: async () => Array(768).fill(0.1)};
+// Shaped from the real embedder rather than by hand, because a fake that has
+// drifted from the thing it stands in for is how three bugs reached production
+// past a green suite. The assertion below is what keeps it honest.
+const embedder = {model: 'test-model',
+  embed: async texts => texts.map(() => Array(768).fill(0.1)),
+  embedOne: async () => Array(768).fill(0.1),
+  embedQuery: async () => Array(768).fill(0.1)};
+
+test('the fake embedder still has the shape the service calls', () => {
+  const real = createEmbedder({apiKey: 'unused'});
+  for (const method of ['embed', 'embedOne', 'embedQuery'])
+    assert.equal(typeof real[method], 'function', `${method} must exist on the real embedder`);
+  for (const key of Object.keys(embedder))
+    assert.ok(key === 'model' || typeof real[key] === 'function',
+      `the fake has ${key}, which the real embedder does not`);
+  assert.equal(typeof real.model, 'string');
+});
 
 test('a default is asked for by omission, never by sending null', async () => {
   // `p_gate real default 0.67` applies when the argument is absent. JSON null

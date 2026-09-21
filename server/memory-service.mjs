@@ -13,7 +13,10 @@ export function memoryService(db, embedder = null, router = null) {
   async function embedRow(row) {
     if (!embedder || !row?.id) return;
     try {
-      const vector=await embedder.embedOne(indexedText(row));
+      // 'document' is the stored side of an asymmetric model. It is inert
+      // unless a taskType is configured, and turning that on changes
+      // embedder.model too, so the two spaces stay distinguishable in the row.
+      const vector=await embedder.embedOne(indexedText(row),'document');
       await result(db.from('memories').update({
         embedding:toVectorLiteral(vector),embedding_model:embedder.model,embedded_at:new Date().toISOString(),
       }).eq('id',row.id));
@@ -110,7 +113,9 @@ export function memoryService(db, embedder = null, router = null) {
     // wins on similarity alone.
     async search(args) {
       if (!embedder) throw {code:'PT503'};
-      const vector=await embedder.embedOne(args.query);
+      // The query side. Named rather than passed as a flag so a call site
+      // cannot quietly end up on the wrong side of the asymmetry.
+      const vector=await embedder.embedQuery(args.query);
       // Omitted, never null. `p_gate real default 0.67` applies when the
       // argument is absent, and JSON null is not absent: it reaches Postgres as
       // NULL, the filter becomes `score >= NULL`, and every row is dropped.

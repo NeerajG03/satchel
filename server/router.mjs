@@ -11,8 +11,10 @@
 // and necessary; inventing is not. Any dispute about whether a memory is real
 // is settled by looking at the source.
 
-import {generation} from './tracing.mjs';
-import {readRateLimit, readFailure} from './rate-limit.mjs';
+import {z} from 'zod';
+import {generateObject, APICallError, NoObjectGeneratedError} from 'ai';
+import {readApiFailure} from './rate-limit.mjs';
+import {providerFor, asBaseUrl, describeFailure} from './model-provider.mjs';
 
 export class RouterError extends Error {
   constructor(message, {cause, code, reason} = {}) {
@@ -27,27 +29,19 @@ export class RouterError extends Error {
   }
 }
 
-export const ROUTER_SCHEMA = {
-  type: 'object',
-  properties: {
-    memories: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          statement: {type: 'string', description: 'The claim, written so it still makes sense in six weeks.'},
-          source: {type: 'string', description: 'The words the user actually typed that this came from.'},
-          project: {type: ['string', 'null'], description: 'A project slug from the list, or null for personal.'},
-          task: {type: ['string', 'null'], description: 'An open task slug from the list, or null.'},
-        },
-        required: ['statement', 'source', 'project', 'task'],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ['memories'],
-  additionalProperties: false,
-};
+// The shape the provider is made to return. It was a hand-written JSON Schema
+// plus a prose fallback plus a fence-stripping parser, because not every host
+// accepts a schema and the ones that refuse reject the whole request. The SDK
+// owns that negotiation now, and zod was already a dependency, so the schema is
+// the validator rather than a second description of it that can drift.
+export const ROUTER_SCHEMA = z.object({
+  memories: z.array(z.object({
+    statement: z.string().describe('The claim, written so it still makes sense in six weeks.'),
+    source: z.string().describe('The words the user actually typed that this came from.'),
+    project: z.string().nullable().describe('A project slug from the list, or null for personal.'),
+    task: z.string().nullable().describe('An open task slug from the list, or null.'),
+  })),
+});
 
 const INSTRUCTIONS = `You read the end of a conversation and decide whether the user said anything worth remembering.
 
@@ -146,39 +140,19 @@ export function validate(payload, {turn = [], projects = [], tasks = []}) {
   return {memories: kept, dropped};
 }
 
-const JSON_FALLBACK = `Reply with JSON only, no prose and no code fence, in exactly this shape:
-{"memories":[{"statement":"...","source":"...","project":null,"task":null}]}
-An empty list is {"memories":[]}.`;
-
-/** A model told to return JSON in words sometimes wraps it in a fence or a
- *  sentence. Recovering the object is not being lenient about the contract:
- *  everything inside it is still validated, and a reply with no object in it
- *  still fails. */
-function parseJson(text) {
-  const attempts = [text];
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenced) attempts.push(fenced[1]);
-  const braced = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
-  if (braced) attempts.push(braced);
-  for (const attempt of attempts) {
-    try { return JSON.parse(attempt.trim()); } catch { /* try the next shape */ }
-  }
-  throw new RouterError('router returned content that is not JSON');
-}
-
 export function createRouter({
-  // A full URL, so any OpenAI-compatible host works without a code change.
-  // Google's compatibility layer is
-  // https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
   // Measured, not guessed. Over 24 real turns replayed from the corpus and 16
   // that contain nothing durable, gemini-3.5-flash-lite extracted 22 of 24 and
   // stayed quiet on all 16, at about 1.6 seconds. See eval/router.mjs.
   //
-  // Pinned rather than -latest on purpose: the instructions below were tuned
+  // Pinned rather than -latest on purpose: the instructions above were tuned
   // against this version, and a floating alias would move the thing the
   // measurement describes.
   model = process.env.SATCHEL_ROUTER_MODEL ?? 'gemini-3.5-flash-lite',
-  url = process.env.SATCHEL_ROUTER_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+  // Google natively, so the provider enforces the schema instead of being
+  // asked to follow one. Any OpenAI-shaped host is `openai` plus a url.
+  provider = process.env.SATCHEL_ROUTER_PROVIDER ?? 'google',
+  baseURL = asBaseUrl(process.env.SATCHEL_ROUTER_URL),
   apiKey = process.env.SATCHEL_ROUTER_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY,
   timeoutMs = Number(process.env.SATCHEL_ROUTER_TIMEOUT_MS ?? 8000),
   fetchImpl = fetch,
@@ -188,79 +162,118 @@ export function createRouter({
     async route(input) {
       if (!apiKey) throw new RouterError('No router key configured');
       const prompt = buildPrompt(input);
-      // The whole prompt is the input on purpose. A capture is only
-      // explicable if you can see what the router was looking at, including
-      // which projects and open tasks it had to choose from.
-      const trace = generation('router', {model, input: prompt, metadata: {
-        projects: input.projects?.length ?? 0,
-        openTasks: input.tasks?.length ?? 0,
-        contextMessages: input.context?.length ?? 0,
-        turnMessages: input.turn?.length ?? 0,
-      }});
-      let body;
-      try { body = await call(prompt, true); }
-      catch (error) { trace.fail(error); throw error; }
-      const text = body?.choices?.[0]?.message?.content;
-      if (typeof text !== 'string') {
-        trace.fail(new RouterError('no content'));
-        throw new RouterError('router returned no content');
+      let lastSignal;
+      // One retry, on a short advised wait only. Capture missing a turn is the
+      // behaviour Satchel had before capture existed, so a loop here would
+      // hold the turn open for no gain, and a spent daily quota does not come
+      // back from waiting at all. The SDK's own maxRetries is 0 precisely so
+      // this stays a decision made with the 429 body in hand.
+      for (let attempt = 0; ; attempt++) {
+        try { return await ask(); }
+        catch (error) {
+          const failure = asRouterError(error, lastSignal);
+          const wait = failure.code === 'ROUTER_LIMIT' && !failure.spent ? failure.retryAfterMs || 500 : 0;
+          if (attempt > 0 || !wait || wait > 2000) throw failure;
+          await new Promise(done => setTimeout(done, wait));
+        }
       }
-      let parsed;
-      try { parsed = parseJson(text); }
-      catch (error) { trace.fail(error); throw error; }
-      const checked = validate(parsed, input);
-      // Kept and dropped both, because a router that is being silently filtered
-      // looks identical to one that is being conservative.
-      trace.end({kept: checked.memories, dropped: checked.dropped},
-        {usageDetails: body?.usage ?? undefined,
-         metadata: {kept: checked.memories.length, dropped: checked.dropped.length}});
-      return {...checked, prompt, raw: text, usage: body?.usage ?? null};
+
+      async function ask() {
+      const signal = lastSignal = AbortSignal.timeout(timeoutMs);
+      let result;
+      try {
+        result = await generateObject({
+          model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(model),
+          schema: ROUTER_SCHEMA,
+          prompt,
+          temperature: 0,
+          abortSignal: signal,
+          // One attempt. Capture missing a turn is the behaviour Satchel had
+          // before capture existed; the SDK's default of two retries with
+          // backoff would hold the turn open to learn what the 429 body
+          // already said.
+          maxRetries: 0,
+          // The whole prompt is the input on purpose. A capture is only
+          // explicable if you can see what the router was looking at,
+          // including which projects and open tasks it had to choose from.
+          telemetry: {functionId: 'router', metadata: {
+            projects: input.projects?.length ?? 0,
+            openTasks: input.tasks?.length ?? 0,
+            contextMessages: input.context?.length ?? 0,
+            turnMessages: input.turn?.length ?? 0,
+          }},
+        });
+      } catch (error) {
+        // One recovery, and only this one. A host that ignores the schema
+        // request still answers in prose, and a model told to return JSON in
+        // words sometimes wraps it in a fence or a sentence. Google native
+        // enforces the schema so this never fires there, but `openai` hosts
+        // are a supported path and losing the recovery would quietly stop
+        // capture working on them.
+        //
+        // This is leniency about the wrapper, never about the contents:
+        // whatever comes out is parsed against the same schema, and validate()
+        // still has to find the source in what the user typed.
+        const salvaged = NoObjectGeneratedError.isInstance(error) && salvage(error.text);
+        if (!salvaged) throw asRouterError(error, signal);
+        result = {object: salvaged, usage: error.usage ?? null};
+      }
+      // Everything the model returned still goes through validate(). The schema
+      // guarantees the shape; only validate() can check that a source is really
+      // in what the user typed, which is what makes fabrication detectable
+      // rather than a matter of trust.
+      const checked = validate(result.object, input);
+      return {...checked, prompt, raw: JSON.stringify(result.object), usage: result.usage ?? null};
+      }
     },
   };
+}
 
-  // Not every model accepts a JSON schema, and the ones that do not reject the
-  // whole request rather than ignoring the field. So the schema is an
-  // optimisation: ask for it, and fall back to asking in words. That keeps the
-  // router working across providers instead of pinning it to one model's
-  // feature list.
-  async function call(prompt, retry, schema = true) {
-      let response;
-      try {
-        response = await fetchImpl(url, {
-          method: 'POST',
-          headers: {'content-type': 'application/json', authorization: `Bearer ${apiKey}`},
-          body: JSON.stringify({
-            model,
-            messages: [{role: 'user', content: schema ? prompt : `${prompt}\n\n${JSON_FALLBACK}`}],
-            temperature: 0,
-            ...(schema ? {response_format: {type: 'json_schema',
-              json_schema: {name: 'memories', strict: true, schema: ROUTER_SCHEMA}}} : {}),
-          }),
-          signal: AbortSignal.timeout(timeoutMs),
-        });
-      } catch (cause) { throw new RouterError(`router did not respond within ${timeoutMs}ms`, {cause}); }
-      // Rate limited: wait once and try again, then give up. Capture missing a
-      // turn is the behaviour Satchel had before it existed; retrying in a loop
-      // would hold the turn open. What the limit actually says is read rather
-      // than guessed, because `x-ratelimit-reset` is a header Google never
-      // sends, so every Gemini 429 used to fall through to the 500ms floor.
-      if (response.status === 429) {
-        const limit = readRateLimit(response, await readFailure(response));
-        // A spent daily quota does not come back from a wait, and Google
-        // answers one with a ten second retryDelay regardless, so honouring
-        // that would hold the turn open and fail anyway. Only a wait that is
-        // both short and advised is worth taking.
-        const wait = limit.spent ? 0 : Math.min(limit.retryAfterMs || 500, 2000);
-        if (retry && wait) {
-          await new Promise(done => setTimeout(done, wait));
-          return call(prompt, false, schema);
-        }
-        throw new RouterError(`router is rate limited: ${limit.reason}`,
-          {code: 'ROUTER_LIMIT', reason: `capture is rate limited, ${limit.reason}`});
-      }
-      if (response.status === 400 && schema) return call(prompt, retry, false);
-      if (!response.ok) throw new RouterError(`router returned ${response.status}`,
-        {code: 'ROUTER_HOST', reason: `the capture model answered ${response.status}`});
-      return response.json();
+/** Pulls an object out of a reply that carries one but is not one. Returns
+ *  null rather than throwing, so the caller reports the original failure. */
+function salvage(text) {
+  if (typeof text !== 'string') return null;
+  const attempts = [text];
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) attempts.push(fenced[1]);
+  const first = text.indexOf('{'), last = text.lastIndexOf('}');
+  if (first !== -1 && last > first) attempts.push(text.slice(first, last + 1));
+  for (const attempt of attempts) {
+    const parsed = ROUTER_SCHEMA.safeParse((() => {
+      try { return JSON.parse(attempt.trim()); } catch { return null; }
+    })());
+    if (parsed.success) return parsed.data;
   }
+  return null;
+}
+
+/** Turns an SDK failure into something the hook can say out loud. These carry
+ *  no Postgres code, so without a `reason` they all land on the default branch
+ *  of errorText and reach the person as "Satchel request failed. Reload before
+ *  retrying a write: it may have completed", which is wrong twice over. */
+function asRouterError(error, signal) {
+  if (error instanceof RouterError) return error;
+  if (NoObjectGeneratedError.isInstance(error))
+    return new RouterError('router returned nothing matching the schema',
+      {cause: error, code: 'ROUTER_SHAPE', reason: 'the capture model returned nothing usable'});
+  const {kind, status} = describeFailure(error, signal);
+  if (kind === 'timeout')
+    return new RouterError(`router did not respond within its timeout`,
+      {cause: error, code: 'ROUTER_TIMEOUT', reason: 'the capture model did not answer in time'});
+  if (kind === 'shape')
+    return new RouterError('router returned a response that is not usable',
+      {cause: error, code: 'ROUTER_SHAPE', reason: 'the capture model returned nothing usable'});
+  if (kind === 'host')
+    return new RouterError(`router returned ${status}`,
+      {cause: error, code: 'ROUTER_HOST', reason: `the capture model answered ${status}`});
+  // What the limit says is read rather than guessed. A spent daily quota comes
+  // back with a ten second retryDelay that reads exactly like a burst limit, so
+  // the reason has to name which one it was or every 429 looks transient.
+  const limit = readApiFailure(error);
+  return Object.assign(
+    new RouterError(`router is rate limited: ${limit.reason}`,
+      {cause: error, code: 'ROUTER_LIMIT', reason: `capture is rate limited, ${limit.reason}`}),
+    // Read by the single retry above: a spent day and a burst need opposite
+    // answers and the status code cannot tell them apart.
+    {spent: limit.spent, retryAfterMs: limit.retryAfterMs});
 }

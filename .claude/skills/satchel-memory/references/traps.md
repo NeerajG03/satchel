@@ -121,6 +121,16 @@ The read is in the temporal dead zone. It threw on every Stop, the surrounding c
 
 **Rule:** `tests/memory-lifecycle.test.mjs` asserts every column the lifecycle path reads is in the select **and** in the no-row fallback, and that the fallback values match the column defaults. A fallback that disagrees with the schema makes behaviour depend on whether a row happens to exist.
 
+### An SDK error class does not mean what its name suggests
+
+Moving the model calls to the Vercel AI SDK, the first classification was written from the class names and got three cases wrong. Probing each one found:
+
+- a count mismatch raises `InvalidResponseDataError`, which is **not** an `APICallError`, so "not an APICallError means timeout" reported a malformed response as *the service did not answer in time*;
+- an unreadable body on a successful request still raises `APICallError`, with `statusCode` **200**, so reporting the status gave a person *the service answered 200*;
+- only an abort is really a timeout, and that has to be read off the signal, because the SDK surfaces it as an ordinary error.
+
+**Rule:** `describeFailure` in `server/model-provider.mjs` is the one place that decides, and it was written against probe output rather than documentation. Probe a new error path before mapping it.
+
 ### A default parameter makes its own fallback unreachable
 
 ```js

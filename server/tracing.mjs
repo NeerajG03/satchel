@@ -9,8 +9,10 @@
 //
 // Tracing must never change behaviour. Every export here is safe to call when
 // Langfuse is not configured, and nothing in this file can throw into a request.
+import {registerTelemetry} from 'ai';
 import {NodeSDK} from '@opentelemetry/sdk-node';
 import {LangfuseSpanProcessor} from '@langfuse/otel';
+import {LangfuseVercelAiSdkIntegration} from '@langfuse/vercel-ai-sdk';
 import {startActiveObservation, startObservation, propagateAttributes, setActiveTraceIO,
         updateActiveObservation} from '@langfuse/tracing';
 
@@ -31,6 +33,16 @@ if (tracingEnabled) {
       mask: ({data}) => redact(data),
     });
     new NodeSDK({spanProcessors: [processor]}).start();
+    // Every AI SDK call now emits its own spans, typed by the SDK: an
+    // `embeddings {modelId}` observation for embed/embedMany and a generation
+    // for generateObject, with token usage attached by the provider rather
+    // than by us reading an envelope.
+    //
+    // This replaces hand-written generation() and embedding() wrappers, and
+    // with them a whole class of bug: the 429 branch used to return into a
+    // fresh attempt without ending its span, so rate-limited calls, the ones
+    // most worth having, were the ones never recorded.
+    registerTelemetry(new LangfuseVercelAiSdkIntegration());
   } catch { processor = null; }
 }
 
@@ -98,16 +110,12 @@ function observation(name, asType, {model, input, metadata} = {}) {
   } catch { return noop; }
 }
 
-/** A model call that produces text. Typed as a generation so Langfuse can do
- *  model-level cost and latency analytics on it. */
-export const generation = (name, attrs) => observation(name, 'generation', attrs);
-
-/** An embedding call. Langfuse types this separately from a generation, which
- *  keeps the agent graph and the latency breakdown honest. */
-export const embedding = (name, attrs) => observation(name, 'embedding', attrs);
-
 /** A lookup. Typed as a retriever so the retrieval step is distinguishable from
- *  the model calls around it. */
+ *  the model calls around it.
+ *
+ *  This is the only observation still opened by hand, because it is the only
+ *  one that is not a model call: it is our own database query, and the AI SDK
+ *  has no opinion about it. */
 export const retrieval = (name, attrs) => observation(name, 'retriever', attrs);
 
 const noop = {end() {}, fail() {}};

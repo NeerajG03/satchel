@@ -85,7 +85,35 @@ SATCHEL_GITHUB_APP_*
 
 `SUPABASE_URL` is a constant in `server/http-handler.mjs`. `SUPABASE_SERVICE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are used only by local maintenance scripts and are deliberately **not** on Vercel. `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` are only for `verify-pgvector.mjs`.
 
-Overridable without a code change: `SATCHEL_EMBEDDING_PROVIDER|MODEL|URL|PATH|KEY|DIMENSIONS|TIMEOUT_MS|BUDGET_MS|FALLBACK_KEY|FALLBACK_URL`, `SATCHEL_ROUTER_MODEL|URL|KEY|TIMEOUT_MS`.
+Overridable without a code change: `SATCHEL_EMBEDDING_PROVIDER|MODEL|URL|KEY|DIMENSIONS|TIMEOUT_MS|BUDGET_MS|TASK_TYPE|FALLBACK_KEY|FALLBACK_URL`, `SATCHEL_ROUTER_PROVIDER|MODEL|URL|KEY|TIMEOUT_MS`.
+
+`SATCHEL_EMBEDDING_PATH` is gone: the SDK builds the path from the base URL. A `_URL` still naming a full endpoint is trimmed rather than left to 404, so an old value keeps working. A provider name must be one of `google`, `openai`, `openai-compatible`, `openrouter`, `ollama`; anything else is a startup error, because a typo used to become a silent call to whatever host happened to be the default.
+
+## The model calls go through the Vercel AI SDK
+
+`server/model-provider.mjs` builds the provider, and `ai`'s `embed`/`embedMany` and `generateObject` make the calls. Google natively rather than through its OpenAI compatibility layer, because two things only exist on the native API: `taskType`, and structured output the provider enforces instead of being asked for. Any OpenAI-shaped host is still a provider name plus a url.
+
+What the SDK does **not** own, and why:
+
+| stays ours | because |
+|---|---|
+| L2 normalisation | the SDK does not normalise, and at 768 dimensions this model returns un-normalised vectors |
+| the dimension guard | a model ignoring `outputDimensionality` must throw, not store short |
+| the retry policy | `maxRetries: 0` on every call. The SDK's backoff cannot know a per-day `quotaId` means waiting is pointless, and its default of two retries would spend the hook's whole timeout learning that |
+| the fallback key | no core equivalent |
+| `validate()` | the schema guarantees the shape; only this can check the source is really in what the user typed |
+
+`describeFailure` in `model-provider.mjs` classifies an SDK error, and it was written by probing each case rather than from the class names. A count mismatch raises `InvalidResponseDataError`, which is not an `APICallError`; an unreadable body raises `APICallError` with `statusCode` **200**; and only an abort is really a timeout. Reading those wrongly reported a malformed response as "the service did not answer in time" and an unreadable body as "the service answered 200".
+
+Telemetry is `registerTelemetry(new LangfuseVercelAiSdkIntegration())`, once, in `tracing.mjs`. The SDK emits its own `embeddings {modelId}` and `chat {modelId}` observations. Verified against the live project: an `EMBEDDING` and a `GENERATION` arrive correctly typed under our own event span. The list endpoint's projection omits `model` and `usageDetails`, so confirm token usage in the UI rather than through `/api/public/v2/observations`.
+
+## taskType, built and deliberately switched off
+
+`gemini-embedding-001` is asymmetric: a stored memory wants `RETRIEVAL_DOCUMENT` and the prompt looking for it wants `RETRIEVAL_QUERY`. The OpenAI compatibility layer had no field for it, so Satchel has never used it.
+
+`SATCHEL_EMBEDDING_TASK_TYPE` turns it on and **nothing sets it**. Turning it on changes the embedding space, so every vector already stored would be compared against query vectors from a different space: retrieval gets quietly worse and nothing fails. Opting in therefore changes `embedder.model` to `gemini-embedding-001+retrieval`, so `embedding_model` still tells the two spaces apart and the backfill knows the corpus needs re-embedding.
+
+Order of operations if you want it: run the eval with it on, compare utility, recalibrate the gate, then re-embed and switch. Not the other way round. And one eval pass over the corpus is 632 requests of a 1,000 a day free quota.
 
 ## The embedding quota, which is a capacity limit and not a bug
 

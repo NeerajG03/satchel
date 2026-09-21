@@ -12,12 +12,16 @@
 // The model name travels with every embedding it produces. Changing models
 // means re-embedding, and pairing them in the schema is what makes that
 // detectable instead of silent.
+//
+// The HTTP call is the AI SDK's now, not ours. What stays ours is everything
+// above: normalisation, the dimension guard, the retry policy and the fallback
+// route. Those are not plumbing, they are the guarantees.
 
-import {embedding as traceEmbedding} from './tracing.mjs';
-import {readRateLimit, readFailure} from './rate-limit.mjs';
+import {embed as sdkEmbed, embedMany, APICallError} from 'ai';
+import {readApiFailure} from './rate-limit.mjs';
+import {providerFor, asBaseUrl, describeFailure} from './model-provider.mjs';
 
 export const EMBEDDING_DIMENSIONS = 768;
-const MAX_BATCH = 64;
 const MAX_CHARS = 8000;
 
 export class EmbeddingError extends Error {
@@ -48,57 +52,39 @@ function normalize(vector, model, expected) {
   return vector.map(value => value / length);
 }
 
-const PROVIDERS = {
-  // Local ollama. Nothing leaves the machine, which is the only shape that
-  // keeps the read path free of a network hop and of a privacy question.
-  ollama: {
-    path: '/api/embed',
-    body: (model, inputs) => ({model, input: inputs}),
-    read: payload => payload?.embeddings,
-  },
-  // Any OpenAI-compatible embeddings endpoint. OpenRouter and Google's
-  // compatibility layer both speak this, so moving between them is env, not
-  // code. Google's differs only in where the path sits under the base URL,
-  // which is why `path` is overridable below.
-  //
-  // `dimensions` matters more than it looks. pgvector indexes vectors up to
-  // 2,000 dimensions and several current embedding models return 2,048, so a
-  // model that can truncate fits the column the migration already declares and
-  // one that cannot needs halfvec and 2.7x the storage.
-  openai: {
-    // Relative to a base URL that already carries its version segment, which is
-    // the convention for all three hosts this is used with:
-    // .../v1beta/openai, https://api.openai.com/v1, https://openrouter.ai/api/v1.
-    path: '/embeddings',
-    body: (model, inputs, dimensions) => ({model, input: inputs, ...(dimensions ? {dimensions} : {})}),
-    // Sorted by index, not taken in array order. The envelope carries an
-    // explicit index precisely because the order is not promised, and embed()
-    // promises to preserve order: the backfill writes vectors[i] onto rows[i],
-    // so a reordered response would store each memory's vector on a different
-    // memory, with every row still holding a valid unit vector and nothing to
-    // show for it but quietly wrong matches.
-    read: payload => Array.isArray(payload?.data)
-      ? [...payload.data].sort((a, b) => (a?.index ?? 0) - (b?.index ?? 0)).map(row => row?.embedding)
-      : undefined,
-  },
-};
-
 const sleep = ms => new Promise(done => setTimeout(done, ms));
 
+// What a piece of text is for. gemini-embedding-001 is an asymmetric retrieval
+// model: a stored memory and the prompt looking for it are supposed to be
+// embedded differently, and the OpenAI compatibility layer we used before had
+// no field to say so, so we have never once used it.
+//
+// It is off by default and that is deliberate. Turning it on changes the
+// embedding space, so every vector already stored would be compared against
+// query vectors from a different space: retrieval would get quietly worse with
+// nothing failing. Opting in therefore changes the recorded model name too, so
+// embedding_model still tells the two spaces apart and the backfill knows the
+// corpus needs re-embedding. Measure it with the eval before switching it on.
+export const TASK_TYPES = {document: 'RETRIEVAL_DOCUMENT', query: 'RETRIEVAL_QUERY'};
+
 export function createEmbedder({
-  // Gemini by default: it is the only free tier measured to survive real use,
-  // and gemini-embedding-001 honours a dimensions request, so 768 fits the
-  // indexed column rather than needing halfvec. At 768 it returns an
-  // un-normalised vector, which normalize() below already handles; the full
-  // 3072 comes back normalised. Any OpenAI-compatible host, including a local
-  // ollama, is a change of url, path and model.
-  provider = process.env.SATCHEL_EMBEDDING_PROVIDER ?? 'openai',
+  // Google natively by default rather than through its OpenAI compatibility
+  // layer, because taskType only exists on the native API. Any OpenAI-shaped
+  // host, including OpenRouter, OpenAI itself and a local ollama on its /v1
+  // endpoint, is `openai` plus a url.
+  provider = process.env.SATCHEL_EMBEDDING_PROVIDER ?? 'google',
+  // gemini-embedding-001 is the measured one: published MTEB, a taskType, and
+  // cheaper than gemini-embedding-2 at $0.15 against $0.20 per million tokens.
+  // It honours a dimensions request, so 768 fits the indexed column rather than
+  // needing halfvec. At 768 it returns an un-normalised vector, which
+  // normalize() handles; the full 3072 comes back normalised.
   model = process.env.SATCHEL_EMBEDDING_MODEL ?? 'gemini-embedding-001',
-  url = process.env.SATCHEL_EMBEDDING_URL ?? 'https://generativelanguage.googleapis.com/v1beta/openai',
+  baseURL = asBaseUrl(process.env.SATCHEL_EMBEDDING_URL),
   apiKey = process.env.SATCHEL_EMBEDDING_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY,
   dimensions = Number(process.env.SATCHEL_EMBEDDING_DIMENSIONS ?? EMBEDDING_DIMENSIONS),
-  path = process.env.SATCHEL_EMBEDDING_PATH,
   timeoutMs = Number(process.env.SATCHEL_EMBEDDING_TIMEOUT_MS ?? 4000),
+  // Unset means "no taskType", which is the space every stored vector is in.
+  taskType = process.env.SATCHEL_EMBEDDING_TASK_TYPE,
   // A second route for the SAME model, on a different key. Gemini's free
   // embedding quota is per project per model, so a second project doubles it,
   // and the day this was written the first one ran out at 1,000 requests and
@@ -111,95 +97,97 @@ export function createEmbedder({
   budgetMs = Number(process.env.SATCHEL_EMBEDDING_BUDGET_MS ?? 6000),
   fetchImpl = fetch,
 } = {}) {
-  const spec = PROVIDERS[provider];
-  if (!spec) throw new EmbeddingError(`Unknown embedding provider ${provider}`);
+  const route = key => providerFor({provider, apiKey: key, baseURL, fetchImpl}).textEmbeddingModel(model);
+  const routes = [route(apiKey)];
+  // Deliberately the same model on both routes, and there is no setting to make
+  // it anything else. Each row stores embedding_model beside its vector because
+  // two models' vectors are not comparable, so a fallback that answered with a
+  // different model would turn a rate limit into quietly wrong matches, which
+  // is the one failure this file exists to prevent.
+  if (fallbackKey) routes.push(providerFor({
+    provider, apiKey: fallbackKey, baseURL: asBaseUrl(fallbackUrl) ?? baseURL, fetchImpl,
+  }).textEmbeddingModel(model));
 
-  const endpoint = (base, at) => String(base).replace(/\/+$/, '') + (at ?? path ?? spec.path);
-  const routes = [{endpoint: endpoint(url), apiKey, label: 'primary'}];
-  // Deliberately the same model on both routes, and there is no setting to
-  // make it anything else. Each row stores embedding_model beside its vector
-  // because two models' vectors are not comparable, so a fallback that
-  // answered with a different model would turn a rate limit into quietly wrong
-  // matches, which is the one failure this file exists to prevent.
-  if (fallbackKey) routes.push({endpoint: endpoint(fallbackUrl ?? url), apiKey: fallbackKey, label: 'fallback'});
+  // The name written to embedding_model. A taskType is part of the space, so it
+  // has to be part of the name, or a corpus half-embedded either side of the
+  // switch would look uniform and rank against noise.
+  const stamp = taskType ? `${model}+retrieval` : model;
 
-  // One observation covers the whole call including the retry. Ending the span
-  // on the 429 branch was the bug: it returned into a fresh attempt with
-  // tracing disabled, so a rate-limited embedding was never ended and never
-  // recorded, losing exactly the traces worth having. Every exit now runs
-  // through end() or fail().
-  async function batch(inputs) {
-    const trace = traceEmbedding('embed', {model, input: inputs, metadata: {dimensions, count: inputs.length}});
-    try {
-      const payload = await attempt(inputs);
-      const vectors = spec.read(payload);
-      if (!Array.isArray(vectors) || vectors.length !== inputs.length)
-        throw new EmbeddingError(`${model} returned ${vectors?.length ?? 0} embeddings for ${inputs.length} inputs`);
-      const normalized = vectors.map(vector => normalize(vector, model, dimensions));
-      trace.end({vectors: normalized.length, dimensions: normalized[0]?.length ?? 0},
-        {usageDetails: payload?.usage ?? undefined});
-      return normalized;
-    } catch (error) {
-      trace.fail(error);
-      throw error;
-    }
-  }
+  const options = task => ({
+    providerOptions: provider === 'google'
+      ? {google: {outputDimensionality: dimensions,
+          ...(taskType ? {taskType: TASK_TYPES[task] ?? TASK_TYPES.document} : {})}}
+      : {openai: {dimensions}},
+    // maxRetries 0 on purpose. The SDK's own backoff cannot know that a per-day
+    // quotaId means waiting is pointless, and its default of two retries would
+    // spend the hook's whole timeout learning that. The loop below decides.
+    maxRetries: 0,
+    telemetry: {functionId: 'embed', metadata: {task, dimensions, model: stamp}},
+  });
 
   // Budgeted rather than counted. An advised wait that does not fit in what is
   // left is not waited at all: holding the turn open and then failing anyway is
   // strictly worse than failing now, because the caller degrades to silence
   // either way and the person gets the answer sooner.
-  async function attempt(inputs) {
+  async function attempt(inputs, task) {
     const deadline = Date.now() + budgetMs;
-    const payload = JSON.stringify(spec.body(model, inputs, dimensions));
     let last = null;
-    for (const route of routes) {
+    for (const model_ of routes) {
       for (;;) {
         const left = deadline - Date.now();
         // Under a quarter second there is no attempt worth starting, only a
         // timeout to report.
         if (left < 250) break;
-        let response;
+        const signal = AbortSignal.timeout(Math.min(timeoutMs, left));
         try {
-          response = await fetchImpl(route.endpoint, {
-            method: 'POST',
-            headers: {'content-type': 'application/json', ...(route.apiKey ? {authorization: `Bearer ${route.apiKey}`} : {})},
-            body: payload,
-            signal: AbortSignal.timeout(Math.min(timeoutMs, left)),
-          });
-        } catch (cause) {
-          // A host that did not answer inside the timeout will not answer
-          // sooner for being asked again on the same route.
-          last = new EmbeddingError(`${model} did not respond within ${Math.min(timeoutMs, left)}ms`,
-            {cause, code: 'EMB_TIMEOUT', reason: 'the embedding service did not answer in time'});
-          break;
-        }
-        if (response.ok) {
-          try { return await response.json(); }
-          catch (cause) {
-            throw new EmbeddingError(`${model} returned a malformed response`,
-              {cause, code: 'EMB_SHAPE', reason: 'the embedding service sent something unreadable'});
+          const call = {model: model_, abortSignal: signal, ...options(task)};
+          // embedMany preserves input order across whatever chunking the
+          // provider needs, which the backfill depends on: it writes
+          // vectors[i] onto rows[i], so a reordered response would store each
+          // memory's vector on a different memory, with every row still
+          // holding a valid unit vector and nothing to show for it but
+          // quietly wrong matches.
+          const result = inputs.length === 1
+            ? await sdkEmbed({...call, value: inputs[0]}).then(r => [r.embedding])
+            : await embedMany({...call, values: inputs}).then(r => r.embeddings);
+          if (!Array.isArray(result) || result.length !== inputs.length)
+            throw new EmbeddingError(`${model} returned ${result?.length ?? 0} embeddings for ${inputs.length} inputs`);
+          return result;
+        } catch (error) {
+          if (error instanceof EmbeddingError) throw error;
+          const {kind, status} = describeFailure(error, signal);
+          if (kind === 'timeout') {
+            // A host that did not answer inside the timeout will not answer
+            // sooner for being asked again on the same route.
+            last = new EmbeddingError(`${model} did not respond within ${Math.min(timeoutMs, left)}ms`,
+              {cause: error, code: 'EMB_TIMEOUT', reason: 'the embedding service did not answer in time'});
+            break;
           }
+          if (kind === 'shape') {
+            // Not worth another attempt and not worth another key: the host
+            // answered, it just did not answer with embeddings.
+            throw new EmbeddingError(`${model} returned a response that is not embeddings`,
+              {cause: error, code: 'EMB_SHAPE', reason: 'the embedding service sent something unreadable'});
+          }
+          if (kind === 'host') {
+            last = new EmbeddingError(`${model} returned ${status}`,
+              {cause: error, code: 'EMB_HOST', reason: `the embedding service answered ${status}`});
+            break;
+          }
+          const limit = readApiFailure(error);
+          last = new EmbeddingError(`${model} is rate limited: ${limit.reason}${limit.quota ? ` [${limit.quota}]` : ''}`,
+            {cause: error, code: 'EMB_LIMIT', retryAfterMs: limit.retryAfterMs,
+             reason: `embedding is rate limited, ${limit.reason}`});
+          // A spent daily quota does not come back from a wait. Google answers
+          // one with a ten second retryDelay anyway, which is the bucket
+          // refilling, so honouring it buys a single request and then fails
+          // again: that is what made retrieval look flaky instead of out of
+          // quota. Go straight to the other key, or stop.
+          if (limit.spent) break;
+          const wait = limit.retryAfterMs || 500;
+          if (Date.now() + wait + 250 > deadline) break;
+          await sleep(wait);
         }
-        const body = await readFailure(response);
-        if (response.status !== 429) {
-          last = new EmbeddingError(`${model} returned ${response.status}`,
-            {code: 'EMB_HOST', reason: `the embedding service answered ${response.status}`});
-          break;
-        }
-        const limit = readRateLimit(response, body);
-        last = new EmbeddingError(`${model} is rate limited: ${limit.reason}${limit.quota ? ` [${limit.quota}]` : ''}`,
-          {code: 'EMB_LIMIT', retryAfterMs: limit.retryAfterMs,
-           reason: `embedding is rate limited, ${limit.reason}`});
-        // A spent daily quota does not come back from a wait. Google answers
-        // one with a ten second retryDelay anyway, which is the bucket
-        // refilling, so honouring it buys a single request and then fails
-        // again: that is what made retrieval look flaky instead of out of
-        // quota. Go straight to the other key, or stop.
-        if (limit.spent) break;
-        const wait = limit.retryAfterMs || 500;
-        if (Date.now() + wait + 250 > deadline) break;
-        await sleep(wait);
       }
     }
     throw last ?? new EmbeddingError(`${model} could not be reached`,
@@ -207,18 +195,25 @@ export function createEmbedder({
   }
 
   return {
-    model, provider, dimensions, routes: routes.length,
-    /** Embeds many texts, preserving order. Throws rather than returning a hole. */
-    async embed(texts) {
+    /** What goes in embedding_model. Carries the taskType, because it is part
+     *  of the space and not a call option. */
+    model: stamp,
+    provider, dimensions, taskType: taskType ?? null, routes: routes.length,
+    /** Embeds many texts, preserving order. Throws rather than returning a hole.
+     *  `task` is 'document' for something being stored and 'query' for a
+     *  prompt looking for it; it does nothing unless a taskType is configured. */
+    async embed(texts, task = 'document') {
       const inputs = texts.map(text => {
         if (typeof text !== 'string' || !text.trim()) throw new EmbeddingError('Cannot embed empty text');
         return text.slice(0, MAX_CHARS);
       });
-      const out = [];
-      for (let i = 0; i < inputs.length; i += MAX_BATCH) out.push(...await batch(inputs.slice(i, i + MAX_BATCH)));
-      return out;
+      if (!inputs.length) return [];
+      return (await attempt(inputs, task)).map(vector => normalize(vector, model, dimensions));
     },
-    async embedOne(text) { return (await this.embed([text]))[0]; },
+    async embedOne(text, task = 'document') { return (await this.embed([text], task))[0]; },
+    /** The prompt side of an asymmetric model. Kept as its own name so a call
+     *  site cannot forget which side it is on. */
+    async embedQuery(text) { return this.embedOne(text, 'query'); },
   };
 }
 

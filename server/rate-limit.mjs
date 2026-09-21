@@ -28,7 +28,16 @@
 const TOO_LONG_MS = 60 * 60 * 1000;
 
 function fromHeaders(response) {
-  const get = name => response?.headers?.get?.(name);
+  // Two shapes reach this. A real Response carries a Headers instance with
+  // .get(); the AI SDK's APICallError carries responseHeaders as a plain
+  // lower-cased object. Reading only the first silently found nothing on every
+  // SDK error, which is the same blindness this file exists to end.
+  const get = name => {
+    const headers = response?.headers;
+    if (!headers) return null;
+    if (typeof headers.get === 'function') return headers.get(name);
+    return headers[name] ?? headers[name.toLowerCase()] ?? null;
+  };
   const after = get('retry-after');
   if (after) {
     // Retry-After is either a count of seconds or an HTTP date. Both are in
@@ -89,4 +98,14 @@ export async function readFailure(response) {
   if (typeof response?.text !== 'function') return null;
   const text = await response.text().catch(() => '');
   try { return JSON.parse(text); } catch { return null; }
+}
+
+/** The same reading, from the AI SDK's failure shape. `maxRetries: 0` is set on
+ *  every call precisely so this decision stays here: the SDK's own backoff
+ *  cannot know that a per-day quotaId means waiting is pointless, and its
+ *  default of two retries would spend the hook's whole timeout learning that. */
+export function readApiFailure(error) {
+  let body = null;
+  try { body = JSON.parse(error?.responseBody ?? ''); } catch { /* not every error body is JSON */ }
+  return readRateLimit({headers: error?.responseHeaders}, body);
 }

@@ -20,12 +20,16 @@
     "plugins:build": "node scripts/build-plugins.mjs"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.76",
+    "@ai-sdk/openai-compatible": "^3.0.53",
     "@langfuse/otel": "^5.11.1",
     "@langfuse/tracing": "^5.11.1",
+    "@langfuse/vercel-ai-sdk": "^5.11.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@opentelemetry/sdk-node": "^0.222.0",
     "@opentelemetry/sdk-trace-node": "^2.11.0",
     "@supabase/supabase-js": "^2.116.0",
+    "ai": "^7.0.107",
     "jose": "^6.2.12",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

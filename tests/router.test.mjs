@@ -4,8 +4,14 @@ import {createRouter, buildPrompt, validate, RouterError} from '../server/router
 
 const projects=[{slug:'cardinal-ledger',brief:'Go payments ledger'},{slug:'sourdough',brief:'Baking'}];
 const tasks=[{slug:'fix-consent-layout',title:'Fix the corner leak',project:'cardinal-ledger'}];
-const reply=memories=>async()=>({ok:true,status:200,json:async()=>({
-  choices:[{message:{content:JSON.stringify({memories})}}]})});
+// Google's native generateContent shape, read off a real call. The router asks
+// through the native provider now so the schema is enforced by the provider
+// rather than requested in prose and recovered from a code fence.
+const json=(body,status=200)=>new Response(JSON.stringify(body),
+  {status,headers:{'content-type':'application/json'}});
+const content=text=>json({candidates:[{content:{parts:[{text}]},finishReason:'STOP'}],
+  usageMetadata:{promptTokenCount:700,candidatesTokenCount:40,totalTokenCount:740}});
+const reply=memories=>async()=>content(JSON.stringify({memories}));
 
 test('the turn is separated from context, and only the turn is offered as a source',()=>{
   const prompt=buildPrompt({projects,tasks,
@@ -87,20 +93,43 @@ test('the prompt and the raw reply come back, because a capture has to be explai
   assert.match(out.raw,/No em dashes anywhere/);
 });
 
-test('content that is not JSON fails loudly rather than capturing nothing quietly',async()=>{
-  const router=createRouter({apiKey:'x',fetchImpl:async()=>({ok:true,status:200,
-    json:async()=>({choices:[{message:{content:'I think you want: no em dashes'}}]})})});
-  await assert.rejects(router.route({projects,tasks,context:[],turn:['x']}),/not JSON/);
+test('content that is not the agreed shape fails loudly rather than capturing nothing quietly',async()=>{
+  // This used to need a fence-stripping parser and a prose fallback prompt,
+  // because a model told to return JSON in words sometimes wraps it. The
+  // provider enforces the schema now, so prose is a failure rather than
+  // something to recover from, and it still fails loudly: a capture that
+  // quietly does nothing is indistinguishable from one with nothing to keep.
+  const router=createRouter({apiKey:'x',fetchImpl:async()=>content('I think you want: no em dashes')});
+  await assert.rejects(router.route({projects,tasks,context:[],turn:['x']}),error=>{
+    assert.equal(error.code,'ROUTER_SHAPE');
+    assert.match(error.reason,/nothing usable/);
+    return true;
+  });
+});
+
+test('the schema is enforced by the provider, not asked for in the prompt',async()=>{
+  let sent;
+  const router=createRouter({apiKey:'x',fetchImpl:async(_url,init)=>{
+    sent=JSON.parse(init.body);
+    return content(JSON.stringify({memories:[]}));
+  }});
+  await router.route({projects,tasks,context:[],turn:['x']});
+  assert.equal(sent.generationConfig.responseMimeType,'application/json');
+  const schema=sent.generationConfig.responseJsonSchema??sent.generationConfig.responseSchema;
+  assert.deepEqual(Object.keys(schema.properties.memories.items.properties).sort(),
+    ['project','source','statement','task']);
+  // And the prompt carries no JSON-shape instructions, because it does not
+  // have to any more.
+  assert.doesNotMatch(sent.contents[0].parts[0].text,/Reply with JSON only/);
 });
 
 /** A 429 shaped the way Google actually sends one: no rate limit headers at
  *  all, and the quota, the limit and the retry delay in the body. */
-const limited=(quotaId,retryDelay='0s')=>({ok:false,status:429,headers:{get:()=>null},
-  text:async()=>JSON.stringify({error:{code:429,
-    message:`Quota exceeded for metric: x, limit: 1000. Please retry in 0.05s.`,
-    details:[{'@type':'type.googleapis.com/google.rpc.QuotaFailure',
-      violations:[{quotaId,quotaValue:'1000'}]},
-      {'@type':'type.googleapis.com/google.rpc.RetryInfo',retryDelay}]}})});
+const limited=(quotaId,retryDelay='0s')=>json({error:{code:429,
+  message:`Quota exceeded for metric: x, limit: 1000. Please retry in 0.05s.`,
+  details:[{'@type':'type.googleapis.com/google.rpc.QuotaFailure',
+    violations:[{quotaId,quotaValue:'1000'}]},
+    {'@type':'type.googleapis.com/google.rpc.RetryInfo',retryDelay}]}},429);
 
 test('a rate limit is retried once and then surfaces',async()=>{
   let calls=0;
@@ -137,23 +166,11 @@ test('a missing key is a configuration error, not a silent no-op',async()=>{
   await assert.rejects(router.route({projects,tasks,context:[],turn:['x']}),RouterError);
 });
 
-test('a model that rejects a json schema is retried in words, not abandoned',async()=>{
-  const seen=[];
-  const router=createRouter({apiKey:'x',fetchImpl:async(_url,init)=>{
-    const body=JSON.parse(init.body);
-    seen.push(Boolean(body.response_format));
-    if(body.response_format) return {ok:false,status:400,json:async()=>({})};
-    return {ok:true,status:200,json:async()=>({choices:[{message:{content:
-      JSON.stringify({memories:[{statement:'Tabs in Go.',source:'tabs in go',project:null,task:null}]})}}]})};
-  }});
-  const out=await router.route({projects:[],tasks:[],context:[],turn:['i use tabs in go']});
-  assert.deepEqual(seen,[true,false],'schema first, then words');
-  assert.equal(out.memories.length,1);
-});
-
 test('JSON wrapped in a fence or a sentence is recovered, and its contents still checked',async()=>{
-  const wrapped=text=>createRouter({apiKey:'x',fetchImpl:async()=>({ok:true,status:200,
-    json:async()=>({choices:[{message:{content:text}}]})})});
+  // Google native enforces the schema so this never fires there, but an
+  // `openai` host that ignores the request still answers in prose, and losing
+  // the recovery would quietly stop capture working on that whole path.
+  const wrapped=text=>createRouter({apiKey:'x',fetchImpl:async()=>content(text)});
   const payload=JSON.stringify({memories:[{statement:'Tabs in Go.',source:'tabs in go',project:null,task:null}]});
   for(const shape of ['```json\n'+payload+'\n```','Here you go:\n'+payload,payload]){
     const out=await wrapped(shape).route({projects:[],tasks:[],context:[],turn:['i use tabs in go']});
