@@ -1,5 +1,5 @@
 import {createClient} from '@supabase/supabase-js';
-import {SUPABASE_URL} from './http-handler.mjs';
+import {SUPABASE_URL} from './identity.mjs';
 
 const sessionPattern=/^[A-Za-z0-9_-]{16,200}$/;
 const repositoryPattern=/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/;

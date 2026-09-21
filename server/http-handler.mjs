@@ -7,12 +7,18 @@ import {createEmbedder} from './embedding.mjs';
 import {createRouter} from './router.mjs';
 import {flush} from './tracing.mjs';
 import {taskService} from './task-service.mjs';
+// Imported, not re-exported straight through: `export ... from` creates no
+// local binding, so verifyAgentToken below lost RESOURCE and threw a
+// ReferenceError on every token check. tests/mcp.test.mjs caught it.
+import {RESOURCE,SUPABASE_URL,ISSUER,metadata} from './identity.mjs';
 
-export const RESOURCE='https://satchel-pi.vercel.app/api/mcp';
-export const SUPABASE_URL='https://prpgcrwteepcunizdcut.supabase.co';
-const issuer=SUPABASE_URL+'/auth/v1';
+// Re-exported so existing importers keep working, but the definitions live in
+// identity.mjs, which imports nothing. Anything that needs only these should
+// import them from there instead: reaching them through this file drags in the
+// MCP server, the Supabase client, the embedder and the router.
+export {RESOURCE,SUPABASE_URL,metadata};
+const issuer=ISSUER;
 const keys=createRemoteJWKSet(new URL(issuer+'/.well-known/jwks.json'));
-export const metadata={resource:RESOURCE,authorization_servers:[issuer],scopes_supported:['openid'],resource_name:'Satchel'};
 export async function verifyAgentToken(token,verificationKeys=keys) {
   const {payload}=await jwtVerify(token,verificationKeys,{issuer,audience:RESOURCE,algorithms:['ES256','RS256'],requiredClaims:['exp','sub','client_id','satchel_grant_id']});
   if (typeof payload.client_id!=='string'||typeof payload.satchel_grant_id!=='string') throw Error('Missing grant');

@@ -12,7 +12,7 @@
 // rather than broken.
 import {createClient} from '@supabase/supabase-js';
 import {createEmbedder, indexedText, toVectorLiteral} from '../server/embedding.mjs';
-import {SUPABASE_URL} from '../server/http-handler.mjs';
+import {SUPABASE_URL} from '../server/identity.mjs';
 
 const dryRun = process.argv.includes('--dry-run');
 const key = process.env.SUPABASE_SERVICE_KEY;
