@@ -9,7 +9,10 @@ const description='Personal and project memory, tasks and projects across your a
 // its own OAuth credential, so none of them depend on the host's MCP client
 // being up. That is what makes memory arrive at launch instead of only after a
 // /clear.
-const versions={claude:'0.3.0',codex:'0.3.0'};
+//
+// 0.3.1 fixes the connect window: fifteen minutes rather than three, and a
+// missed one is retried instead of turning into an hour of "run this command".
+const versions={claude:'0.3.1',codex:'0.3.1'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
