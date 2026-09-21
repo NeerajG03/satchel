@@ -37,6 +37,18 @@ const embedder = {model: 'test-model',
   embedOne: async () => Array(768).fill(0.1),
   embedQuery: async () => Array(768).fill(0.1)};
 
+// What every fake service must answer now that scope is resolved rather than
+// guessed. The handler asks for the active project on both branches and falls
+// back to a staged repository hint when there is none, which is what lets a
+// launched session know its own project without a model tool call.
+const scopeStubs = {
+  activeProject: async () => null,
+  repositoryHintExists: async () => false,
+  activateRepositoryHint: async () => null,
+  capturedThisSession: async () => [],
+  markSessionClassified: async () => 1,
+};
+
 test('the fake embedder still has the shape the service calls', () => {
   const real = createEmbedder({apiKey: 'unused'});
   for (const method of ['embed', 'embedOne', 'embedQuery'])
@@ -86,45 +98,122 @@ test('settings carry every column the lifecycle path reads', async () => {
   assert.equal(fallback.capture_window, 5);
 });
 
-test('Stop classifies the last turn against everything before it', async () => {
-  // This ran through a ReferenceError for its whole life: `context` was read
-  // before a block-scoped `const context` declared four lines later, and the
-  // catch turned it into a generic "memory unavailable" string, so capture
-  // never happened and nothing said so.
+test('the turn is what has not been classified, and the scope is resolved not guessed', async () => {
+  // Two bugs in one test, because they produced one symptom.
+  //
+  // The turn used to be the last capture_window user messages, and the default
+  // is 5, so every Stop re-offered the last five and consecutive Stops
+  // overlapped by four. One sentence about a paid key got five chances and was
+  // saved twice, thirty-six seconds apart, in two wordings.
+  //
+  // And the router got a flat list of every project with nothing saying which
+  // one the conversation was in, so it inferred the scope from the words. The
+  // words said "vercel", not "satchel", so a memory about this project's own
+  // deployment key was filed under personal.
+  //
+  // This also ran through a ReferenceError for its whole life: `context` was
+  // read before a block-scoped `const context` declared four lines later, and
+  // the catch turned it into a generic "memory unavailable" string.
   const captured = [];
+  const marked = [];
+  // sessionWindow returns newest first, and the code reverses it.
   const window = [
-    // sessionWindow returns newest first, and the code reverses it.
-    {role: 'user', content: 'and never bump the Go version until payouts ship'},
-    {role: 'assistant', content: 'Understood.'},
-    {role: 'user', content: 'what is the release order again'},
+    {id: 5, role: 'assistant', content: 'Noted.', classified_at: null},
+    {id: 4, role: 'user', content: 'and never bump the Go version until payouts ship', classified_at: null},
+    {id: 3, role: 'assistant', content: 'Understood.', classified_at: '2026-09-21T06:00:00Z'},
+    {id: 2, role: 'user', content: 'what is the release order again', classified_at: '2026-09-21T06:00:00Z'},
   ];
   const service = {
+    ...scopeStubs,
     status: async () => ({label: 'Test', personal: true, can_write: true, project_ids: []}),
     settings: async () => ({per_prompt_matches: 5, gate: 0.67, scope_boost: 1.1,
-      session_budget_tokens: 15000, capture: true, capture_window: 1}),
+      session_budget_tokens: 15000, capture: true, capture_window: 5}),
     recordSessionMessage: async () => {},
     sessionWindow: async () => window,
-    projects: async () => [{id: 'p1', slug: 'ledger', brief: 'The ledger'}],
+    // Nothing selected the project, which is the launched-session case: the
+    // mcp_tool SessionStart hook is skipped at launch, so the bootstrap's
+    // staged repository is the only thing that knows the scope.
+    activeProject: async () => null,
+    repositoryHintExists: async () => true,
+    activateRepositoryHint: async () => 'p1',
+    projects: async () => [
+      {id: 'p1', slug: 'ledger', brief: 'The ledger',
+        project_repositories: [{provider: 'github', repository: 'acme/ledger'}]},
+      {id: 'p2', slug: 'sourdough', brief: 'Baking', project_repositories: []},
+    ],
     openTasks: async () => [{slug: 'payouts', title: 'Ship payouts', project_id: 'p1'}],
-    captureTurn: async (sessionKey, input) => { captured.push({sessionKey, input}); },
+    capturedThisSession: async () => ['Deploys go out on Tuesday mornings.'],
+    markSessionClassified: async (key, through) => { marked.push({key, through}); return 1; },
+    captureTurn: async (sessionKey, input) => { captured.push({sessionKey, input}); return {memories: [], failed: false}; },
   };
-  const server = createMemoryServer(service);
-  const client = new Client({name: 'test', version: '1'});
-  const [left, right] = InMemoryTransport.createLinkedPair();
-  await server.connect(right);
-  await client.connect(left);
+  const {client, close} = await connect(service);
   try {
     await client.callTool({name: 'load_memory_context', arguments: {session_key: 'stop-session', event: 'Stop'}});
     assert.equal(captured.length, 1, 'Stop must reach captureTurn');
     const {input} = captured[0];
-    // capture_window is 1, so the turn is the last user message only and
-    // everything before it is context that may not supply a source.
+
+    // Capture_window is 5 and there are two user messages in the window, so the
+    // old code would have offered both. Only the unclassified one is the turn.
     assert.deepEqual(input.turn, ['and never bump the Go version until payouts ship']);
     assert.deepEqual(input.context.map(m => m.content),
-      ['what is the release order again', 'Understood.']);
-    assert.deepEqual(input.projects, [{slug: 'ledger', brief: 'The ledger'}]);
+      ['what is the release order again', 'Understood.'],
+      'everything already classified is context, which may not supply a source');
+
+    // Scope, resolved from the staged repository with no model involved.
+    assert.deepEqual(input.project, {slug: 'ledger', brief: 'The ledger'});
+    assert.equal(input.codebase, 'acme/ledger');
+    assert.deepEqual(input.projects, [{slug: 'sourdough', brief: 'Baking'}],
+      'the active project is named on its own and not repeated among the others');
     assert.deepEqual(input.tasks, [{slug: 'payouts', title: 'Ship payouts', project: 'ledger'}]);
-  } finally { await client.close(); await server.close(); }
+    assert.deepEqual(input.saved, ['Deploys go out on Tuesday mornings.']);
+
+    // And the boundary moves, through the newest row in the window, so the
+    // assistant reply just recorded is never offered again either.
+    assert.deepEqual(marked, [{key: 'stop-session', through: 5}]);
+  } finally { await close(); }
+});
+
+test('a run that never reached the model leaves the turn for next time', async () => {
+  // Otherwise a rate-limited turn is classified as "nothing to keep" and the
+  // thing the user said is lost for good, which is the opposite of the failure
+  // this whole change is about.
+  const marked = [];
+  const service = {
+    ...scopeStubs,
+    status: async () => ({label: 'Test', personal: true, can_write: true, project_ids: []}),
+    settings: async () => ({...baseSettings}),
+    recordSessionMessage: async () => {},
+    sessionWindow: async () => [{id: 9, role: 'user', content: 'never bump Go', classified_at: null}],
+    projects: async () => [],
+    openTasks: async () => [],
+    markSessionClassified: async (key, through) => { marked.push({key, through}); return 1; },
+    captureTurn: async () => ({memories: [], dropped: 0, failed: true}),
+  };
+  const {client, close} = await connect(service);
+  try {
+    await client.callTool({name: 'load_memory_context', arguments: {session_key: 's', event: 'Stop'}});
+    assert.deepEqual(marked, [], 'a failed run must not move the boundary');
+  } finally { await close(); }
+});
+
+test('a turn with nothing unclassified in it is not sent at all', async () => {
+  let called = false;
+  const service = {
+    ...scopeStubs,
+    status: async () => ({label: 'Test', personal: true, can_write: true, project_ids: []}),
+    settings: async () => ({...baseSettings}),
+    recordSessionMessage: async () => {},
+    sessionWindow: async () => [
+      {id: 2, role: 'assistant', content: 'Noted.', classified_at: null},
+      {id: 1, role: 'user', content: 'never bump Go', classified_at: '2026-09-21T06:00:00Z'},
+    ],
+    captureTurn: async () => { called = true; return {memories: [], failed: false}; },
+  };
+  const {client, close} = await connect(service);
+  try {
+    await client.callTool({name: 'load_memory_context', arguments: {session_key: 's', event: 'Stop'}});
+    assert.equal(called, false, 'a reply with no new user message is not a turn to classify');
+  } finally { await close(); }
 });
 
 test('an unsubstituted assistant placeholder is never recorded as speech', async () => {
@@ -133,6 +222,7 @@ test('an unsubstituted assistant placeholder is never recorded as speech', async
   // window the router reads, on every turn, on that whole host.
   const recorded = [];
   const service = {
+    ...scopeStubs,
     status: async () => ({label: 'Test', personal: true, can_write: true, project_ids: []}),
     settings: async () => ({per_prompt_matches: 5, gate: 0.67, scope_boost: 1.1,
       session_budget_tokens: 15000, capture: true, capture_window: 5}),
@@ -158,6 +248,7 @@ test('an unsubstituted assistant placeholder is never recorded as speech', async
 test('Stop stays silent when capture is switched off', async () => {
   let called = false;
   const service = {
+    ...scopeStubs,
     status: async () => ({label: 'Test', personal: true, can_write: true, project_ids: []}),
     settings: async () => ({per_prompt_matches: 5, gate: 0.67, scope_boost: 1.1,
       session_budget_tokens: 15000, capture: false, capture_window: 5}),
@@ -197,6 +288,7 @@ test('a dead grant says so to the person, not only to the model', async () => {
   // hook inject "memory unavailable" to the model and show the person
   // nothing, so a broken Satchel and a quiet one looked identical.
   const {client, close} = await connect({
+    ...scopeStubs,
     status: async () => { throw {code: '42501'}; },
     settings: async () => baseSettings,
   });
@@ -212,6 +304,7 @@ test('a dead grant says so to the person, not only to the model', async () => {
 test('Stop reports a capture and stays silent otherwise, and never injects', async () => {
   let captured = [];
   const service = {
+    ...scopeStubs,
     status: async () => ({label: 'Test', personal: true, can_write: true, project_ids: []}),
     settings: async () => ({...baseSettings, capture_window: 1}),
     recordSessionMessage: async () => {},
@@ -240,6 +333,7 @@ test('Stop reports a capture and stays silent otherwise, and never injects', asy
 test('retrieval speaks only when it found something', async () => {
   let rows = [];
   const service = {
+    ...scopeStubs,
     status: async () => ({label: 'Test', personal: true, can_write: true, project_ids: []}),
     settings: async () => baseSettings,
     recordSessionMessage: async () => {},
@@ -272,6 +366,7 @@ test('a rate limit tells the person what actually happened', async () => {
   const spent = Object.assign(new Error('gemini-embedding-001 is rate limited'),
     {code: 'EMB_LIMIT', reason: "embedding is rate limited, the day's free quota is used up (1000 requests)"});
   const {client, close} = await connect({
+    ...scopeStubs,
     status: async () => ({label: 'Test', personal: true, can_write: true, project_ids: []}),
     settings: async () => baseSettings,
     recordSessionMessage: async () => {},

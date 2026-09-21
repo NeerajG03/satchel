@@ -25,15 +25,20 @@ export function memoryService(db, embedder = null, router = null) {
   // One turn's worth of capture. Everything the router returns has already
   // been checked against what the user actually typed; this only resolves
   // scope and writes.
-  async function captureTurn(sessionKey, {projects, tasks, context, turn}) {
+  async function captureTurn(sessionKey, {codebase, project, projects, tasks, context, turn, saved}) {
     const runId = crypto.randomUUID();
     let outcome;
     try {
-      outcome = await router.route({projects, tasks, context, turn});
+      outcome = await router.route({codebase, project, projects, tasks, context, turn, saved});
     } catch (error) {
       await api.logRouterRun({id:runId, session_key:sessionKey, model:router.model,
         prompt:'(not sent)', response:null, kept:0, dropped:0, error:String(error.message ?? error)});
-      return {memories:[], dropped:0};
+      // `failed` is what decides whether the turn boundary moves. A run that
+      // never reached the model must leave its messages unclassified so the
+      // next turn picks them up, while a run that answered with an empty list
+      // must move the boundary: "nothing here is worth keeping" is a real
+      // answer and asking again would not change it.
+      return {memories:[], dropped:0, failed:true};
     }
     const written = [];
     for (const item of outcome.memories) {
@@ -43,7 +48,7 @@ export function memoryService(db, embedder = null, router = null) {
     await api.logRouterRun({id:runId, session_key:sessionKey, model:router.model,
       prompt:outcome.prompt, response:outcome.raw, kept:written.length,
       dropped:outcome.dropped.length, error:null});
-    return {memories:written, dropped:outcome.dropped.length};
+    return {memories:written, dropped:outcome.dropped.length, failed:false};
   }
   async function requireScope(projectId, write=false) {
     if (!await result(db.rpc('agent_can_access',{p_project_id:projectId,p_write:write})))
@@ -140,6 +145,29 @@ export function memoryService(db, embedder = null, router = null) {
         {p_session_key:sessionKey, p_role:role, p_content:content, p_keep:keep})),
     sessionWindow: (sessionKey, limit = 12) =>
       result(db.rpc('session_window', {p_session_key:sessionKey, p_limit:limit})),
+    // Called only after the router has answered. A run that failed on a rate
+    // limit leaves its messages unmarked so the next turn picks them up.
+    markSessionClassified: (sessionKey, throughId) =>
+      result(db.rpc('mark_session_classified',
+        {p_session_key:sessionKey, p_through:throughId})),
+    /** Statements the router already produced in this session, so it can be
+     *  told not to say them again in different words. Read from router_runs
+     *  rather than from memories, which carry no session. That means a
+     *  statement validate() then dropped still counts as saved here, which
+     *  over-suppresses very slightly and is the safe direction. */
+    async capturedThisSession(sessionKey, limit = 20) {
+      const rows = await result(db.from('router_runs').select('response')
+        .eq('session_key', sessionKey).gt('kept', 0)
+        .order('created_at', {ascending:false}).limit(8));
+      const statements = [];
+      for (const row of rows ?? []) {
+        try {
+          for (const item of JSON.parse(row.response ?? '{}')?.memories ?? [])
+            if (item?.statement) statements.push(String(item.statement));
+        } catch { /* A malformed log row must not stop a capture. */ }
+      }
+      return statements.slice(0, limit);
+    },
     clearSessionWindow: sessionKey =>
       result(db.rpc('clear_session_window', {p_session_key:sessionKey})),
     async openTasks() {

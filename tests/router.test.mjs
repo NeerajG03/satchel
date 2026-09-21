@@ -13,8 +13,20 @@ const content=text=>json({candidates:[{content:{parts:[{text}]},finishReason:'ST
   usageMetadata:{promptTokenCount:700,candidatesTokenCount:40,totalTokenCount:740}});
 const reply=memories=>async()=>content(JSON.stringify({memories}));
 
+test('the rules and the conversation are separate messages',()=>{
+  // They were one user message: the instructions, the lists, and the user's own
+  // words separated from the rules only by a <turn> tag. The stable half is
+  // identical on every call, so splitting it makes the boundary between "rules"
+  // and "text a person typed" structural rather than a tag.
+  const {system,prompt}=buildPrompt({projects,tasks,turn:['the thing i just said']});
+  assert.match(system,/decide whether the user said anything worth remembering/);
+  assert.doesNotMatch(system,/the thing i just said/,'nothing the user typed belongs in the rules');
+  assert.doesNotMatch(prompt,/An empty list is a normal and correct answer/,
+    'and the rules are not repeated in the half that changes every call');
+});
+
 test('the turn is separated from context, and only the turn is offered as a source',()=>{
-  const prompt=buildPrompt({projects,tasks,
+  const {prompt}=buildPrompt({projects,tasks,
     context:[{role:'user',content:'earlier thing'},{role:'assistant',content:'my reply'}],
     turn:['the thing i just said']});
   assert.match(prompt,/never a source/);
@@ -24,14 +36,62 @@ test('the turn is separated from context, and only the turn is offered as a sour
   assert.match(prompt,/fix-consent-layout/);
 });
 
+test('the scope the conversation is in is stated, not left to be inferred',()=>{
+  // The whole reason a memory about a project's own deployment key was filed
+  // under personal. The model had every project in a flat list and nothing
+  // saying which one the conversation was in, so it inferred the scope from the
+  // words, and the words did not say.
+  const {prompt}=buildPrompt({codebase:'neerajg03/satchel',
+    project:{slug:'satchel',brief:'The memory and task companion'},
+    projects:[...projects,{slug:'satchel',brief:'The memory and task companion'}],
+    turn:['i also added a paid key to vercel']});
+  assert.match(prompt,/working on\n  codebase  neerajg03\/satchel\n  project   satchel/);
+  // Named once, under "working on", and not repeated in the list of others.
+  const others=prompt.slice(prompt.indexOf('other projects'),prompt.indexOf('classify only'));
+  assert.doesNotMatch(others,/satchel/,'the active project is not also one of the others');
+  assert.match(others,/cardinal-ledger/);
+});
+
+test('with no project selected the prompt says so rather than staying silent',()=>{
+  const {prompt}=buildPrompt({codebase:'neerajg03/satchel',project:null,turn:['hi']});
+  assert.match(prompt,/none selected, so use null unless the user names a project/);
+});
+
+test('what was already saved this session is listed, so it is not saved twice',()=>{
+  const {prompt}=buildPrompt({saved:['A paid key was added to Vercel instead of the free one.'],
+    turn:['and the limits are better now']});
+  assert.match(prompt,/already saved in this session, do not save any of these again/);
+  assert.match(prompt,/A paid key was added to Vercel/);
+});
+
 test('an assistant reply is clipped harder than a user message',()=>{
-  const assistant=buildPrompt({context:[{role:'assistant',content:'x'.repeat(3000)}],turn:['hi']});
-  const user=buildPrompt({context:[{role:'user',content:'x'.repeat(3000)}],turn:['hi']});
-  // The longest run, not the first: the instructions themselves contain an x.
+  const assistant=buildPrompt({context:[{role:'assistant',content:'x'.repeat(3000)}],turn:['hi']}).prompt;
+  const user=buildPrompt({context:[{role:'user',content:'x'.repeat(3000)}],turn:['hi']}).prompt;
   const run=text=>Math.max(0,...(text.match(/x+/g)??[]).map(m=>m.length));
   assert.equal(run(assistant),800,'a reply is context, so 800 characters of it is enough');
   assert.equal(run(user),2000,'the user gets more room, because their words are what matter');
   assert.match(assistant,/<turn>\nhi\n<\/turn>/,'and the turn survives either way');
+});
+
+test('the active project is nameable, and a repeat is dropped',()=>{
+  // The active project is not in `projects`, so a model doing exactly what the
+  // instructions ask would have had every item knocked back to personal here,
+  // which is the bug being fixed wearing a different hat.
+  const out=validate({memories:[
+    {statement:'A paid key was added to Vercel.',source:'i added a paid key to vercel',
+      project:'satchel',task:null},
+    {statement:'a paid key was added to vercel',source:'i added a paid key to vercel',
+      project:'satchel',task:null},
+  ]},{turn:['i added a paid key to vercel'],project:{slug:'satchel'},projects,
+    saved:['A paid key was added to Vercel.']});
+  assert.equal(out.memories.length,0,'both are already saved, in the same words and in different case');
+  assert.deepEqual(out.dropped.map(d=>d.why),['already saved this session','already saved this session']);
+
+  const kept=validate({memories:[
+    {statement:'A paid key was added to Vercel.',source:'i added a paid key to vercel',
+      project:'satchel',task:null},
+  ]},{turn:['i added a paid key to vercel'],project:{slug:'satchel'},projects});
+  assert.equal(kept.memories[0].project,'satchel','the active project must survive validation');
 });
 
 test('a statement the user never typed is dropped',()=>{

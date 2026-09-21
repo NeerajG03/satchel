@@ -91,14 +91,34 @@ export function createMemoryServer(service, {ownerId} = {}) {
       {src:'https://satchel-pi.vercel.app/mark.svg',mimeType:'image/svg+xml',sizes:['any']},
       {src:'https://satchel-pi.vercel.app/mark-512.png',mimeType:'image/png',sizes:['512x512']},
     ]});
+  // The bootstrap stages the workspace's repository at SessionStart and this is
+  // the only thing that reads it. It used to read it on SessionStart alone,
+  // which is the source the mcp_tool hook is skipped on at launch, so the note
+  // sat unread for the whole session: active_project stayed null, capture had
+  // no scope to hand the router, and everything went to personal.
+  //
+  // Polling is for SessionStart only, where this races the bootstrap's own POST
+  // to the staging endpoint. On any later event that POST finished long ago, so
+  // one look is enough, and UserPromptSubmit has a five second hook budget that
+  // 3.25s of polling would eat.
   async function consumeLifecycleHint(sessionKey,event) {
-    if(!['SessionStart','PostCompact'].includes(event))return {staged:false};
-    for(let attempt=0;attempt<13;attempt++) {
+    const attempts=['SessionStart','PostCompact'].includes(event)?13:1;
+    for(let attempt=0;attempt<attempts;attempt++) {
       if(await service.repositoryHintExists(sessionKey))
         return {staged:true,project:await service.activateRepositoryHint(sessionKey)};
-      if(attempt<12)await new Promise(resolve=>setTimeout(resolve,250));
+      if(attempt<attempts-1)await new Promise(resolve=>setTimeout(resolve,250));
     }
     return {staged:false};
+  }
+  /** The scope this conversation is in, activating a pending repository hint
+   *  first. Deterministic: the workspace's git remote resolves to a project
+   *  through project_repositories and no model is asked to guess it. */
+  async function scopeFor(sessionKey,event,selected) {
+    if(selected!==undefined)return selected;
+    const active=await service.activeProject(sessionKey);
+    if(active)return active;
+    const hint=await consumeLifecycleHint(sessionKey,event);
+    return hint.staged?hint.project:null;
   }
   // Shared by explicit selection and the lifecycle hook so both report the same scope.
   async function scopedIndex(project,status) {
@@ -155,7 +175,14 @@ export function createMemoryServer(service, {ownerId} = {}) {
         if (!settings.capture||!service.captureTurn) return null;
         const window=await service.sessionWindow(sessionKey,settings.capture_window*2);
         const ordered=[...window].reverse();
-        const turn=ordered.filter(m=>m.role==='user').slice(-settings.capture_window).map(m=>m.content);
+        // The turn is exactly what has not been classified yet, which is a
+        // boundary rather than a guess. It used to be the last capture_window
+        // user messages, so with the default of 5 every Stop re-offered the
+        // last five and consecutive Stops overlapped by four. Anything durable
+        // got five chances and was duly saved twice.
+        const start=ordered.findIndex(m=>m.classified_at==null&&m.role==='user');
+        if (start===-1) return null;
+        const turn=ordered.slice(start).filter(m=>m.role==='user').map(m=>m.content);
         if (!turn.length) return null;
         // The turn being classified is the only thing that may supply a source.
         // Everything before it is there to understand it. Named `earlier` and
@@ -163,15 +190,35 @@ export function createMemoryServer(service, {ownerId} = {}) {
         // for the whole block, and reading it before its declaration threw a
         // ReferenceError that the catch below swallowed, so capture silently
         // never ran.
-        const earlier=ordered.slice(0,Math.max(0,ordered.length-turn.length));
+        const earlier=ordered.slice(0,start);
         // The turn is what this trace is actually about, and it is only known
         // now, so the input is replaced rather than left as the event name.
         setInput({turn,contextMessages:earlier.length});
-        const [projects,tasks]=await Promise.all([service.projects(),service.openTasks()]);
+        // Scope is resolved, not inferred. The workspace's git remote already
+        // maps to a project through project_repositories, and handing the
+        // router a flat list with nothing saying which one the conversation was
+        // in is why a memory about this project's own deployment key was filed
+        // under personal.
+        const scope=await scopeFor(sessionKey,event,selectedProject);
+        const [projects,tasks,saved]=await Promise.all([
+          service.projects(),service.openTasks(),
+          service.capturedThisSession?.(sessionKey)??[]]);
+        const active=projects.find(p=>p.id===scope)??null;
+        // Named only when it is unambiguous. A project may link to several
+        // repositories, and naming an arbitrary one of them would be worse
+        // than naming none.
+        const links=active?.project_repositories??[];
         const capture=await service.captureTurn(sessionKey,{
-          projects:projects.map(p=>({slug:p.slug,brief:p.brief})),
+          codebase:links.length===1?links[0].repository:null,
+          project:active?{slug:active.slug,brief:active.brief}:null,
+          projects:projects.filter(p=>p.id!==scope).map(p=>({slug:p.slug,brief:p.brief})),
           tasks:tasks.map(t=>({slug:t.slug,title:t.title,project:projects.find(p=>p.id===t.project_id)?.slug??null})),
-          context:earlier,turn});
+          context:earlier,turn,saved});
+        // The boundary moves only when the model actually answered. A run that
+        // died on a rate limit leaves its messages for the next turn.
+        const through=ordered[ordered.length-1]?.id;
+        if (capture&&!capture.failed&&through!=null)
+          void service.markSessionClassified?.(sessionKey,through);
         notice=noticeFor('Stop',{captured:capture?.memories?.length??0});
         return notice?{hookSpecificOutput:{hookEventName:event,additionalContext:''},systemMessage:notice}:null;
       }
@@ -182,8 +229,7 @@ export function createMemoryServer(service, {ownerId} = {}) {
         // router reads is built from exactly this.
         if (settings.capture) void service.recordSessionMessage(sessionKey,'user',prompt,settings.capture_window*2);
         if (!settings.per_prompt_matches) return null;
-        let project=selectedProject;
-        if (project===undefined) project=await service.activeProject(sessionKey);
+        const project=await scopeFor(sessionKey,event,selectedProject);
         const lookup=retrieval('retrieve-memory',{input:prompt,
           metadata:{gate:settings.gate,limit:settings.per_prompt_matches,
             inScope:project??'personal',excluded:(options.exclude??[]).length}});
@@ -202,11 +248,7 @@ export function createMemoryServer(service, {ownerId} = {}) {
           matched:rows[0].matched,in_scope:rows[0].in_scope,tokens:estimateTokens(block)};
         context=block;
       } else {
-        let project=selectedProject;
-        if(project===undefined) {
-          const hint=await consumeLifecycleHint(sessionKey,event);
-          project=hint.staged?hint.project:await service.activeProject(sessionKey);
-        }
+        const project=await scopeFor(sessionKey,event,selectedProject);
         const [projects,personal]=await Promise.all([
           // all_projects is its own scope: a blanket grant keeps no list, so
           // checking project_ids alone would load nothing for the connection

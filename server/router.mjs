@@ -61,10 +61,15 @@ Do not keep:
 - a one-off instruction for this task alone: "make it shorter", "try again", "use the other one"
 - a bare continuation with no content: "go on", "yeah that one", "keep going"
 
-Two worked examples.
+Anything listed under "already saved in this session" is kept. Do not return it again in different words.
+
+Three worked examples. In all three the user is working on the project "ledger".
 
 The user types: "ok so no personas in v1, and don't use em dashes anywhere. also the consent page still has that corner leak on .paper"
-You return three items: "no personas in v1" scoped to the project being worked on; "don't use em dashes anywhere" with project null, because it applies everywhere; and the corner leak scoped to the project, and to the open task about it if one is listed.
+You return three items. "no personas in v1" with project "ledger", because it is about the thing being worked on. "don't use em dashes anywhere" with project null, because a preference about how they want things done is not about one project. And the corner leak with project "ledger", plus the open task about it if one is listed.
+
+The user types: "i also added a paid key to vercel instead of the free one"
+You return one item with project "ledger". It says nothing about ledger by name, and it is still about ledger: it is a fact about how the thing being worked on is configured. Defaulting to null here is the mistake that files a project's own deployment detail under everything.
 
 The user types: "go on, and make that shorter"
 You return an empty list. Neither part is durable.
@@ -72,25 +77,61 @@ You return an empty list. Neither part is durable.
 For each thing you keep:
 - "statement" is the claim written clearly. Fix grammar, drop filler, resolve a pronoun whose referent is in this window, and keep the user's own vocabulary. Do not add a reason they did not give, do not widen it, and do not merge two separate claims into one.
 - "source" must be text the user actually typed in the turn being classified. Copy it exactly. If you cannot point at the words, do not keep the item.
-- "project" is a slug from the projects list when the claim is about that project, otherwise null. Null means it applies everywhere, which is the safer mistake.
+- "project" is the scope this belongs to. Use the project named under "working on" by default, because that is what the conversation is about. Use null only when the claim applies everywhere and not just to that project, which is almost always a preference about how they want things worked on. Use a slug from "other projects" only when the user named that project.
 - "task" is a slug from the open tasks list only when the claim is plainly about that task, otherwise null.
 
 Split one message into several items only when the parts already stand alone. "no jargon, no em dashes" is two. "no personas and no curator in v1" is one.`;
 
-/** The window the model sees. Context is for understanding only; only the turn
- *  being classified can supply a source. */
-export function buildPrompt({projects = [], tasks = [], context = [], turn = []}) {
-  const lines = [INSTRUCTIONS, ''];
-  if (projects.length) {
-    const width = Math.max(...projects.map(p => p.slug.length));
-    lines.push('projects');
-    for (const p of projects) lines.push(`  ${p.slug.padEnd(width)}  ${(p.brief ?? '').slice(0, 80)}`.trimEnd());
+/** Two messages, not one.
+ *
+ *  Everything was a single user message: the instructions, the project list,
+ *  the tasks, the earlier context and the user's own words, separated from the
+ *  rules only by a <turn> tag. The stable half is identical on every call and
+ *  the rest is different every time, so splitting them makes the boundary
+ *  between "rules" and "text a person typed" structural rather than a tag,
+ *  which is the right shape for something whose entire input is untrusted.
+ *
+ *  Context is for understanding only; only the turn being classified can supply
+ *  a source. */
+export function buildPrompt({codebase = null, project = null, projects = [],
+  tasks = [], context = [], turn = [], saved = []} = {}) {
+  const lines = [];
+  const table = (rows, first) => {
+    const width = Math.max(...rows.map(r => String(r[first] ?? '').length));
+    for (const row of rows) lines.push(`  ${String(row[first] ?? '').padEnd(width)}  ${row.detail}`.trimEnd());
+  };
+  // The one fact that was missing, and the whole reason a memory about this
+  // project's own deployment key landed in personal. The model had a flat list
+  // of every project and nothing saying which one the conversation was in, so
+  // it had to infer the scope from the words, and the words did not say.
+  if (codebase || project) {
+    lines.push('working on');
+    if (codebase) lines.push(`  codebase  ${codebase}`);
+    // Named separately from the others so "the project this codebase belongs
+    // to" stays a narrower question than "one of all your projects". When a
+    // repository may belong to several projects this becomes two or three
+    // lines and nothing else about the prompt changes.
+    if (project) lines.push(`  project   ${project.slug}  ${(project.brief ?? '').slice(0, 80)}`.trimEnd());
+    else lines.push('  project   none selected, so use null unless the user names a project below');
+    lines.push('');
+  }
+  const others = projects.filter(p => p.slug !== project?.slug);
+  if (others.length) {
+    lines.push('other projects, only when the user names one');
+    table(others.map(p => ({slug: p.slug, detail: (p.brief ?? '').slice(0, 80)})), 'slug');
     lines.push('');
   }
   if (tasks.length) {
-    const width = Math.max(...tasks.map(t => t.slug.length));
-    lines.push('open tasks');
-    for (const t of tasks) lines.push(`  ${t.slug.padEnd(width)}  ${(t.title ?? '').slice(0, 80)}`.trimEnd());
+    lines.push('open tasks, most recently active first');
+    table(tasks.map(t => ({slug: t.slug, detail: (t.title ?? '').slice(0, 80)})), 'slug');
+    lines.push('');
+  }
+  // A second guard behind the turn boundary. The boundary stops the same
+  // message being classified twice; this stops the same claim being saved twice
+  // when the user says it again in their own different words.
+  if (saved.length) {
+    lines.push('already saved in this session, do not save any of these again');
+    for (const statement of saved) lines.push(`  ${String(statement).slice(0, 200)}`);
     lines.push('');
   }
   if (context.length) {
@@ -103,16 +144,21 @@ export function buildPrompt({projects = [], tasks = [], context = [], turn = []}
   lines.push('<turn>');
   for (const message of turn) lines.push(message);
   lines.push('</turn>');
-  return lines.join('\n');
+  return {system: INSTRUCTIONS, prompt: lines.join('\n')};
 }
 
 /** Everything the model returned that does not hold up is dropped here rather
  *  than reaching the database. A router that occasionally says nothing is the
  *  behaviour we already have; one that invents is a new failure. */
-export function validate(payload, {turn = [], projects = [], tasks = []}) {
+export function validate(payload, {turn = [], project = null, projects = [], tasks = [], saved = []}) {
   const haystack = turn.join('\n').toLowerCase();
-  const projectSlugs = new Set(projects.map(p => p.slug));
+  // The active project is nameable too. It is not in `projects` when the caller
+  // passes the others separately, and a model told to default to it would have
+  // every item dropped back to personal by this check, which is the bug being
+  // fixed wearing a different hat.
+  const projectSlugs = new Set([...projects.map(p => p.slug), ...(project ? [project.slug] : [])]);
   const taskBySlug = new Map(tasks.map(t => [t.slug, t]));
+  const already = new Set(saved.map(normalizeStatement));
   const kept = [];
   const dropped = [];
   for (const item of payload?.memories ?? []) {
@@ -120,6 +166,12 @@ export function validate(payload, {turn = [], projects = [], tasks = []}) {
     const source = String(item?.source ?? '').trim();
     if (!statement || statement.length > 500) { dropped.push({item, why: 'statement missing or too long'}); continue; }
     if (!source) { dropped.push({item, why: 'no source'}); continue; }
+    // The prompt asks for these to be left out and mostly they are. This is the
+    // backstop for the wording the prompt did not talk it out of, and it only
+    // catches a near-identical restatement: the semantic work stays in the
+    // prompt, because doing it here would need an embedding per candidate and
+    // the quota that pays for embeddings is the one retrieval runs on.
+    if (already.has(normalizeStatement(statement))) { dropped.push({item, why: 'already saved this session'}); continue; }
     // The source has to be in what the user typed this turn. This is the check
     // that makes fabrication detectable rather than a matter of trust.
     if (!haystack.includes(source.toLowerCase().slice(0, 60))) {
@@ -139,6 +191,11 @@ export function validate(payload, {turn = [], projects = [], tasks = []}) {
   }
   return {memories: kept, dropped};
 }
+
+/** Two statements are the same claim for dedup purposes when they differ only
+ *  in case, punctuation or spacing. Deliberately narrow. */
+const normalizeStatement = text =>
+  String(text ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 export function createRouter({
   // Measured, not guessed. Over 24 real turns replayed from the corpus and 16
@@ -161,7 +218,7 @@ export function createRouter({
     model,
     async route(input) {
       if (!apiKey) throw new RouterError('No router key configured');
-      const prompt = buildPrompt(input);
+      const {system, prompt} = buildPrompt(input);
       let lastSignal;
       // One retry, on a short advised wait only. Capture missing a turn is the
       // behaviour Satchel had before capture existed, so a loop here would
@@ -185,6 +242,7 @@ export function createRouter({
         result = await generateObject({
           model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(model),
           schema: ROUTER_SCHEMA,
+          system,
           prompt,
           temperature: 0,
           abortSignal: signal,
@@ -197,8 +255,13 @@ export function createRouter({
           // explicable if you can see what the router was looking at,
           // including which projects and open tasks it had to choose from.
           telemetry: {functionId: 'router', metadata: {
+            codebase: input.codebase ?? 'none',
+            // The scope the router was handed, which is the thing to look at
+            // first when something files itself in the wrong place.
+            workingOn: input.project?.slug ?? 'personal',
             projects: input.projects?.length ?? 0,
             openTasks: input.tasks?.length ?? 0,
+            alreadySaved: input.saved?.length ?? 0,
             contextMessages: input.context?.length ?? 0,
             turnMessages: input.turn?.length ?? 0,
           }},
@@ -223,7 +286,8 @@ export function createRouter({
       // in what the user typed, which is what makes fabrication detectable
       // rather than a matter of trust.
       const checked = validate(result.object, input);
-      return {...checked, prompt, raw: JSON.stringify(result.object), usage: result.usage ?? null};
+      return {...checked, prompt: `${system}\n\n${prompt}`,
+        raw: JSON.stringify(result.object), usage: result.usage ?? null};
       }
     },
   };
