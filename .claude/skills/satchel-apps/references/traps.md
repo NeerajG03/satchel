@@ -44,12 +44,19 @@ Silent in both directions. Nothing logs a hook the host skipped, and the model h
 
 **An `mcp_tool` hook cannot run at launch, ever.** It needs the session's MCP servers to be available to hooks, and `SessionStart` fires before that; the host skips it and logs "no MCP client context". `--continue` and `--resume` are launch too. This is not a timeout to tune or a matcher to widen. It is why every hook is a command script as of 0.3.0, and why anyone reintroducing an `mcp_tool` hook on a lifecycle event is reintroducing a hook that never runs on the events that matter.
 
-**A command hook on `UserPromptSubmit` is not given the prompt.** The only documented way to reach it is `transcript_path`, which the host writes asynchronously and which may not contain the current turn when the hook fires. Retrieval was removed rather than built on that. Do not add it back as a script.
+**A command hook on `UserPromptSubmit` IS given the prompt, and believing otherwise cost a feature and a privacy promise.** A docs summary said the prompt was not in the input and that `transcript_path` was the only way to reach it. It hedged, that hedge was written down, and the feature was deleted anyway. The binary is unambiguous:
+
+```js
+{…, hook_event_name:"UserPromptSubmit", prompt: r, session_title: …}   // UserPromptSubmit
+{…, hook_event_name:"Stop", stop_hook_active: s, last_assistant_message: _e}   // Stop
+```
+
+Find it with `strings $(readlink -f $(which claude)) | grep -o 'hook_event_name:"UserPromptSubmit".\{0,200\}'`. That is thirty seconds and it settles what no amount of reading the documentation did. Two things followed from getting it wrong: per-prompt retrieval was deleted, and because deleting it removed the only thing recording the user's message, capture started reading the transcript to compensate. Both were undone in 0.3.2. **Check the binary before you believe a summary about hook inputs.**
+
+**Retrieval and recording are the same hook, and that coupling is invisible.** `retrieve.mjs` records the user's message whether or not it finds anything, because the rolling window the router reads at the end of the turn is built from exactly that call. Removing retrieval therefore removes capture, silently, with every test still green. If retrieval ever goes away again, the recording has to go somewhere first.
 
 **The hook credential is not the agent's credential.** They are separate OAuth clients on purpose. Reading the host's token out of the keychain looks like a shortcut and is not: refreshing it rotates the token the host is still using, so Satchel would break the agent's own MCP connection. Two clients, two grants, two Revoke buttons.
 
 **Refresh takes a lock.** Supabase rotates refresh tokens, so two hooks refreshing at once leave one holding a spent one. `withLock` in `auth.mjs` uses `mkdir` with a 20s stale timeout, and it has to hold the lock across the whole `await`, not just until the promise is returned.
 
-**The transcript filter is a boundary, not a parser.** `integrations/shared/transcript.mjs` decides what leaves the machine. A `type: "user"` entry is also how a tool result arrives, so both the content shape and `toolUseResult` are checked; dropping either sends file contents and command output to a server. Anything added to what it takes is a new thing being uploaded, and `tests/transcript.test.mjs` is where that is argued.
-
-**The local high-water mark is an optimization, not the boundary.** `classified_at` server side is the real one. Design so that losing `~/.satchel/sessions/` costs a resent message and never a duplicated memory, and never move the mark before a send succeeds.
+**No hook script may read `transcript_path`.** Satchel says so in the security skill, the shipped skill and the text injected into every session, and for one afternoon in 0.3.0 it was false. Both halves of a turn arrive in the hook input, so there is never a reason to open the file. `tests/plugin-hooks.test.mjs` asserts that no script so much as mentions the field, which is a blunt check on purpose: the failure mode is a privacy claim quietly becoming untrue, and a blunt check is the kind that survives a refactor.

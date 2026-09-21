@@ -4,14 +4,17 @@
 
 This file was last accurate before automatic capture existed. Anything you remember from the older version, including the claim that Satchel has no `Stop` hook, is out of date.
 
-## Two hooks, both local scripts
+## Three hooks, all local scripts
 
 | Event | Script | Timeout | What it does |
 |---|---|---|---|
 | `SessionStart` on startup, clear, compact, resume | `session-start.mjs` | 10s | Fetches the projects list and every personal memory, and injects it |
-| `Stop` | `capture.mjs` | 25s | Sends the turn that just ended, so it can be classified |
+| `UserPromptSubmit` | `retrieve.mjs` | 5s | Searches by similarity, injects the matches, and records the message |
+| `Stop` | `capture.mjs` | 25s | Sends the reply so the turn can be classified |
 
-There is no `UserPromptSubmit`, `PreToolUse` or `PostToolUse` hook, and no `PostCompact` hook: Codex cannot emit `additionalContext` from `PostCompact`, so compaction is handled through `SessionStart`'s compact source on both hosts.
+There is no `PreToolUse` or `PostToolUse` hook, and no `PostCompact` hook: Codex cannot emit `additionalContext` from `PostCompact`, so compaction is handled through `SessionStart`'s compact source on both hosts.
+
+The 5 second budget on retrieval is deliberate. A hook that delays the prompt is worse than a hook that misses one.
 
 ## Why they are scripts and not MCP tool calls
 
@@ -52,31 +55,22 @@ The stored credential is a Supabase refresh token. Those do not age out on their
 
 The repository is read from `git config --get remote.origin.url` and normalized. Remote credentials in that URL, repository contents, local paths and the prompt are never read or emitted. `SATCHEL_DISABLE_REPOSITORY_STAGING=1` turns the repository off.
 
-`capture.mjs` sends the session key, the same repository, and the messages of the turn.
+`retrieve.mjs` sends the session key, the repository and the prompt the host handed it. `capture.mjs` sends the session key, the repository and the `last_assistant_message` the host handed it. Neither opens a file.
 
-## Reading the transcript
+## No transcript is read
 
-This is the one thing Satchel does now that it did not do before, and it is worth being plain about.
+Worth stating plainly, because for one afternoon it was not true.
 
-While capture was an `mcp_tool` hook, the host substituted `${prompt}` and `${last_assistant_message}` into the tool arguments, and the server kept them in a 24 hour rolling window. As a command script there is no substitution to receive: `UserPromptSubmit` does not hand a command hook the prompt at all, and the only documented way to reach the conversation is `transcript_path`.
+Both halves of a turn arrive in the hook input. The host passes `prompt` to `UserPromptSubmit` and `last_assistant_message` to `Stop`, on command hooks exactly as it did on `mcp_tool` ones. `retrieve.mjs` records the user's message when the prompt comes in, `capture.mjs` sends the reply at the end, and the rolling window in `session_messages` has the whole turn without any file being opened.
 
-So `capture.mjs` reads that file, at `Stop` and never earlier. The host's own documentation warns that the transcript is written asynchronously and may lag the in-memory conversation; that warning is about reading it mid-turn. At `Stop` the turn is finished, the user's message was written when it began, and there is nothing to race.
+Version 0.3.0 shipped a `capture.mjs` that read `transcript_path`, on the belief that a command hook is not given the prompt and so could not record the user's side. That came from a docs summary which hedged and was wrong. The binary settles it:
 
-The content that leaves the machine is the same content as before. What changed is where the script got it. `transcript.mjs` is the boundary:
+```
+hook_event_name:"UserPromptSubmit", prompt:r, …, session_title:…
+hook_event_name:"Stop", stop_hook_active:s, last_assistant_message:_e
+```
 
-| Taken | Dropped |
-|---|---|
-| the person's typed messages | tool calls and tool results |
-| the assistant's plain text | thinking blocks |
-| | subagent conversations (`isSidechain`) |
-| | host-generated entries (`isMeta`) |
-| | compaction summaries (`isCompactSummary`) |
-| | slash commands, shell input, task notifications |
-| | `<system-reminder>` blocks inside real messages |
-
-A `type: "user"` entry is also how a tool result arrives, so both the content shape and `toolUseResult` are checked. Messages are clipped at 8,000 characters and the turn at 40 messages. Only `role` and `content` are sent; the host's message uuids stay on the machine, where they are the high-water mark in `~/.satchel/sessions/`.
-
-That mark is an optimization, not the boundary. The real boundary is `classified_at` on each row server side, so losing the local file costs a resent message and never a duplicated memory.
+0.3.2 put retrieval back as a script and deleted the reader. `tests/plugin-hooks.test.mjs` asserts that no hook script so much as mentions `transcript_path`.
 
 ## Scope
 
@@ -98,8 +92,8 @@ A failure always reaches the person, through `systemMessage`. That rule exists b
 
 Not connected, revoked, and the service not answering are told apart, because reconnecting and waiting are different jobs. A hook that throws never fails the session. A capture that cannot be sent leaves its messages unmarked and offers them again on the next turn.
 
-## Per-prompt retrieval
+## Recording and retrieval are the same hook
 
-Removed in 0.3.0. It ran on every single turn, and it was also, quietly, the only thing recording what the person said, which is why removing it moved recording into `capture.mjs`. The `per_prompt_matches` settings column still exists and nothing reads it.
+`retrieve.mjs` records the user's message whether or not the search returns anything, because the rolling window the router reads at the end of the turn is built from exactly that call.
 
-One thing went with it: a memory attached to a closed task used to be annotated as possibly stale when it was recalled mid-conversation. That annotation only ever existed in the per-prompt block.
+That coupling is invisible and it has bitten once: deleting retrieval in 0.3.0 also deleted the only thing writing the user's side of the window, so capture went quiet without a single test failing. If retrieval is ever removed again, the recording has to move somewhere first.

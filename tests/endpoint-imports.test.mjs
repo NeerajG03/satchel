@@ -96,6 +96,17 @@ test('the session-start endpoint stays light, because a session waits on it', ()
   assert.deepEqual([...packages].sort(), ['@supabase/supabase-js', 'jose']);
 });
 
+test('the retrieve endpoint loads the embedder and not the router', () => {
+  // It runs on every prompt inside a five second budget. It embeds one string
+  // and runs one vector search, so `ai` is the price of the feature; the
+  // router and the MCP server are not.
+  const packages = packagesReachableFrom('api/hook-retrieve.mjs');
+  for (const heavy of ['@modelcontextprotocol/sdk'])
+    assert.ok(!packages.has(heavy), `api/hook-retrieve.mjs reaches ${heavy}, which it never uses`);
+  for (const needed of ['ai', '@supabase/supabase-js', 'jose'])
+    assert.ok(packages.has(needed), `api/hook-retrieve.mjs should reach ${needed}`);
+});
+
 test('the capture endpoint is allowed the model stack, because it runs the router', () => {
   // The contrast is the point. Nothing is injected from capture, so its cold
   // start costs a line the person reads a moment later rather than a session

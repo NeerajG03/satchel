@@ -22,16 +22,18 @@ Nothing proprietary is on the person's machine. Ranking, routing and every promp
 
 Substitution stopped mattering in 0.3.0. No hook is an `mcp_tool` any more, so there are no `${...}` inputs to be substituted or not; every script reads the host's JSON on stdin, where both hosts agree on the field names.
 
-## The two hooks
+## The three hooks
 
-Both are `command` scripts. Neither goes through MCP.
+All `command` scripts. None goes through MCP.
 
 - **SessionStart**, matching `^(startup|clear|compact|resume)$`, running `session-start.mjs`, timeout 10s. It fetches the index itself over `POST /api/hook-index`. `resume` is included: a resumed session may be days old and is the case that needs the projects list most.
 - **Stop**, running `capture.mjs`, timeout 25s. It posts the turn to `/api/hook-capture`, which runs the router. 25s because that one waits on a model call, and the end of a turn is the one place in a session that can afford it. Without this hook the router, the rolling window and every capture path exist and nothing ever calls them, which is how the feature shipped inert the first time.
 
 **Why they stopped being `mcp_tool` hooks**, which is the load-bearing fact: an `mcp_tool` hook runs only once the session's MCP servers are available to hooks, and `SessionStart` at launch fires before that. The host skips the event and logs `mcp_tool hooks are not available for the 'SessionStart' hook event (no MCP client context)`. `--continue` and `--resume` are launch too. So memory never loaded on any way a session actually begins, and the fallback was a paragraph asking the model to call `select_project`, which it could ignore. That is not fixable from our side; it needed the hook to hold its own credential.
 
-`UserPromptSubmit` is gone entirely. A command hook is not handed the prompt text, and the documented alternative is reading `transcript_path` while the host is still writing it. It was also the only thing recording what the person said, which is why capture now reads the transcript at `Stop` instead.
+- **UserPromptSubmit**, running `retrieve.mjs`, timeout 5s. It embeds the prompt, searches by similarity and injects the matches with counts. It is also the only thing recording what the person said, which is why deleting it once silently deleted capture too.
+
+A command hook **is** handed the prompt. The host builds the input as `{…, hook_event_name:"UserPromptSubmit", prompt, session_title}`, which is visible in the binary. A docs summary said otherwise, this hook was deleted on the strength of it in 0.3.0, and that also became the justification for reading the transcript at `Stop`. Both were undone in 0.3.2. Check the binary before believing a summary about hook inputs.
 
 Stop injects nothing: Claude can inject there and Codex cannot, so anything built on it would work on one host only, and the next turn may change subject anyway.
 
@@ -43,7 +45,7 @@ Six files in `integrations/shared/`, copied into both packages by the build. Cop
 |---|---|
 | `session-start.mjs` | the SessionStart hook |
 | `capture.mjs` | the Stop hook, and the local high-water mark |
-| `transcript.mjs` | what capture is allowed to take out of the transcript |
+| `retrieve.mjs` | the UserPromptSubmit hook: search, and recording the message |
 | `auth.mjs` | the credential, the OAuth flow, refresh, and the one `call()` both hooks use |
 | `connect.mjs` | the interactive flow, and the once-an-hour throttle on offering it |
 | `workspace.mjs` | the git origin, stdin, and the only function that writes hook JSON |

@@ -17,7 +17,7 @@ import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
 import {createMemoryServer} from '../server/mcp-server.mjs';
 import {memoryService} from '../server/memory-service.mjs';
 import {createEmbedder} from '../server/embedding.mjs';
-import {sessionStart, capture} from '../server/lifecycle.mjs';
+import {sessionStart, retrieve, capture} from '../server/lifecycle.mjs';
 
 /** Records what the service actually sends, the way supabase-js would take it. */
 function recorder(responses = {}) {
@@ -46,7 +46,7 @@ const embedder = {model: 'test-model',
   embedOne: async () => Array(768).fill(0.1),
   embedQuery: async () => Array(768).fill(0.1)};
 
-const baseSettings = {gate: 0.67, scope_boost: 1.1,
+const baseSettings = {per_prompt_matches: 5, gate: 0.67, scope_boost: 1.1,
   session_budget_tokens: 15000, capture: true, capture_window: 5};
 
 const connected = {label: 'Test', personal: true, can_write: true, project_ids: []};
@@ -74,15 +74,10 @@ test('the fake embedder still has the shape the service calls', () => {
 });
 
 test('settings carry every column the lifecycle path reads', async () => {
-  // per_prompt_matches is deliberately not in this list any more. Per-prompt
-  // retrieval is gone: a command hook on UserPromptSubmit is not handed the
-  // prompt text, and the only documented way to reach it is to read the
-  // transcript while the host is still writing it. The column still exists in
-  // the table; nothing reads it.
   const db = recorder({memory_settings: [{...baseSettings}]});
   const service = memoryService(db, embedder, null);
   const settings = await service.settings();
-  const needed = ['gate', 'scope_boost', 'session_budget_tokens', 'capture', 'capture_window'];
+  const needed = ['per_prompt_matches', 'gate', 'scope_boost', 'session_budget_tokens', 'capture', 'capture_window'];
   const selected = db.calls.select.find(call => call.table === 'memory_settings').columns;
   for (const column of needed) {
     assert.ok(selected.includes(column), `settings must select ${column}`);
@@ -134,17 +129,11 @@ test('the turn is what has not been classified, and the scope is resolved not gu
     captureTurn: async (sessionKey, input) => { captured.push({sessionKey, input}); return {memories: [], failed: false}; },
   };
 
-  await capture(service, {sessionKey: 'stop-session', repository: 'acme/ledger', messages: [
-    {role: 'user', content: 'and never bump the Go version until payouts ship'},
-    {role: 'assistant', content: 'Noted.'},
-  ]});
+  await capture(service, {sessionKey: 'stop-session', repository: 'acme/ledger', assistant: 'Noted.'});
 
-  // What the script read is recorded first, in the order it happened, because
-  // the window the router reads is built from exactly this.
-  assert.deepEqual(recorded, [
-    {role: 'user', content: 'and never bump the Go version until payouts ship'},
-    {role: 'assistant', content: 'Noted.'},
-  ]);
+  // The user's half was recorded by retrieve() when the prompt arrived; Stop
+  // adds only the reply the host handed it. Nothing is read from disk.
+  assert.deepEqual(recorded, [{role: 'assistant', content: 'Noted.'}]);
 
   assert.equal(captured.length, 1, 'Stop must reach captureTurn');
   const {input} = captured[0];
@@ -184,7 +173,7 @@ test('a run that never reached the model leaves the turn for next time', async (
     openTasks: async () => [],
     markSessionClassified: async (key, through) => { marked.push({key, through}); return 1; },
     captureTurn: async () => ({memories: [], dropped: 0, failed: true}),
-  }, {sessionKey: 's', messages: [{role: 'user', content: 'never bump Go'}]});
+  }, {sessionKey: 's', assistant: 'Understood.'});
   assert.deepEqual(marked, [], 'a failed run must not move the boundary');
 });
 
@@ -200,8 +189,67 @@ test('a turn with nothing unclassified in it is not sent at all', async () => {
       {id: 1, role: 'user', content: 'never bump Go', classified_at: '2026-09-21T06:00:00Z'},
     ],
     captureTurn: async () => { called = true; return {memories: [], failed: false}; },
-  }, {sessionKey: 's', messages: [{role: 'assistant', content: 'Noted.'}]});
+  }, {sessionKey: 's', assistant: 'Noted.'});
   assert.equal(called, false, 'a reply with no new user message is not a turn to classify');
+});
+
+test('retrieval records the prompt whether or not it finds anything', async () => {
+  // The coupling that made deleting this feature expensive: the rolling window
+  // the router reads at the end of the turn is built from exactly this call,
+  // so removing retrieval silently removed capture too.
+  const recorded = [];
+  const service = {
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    recordSessionMessage: async (_k, role, content) => { recorded.push({role, content}); },
+    search: async () => [],
+    projects: async () => [],
+  };
+  const quiet = await retrieve(service, {sessionKey: 's', prompt: 'what did we decide about Go'});
+  assert.deepEqual(recorded, [{role: 'user', content: 'what did we decide about Go'}]);
+  assert.equal(quiet.context, '', 'nothing relevant costs nothing');
+  assert.equal(quiet.notice, '', 'and says nothing');
+
+  service.search = async () => [{id: crypto.randomUUID(), statement: 'Do not bump Go until payouts ship.',
+    band: 'said', task_id: null, score: 0.9, matched: 4, in_scope: 30}];
+  const found = await retrieve(service, {sessionKey: 's', prompt: 'can we bump Go'});
+  assert.match(found.context, /1 shown · 4 matched · 30 in scope/,
+    'the counts separate "no rule about this" from "nothing scored high enough"');
+  assert.match(found.context, /Do not bump Go until payouts ship\./);
+  assert.match(found.notice, /recalled 1 of 4 matching/);
+  assert.equal(recorded.length, 2);
+});
+
+test('retrieval passes the prompt as the query and nothing else', async () => {
+  const searched = [];
+  await retrieve({
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    recordSessionMessage: async () => {},
+    search: async args => { searched.push(args); return []; },
+    resolveRepository: async () => [{project_id: 'p1', slug: 'a', name: 'A', brief: '', selected: true}],
+  }, {sessionKey: 's', prompt: 'the release order', repository: 'acme/ledger'});
+  assert.equal(searched.length, 1);
+  assert.equal(searched[0].query, 'the release order');
+  // Scope is a nudge, not a filter, and it comes from the repository rather
+  // than from anything the model decided.
+  assert.equal(searched[0].in_scope, 'p1');
+});
+
+test('a failed search tells the person and injects nothing', async () => {
+  const spent = Object.assign(new Error('rate limited'),
+    {code: 'EMB_LIMIT', reason: "embedding is rate limited, the day's free quota is used up (1000 requests)"});
+  const result = await retrieve({
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    recordSessionMessage: async () => {},
+    search: async () => { throw spent; },
+  }, {sessionKey: 's', prompt: 'anything'});
+  assert.equal(result.context, '', 'a broken search must not inject an error into the prompt');
+  assert.match(result.notice, /day's free quota is used up/);
 });
 
 test('capture switched off records nothing at all', async () => {
@@ -215,7 +263,7 @@ test('capture switched off records nothing at all', async () => {
     recordSessionMessage: async () => { called = true; },
     sessionWindow: async () => { called = true; return []; },
     captureTurn: async () => { called = true; },
-  }, {sessionKey: 's', messages: [{role: 'user', content: 'hello'}]});
+  }, {sessionKey: 's', assistant: 'Hello back.'});
   assert.equal(called, false, 'nothing about the conversation may be recorded when capture is off');
 });
 
@@ -227,7 +275,7 @@ test('a dead grant says so to the person, not only to the agent', async () => {
   const start = await sessionStart(dead, {sessionKey: 's'});
   assert.match(start.notice, /Satchel memory unavailable/, 'session start must tell the person');
   assert.match(start.context, /Do not claim that memory loaded/, 'and must tell the agent not to pretend');
-  const stopped = await capture(dead, {sessionKey: 's', messages: [{role: 'user', content: 'hi'}]});
+  const stopped = await capture(dead, {sessionKey: 's', assistant: 'hi'});
   assert.match(stopped.notice, /Satchel memory unavailable/, 'the end of a turn must tell the person too');
 });
 
@@ -243,7 +291,7 @@ test('a capture is announced and a quiet turn stays quiet, and neither injects',
     openTasks: async () => [],
     captureTurn: async () => ({memories: captured, dropped: 0, failed: false}),
   };
-  const run = () => capture(service, {sessionKey: 's', messages: [{role: 'user', content: 'never bump Go until payouts ship'}]});
+  const run = () => capture(service, {sessionKey: 's', assistant: 'Noted.'});
 
   captured = [{id: 'a', statement: 'Do not bump Go until payouts ship.'}];
   const spoke = await run();
@@ -349,7 +397,7 @@ test('a rate limit tells the person what actually happened', async () => {
     projects: async () => [],
     openTasks: async () => [],
     captureTurn: async () => { throw spent; },
-  }, {sessionKey: 's', messages: [{role: 'user', content: 'what did we decide'}]});
+  }, {sessionKey: 's', assistant: 'Here is what we decided.'});
 
   assert.match(result.notice, /day's free quota is used up \(1000 requests\)/);
   assert.doesNotMatch(result.notice, /Reload before retrying a write/,

@@ -38,9 +38,9 @@ You do not have to go and get context. It arrives once, at the start.
 
 Nothing scoped to a project or a task loads here. That is deliberate: loading it would assume you are about to touch it.
 
-**Nothing is retrieved per message.** If you want a memory this conversation has not surfaced, ask for it with `retrieve_memory`. That is the only way anything else arrives, so reach for it whenever the user refers to a decision, a preference or a rule you were not handed at the start.
+**On every message**, memories relevant to what the user just said are retrieved and handed to you, with counts. Read the counts. `0 matched` is a real answer and means no such memory exists, which is not the same as one existing and being held back.
 
-Do not add per-turn freshness checks, and do not re-read a scope you were already given. Companion or phone edits appear at the next fresh context or on an explicit refresh request.
+So do not add per-turn freshness checks, and do not re-read a scope you were already given. Search with `retrieve_memory` when you need something this conversation has not surfaced. Companion or phone edits appear at the next fresh context or on an explicit refresh request.
 
 Never claim memory or tasks loaded when a hook is disabled, untrusted, incomplete or unavailable. Say what actually happened and fall back to explicit scoped calls.
 

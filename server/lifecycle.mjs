@@ -7,18 +7,18 @@
 // did not change, so it moved here rather than being rewritten, and
 // select_project still uses it for the manual recovery path.
 //
-// Two entry points and nothing else:
+// Three entry points and nothing else:
 //
 //   sessionStart   projects + every personal memory, once per session
+//   retrieve       memories close to what the user just said, every prompt
 //   capture        the turn that just ended, classified, maybe saved
 //
-// Per-prompt retrieval used to sit between them. It is gone. A command hook on
-// UserPromptSubmit is not given the prompt text, and the only documented way to
-// get it is to read the transcript file while the host is still writing it,
-// which is a race for a feature that was injecting on every single turn.
-// Session start carries the memory now, and retrieve_memory is there when the
-// agent actually wants something.
-import {sessionStartBlock, estimateTokens, noticeFor} from './injection-format.mjs';
+// retrieve was briefly deleted on the belief that a command hook is not handed
+// the prompt text. It is: the host builds the input as
+// `{…, hook_event_name:"UserPromptSubmit", prompt, session_title}`, which the
+// binary settles and no amount of reading the docs did. Nothing about this
+// needs the transcript, which is why capture does not read one.
+import {sessionStartBlock, promptBlock, estimateTokens, noticeFor} from './injection-format.mjs';
 import {errorText} from './error-text.mjs';
 
 const PROVIDER = 'github';
@@ -128,17 +128,79 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
     });
 }
 
+/** Every prompt.
+ *
+ *  Two jobs, and the first one runs whether or not the second does: the user's
+ *  message is recorded, because the rolling window the router reads at the end
+ *  of the turn is built from exactly this. That coupling is easy to miss and
+ *  was missed once, which is how deleting retrieval silently took capture with
+ *  it.
+ *
+ *  Then, if per_prompt_matches is set, the prompt is embedded and searched, and
+ *  the closest memories above the gate come back with counts. The counts are
+ *  the point: they separate "there is no rule about this" from "nothing scored
+ *  high enough". */
+export async function retrieve(service, {sessionKey, prompt, repository = null,
+  exclude = [], project, ownerId, traced = untraced, retrieval} = {}) {
+  return traced('satchel.UserPromptSubmit',
+    {sessionId: sessionKey, userId: ownerId, metadata: {event: 'UserPromptSubmit'},
+     tags: ['satchel', 'UserPromptSubmit'], input: prompt},
+    async setOutput => {
+      let context = '';
+      let notice = '';
+      let logged = null;
+      try {
+        const status = await service.status();
+        if (!status) throw {code: '42501'};
+        const settings = await service.settings();
+        if (settings.capture)
+          void service.recordSessionMessage(sessionKey, 'user', prompt, settings.capture_window * 2);
+        if (!settings.per_prompt_matches) return {context: '', notice: ''};
+        const scope = project !== undefined ? {project} : await resolveScope(service, {sessionKey, repository});
+        const lookup = retrieval?.('retrieve-memory', {input: prompt,
+          metadata: {gate: settings.gate, limit: settings.per_prompt_matches,
+            inScope: scope.project ?? 'personal', excluded: exclude.length}});
+        let rows;
+        try {
+          rows = await service.search({query: prompt, in_scope: scope.project ?? null,
+            limit: settings.per_prompt_matches, gate: settings.gate,
+            boost: settings.scope_boost, exclude});
+        } catch (error) { lookup?.fail(error); throw error; }
+        lookup?.end(rows.map(r => ({id: r.id, statement: r.statement, score: r.score})),
+          {metadata: {shown: rows.length, matched: rows[0]?.matched ?? 0, inScope: rows[0]?.in_scope ?? 0}});
+        // Nothing relevant is a real answer, and the common one. It costs
+        // nothing and says nothing.
+        if (!rows.length) return {context: '', notice: ''};
+        notice = noticeFor('UserPromptSubmit', {shown: rows.length, matched: rows[0].matched});
+        const tasks = await service.tasksByIds?.(rows.map(r => r.task_id).filter(Boolean)) ?? new Map();
+        context = promptBlock({rows, matched: rows[0].matched, inScope: rows[0].in_scope, tasks});
+        logged = {query: prompt, memory_ids: rows.map(r => r.id),
+          matched: rows[0].matched, in_scope: rows[0].in_scope, tokens: estimateTokens(context)};
+      } catch (error) {
+        context = '';
+        notice = noticeFor('UserPromptSubmit', {error: errorText(error)});
+      }
+      if (logged) void service.logInjection({id: crypto.randomUUID(), session_key: sessionKey,
+        event: 'UserPromptSubmit', ...logged});
+      setOutput(context);
+      return {context, notice};
+    });
+}
+
 /** The end of a turn.
  *
- *  `messages` is what the hook script read out of the host's transcript since
- *  the last time it ran: the person's own typed messages and the assistant's
- *  plain text, and nothing else. They are recorded first, then the turn is
- *  whatever is still unclassified, which is a boundary rather than a guess.
+ *  `assistant` is the host's own last_assistant_message, which the Stop hook
+ *  input carries. Nothing is read from disk: the user's side of the turn was
+ *  already recorded by retrieve() when the prompt came in, so the window is
+ *  complete without parsing anything.
+ *
+ *  The turn is whatever is still unclassified, which is a boundary rather than
+ *  a guess.
  *
  *  It used to be the last capture_window user messages, so with the default of
  *  5 every Stop re-offered the last five and consecutive Stops overlapped by
  *  four. Anything durable got five chances and was duly saved twice. */
-export async function capture(service, {sessionKey, repository = null, messages = [],
+export async function capture(service, {sessionKey, repository = null, assistant = '',
   project, ownerId, traced = untraced} = {}) {
   return traced('satchel.Stop',
     {sessionId: sessionKey, userId: ownerId, metadata: {event: 'Stop', repository}, tags: ['satchel', 'Stop'], input: null},
@@ -147,11 +209,14 @@ export async function capture(service, {sessionKey, repository = null, messages 
         const status = await service.status();
         if (!status) throw {code: '42501'};
         const settings = await service.settings();
+        // The setting is checked first. It is about whether the conversation is
+        // kept at all, so a turn must not reach session_messages either; the
+        // mcp_tool version recorded the reply before looking and that was
+        // wrong, quietly, for every user who had capture switched off.
         if (!settings.capture || !service.captureTurn) return {captured: 0, notice: ''};
-        // Recorded in order, so the window the router reads is the conversation
-        // in the order it happened.
-        for (const message of messages)
-          await service.recordSessionMessage(sessionKey, message.role, message.content, settings.capture_window * 2);
+        // The reply lands before the window is read, so the router sees the
+        // turn it is classifying rather than the one before it.
+        if (assistant) await service.recordSessionMessage(sessionKey, 'assistant', assistant, settings.capture_window * 2);
         const window = await service.sessionWindow(sessionKey, settings.capture_window * 2);
         const ordered = [...window].reverse();
         const start = ordered.findIndex(m => m.classified_at == null && m.role === 'user');

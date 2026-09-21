@@ -158,31 +158,27 @@ test('invalid lifecycle input never becomes instructions or blocks the host', as
   } finally { rmSync(SATCHEL_HOME, {recursive: true, force: true}); }
 });
 
-test('capture sends nothing at all when there is no transcript or no turn', async () => {
+test('a prompt with nothing in it, and a wrong event, cost nothing', async () => {
   const SATCHEL_HOME = home();
-  const empty = join(SATCHEL_HOME, 'empty.jsonl');
-  writeFileSync(empty, '');
   try {
-    for (const input of [
-      JSON.stringify({session_id: 's', hook_event_name: 'Stop'}),
-      JSON.stringify({session_id: 's', hook_event_name: 'Stop', transcript_path: empty}),
-      JSON.stringify({session_id: 's', hook_event_name: 'Stop', transcript_path: '/no/such/file'}),
-      JSON.stringify({session_id: 's', hook_event_name: 'SessionStart', transcript_path: empty}),
+    for (const [script, input] of [
+      ['retrieve.mjs', JSON.stringify({session_id: 's', hook_event_name: 'UserPromptSubmit', prompt: '   '})],
+      ['retrieve.mjs', JSON.stringify({session_id: 's', hook_event_name: 'UserPromptSubmit'})],
+      ['retrieve.mjs', JSON.stringify({session_id: 's', hook_event_name: 'Stop', prompt: 'x'})],
+      ['capture.mjs', JSON.stringify({session_id: 's', hook_event_name: 'SessionStart'})],
     ]) {
-      const {code, stdout} = await run('capture.mjs', input, {SATCHEL_HOME});
+      const {code, stdout} = await run(script, input, {SATCHEL_HOME});
       assert.equal(code, 0);
-      assert.equal(stdout, '', 'a turn with nothing in it costs nothing and says nothing');
+      assert.equal(stdout, '', `${script}: nothing to do must cost nothing and say nothing`);
     }
   } finally { rmSync(SATCHEL_HOME, {recursive: true, force: true}); }
 });
 
-test('a turn goes from the transcript to the endpoint and the mark moves once', async () => {
-  // The whole capture path, through the real script: read the file the host
-  // wrote, send only what the person and the assistant said, and remember where
-  // it got to so the same turn is never sent twice.
+test('a prompt is retrieved against and recorded, and the reply is captured', async () => {
+  // The whole per-turn path through the real scripts. The prompt arrives in
+  // the hook input, so nothing opens a transcript to find it.
   const SATCHEL_HOME = home();
-  const cwd = mkdtempSync(join(tmpdir(), 'satchel-capture-'));
-  const transcript = join(cwd, 'session.jsonl');
+  const cwd = mkdtempSync(join(tmpdir(), 'satchel-turn-'));
   const sent = [];
   const {createServer} = await import('node:http');
   const server = createServer((req, res) => {
@@ -191,53 +187,43 @@ test('a turn goes from the transcript to the endpoint and the mark moves once', 
     req.on('end', () => {
       sent.push({path: req.url, auth: req.headers.authorization, body: JSON.parse(body)});
       res.writeHead(200, {'content-type': 'application/json'});
-      res.end(JSON.stringify({captured: 1, notice: 'Satchel noted 1 thing you said · unconfirmed'}));
+      res.end(JSON.stringify(req.url === '/api/hook-retrieve'
+        ? {context: '\u25ea retrieved \u00b7 1 shown \u00b7 4 matched \u00b7 30 in scope\n  abc123  Do not bump Go.',
+           notice: 'Satchel recalled 1 of 4 matching'}
+        : {captured: 1, notice: 'Satchel noted 1 thing you said \u00b7 unconfirmed'}));
     });
   });
   await new Promise(done => server.listen(0, '127.0.0.1', done));
   writeFileSync(join(SATCHEL_HOME, 'credentials.json'), JSON.stringify({
-    client_id: 'test-client', refresh_token: 'r', access_token: 'test-token',
-    expires_at: Date.now() + 3600_000}));
+    client_id: 'c', refresh_token: 'r', access_token: 'test-token', expires_at: Date.now() + 3600_000}));
   const env = {SATCHEL_HOME, SATCHEL_URL: `http://127.0.0.1:${server.address().port}`};
-  const stop = () => run('capture.mjs', JSON.stringify({
-    session_id: 'capture-session', hook_event_name: 'Stop', cwd, transcript_path: transcript}), env);
   try {
-    writeFileSync(transcript, [
-      {type: 'user', uuid: 'u1', message: {content: 'never bump Go until payouts ship'}},
-      {type: 'user', uuid: 't1', message: {content: [{type: 'tool_result', content: 'SECRET FILE BODY'}]},
-        toolUseResult: {stdout: 'SECRET FILE BODY'}},
-      {type: 'assistant', uuid: 'a1', message: {content: [
-        {type: 'thinking', thinking: 'PRIVATE REASONING'},
-        {type: 'tool_use', name: 'Bash', input: {command: 'cat ~/.config/env'}},
-        {type: 'text', text: 'Noted.'}]}},
-    ].map(e => JSON.stringify(e)).join('\n') + '\n');
-
-    const first = await stop();
-    assert.equal(first.code, 0);
-    assert.equal(sent.length, 1);
-    assert.equal(sent[0].path, '/api/hook-capture');
+    const asked = await run('retrieve.mjs', JSON.stringify({
+      session_id: 'turn-session', hook_event_name: 'UserPromptSubmit', cwd,
+      prompt: 'can we bump the Go version yet',
+      transcript_path: '/private/secret'}), env);
+    assert.equal(asked.code, 0);
+    assert.equal(sent[0].path, '/api/hook-retrieve');
     assert.equal(sent[0].auth, 'Bearer test-token');
-    // Exactly what was said, and nothing the agent did on the way.
-    assert.deepEqual(sent[0].body.messages, [
-      {role: 'user', content: 'never bump Go until payouts ship'},
-      {role: 'assistant', content: 'Noted.'},
-    ]);
-    assert.doesNotMatch(JSON.stringify(sent), /SECRET FILE BODY|PRIVATE REASONING|config\/env/,
-      'tool results, thinking and commands must never leave the machine');
-    assert.match(JSON.parse(first.stdout).systemMessage, /noted 1 thing/);
+    assert.equal(sent[0].body.prompt, 'can we bump the Go version yet',
+      'the prompt comes from the hook input, not from a file');
+    assert.doesNotMatch(JSON.stringify(sent[0]), /private\/secret/);
+    const out = JSON.parse(asked.stdout);
+    assert.equal(out.hookSpecificOutput.hookEventName, 'UserPromptSubmit');
+    assert.match(out.hookSpecificOutput.additionalContext, /1 shown · 4 matched · 30 in scope/);
+    assert.match(out.systemMessage, /recalled 1 of 4 matching/);
 
-    // Nothing new since the mark, so the second Stop costs nothing at all.
-    const second = await stop();
-    assert.equal(second.code, 0);
-    assert.equal(sent.length, 1, 'a turn already sent is not sent again');
-    assert.equal(second.stdout, '');
-
-    // A new turn resumes from the mark rather than resending the session.
-    writeFileSync(transcript, readFileSync(transcript, 'utf8')
-      + JSON.stringify({type: 'user', uuid: 'u2', message: {content: 'and deploy on Tuesdays'}}) + '\n');
-    await stop();
-    assert.equal(sent.length, 2);
-    assert.deepEqual(sent[1].body.messages, [{role: 'user', content: 'and deploy on Tuesdays'}]);
+    const stopped = await run('capture.mjs', JSON.stringify({
+      session_id: 'turn-session', hook_event_name: 'Stop', cwd,
+      last_assistant_message: 'Not until payouts ship.',
+      transcript_path: '/private/secret'}), env);
+    assert.equal(stopped.code, 0);
+    assert.equal(sent[1].path, '/api/hook-capture');
+    assert.deepEqual(Object.keys(sent[1].body).sort(), ['assistant', 'repository', 'session_key']);
+    assert.equal(sent[1].body.assistant, 'Not until payouts ship.');
+    assert.doesNotMatch(JSON.stringify(sent[1]), /private\/secret/,
+      'capture does not read the transcript and must not forward its path either');
+    assert.match(JSON.parse(stopped.stdout).systemMessage, /noted 1 thing/);
   } finally {
     rmSync(cwd, {recursive: true, force: true});
     rmSync(SATCHEL_HOME, {recursive: true, force: true});
@@ -245,12 +231,24 @@ test('a turn goes from the transcript to the endpoint and the mark moves once', 
   }
 });
 
-test('a capture that cannot be sent leaves the mark where it was', async () => {
-  // Otherwise the one turn worth keeping is the one turn dropped: a 503 would
-  // mark the messages as handled and nothing would ever retry them.
+test('no hook script ever opens the transcript file', async () => {
+  // Satchel says it does not read the transcript, in the security skill, in
+  // the shipped skill and in the text injected into every session. It did, for
+  // one afternoon, on the false premise that a command hook is not given the
+  // prompt. This is the assertion that keeps the claim true.
+  const {readFileSync: read} = await import('node:fs');
+  for (const script of ['session-start.mjs', 'retrieve.mjs', 'capture.mjs', 'connect.mjs', 'auth.mjs', 'workspace.mjs']) {
+    const source = read(scriptPath(script), 'utf8');
+    assert.doesNotMatch(source, /transcript_path/,
+      `${script} reads transcript_path; both halves of a turn arrive in the hook input instead`);
+  }
+});
+
+test('a capture that cannot be sent says so and does not fail the turn', async () => {
+  // The turn is not lost: the user's message is already in the window from
+  // retrieve.mjs and classified_at has not moved, so the next Stop offers it
+  // again. What must not happen is the hook failing the turn.
   const SATCHEL_HOME = home();
-  const cwd = mkdtempSync(join(tmpdir(), 'satchel-capture-fail-'));
-  const transcript = join(cwd, 'session.jsonl');
   let attempts = 0;
   const {createServer} = await import('node:http');
   const server = createServer((_req, res) => { attempts++; res.writeHead(503); res.end(); });
@@ -259,48 +257,14 @@ test('a capture that cannot be sent leaves the mark where it was', async () => {
     client_id: 'c', refresh_token: 'r', access_token: 'test-token', expires_at: Date.now() + 3600_000}));
   const env = {SATCHEL_HOME, SATCHEL_URL: `http://127.0.0.1:${server.address().port}`};
   try {
-    writeFileSync(transcript, JSON.stringify({type: 'user', uuid: 'u1', message: {content: 'keep this'}}) + '\n');
-    const input = JSON.stringify({session_id: 's', hook_event_name: 'Stop', cwd, transcript_path: transcript});
+    const input = JSON.stringify({session_id: 's', hook_event_name: 'Stop', last_assistant_message: 'Done.'});
     const failed = await run('capture.mjs', input, env);
     assert.equal(failed.code, 0, 'a failed capture must not fail the turn');
     assert.match(JSON.parse(failed.stdout).systemMessage, /could not save · 503/);
-    await run('capture.mjs', input, env);
-    assert.equal(attempts, 2, 'the turn is offered again rather than lost');
+    assert.equal(attempts, 1);
   } finally {
-    rmSync(cwd, {recursive: true, force: true});
     rmSync(SATCHEL_HOME, {recursive: true, force: true});
     await new Promise(done => server.close(done));
-  }
-});
-
-test('a missed window is retried, and an open one is never replaced', async () => {
-  // The first version recorded an attempt and never checked whether it worked,
-  // so one window the person did not reach in time meant an hour of every new
-  // session printing a command at them. That is the manual step this whole
-  // design exists to remove.
-  const {connectState, recordConnectAttempt} = await import('../integrations/shared/connect.mjs');
-  const dir = mkdtempSync(join(tmpdir(), 'satchel-state-'));
-  const previous = process.env.SATCHEL_HOME;
-  process.env.SATCHEL_HOME = dir;
-  try {
-    assert.equal(connectState(), 'offer', 'never tried, so offer');
-
-    // pid 1 is always alive: a window is open right now.
-    recordConnectAttempt(1);
-    assert.equal(connectState(), 'waiting', 'do not open a second window');
-
-    // A pid that is gone, recorded just now: it did not finish. Quiet for a
-    // few minutes, then try again, rather than for an hour.
-    recordConnectAttempt(0x7ffffffe);
-    assert.equal(connectState(), 'recent');
-    assert.equal(connectState(Date.now() + 11 * 60 * 1000), 'offer',
-      'a window that was missed is offered again, not replaced by a command forever');
-
-    writeFileSync(join(dir, 'credentials.json'), JSON.stringify({refresh_token: 'r'}));
-    assert.equal(connectState(), 'connected', 'a credential ends all of it');
-  } finally {
-    if (previous === undefined) delete process.env.SATCHEL_HOME; else process.env.SATCHEL_HOME = previous;
-    rmSync(dir, {recursive: true, force: true});
   }
 });
 
@@ -310,7 +274,7 @@ test('built packages stay in sync with their shared sources', () => {
   // A reference left behind breaks progressive disclosure silently, so every skill file is checked.
   const skillFiles = ['SKILL.md', 'references/memory.md', 'references/tasks.md', 'references/projects.md']
     .map(file => [`context/${file}`, `skills/context/${file}`]);
-  const scripts = ['session-start.mjs', 'capture.mjs', 'connect.mjs', 'auth.mjs', 'transcript.mjs', 'workspace.mjs']
+  const scripts = ['session-start.mjs', 'retrieve.mjs', 'capture.mjs', 'connect.mjs', 'auth.mjs', 'workspace.mjs']
     .map(file => [file, `scripts/${file}`]);
   for (const host of ['codex', 'claude'])
     for (const [source, built] of [...scripts, ...skillFiles])
@@ -342,12 +306,15 @@ test('installed packages run every hook as a local script and none through MCP',
     // both hosts instead.
     assert.equal(hooks.PostCompact, undefined, `${host}: PostCompact cannot inject and must not be configured`);
 
-    // Gone entirely. It ran retrieval on every single turn, and it was also the
-    // only thing recording what the person said. A command hook can do neither:
-    // the host does not pass it the prompt text, and the documented workaround
-    // is reading the transcript while the host is still writing it.
-    assert.equal(hooks.UserPromptSubmit, undefined,
-      `${host}: a command hook is never handed the prompt, so there is nothing for it to do here`);
+    // Retrieval, and the only thing recording what the person said. A command
+    // hook IS handed the prompt: the host builds the input as
+    // {…, hook_event_name:"UserPromptSubmit", prompt, session_title}. This was
+    // deleted once on a docs summary that said otherwise, which also took
+    // capture's user side with it and became the excuse for reading the
+    // transcript. Check the binary before removing it again.
+    const [ask] = hooks.UserPromptSubmit.flatMap(entry => entry.hooks);
+    assert.ok(ask.command.includes('retrieve.mjs'), `${host}: retrieval must run on every prompt`);
+    assert.ok(ask.timeout <= 5, 'a hook that delays the prompt is worse than one that misses');
 
     // Capture has to be triggered by something. The router, the rolling window
     // and every capture path shipped once with nothing configured to call them.

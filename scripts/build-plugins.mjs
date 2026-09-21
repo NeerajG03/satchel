@@ -12,7 +12,10 @@ const description='Personal and project memory, tasks and projects across your a
 //
 // 0.3.1 fixes the connect window: fifteen minutes rather than three, and a
 // missed one is retried instead of turning into an hour of "run this command".
-const versions={claude:'0.3.1',codex:'0.3.1'};
+//
+// 0.3.2 puts per-prompt retrieval back and stops reading the transcript. Both
+// came from one wrong belief: that a command hook is not handed the prompt.
+const versions={claude:'0.3.2',codex:'0.3.2'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
@@ -21,7 +24,7 @@ for(const host of ['codex','claude']) {
   // Every hook script, plus the two modules they share. They are copied rather
   // than bundled because the plugin is read by people deciding whether to trust
   // it, and one readable file per job is the point.
-  for(const script of ['session-start.mjs','capture.mjs','connect.mjs','auth.mjs','transcript.mjs','workspace.mjs'])
+  for(const script of ['session-start.mjs','retrieve.mjs','capture.mjs','connect.mjs','auth.mjs','workspace.mjs'])
     await cp(join(root,'integrations/shared',script),join(target,'scripts',script));
   const common={name,version:versions[host],description,author:{name:'Satchel'},repository:'https://github.com/NeerajG03/satchel'};
   const manifest=host==='codex'?{...common,skills:'./skills/',mcpServers:'./.mcp.json',interface:{
@@ -75,12 +78,19 @@ for(const host of ['codex','claude']) {
     // turn, so the person is reading the answer rather than waiting on a
     // prompt, which is the one place in the session that can afford it.
     Stop:[script('capture.mjs',25)],
-    // UserPromptSubmit is gone. It ran retrieval on every single turn and it
-    // was also, quietly, the only thing recording what the person said. As a
-    // command hook it cannot do either: the host does not pass a command hook
-    // the prompt text, and the only documented way to reach it is to read the
-    // transcript while the host is still writing it. Session start carries the
-    // memory now, and retrieve_memory is there when the agent wants more.
+    // Retrieval, and the only thing that records what the person said. Those
+    // two jobs are in one hook because the second is free once the first has
+    // the prompt, and separating them once meant deleting retrieval silently
+    // took capture with it.
+    //
+    // A command hook IS handed the prompt: the host builds the input as
+    // {…, hook_event_name:"UserPromptSubmit", prompt, session_title}. A docs
+    // summary said otherwise, this was deleted on the strength of it, and the
+    // binary settled it. Do not remove it again without checking that first.
+    //
+    // 5 seconds on purpose. A hook that delays the prompt is worse than a hook
+    // that misses one.
+    UserPromptSubmit:[script('retrieve.mjs',5)],
   }},null,2)+'\n');
   // The skill ships SKILL.md plus its progressively disclosed references, so copy the tree.
   await rm(join(target,'skills'),{recursive:true,force:true});

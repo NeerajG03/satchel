@@ -217,13 +217,9 @@ export function memoryService(db, embedder = null, router = null) {
     // never written. The defaults below must match the column defaults, or
     // behaviour changes depending on whether a settings row exists.
     async settings() {
-      // per_prompt_matches is not selected. Per-prompt retrieval was removed in
-      // 0.3.0: a command hook on UserPromptSubmit is not handed the prompt
-      // text. The column is left in the table rather than dropped, because
-      // dropping it is destructive and buys nothing.
       const rows=await result(db.from('memory_settings')
-        .select('gate,scope_boost,session_budget_tokens,capture,capture_window').limit(1));
-      return rows?.[0]??{gate:0.67,scope_boost:1.1,
+        .select('per_prompt_matches,gate,scope_boost,session_budget_tokens,capture,capture_window').limit(1));
+      return rows?.[0]??{per_prompt_matches:5,gate:0.67,scope_boost:1.1,
         session_budget_tokens:15000,capture:true,capture_window:5};
     },
     // The log is what turns "why did it not know that" into a query, and it is

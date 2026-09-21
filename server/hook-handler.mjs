@@ -17,8 +17,9 @@
 // is what integrations/shared/auth.mjs is. So the hooks became scripts, and
 // these are the endpoints they call.
 //
-//   POST /api/hook-index     session start, clear, compact, resume
-//   POST /api/hook-capture   end of a turn
+//   POST /api/hook-index      session start, clear, compact, resume
+//   POST /api/hook-retrieve   every prompt
+//   POST /api/hook-capture    end of a turn
 //
 // Split into two functions rather than one with a `kind` because they have very
 // different weights. The index needs jose and supabase-js. Capture needs the
@@ -28,13 +29,12 @@ import {createClient} from '@supabase/supabase-js';
 import {SUPABASE_URL} from './identity.mjs';
 import {verifyAgentToken, CHALLENGE} from './agent-token.mjs';
 import {memoryService} from './memory-service.mjs';
-import {sessionStart, capture} from './lifecycle.mjs';
+import {sessionStart, retrieve, capture} from './lifecycle.mjs';
 
 const MAX_BYTES = 256 * 1024;
 const sessionPattern = /^[A-Za-z0-9_-]{1,200}$/;
 const repositoryPattern = /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/;
 const EVENTS = new Set(['SessionStart', 'PostCompact']);
-const ROLES = new Set(['user', 'assistant']);
 
 /** Vercel hands over parsed JSON, so Content-Length is not a sufficient size
  *  control on its own: the parsed object is re-measured here. Same reasoning as
@@ -116,28 +116,44 @@ export async function handleHookIndex(req, res) {
   send(res, {context: result.context, notice: result.notice, active_project: result.active_project});
 }
 
-/** The end of a turn. `messages` is what the script read out of the host's
- *  transcript since it last ran: the person's typed messages and the
- *  assistant's plain text. Nothing is injected back; the reply is the one line
- *  the person sees when something was actually saved. */
-export async function handleHookCapture(req, res, {embedder = null, router = null, traced} = {}) {
-  const connection = await connect(req, res, {embedder, router});
+/** Every prompt. The prompt is the search query and nothing else: no
+ *  transcript, no assistant text, and the only thing written is the user's own
+ *  message into the 24 hour rolling window. */
+export async function handleHookRetrieve(req, res, {embedder = null, traced, retrieval} = {}) {
+  const connection = await connect(req, res, {embedder});
   if (!connection) return;
   let input;
-  try { input = parseHookBody(req.body, new Set(['session_key', 'repository', 'messages'])); }
+  try { input = parseHookBody(req.body, new Set(['session_key', 'prompt', 'repository', 'exclude'])); }
   catch { res.writeHead(400); return res.end(); }
   let sessionKey;
   try { sessionKey = readSession(input.session_key); }
   catch { res.writeHead(400); return res.end(); }
-  // Shaped here rather than trusted. The script is ours, but this endpoint is
-  // on the open internet behind a bearer token, and "the client validates it"
-  // is not a validation.
-  const messages = (Array.isArray(input.messages) ? input.messages : [])
-    .filter(m => m && ROLES.has(m.role) && typeof m.content === 'string' && m.content.trim())
-    .slice(-40)
-    .map(m => ({role: m.role, content: m.content.slice(0, 8000)}));
+  const prompt = typeof input.prompt === 'string' ? input.prompt.trim().slice(0, 4000) : '';
+  // An empty prompt is not an error, it is a turn with nothing to search for.
+  if (!prompt) return send(res, {context: '', notice: ''});
+  const exclude = (Array.isArray(input.exclude) ? input.exclude : [])
+    .filter(id => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)).slice(0, 50);
+  const result = await retrieve(connection.service, {
+    sessionKey, prompt, repository: readRepository(input.repository), exclude,
+    ownerId: connection.ownerId, ...(traced ? {traced} : {}), ...(retrieval ? {retrieval} : {})});
+  send(res, {context: result.context, notice: result.notice});
+}
+
+/** The end of a turn. `assistant` is the host's own last_assistant_message.
+ *  Nothing is injected back; the reply is the one line the person sees when
+ *  something was actually saved. */
+export async function handleHookCapture(req, res, {embedder = null, router = null, traced} = {}) {
+  const connection = await connect(req, res, {embedder, router});
+  if (!connection) return;
+  let input;
+  try { input = parseHookBody(req.body, new Set(['session_key', 'repository', 'assistant'])); }
+  catch { res.writeHead(400); return res.end(); }
+  let sessionKey;
+  try { sessionKey = readSession(input.session_key); }
+  catch { res.writeHead(400); return res.end(); }
+  const assistant = typeof input.assistant === 'string' ? input.assistant.slice(0, 8000) : '';
   const result = await capture(connection.service, {
-    sessionKey, repository: readRepository(input.repository), messages,
+    sessionKey, repository: readRepository(input.repository), assistant,
     ownerId: connection.ownerId, ...(traced ? {traced} : {})});
   send(res, {captured: result.captured, notice: result.notice});
 }
