@@ -47,6 +47,7 @@ const scopeStubs = {
   activateRepositoryHint: async () => null,
   capturedThisSession: async () => [],
   markSessionClassified: async () => 1,
+  repositoryCandidates: async () => [],
 };
 
 test('the fake embedder still has the shape the service calls', () => {
@@ -353,6 +354,41 @@ test('retrieval speaks only when it found something', async () => {
     const quiet = await ask();
     assert.equal(hookOf(quiet).systemMessage, undefined,
       'finding nothing is the common case; a line on every prompt is noise people learn to ignore');
+  } finally { await close(); }
+});
+
+test('an ambiguous repository names the choice rather than picking one', async () => {
+  // A codebase can belong to several projects, so the repository stops being an
+  // identifier. Picking one would put a memory in a real project that is the
+  // wrong project, which is worse than personal: personal is at least visibly
+  // unscoped and loads everywhere.
+  const {client, close} = await connect({
+    ...scopeStubs,
+    status: async () => ({label: 'Test', personal: true, can_write: true, project_ids: []}),
+    settings: async () => baseSettings,
+    recordSessionMessage: async () => {},
+    activeProject: async () => null,
+    // Staged, but activation declined to resolve it, which is the only way
+    // those two answers happen together.
+    repositoryHintExists: async () => true,
+    activateRepositoryHint: async () => null,
+    repositoryCandidates: async () => [
+      {project_id: 'p1', slug: 'email-self-serve', name: 'Email self serve', brief: ''},
+      {project_id: 'p2', slug: 'data-model-2-0', name: 'Data model 2.0', brief: ''},
+    ],
+    projects: async () => [],
+    personal: async () => [],
+  });
+  try {
+    const hook = hookOf(await client.callTool({name: 'load_memory_context',
+      arguments: {session_key: 's', event: 'SessionStart'}}));
+    const context = hook.hookSpecificOutput.additionalContext;
+    assert.match(context, /belongs to 2 projects/);
+    // By id, because that is what select_project takes. A slug it would have to
+    // look up is a second place to go wrong.
+    assert.match(context, /email-self-serve \(p1\)/);
+    assert.match(context, /data-model-2-0 \(p2\)/);
+    assert.doesNotMatch(context, /active project:/, 'nothing is scoped until it is chosen');
   } finally { await close(); }
 });
 

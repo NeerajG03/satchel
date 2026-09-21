@@ -77,6 +77,7 @@ const errorText=error=>error?.reason
   'PT400':'Provide exactly one of project_id (null for personal scope) or repository.',
   'PT404':'That repository is not linked to a project in this connection\'s grant. Report that project memory was not loaded; do not guess a project.',
   'PT409':'Revision or request conflict. Read the current record; do not overwrite blindly.',
+  'PT300':'That repository belongs to more than one project, so it does not name one. Call list_projects and select_project with an explicit project_id.',
   '23505':'This name is already used in the selected scope.',
   '23514':'The supplied fields or relationships violate the Satchel contract.',
 }[error?.code] ?? 'Satchel request failed. Reload before retrying a write: it may have completed.');
@@ -111,15 +112,36 @@ export function createMemoryServer(service, {ownerId} = {}) {
     return {staged:false};
   }
   /** The scope this conversation is in, activating a pending repository hint
-   *  first. Deterministic: the workspace's git remote resolves to a project
-   *  through project_repositories and no model is asked to guess it. */
+   *  first. Deterministic whenever it can be: the workspace's git remote
+   *  resolves to a project through project_repositories and no model is asked
+   *  to guess it.
+   *
+   *  A repository may name more than one project, because a project is a
+   *  collection of context and a monorepo holds several of them. When it does,
+   *  the hint stays staged and this returns the candidates instead of a scope.
+   *  Picking one arbitrarily would put a memory in a real project that is the
+   *  wrong project, which is worse than personal: personal is at least visible
+   *  everywhere and obviously unscoped. */
   async function scopeFor(sessionKey,event,selected) {
-    if(selected!==undefined)return selected;
+    if(selected!==undefined)return {project:selected,candidates:[]};
     const active=await service.activeProject(sessionKey);
-    if(active)return active;
+    if(active)return {project:active,candidates:[]};
     const hint=await consumeLifecycleHint(sessionKey,event);
-    return hint.staged?hint.project:null;
+    if(hint.project)return {project:hint.project,candidates:[]};
+    if(!hint.staged)return {project:null,candidates:[]};
+    // Staged but unresolved is the ambiguous case. Anything else is a workspace
+    // with no linked project at all, where there is nothing to offer.
+    const candidates=await service.repositoryCandidates?.(sessionKey)??[];
+    return {project:null,candidates};
   }
+  /** What the model is told when its workspace could be either of two projects.
+   *  Named by slug, chosen by project_id, because the id is what select_project
+   *  takes and a slug it had to look up is a second place to go wrong. */
+  const chooseProjectLine=candidates=>candidates.length<2?'':
+    `\nThis workspace's repository belongs to ${candidates.length} projects: `
+    +candidates.map(c=>`${c.slug} (${c.project_id})`).join(', ')
+    +`. Nothing is scoped to a project until you call select_project with one of those project_id values.`
+    +` Do not guess, and do not treat memory as project-scoped before then.`;
   // Shared by explicit selection and the lifecycle hook so both report the same scope.
   async function scopedIndex(project,status) {
     const scopes=[...(status.personal?[null]:[]),...(project?[project]:[])];
@@ -199,7 +221,7 @@ export function createMemoryServer(service, {ownerId} = {}) {
         // router a flat list with nothing saying which one the conversation was
         // in is why a memory about this project's own deployment key was filed
         // under personal.
-        const scope=await scopeFor(sessionKey,event,selectedProject);
+        const {project:scope}=await scopeFor(sessionKey,event,selectedProject);
         const [projects,tasks,saved]=await Promise.all([
           service.projects(),service.openTasks(),
           service.capturedThisSession?.(sessionKey)??[]]);
@@ -229,7 +251,7 @@ export function createMemoryServer(service, {ownerId} = {}) {
         // router reads is built from exactly this.
         if (settings.capture) void service.recordSessionMessage(sessionKey,'user',prompt,settings.capture_window*2);
         if (!settings.per_prompt_matches) return null;
-        const project=await scopeFor(sessionKey,event,selectedProject);
+        const {project}=await scopeFor(sessionKey,event,selectedProject);
         const lookup=retrieval('retrieve-memory',{input:prompt,
           metadata:{gate:settings.gate,limit:settings.per_prompt_matches,
             inScope:project??'personal',excluded:(options.exclude??[]).length}});
@@ -248,7 +270,7 @@ export function createMemoryServer(service, {ownerId} = {}) {
           matched:rows[0].matched,in_scope:rows[0].in_scope,tokens:estimateTokens(block)};
         context=block;
       } else {
-        const project=await scopeFor(sessionKey,event,selectedProject);
+        const {project,candidates}=await scopeFor(sessionKey,event,selectedProject);
         const [projects,personal]=await Promise.all([
           // all_projects is its own scope: a blanket grant keeps no list, so
           // checking project_ids alone would load nothing for the connection
@@ -272,6 +294,7 @@ export function createMemoryServer(service, {ownerId} = {}) {
             in_scope:personal.length,tokens};
         }
         if (project) context+=`\nactive project: ${project}`;
+        else context+=chooseProjectLine(candidates);
       }
     } catch(error) {
       context='Satchel memory unavailable. '+errorText(error)+' Do not claim that memory loaded.';
@@ -306,7 +329,7 @@ export function createMemoryServer(service, {ownerId} = {}) {
       name:z.string().trim().min(1).max(100),brief:z.string().trim().max(1000).default(''),
       repository_change:projectRepositoryChange.default({kind:'unchanged'})},
     a=>service.upsertProject(a),writeAnnotations);
-  register('select_project','Select the active project for this conversation only, by project_id (null selects personal scope) or by the linked GitHub repository identity supplied by the Satchel bootstrap. Provide exactly one; a repository resolves only to a link whose project is already in this connection\'s grant. Returns the resulting personal plus project memory index: check complete before claiming all memories loaded. Pass event only when the Satchel bootstrap asks for it on a new conversation or after compaction. Does not grant permissions and does not change another conversation.',
+  register('select_project','Select the active project for this conversation only, by project_id (null selects personal scope) or by the linked GitHub repository identity supplied by the Satchel bootstrap. Provide exactly one; a repository resolves only to a link whose project is already in this connection\'s grant, and only while it names one project: a repository shared by several projects is refused, so pass project_id for those. Returns the resulting personal plus project memory index: check complete before claiming all memories loaded. Pass event only when the Satchel bootstrap asks for it on a new conversation or after compaction. Does not grant permissions and does not change another conversation.',
     {session_key:session,project_id:scope.optional(),repository:repositoryName.optional(),event:lifecycle.optional()},
     async (a,status)=>{
       const byRepository=a.repository!=null,byProject=a.project_id!==undefined;

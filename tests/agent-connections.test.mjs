@@ -127,8 +127,6 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       assert.equal((await call(codex,'select agent_active_project($1) id',['repository-session']))[0].id,a);
       await assert.rejects(call(claude,'select select_agent_repository($1,$2,$3)',
         ['repository-session','github','neerajg03/satchel']),{code:'P0002'});
-      await assert.rejects(call(user,'select link_project_repository($1,$2,$3)',
-        [b,'github','neerajg03/satchel']),{code:'PT409'});
       await assert.rejects(call(codex,'select link_project_repository($1,$2,$3)',
         [a,'github','other/repository']),{code:'42501'});
     });
@@ -161,6 +159,58 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
         await assert.rejects(db.query('select * from agent_repository_hints'),{code:'42501'});
         await db.exec('rollback');
       }catch(e){await db.exec('rollback');throw e;}
+    });
+    // Deliberately after the hint tests above, which assume this repository
+    // names exactly one project. A project is a collection of context, so a
+    // monorepo holds several and a codebase can belong to more than one. That
+    // used to raise PT409.
+    await t.test('a repository may name several projects, and ambiguity is per connection',async()=>{
+      await call(user,'select link_project_repository($1,$2,$3)',[b,'github','neerajg03/satchel']);
+      assert.equal((await call(user,
+        'select count(*)::int n from project_repositories where repository=$1',
+        ['neerajg03/satchel']))[0].n,2,'a second project is a second row, not a refusal');
+
+      // The companion sees both links, so the repository stops being an
+      // identifier and is refused. `select ... into` would have taken whichever
+      // row came back first, which makes the scope depend on the planner.
+      await assert.rejects(call(user,'select select_agent_repository($1,$2,$3)',
+        ['ambiguous-session','github','neerajg03/satchel']),{code:'PT300'});
+
+      // Each grant still sees exactly one, because RLS exposes only the links
+      // whose project it may already read. Ambiguity belongs to the connection,
+      // not to the repository.
+      assert.equal((await call(codex,'select select_agent_repository($1,$2,$3) id',
+        ['codex-session','github','neerajg03/satchel']))[0].id,a);
+      assert.equal((await call(claude,'select select_agent_repository($1,$2,$3) id',
+        ['claude-session','github','neerajg03/satchel']))[0].id,b);
+
+      // A connection that can read both is the case the hook has to handle. It
+      // must not pick: a memory in a real project that is the wrong project is
+      // worse than personal, which is at least visibly unscoped.
+      const cc='both-fixture';
+      await authorize(cc,false,[a,b],false);
+      const both=await claims(cc);
+      const session='40000000-0000-4000-8000-000000000003';
+      await db.exec('begin; set local role anon;');
+      try {
+        await db.query("select set_config('request.jwt.claims','{}',true)");
+        await db.query('select stage_agent_repository_hint($1,$2,$3)',[session,'github','neerajg03/satchel']);
+        await db.exec('commit');
+      }catch(e){await db.exec('rollback');throw e;}
+
+      assert.equal((await call(both,'select activate_agent_repository_hint($1) id',[session]))[0].id,null,
+        'two candidates is not a scope');
+      assert.equal((await call(both,'select agent_active_project($1) id',[session]))[0].id,null,
+        'and nothing is selected on the way out');
+      // The hint survives, which is the whole reason activation reads before it
+      // deletes: a consumed hint cannot be read back, and the candidates are
+      // still the useful thing to offer.
+      assert.equal((await call(both,'select agent_repository_hint_exists($1) ready',[session]))[0].ready,true);
+      assert.deepEqual((await call(both,'select project_id from agent_repository_candidates($1)',[session]))
+        .map(r=>r.project_id).sort(),[a,b].sort());
+      // And it stays inside the grant: codex may read one of the two.
+      assert.deepEqual((await call(codex,'select project_id from agent_repository_candidates($1)',[session]))
+        .map(r=>r.project_id),[a]);
     });
     await t.test('revoke blocks an unexpired token immediately and re-consent cannot revive it',async()=>{
       await call(user,'select revoke_agent($1)',[ca]);

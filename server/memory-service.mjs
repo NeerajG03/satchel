@@ -68,6 +68,11 @@ export function memoryService(db, embedder = null, router = null) {
     activeProject: session => result(db.rpc('agent_active_project',{p_session_key:session})),
     repositoryHintExists: session => result(db.rpc('agent_repository_hint_exists',{p_session_key:session})),
     activateRepositoryHint: session => result(db.rpc('activate_agent_repository_hint',{p_session_key:session})),
+    // Read only when activation declined to pick, which is when the workspace's
+    // repository names more than one project this connection may read. The hint
+    // is deliberately left staged in that case so this can still see it.
+    repositoryCandidates: session =>
+      result(db.rpc('agent_repository_candidates',{p_session_key:session})),
     async selectProject(session,projectId) {
       await result(db.rpc('select_agent_project',{p_session_key:session,p_project_id:projectId}));
       return {project_id:projectId};
