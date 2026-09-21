@@ -241,3 +241,35 @@ test('JSON wrapped in a fence or a sentence is recovered, and its contents still
   const out=await wrapped('```json\n'+bad+'\n```').route({projects:[],tasks:[],context:[],turn:['i use tabs in go']});
   assert.equal(out.memories.length,0,'leniency about the wrapper is not leniency about the contents');
 });
+
+test('the router says what it was looking at, on the trace around it',async()=>{
+  // These facts used to be passed as telemetry.metadata on the model call. The
+  // AI SDK reads per-call metadata off runtimeContext now and generateObject
+  // does not take one, so they arrived nowhere: every trace was missing the
+  // wording and the scope, and it looked like it worked.
+  const seen=[];
+  const router=createRouter({apiKey:'k',fetchImpl:reply([]),
+    annotate:attributes=>seen.push(attributes),
+    promptResolver:async()=>({text:'rules',source:'langfuse',version:7})});
+  await router.route({codebase:'neerajg03/satchel',project:{slug:'satchel'},
+    projects,tasks,context:[{role:'user',content:'earlier'}],turn:['a thing'],saved:[]});
+  assert.equal(seen.length,1);
+  const {metadata}=seen[0];
+  // Without the version a trace from before a prompt change and one from after
+  // are indistinguishable, which is what makes capture unmeasurable after the
+  // fact.
+  assert.equal(metadata.promptName,'satchel-capture-router');
+  assert.equal(metadata.promptVersion,7);
+  assert.equal(metadata.promptSource,'langfuse');
+  // The scope it was handed: the first thing to look at when something files
+  // itself in the wrong place.
+  assert.equal(metadata.workingOn,'satchel');
+  assert.equal(metadata.codebase,'neerajg03/satchel');
+  assert.equal(metadata.contextMessages,1);
+  assert.equal(metadata.turnMessages,1);
+});
+
+test('a router built without tracing still runs',async()=>{
+  const router=createRouter({apiKey:'k',fetchImpl:reply([])});
+  assert.deepEqual((await router.route({turn:['a thing']})).memories,[]);
+});

@@ -191,6 +191,10 @@ export function createRouter({
   // wording against another through this exact code path, rather than
   // measuring a copy of the prompt that has drifted from the one shipped.
   promptResolver = capturePrompt,
+  // How the router says what it was looking at. Injected rather than imported
+  // for the same reason `traced` is: tracing.mjs pulls in the OpenTelemetry
+  // node SDK, and the eval and the tests run this file without any of it.
+  annotate = () => {},
   fetchImpl = fetch,
 } = {}) {
   return {
@@ -222,6 +226,25 @@ export function createRouter({
 
       async function ask() {
       const signal = lastSignal = AbortSignal.timeout(timeoutMs);
+      // What the router was looking at, on the trace that already groups this
+      // capture. A capture is only explicable if you can see the scope it was
+      // handed and the wording it was given: without the version, a trace from
+      // before a prompt change and one from after are indistinguishable, which
+      // makes the whole exercise unmeasurable after the fact.
+      annotate({metadata: {
+        codebase: input.codebase ?? 'none',
+        promptName: CAPTURE_PROMPT,
+        promptSource: instructions.source,
+        promptVersion: instructions.version ?? 'file',
+        // The scope the router was handed, which is the thing to look at first
+        // when something files itself in the wrong place.
+        workingOn: input.project?.slug ?? 'personal',
+        projects: input.projects?.length ?? 0,
+        openTasks: input.tasks?.length ?? 0,
+        alreadySaved: input.saved?.length ?? 0,
+        contextMessages: input.context?.length ?? 0,
+        turnMessages: input.turn?.length ?? 0,
+      }});
       let result;
       try {
         result = await generateObject({
@@ -236,26 +259,14 @@ export function createRouter({
           // backoff would hold the turn open to learn what the 429 body
           // already said.
           maxRetries: 0,
-          // The whole prompt is the input on purpose. A capture is only
-          // explicable if you can see what the router was looking at,
-          // including which projects and open tasks it had to choose from.
-          telemetry: {functionId: 'router', metadata: {
-            codebase: input.codebase ?? 'none',
-            // Which wording produced this capture. Without it a trace from
-            // before a prompt change and one from after are indistinguishable,
-            // which makes the whole exercise unmeasurable after the fact.
-            promptName: CAPTURE_PROMPT,
-            promptSource: instructions.source,
-            promptVersion: instructions.version ?? 'file',
-            // The scope the router was handed, which is the thing to look at
-            // first when something files itself in the wrong place.
-            workingOn: input.project?.slug ?? 'personal',
-            projects: input.projects?.length ?? 0,
-            openTasks: input.tasks?.length ?? 0,
-            alreadySaved: input.saved?.length ?? 0,
-            contextMessages: input.context?.length ?? 0,
-            turnMessages: input.turn?.length ?? 0,
-          }},
+          // functionId is all the SDK carries for us. It named a `metadata`
+          // bag too, and everything below used to live in it, but v7 reads
+          // per-call metadata off `runtimeContext` and generateObject does not
+          // take one, so the bag arrived nowhere and no attribute was ever
+          // written. It looked like it worked, which is the worst version of
+          // not working. The same facts go on the surrounding trace instead,
+          // just above.
+          telemetry: {functionId: 'router'},
         });
       } catch (error) {
         // One recovery, and only this one. A host that ignores the schema

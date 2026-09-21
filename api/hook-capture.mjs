@@ -4,12 +4,12 @@
 import {handleHookCapture} from '../server/hook-handler.mjs';
 import {createRouter} from '../server/router.mjs';
 import {createEmbedder} from '../server/embedding.mjs';
-import {traced, flush} from '../server/tracing.mjs';
+import {traced, annotate, flush} from '../server/tracing.mjs';
 
 // Built once per process, and never fatal. Without a router key capture simply
 // does not happen, which is the behaviour Satchel had before it existed.
 let router = null;
-try { router = process.env.SATCHEL_ROUTER_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY ? createRouter() : null; }
+try { router = process.env.SATCHEL_ROUTER_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY ? createRouter({annotate}) : null; }
 catch { router = null; }
 // A captured memory is embedded on the way in, so it can be retrieved later.
 let embedder = null;
