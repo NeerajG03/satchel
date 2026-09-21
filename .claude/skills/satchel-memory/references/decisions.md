@@ -138,6 +138,27 @@ after                      22/24 extracted (92%), 16/16 quiet, about 1.6s
 
 The whole 21 point gain came from the prompt: worked examples, an explicit list of what not to keep, and the rule that splitting only happens when the parts already stand alone.
 
+### Naming the scope instead of asking the model to infer it
+
+The router used to get a flat list of every project and nothing saying which one the conversation was in, so it inferred the scope from the words. A memory about Satchel's own deployment key said "vercel" and not "satchel", so it landed in personal.
+
+The workspace's git remote already resolves to a project through `project_repositories`, so the prompt names it. That was measured as an A/B on the same sample through the same code, with `ROUTER_EVAL_NO_SCOPE=1` withholding the scope and handing over the flat list the way the router used to get it:
+
+```
+                       scope withheld     scope named
+extracted a memory     32/40   80%        32/40   80%
+statement overlap      0.27               0.28
+scope, in a project    10/14   71%        14/14  100%
+scope, universal       17/18   94%        17/18   94%
+stayed quiet           16/16  100%        16/16  100%
+```
+
+One row moves and nothing else does. All four discordant items went the improving way, so a one-sided sign test puts it at about p = 0.06: suggestive at fourteen samples, not conclusive, and the mechanism is not in doubt because the model had no way to know the project. Raise `SCOPED` in `eval/router.mjs` if the number needs to be solid.
+
+The other two rows are the ones that could have gone wrong and did not. **Universal preferences did not get swallowed** into whichever project was open, which is the regression defaulting to a project invites: 17/18 both times, and the same single item in both runs. It files "the passport renewal has to be done before March 2028" into `schengen-visa`, which the corpus labels personal and which is arguably the label being wrong rather than the model. **And naming an open project did not make the router start finding things in it**: 16/16 quiet both ways.
+
+The eval scored the project slug only on memories that have one, which is the direction this change cannot get wrong. Personal memories are 19% of the corpus, so a proportional sample gave four or five out of 24, which cannot measure a threshold. They are sampled deliberately now and counted separately, replayed from inside a rotating project so no one project's brief can explain the result.
+
 Everything the model returns is validated before it reaches the database. An item is dropped if its statement is missing or over 500 characters, if it has no source, or if its source is not in the turn being classified. A project slug not in the supplied list becomes personal, which is the safer mistake. A task drags its own project.
 
 ## pgvector, verified against the live database

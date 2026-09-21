@@ -92,16 +92,25 @@ for (const model of MODELS) {
   const result = {extracted: 0, faithful: [], scopedRight: 0, scopedTotal: 0,
     personalRight: 0, personalTotal: 0, leaked: [],
     quiet: 0, noisy: 0, failed: 0, items: [], latency: [], errors: []};
-  console.log(`\n${model}`);
+  console.log(`\n${model}${process.env.ROUTER_EVAL_NO_SCOPE === '1' ? '  (scope withheld: the shape before this change)' : ''}`);
 
   // The same shape the Stop handler builds: one project named as the scope, the
   // rest offered only for when the user names one.
-  const asked = working => ({
-    codebase: working ? `acme/${working.slug}` : null,
-    project: working,
-    projects: projects.filter(p => p.slug !== working?.slug),
-    tasks: openTasks, context: [], saved: [],
-  });
+  //
+  // ROUTER_EVAL_NO_SCOPE=1 withholds the scope and hands over a flat list of
+  // every project instead, which is what the router was given before. It is the
+  // counterfactual for the change, on the same sample and through the same
+  // code: extraction and quiet numbers cannot be compared against an older run
+  // on a different corpus, but they can be compared against this.
+  const blind = process.env.ROUTER_EVAL_NO_SCOPE === '1';
+  const asked = working => blind
+    ? {codebase: null, project: null, projects, tasks: openTasks, context: [], saved: []}
+    : {
+      codebase: working ? `acme/${working.slug}` : null,
+      project: working,
+      projects: projects.filter(p => p.slug !== working?.slug),
+      tasks: openTasks, context: [], saved: [],
+    };
 
   for (const {memory, working, want} of positives) {
     const turn = [memory.source];
