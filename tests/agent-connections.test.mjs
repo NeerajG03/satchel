@@ -212,6 +212,46 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       assert.deepEqual((await call(codex,'select project_id from agent_repository_candidates($1)',[session]))
         .map(r=>r.project_id),[a]);
     });
+    await t.test('the hook resolves its own scope, with no row staged in between',async()=>{
+      // What replaced the hint table. The bootstrap could not authenticate, so
+      // it POSTed the repository to an anonymous endpoint, which staged a row,
+      // which the authenticated hook later consumed after polling for it. The
+      // hook scripts hold their own credential now, so the caller that knows
+      // the repository is the caller that resolves it.
+      const session='40000000-0000-4000-8000-000000000004';
+
+      // One candidate inside the grant: selected, with nothing asked of anyone.
+      const resolved=await call(codex,
+        'select project_id, slug, selected from resolve_agent_repository($1,$2,$3)',
+        [session,'github','neerajg03/satchel']);
+      assert.equal(resolved.length,1);
+      assert.equal(resolved[0].project_id,a);
+      assert.equal(resolved[0].selected,true);
+      assert.equal((await call(codex,'select agent_active_project($1) id',[session]))[0].id,a,
+        'and the conversation is actually in that scope afterwards');
+
+      // Two candidates: every one is offered and none is chosen. Picking would
+      // file a memory in a real project that is the wrong project.
+      const ambiguous='40000000-0000-4000-8000-000000000005';
+      const both=await claims('both-fixture');
+      const candidates=await call(both,
+        'select project_id, selected from resolve_agent_repository($1,$2,$3)',
+        [ambiguous,'github','neerajg03/satchel']);
+      assert.equal(candidates.length,2);
+      assert.deepEqual(candidates.map(r=>r.project_id).sort(),[a,b].sort());
+      assert.ok(candidates.every(r=>r.selected===false),'two candidates is not a scope');
+      assert.equal((await call(both,'select agent_active_project($1) id',[ambiguous]))[0].id,null,
+        'and nothing is selected on the way out');
+
+      // A repository this connection has no link to is simply no scope, not an
+      // error: an unlinked workspace is ordinary and stays personal.
+      assert.deepEqual(await call(codex,'select project_id from resolve_agent_repository($1,$2,$3)',
+        ['40000000-0000-4000-8000-000000000006','github','someone/unlinked']),[]);
+
+      // Normalized on the way in, the same as every other repository path.
+      assert.equal((await call(codex,'select project_id from resolve_agent_repository($1,$2,$3)',
+        ['40000000-0000-4000-8000-000000000007','GitHub','NeerajG03/Satchel']))[0].project_id,a);
+    });
     await t.test('revoke blocks an unexpired token immediately and re-consent cannot revive it',async()=>{
       await call(user,'select revoke_agent($1)',[ca]);
       assert.deepEqual(await call(codex,'select * from memories'),[]);

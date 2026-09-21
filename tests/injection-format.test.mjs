@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {sessionStartBlock, promptBlock, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
+import {sessionStartBlock, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
 
 const memory = (id, statement, band = 'said', task_id = null) => ({id, statement, band, task_id});
 
@@ -31,7 +31,6 @@ test('a band header only appears when that band has rows', () => {
 
 test('nothing to say produces nothing, not an empty wrapper', () => {
   assert.equal(sessionStartBlock({}), '');
-  assert.equal(promptBlock({rows: []}), '');
 });
 
 test('session start never mentions a task, because nothing task-scoped loads there', () => {
@@ -43,31 +42,11 @@ test('session start never mentions a task, because nothing task-scoped loads the
   assert.ok(!block.includes('['), 'no task annotation at all');
 });
 
-test('the per-prompt block reports shown, matched and in scope', () => {
-  const block = promptBlock({
-    rows: [memory('0c28d100-0000-4000-8000-000000000001', 'No personas in v1.')],
-    matched: 5, inScope: 130,
-  });
-  assert.match(block, /^◪ retrieved · 1 shown · 5 matched · 130 in scope$/m);
-  assert.match(block, /^ {2}0c28d1 {2}No personas in v1\.$/m);
-});
-
-test('a closed task is flagged as doubt, an open one is left alone', () => {
-  const taskId = 'ffffffff-0000-4000-8000-000000000001';
-  const rows = [memory('4d1b7700-0000-4000-8000-000000000002', 'Corner leak on .paper.', 'said', taskId)];
-  const closed = promptBlock({rows, matched: 1, inScope: 9,
-    tasks: new Map([[taskId, {slug: 'fix-consent-layout', status: 'done', closed_at: '2026-09-20T00:00:00Z'}]])});
-  assert.match(closed, /\[fix-consent-layout · closed 2026-09-20, may be fixed\]/);
-  const open = promptBlock({rows, matched: 1, inScope: 9,
-    tasks: new Map([[taskId, {slug: 'fix-consent-layout', status: 'in_progress', closed_at: null}]])});
-  assert.ok(!open.includes('closed'), 'an open task adds nothing');
-});
-
 test('statements are flattened and clipped so one long row cannot reshape the block', () => {
-  const block = promptBlock({rows: [memory('a4000000-0000-4000-8000-000000000004', 'a\n\nb   c')], matched: 1, inScope: 1});
+  const block = sessionStartBlock({personal: [memory('a4000000-0000-4000-8000-000000000004', 'a\n\nb   c')]});
   assert.match(block, /a b c/);
-  const long = promptBlock({rows: [memory('a5000000-0000-4000-8000-000000000005', 'x'.repeat(400))], matched: 1, inScope: 1});
-  assert.ok(long.split('\n')[1].length < 320, 'a long statement is clipped');
+  const long = sessionStartBlock({personal: [memory('a5000000-0000-4000-8000-000000000005', 'x'.repeat(400))]});
+  assert.ok(long.split('\n').find(line => line.includes('x')).length < 320, 'a long statement is clipped');
   assert.match(long, /…/);
 });
 
@@ -90,11 +69,9 @@ test('the notice is plain, singular where it should be, and quiet by default', (
 
   // A failure always speaks, on every event, because that is the case that was
   // invisible before this existed.
-  for (const event of ['SessionStart', 'UserPromptSubmit', 'Stop'])
+  for (const event of ['SessionStart', 'PostCompact', 'Stop'])
     assert.match(noticeFor(event, {error: 'Connection revoked'}), /^Satchel memory unavailable · Connection revoked$/);
 
-  assert.equal(noticeFor('UserPromptSubmit', {shown: 2, matched: 9}), 'Satchel recalled 2 of 9 matching');
-  assert.equal(noticeFor('UserPromptSubmit', {shown: 0, matched: 0}), '', 'nothing relevant stays quiet');
   assert.equal(noticeFor('Stop', {captured: 1}), 'Satchel noted 1 thing you said · unconfirmed');
   assert.equal(noticeFor('Stop', {captured: 0}), '', 'most turns capture nothing');
 

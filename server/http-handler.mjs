@@ -1,4 +1,3 @@
-import {createRemoteJWKSet,jwtVerify} from 'jose';
 import {createClient} from '@supabase/supabase-js';
 import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {createMemoryServer} from './mcp-server.mjs';
@@ -10,20 +9,17 @@ import {taskService} from './task-service.mjs';
 // Imported, not re-exported straight through: `export ... from` creates no
 // local binding, so verifyAgentToken below lost RESOURCE and threw a
 // ReferenceError on every token check. tests/mcp.test.mjs caught it.
-import {RESOURCE,SUPABASE_URL,ISSUER,metadata} from './identity.mjs';
+import {RESOURCE,SUPABASE_URL,metadata} from './identity.mjs';
+// Token verification moved out for the same reason the constants did: the hook
+// endpoints check a token and must not load the model stack to do it.
+import {verifyAgentToken,CHALLENGE} from './agent-token.mjs';
 
 // Re-exported so existing importers keep working, but the definitions live in
 // identity.mjs, which imports nothing. Anything that needs only these should
 // import them from there instead: reaching them through this file drags in the
 // MCP server, the Supabase client, the embedder and the router.
 export {RESOURCE,SUPABASE_URL,metadata};
-const issuer=ISSUER;
-const keys=createRemoteJWKSet(new URL(issuer+'/.well-known/jwks.json'));
-export async function verifyAgentToken(token,verificationKeys=keys) {
-  const {payload}=await jwtVerify(token,verificationKeys,{issuer,audience:RESOURCE,algorithms:['ES256','RS256'],requiredClaims:['exp','sub','client_id','satchel_grant_id']});
-  if (typeof payload.client_id!=='string'||typeof payload.satchel_grant_id!=='string') throw Error('Missing grant');
-  return payload;
-}
+export {verifyAgentToken};
 // Built once per process rather than per request. A missing or misconfigured
 // embedder is not fatal: saves still work and retrieval reports itself
 // unavailable, which is the same degradation as the service being down.
@@ -46,7 +42,7 @@ export async function handleMcp(req,res) {
   const token=req.headers.authorization?.match(/^Bearer (\S+)$/i)?.[1];
   let claims;
   try {if(!token)throw Error('Missing token');claims=await verifyAgentToken(token);}
-  catch {res.writeHead(401,{'WWW-Authenticate':`Bearer resource_metadata="https://satchel-pi.vercel.app/.well-known/oauth-protected-resource", scope="openid"`});return res.end('Authentication required');}
+  catch {res.writeHead(401,{'WWW-Authenticate':CHALLENGE});return res.end('Authentication required');}
   const key=process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if(!key){res.writeHead(503);return res.end('Server configuration unavailable');}
   const db=createClient(SUPABASE_URL,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{headers:{Authorization:`Bearer ${token}`}}});

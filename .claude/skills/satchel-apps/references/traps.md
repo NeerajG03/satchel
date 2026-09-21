@@ -41,3 +41,15 @@ Silent in both directions. Nothing logs a hook the host skipped, and the model h
 **A green test that never saw a denial proves nothing.** `tests/security-audit.test.mjs` and `tests/agent-connections.test.mjs` exist to assert the no. Adding a positive-path test for a new capability is not coverage of it.
 
 **Revocation cannot recall what was already read.** Both screens say so plainly. Do not write copy that implies otherwise, and do not build a feature that promises it.
+
+**An `mcp_tool` hook cannot run at launch, ever.** It needs the session's MCP servers to be available to hooks, and `SessionStart` fires before that; the host skips it and logs "no MCP client context". `--continue` and `--resume` are launch too. This is not a timeout to tune or a matcher to widen. It is why every hook is a command script as of 0.3.0, and why anyone reintroducing an `mcp_tool` hook on a lifecycle event is reintroducing a hook that never runs on the events that matter.
+
+**A command hook on `UserPromptSubmit` is not given the prompt.** The only documented way to reach it is `transcript_path`, which the host writes asynchronously and which may not contain the current turn when the hook fires. Retrieval was removed rather than built on that. Do not add it back as a script.
+
+**The hook credential is not the agent's credential.** They are separate OAuth clients on purpose. Reading the host's token out of the keychain looks like a shortcut and is not: refreshing it rotates the token the host is still using, so Satchel would break the agent's own MCP connection. Two clients, two grants, two Revoke buttons.
+
+**Refresh takes a lock.** Supabase rotates refresh tokens, so two hooks refreshing at once leave one holding a spent one. `withLock` in `auth.mjs` uses `mkdir` with a 20s stale timeout, and it has to hold the lock across the whole `await`, not just until the promise is returned.
+
+**The transcript filter is a boundary, not a parser.** `integrations/shared/transcript.mjs` decides what leaves the machine. A `type: "user"` entry is also how a tool result arrives, so both the content shape and `toolUseResult` are checked; dropping either sends file contents and command output to a server. Anything added to what it takes is a new thing being uploaded, and `tests/transcript.test.mjs` is where that is argued.
+
+**The local high-water mark is an optimization, not the boundary.** `classified_at` server side is the real one. Design so that losing `~/.satchel/sessions/` costs a resent message and never a duplicated memory, and never move the mark before a send succeeds.

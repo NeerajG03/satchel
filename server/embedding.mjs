@@ -217,11 +217,7 @@ export function createEmbedder({
   };
 }
 
-/** What gets indexed. Measured: statement plus source beats statement alone,
- *  and prefixing the project name is worse than either. See
- *  docs/memory-v2-build.md section 4.10. */
-export const indexedText = memory =>
-  memory.source?.trim() ? `${memory.statement} ${memory.source}` : memory.statement;
-
-/** Postgres accepts a vector literal as a bracketed list of numbers. */
-export const toVectorLiteral = vector => `[${vector.join(',')}]`;
+// Re-exported so existing importers keep working, but they live in vector.mjs,
+// which imports nothing. Anything that needs only these should import them from
+// there: reaching them through this file drags in the Vercel AI SDK.
+export {indexedText, toVectorLiteral} from './vector.mjs';

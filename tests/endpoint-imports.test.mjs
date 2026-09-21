@@ -76,6 +76,35 @@ test('identity.mjs imports nothing, which is the whole point of it', () => {
   assert.doesNotMatch(source, /(?:^|\n)\s*import\s/, 'identity.mjs must have no imports at all');
 });
 
+test('the session-start endpoint stays light, because a session waits on it', () => {
+  // This one runs inside a 10 second hook timeout at the moment a session
+  // opens, on every startup, clear, compact and resume. It reads an index and
+  // resolves a repository; it does not route, does not embed, and must not load
+  // anything that does.
+  //
+  // tracing.mjs is the one to watch. It imports `ai`, the OpenTelemetry node
+  // SDK and three Langfuse packages, and it used to be a plain import inside
+  // the lifecycle code. It is passed in now, which is the only reason this
+  // assertion can hold.
+  const packages = packagesReachableFrom('api/hook-index.mjs');
+  // jose is the exception, and it is the whole job: this endpoint exists to
+  // answer an authenticated caller, so verifying the token is not overhead.
+  for (const heavy of HEAVY.filter(name => name !== 'jose'))
+    assert.ok(!packages.has(heavy),
+      `api/hook-index.mjs reaches ${heavy}. A session start waits on this endpoint; `
+      + 'anything it loads is spent inside that budget on every cold start.');
+  assert.deepEqual([...packages].sort(), ['@supabase/supabase-js', 'jose']);
+});
+
+test('the capture endpoint is allowed the model stack, because it runs the router', () => {
+  // The contrast is the point. Nothing is injected from capture, so its cold
+  // start costs a line the person reads a moment later rather than a session
+  // that opens without memory.
+  const packages = packagesReachableFrom('api/hook-capture.mjs');
+  for (const needed of ['ai', '@supabase/supabase-js', 'jose'])
+    assert.ok(packages.has(needed), `api/hook-capture.mjs should reach ${needed}`);
+});
+
 test('the MCP endpoint is allowed everything, because it uses it', () => {
   // The contrast is the point: this one genuinely builds the server, verifies a
   // token, embeds and routes, so its cold start is the price of the feature

@@ -88,7 +88,9 @@ What was injected, when, for which query, and how many tokens. This is what turn
 
 ## `session_messages`
 
-The rolling window, server side. Trimmed on write to `p_keep`, expired after 24 hours. It exists so no transcript is ever read from disk on either host.
+The rolling window, server side. Trimmed on write to `p_keep`, expired after 24 hours. The `Stop` hook script posts the turn it read and this is where it lands, so the router reads the conversation in the order it happened rather than one message at a time.
+
+`classified_at` is the real capture boundary. The script keeps its own high-water mark in `~/.satchel/sessions/`, but that is an optimization: losing it resends a message and never duplicates a memory, because a classified row is not offered again.
 
 `record_session_message`, `session_window`, `clear_session_window`.
 

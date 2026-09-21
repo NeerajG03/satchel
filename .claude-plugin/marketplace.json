@@ -10,7 +10,7 @@
       "name": "satchel",
       "source": "./integrations/claude/satchel",
       "description": "Personal and project memory, tasks and projects across your agents.",
-      "version": "0.2.2",
+      "version": "0.3.0",
       "category": "productivity"
     }
   ]

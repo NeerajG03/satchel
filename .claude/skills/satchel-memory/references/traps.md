@@ -212,3 +212,9 @@ Satchel matched all four sources for a long time, which produced a visible hook 
 The router, the rolling window, `capture_memory`, `router_runs` and the entire Stop branch were all built, tested and deployed, and `build-plugins.mjs` emitted no `Stop` hook. Nothing triggered any of it.
 
 **Rule:** for anything event-driven, assert that the event is configured, not just that the handler is correct.
+
+**`indexedText` and `toVectorLiteral` live in `vector.mjs`, not `embedding.mjs`.** They are two pure functions and `embedding.mjs` imports the Vercel AI SDK, so importing them from there loads `ai` into every endpoint that touches the service, including the one a session start waits on. Same trap `identity.mjs` was carved out to fix, and `tests/endpoint-imports.test.mjs` is what catches it.
+
+**Tracing is passed into `lifecycle.mjs`, not imported by it.** `tracing.mjs` pulls in `ai`, the OpenTelemetry node SDK and three Langfuse packages. Capture passes the real `traced`; session start does not, because it runs inside a hook timeout when a session opens and `memory_injections` already records what was injected. Turning that parameter back into an import is a 700ms cold start on the most latency-sensitive endpoint in the product.
+
+**A comparison against a nullable variable is null, not false.** `resolve_agent_repository` returned `(p.id = chosen)` for its `selected` column, and with nothing chosen every candidate came back `null`, so a caller checking `=== false` saw none of them as unselected. `coalesce(..., false)`. The SQL test caught this and reading it twice did not.

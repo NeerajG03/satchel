@@ -5,15 +5,21 @@ import {resolve,join} from 'node:path';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const name='satchel';
 const description='Personal and project memory, tasks and projects across your agents.';
-// Memory v2 is what both packages now carry: retrieval on every prompt and
-// capture at the end of a turn.
-const versions={claude:'0.2.2',codex:'0.2.2'};
+// 0.3.0 is the hooks-as-scripts release. Every hook is a command now, holding
+// its own OAuth credential, so none of them depend on the host's MCP client
+// being up. That is what makes memory arrive at launch instead of only after a
+// /clear.
+const versions={claude:'0.3.0',codex:'0.3.0'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
   await mkdir(join(target,'hooks'),{recursive:true});
   await mkdir(join(target,'scripts'),{recursive:true});
-  await cp(join(root,'integrations/shared/bootstrap.mjs'),join(target,'scripts/bootstrap.mjs'));
+  // Every hook script, plus the two modules they share. They are copied rather
+  // than bundled because the plugin is read by people deciding whether to trust
+  // it, and one readable file per job is the point.
+  for(const script of ['session-start.mjs','capture.mjs','connect.mjs','auth.mjs','transcript.mjs','workspace.mjs'])
+    await cp(join(root,'integrations/shared',script),join(target,'scripts',script));
   const common={name,version:versions[host],description,author:{name:'Satchel'},repository:'https://github.com/NeerajG03/satchel'};
   const manifest=host==='codex'?{...common,skills:'./skills/',mcpServers:'./.mcp.json',interface:{
     displayName:'Satchel',shortDescription:'Your memory, tasks and projects, across your agents.',
@@ -30,75 +36,48 @@ for(const host of ['codex','claude']) {
   const mcp={type:'http',url:'https://satchel-pi.vercel.app/api/mcp',
     ...(host==='codex'?{required:true,startup_timeout_sec:10}:{})};
   await writeFile(join(target,'.mcp.json'),JSON.stringify({mcpServers:{satchel:mcp}},null,2)+'\n');
-  // mcp_tool input strings take ${path} substitution from the hook's own JSON
-  // input on both hosts. The prompt field is the one name that differs: Claude
-  // calls it user_prompt, Codex calls it prompt.
-  const server=host==='claude'?'plugin:satchel:satchel':'satchel';
-  // Both spellings are sent. Codex documents `prompt`; Claude's published
-  // reference is truncated at this event, and the one working example in the
-  // wild (the supermemory plugin) reads `prompt` with no fallback while a
-  // summary of the same docs says `user_prompt`. An unsubstituted placeholder
-  // arrives as its own literal text, which the server discards, so sending
-  // both costs nothing and survives either answer.
-  const promptFields={prompt:'${prompt}',user_prompt:'${user_prompt}'};
-  const lifecycleHook=event=>({hooks:[{type:'mcp_tool',server,tool:'load_memory_context',
-    input:{session_key:'${session_id}',event},timeout:10,
-    ...(host==='codex'?{additionalContextLimit:6000}:{})}]});
   const pluginRoot=host==='codex'?'PLUGIN_ROOT':'CLAUDE_PLUGIN_ROOT';
-  const bootstrap={hooks:[{type:'command',command:`node "\${${pluginRoot}}/scripts/bootstrap.mjs"`,timeout:5}]};
-  // resume is included now. It was excluded when a whole index loaded, because
-  // that duplicated context onto a session that already had it. With retrieval
-  // the session-start block is small and a resumed session may be days old, so
-  // it is the case that needs the projects list most.
+  // Both hosts take the same shape here, and ${PLUGIN_ROOT} is the only thing
+  // that differs. Timeouts are explicit: a hook with no timeout that cannot
+  // reach the network is a session that will not open.
+  const script=(name,timeout)=>({hooks:[{type:'command',
+    command:`node "\${${pluginRoot}}/scripts/${name}"`,timeout}]});
+  // resume is included. It was excluded when this was an mcp_tool hook that
+  // could not run at launch anyway; a resumed session may be days old and is
+  // the case that needs the projects list most.
   //
   // Codex has no working PostCompact: it cannot emit additionalContext there,
   // so compaction is handled by its own SessionStart compact source instead.
   const sessionMatcher='^(startup|clear|compact|resume)$';
-  // An mcp_tool hook can only run once the session's MCP servers are available
-  // to hooks, and SessionStart at launch fires before that point. Claude Code
-  // documents this and skips the hook, logging "mcp_tool hooks are not
-  // available for the 'SessionStart' hook event (no MCP client context)".
-  // --continue and --resume count as launch too.
-  //
-  // So the mcp_tool hook is limited to the two sources that fire inside a
-  // running session, where the servers are already up. Nothing is lost: it was
-  // never going to run on the other two, and asking removed a guaranteed error
-  // on every single launch.
-  //
-  // Launch is covered by the bootstrap command hook instead, which asks the
-  // model to make one select_project call. That path is model-dependent rather
-  // than automatic, which is a real downgrade and the reason it is written
-  // down here rather than left to be rediscovered.
-  const mcpSessionMatcher='^(clear|compact)$';
   await writeFile(join(target,'hooks','hooks.json'),JSON.stringify({hooks:{
-    SessionStart:[{...bootstrap,matcher:sessionMatcher},{...lifecycleHook('SessionStart'),matcher:mcpSessionMatcher}],
-    // Retrieval runs here rather than being left to the model to request. A
-    // short timeout on purpose: a hook that delays the prompt is worse than a
-    // hook that misses one.
-    UserPromptSubmit:[{hooks:[{type:'mcp_tool',server,tool:'load_memory_context',
-      input:{session_key:'${session_id}',event:'UserPromptSubmit',...promptFields},
-      timeout:5,...(host==='codex'?{additionalContextLimit:2000}:{})}]}],
+    // One script, every source. Until 0.3.0 this was two handlers: a command
+    // that could only stage a repository name, and an mcp_tool that fetched the
+    // memory but was skipped at launch, because mcp_tool hooks need the
+    // session's MCP servers to already be up and SessionStart fires before
+    // that. Launch, --continue and --resume therefore loaded nothing at all,
+    // and what the agent got instead was a paragraph asking it to please call
+    // select_project, which it was free to ignore.
+    //
+    // The script authenticates for itself, so there is no such event now.
+    SessionStart:[{...script('session-start.mjs',10),matcher:sessionMatcher}],
     // Capture. Without this the router, the rolling window and every capture
     // path exist and nothing ever calls them, which is how the whole feature
     // shipped inert the first time.
     //
-    // An mcp_tool and not a command, even though the build plan first said
-    // command: that reasoning assumed the rolling window lived on disk and
-    // had to be read before calling anything. It lives in the database now,
-    // so nothing local is needed and nothing proprietary leaves the server.
+    // Nothing is injected here. Claude can inject from Stop and Codex cannot,
+    // so a design that used it would work on one host only, and the next turn
+    // may change the subject anyway.
     //
-    // Nothing is injected here. Claude Code can inject from Stop and Codex
-    // cannot, so a design that used it would work on one host only, and the
-    // next turn may change subject anyway.
-    //
-    // last_assistant_message exists on Claude and not on Codex, where the
-    // placeholder arrives unsubstituted and the server discards it. The Codex
-    // router therefore reads the user's messages without the replies, which
-    // is a stated degradation rather than a bug to chase.
-    Stop:[{hooks:[{type:'mcp_tool',server,tool:'load_memory_context',
-      input:{session_key:'${session_id}',event:'Stop',
-        last_assistant_message:'${last_assistant_message}'},
-      timeout:10}]}],
+    // 20 seconds because this one waits on a model call. It is the end of a
+    // turn, so the person is reading the answer rather than waiting on a
+    // prompt, which is the one place in the session that can afford it.
+    Stop:[script('capture.mjs',25)],
+    // UserPromptSubmit is gone. It ran retrieval on every single turn and it
+    // was also, quietly, the only thing recording what the person said. As a
+    // command hook it cannot do either: the host does not pass a command hook
+    // the prompt text, and the only documented way to reach it is to read the
+    // transcript while the host is still writing it. Session start carries the
+    // memory now, and retrieve_memory is there when the agent wants more.
   }},null,2)+'\n');
   // The skill ships SKILL.md plus its progressively disclosed references, so copy the tree.
   await rm(join(target,'skills'),{recursive:true,force:true});

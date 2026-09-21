@@ -20,29 +20,47 @@ Nothing proprietary is on the person's machine. Ranking, routing and every promp
 | `${last_assistant_message}` | substituted | not substituted |
 | PostCompact | can inject | cannot, so compaction is handled by the SessionStart `compact` source on both |
 
-The prompt field name is the unresolved one. Codex documents `prompt`, Claude's reference is truncated at this event, and the one working example in the wild reads `prompt` with no fallback while a summary of the same docs says `user_prompt`. Both spellings are sent. An unsubstituted placeholder arrives as its own literal text and the server discards it, so sending both costs nothing and survives either answer. Do not "clean this up" by picking one.
+Substitution stopped mattering in 0.3.0. No hook is an `mcp_tool` any more, so there are no `${...}` inputs to be substituted or not; every script reads the host's JSON on stdin, where both hosts agree on the field names.
 
-## The four hooks
+## The two hooks
 
-All of them call the same tool, `load_memory_context`, with a `session_key` of `${session_id}` and an `event`.
+Both are `command` scripts. Neither goes through MCP.
 
-- **SessionStart**, matching `^(startup|clear|compact|resume)$`: the bootstrap command first, then the lifecycle call. Timeout 10s. `resume` is included. It was excluded when a whole index loaded, because that duplicated context onto a session that already had it; with retrieval the block is small and a resumed session may be days old, so it is the case that needs the projects list most.
-- **UserPromptSubmit**: retrieval, timeout 5s. Short on purpose. A hook that delays the prompt is worse than a hook that misses one.
-- **Stop**: capture, timeout 10s, carrying `last_assistant_message`. Without this hook the router, the rolling window and every capture path exist and nothing ever calls them, which is how the feature shipped inert the first time.
+- **SessionStart**, matching `^(startup|clear|compact|resume)$`, running `session-start.mjs`, timeout 10s. It fetches the index itself over `POST /api/hook-index`. `resume` is included: a resumed session may be days old and is the case that needs the projects list most.
+- **Stop**, running `capture.mjs`, timeout 25s. It posts the turn to `/api/hook-capture`, which runs the router. 25s because that one waits on a model call, and the end of a turn is the one place in a session that can afford it. Without this hook the router, the rolling window and every capture path exist and nothing ever calls them, which is how the feature shipped inert the first time.
 
-Stop is an `mcp_tool` and not a `command`, even though an early plan said command. That plan assumed the rolling window lived on disk and had to be read locally. It lives in the database, so nothing local is needed. Stop injects nothing: Claude can inject there and Codex cannot, so anything built on it would work on one host only, and the next turn may change subject anyway.
+**Why they stopped being `mcp_tool` hooks**, which is the load-bearing fact: an `mcp_tool` hook runs only once the session's MCP servers are available to hooks, and `SessionStart` at launch fires before that. The host skips the event and logs `mcp_tool hooks are not available for the 'SessionStart' hook event (no MCP client context)`. `--continue` and `--resume` are launch too. So memory never loaded on any way a session actually begins, and the fallback was a paragraph asking the model to call `select_project`, which it could ignore. That is not fixable from our side; it needed the hook to hold its own credential.
 
-On Codex `last_assistant_message` is not substituted, so the router sees the user's messages without the replies. That is a stated degradation, not a bug to chase.
+`UserPromptSubmit` is gone entirely. A command hook is not handed the prompt text, and the documented alternative is reading `transcript_path` while the host is still writing it. It was also the only thing recording what the person said, which is why capture now reads the transcript at `Stop` instead.
 
-## The bootstrap script
+Stop injects nothing: Claude can inject there and Codex cannot, so anything built on it would work on one host only, and the next turn may change subject anyway.
 
-`integrations/shared/bootstrap.mjs`. It reads stdin, bails past 64KB, bails on a `session_id` that is not `[a-z0-9_-]{1,200}`, and bails on any event that is not `SessionStart`. Per-prompt retrieval is an `mcp_tool` hook and never reaches this script, so the prompt is not read here and cannot be.
+## The scripts
 
-It runs one command: `git config --get remote.origin.url`, with a 1s timeout, a 4KB buffer and stderr ignored. It normalizes both the SCP and URL forms of a GitHub remote to a lowercase `owner/repo`, rejects anything that fails the pattern, and POSTs it to `/api/repository-hint` with a 2.5s timeout. `SATCHEL_DISABLE_REPOSITORY_STAGING=1` turns the POST off.
+Six files in `integrations/shared/`, copied into both packages by the build. Copied rather than bundled, because the plugin is read by people deciding whether to trust it and one readable file per job is the point.
 
-It then writes `hookSpecificOutput.additionalContext` in one of three shapes: staged, detected but not staged (the agent is told to call `select_project` once with the exact repository identity), or no repository at all (the agent is told how to make one read-only fallback call). Every shape ends with the same standing instructions: never read host credentials, never collect transcripts, never write memory automatically, and do not claim memory loaded when it was not.
+| File | Job |
+|---|---|
+| `session-start.mjs` | the SessionStart hook |
+| `capture.mjs` | the Stop hook, and the local high-water mark |
+| `transcript.mjs` | what capture is allowed to take out of the transcript |
+| `auth.mjs` | the credential, the OAuth flow, refresh, and the one `call()` both hooks use |
+| `connect.mjs` | the interactive flow, and the once-an-hour throttle on offering it |
+| `workspace.mjs` | the git origin, stdin, and the only function that writes hook JSON |
 
-Everything is wrapped so a malformed event exits quietly. A bootstrap that blocks the host is worse than one that does nothing. `tests/plugin-bootstrap.test.mjs` is where this is pinned.
+All of them read stdin through `readHookInput`, which bails past 64KB, and validate the `session_id` against `[a-z0-9_-]{1,200}`. `repositoryFrom` runs one command, `git config --get remote.origin.url`, with a 1s timeout, a 4KB buffer and stderr ignored, normalizes both the SCP and URL forms to a lowercase `owner/repo`, and rejects anything that fails the pattern. `SATCHEL_DISABLE_REPOSITORY_STAGING=1` turns the repository off.
+
+Everything is wrapped so a malformed event exits quietly. A hook that blocks the host is worse than one that does nothing. `tests/plugin-hooks.test.mjs` runs the real scripts as child processes against a test server and is where this is pinned; `tests/transcript.test.mjs` pins the filter.
+
+## The hook credential
+
+The scripts are their own OAuth client. `auth.mjs` registers once through dynamic client registration, runs PKCE against Supabase's authorization server with a loopback listener on 127.0.0.1 in the range 19876-19880, and stores the result at `~/.satchel/credentials.json`, mode 0600, written through a temp file and renamed.
+
+It is a second row in `agent_connections`, beside the agent's, with its own grant, its own generation and the same Revoke button. Reading the host's own token out of the keychain was considered and rejected: it is someone else's credential, and refreshing it rotates the token the host is still using.
+
+What is stored is a Supabase refresh token, which does not age out. That is what makes the credential "no expiry", and revocation rather than expiry is the control. Refresh is taken under a lock (`mkdir`, with a 20s stale timeout) because Supabase rotates refresh tokens and two hooks refreshing at once would leave one holding a spent one.
+
+`session-start.mjs` spawns `connect.mjs --background` detached when there is no credential, at most once an hour, and says so in a line rather than holding the session open while someone clicks Allow.
 
 ## The shipped skill
 

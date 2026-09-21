@@ -32,17 +32,19 @@ Grants are separate and independently denied. Memory access does not imply task 
 
 ## What arrives on its own
 
-You do not have to go and get context. Two things happen without you asking.
+You do not have to go and get context. It arrives once, at the start.
 
-**At the start of a conversation, after a clear, after compaction and on resume**, you receive the list of projects and every personal memory. The local bootstrap stages the workspace's GitHub origin and the authenticated hook consumes it, so the active project is named too. If staging reports a failure, `select_project` with the exact repository identity the bootstrap supplied is the one-time fallback. Never substitute a similar name.
+**At the start of a conversation, after a clear, after compaction and on resume**, you receive the list of projects and every personal memory. A local Satchel script reads the workspace's GitHub origin and resolves it, so the active project is named too. If the block says the repository belongs to several projects, none was chosen: call `select_project` with one of the `project_id` values it listed, and never substitute a similar name.
 
 Nothing scoped to a project or a task loads here. That is deliberate: loading it would assume you are about to touch it.
 
-**On every message**, memories relevant to what the user just said are retrieved and handed to you, with counts. Read the counts. `0 matched` is a real answer and means no such memory exists, which is not the same as one existing and being held back.
+**Nothing is retrieved per message.** If you want a memory this conversation has not surfaced, ask for it with `retrieve_memory`. That is the only way anything else arrives, so reach for it whenever the user refers to a decision, a preference or a rule you were not handed at the start.
 
-So do not add per-turn freshness checks, and do not re-read a scope you were already given. Search with `retrieve_memory` when you need something this conversation has not surfaced. Companion or phone edits appear at the next fresh context or on an explicit refresh request.
+Do not add per-turn freshness checks, and do not re-read a scope you were already given. Companion or phone edits appear at the next fresh context or on an explicit refresh request.
 
 Never claim memory or tasks loaded when a hook is disabled, untrusted, incomplete or unavailable. Say what actually happened and fall back to explicit scoped calls.
+
+**At the end of a turn**, a Satchel script may keep something the user stated as a durable fact. It arrives unconfirmed, and the user is shown a line saying so. You never trigger this and never write memory on your own.
 
 ## Completeness
 

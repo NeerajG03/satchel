@@ -5,59 +5,20 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap.mjs\"",
-            "timeout": 5
-          }
-        ],
-        "matcher": "^(startup|clear|compact|resume)$"
-      },
-      {
-        "hooks": [
-          {
-            "type": "mcp_tool",
-            "server": "plugin:satchel:satchel",
-            "tool": "load_memory_context",
-            "input": {
-              "session_key": "${session_id}",
-              "event": "SessionStart"
-            },
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/session-start.mjs\"",
             "timeout": 10
           }
         ],
-        "matcher": "^(clear|compact)$"
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "mcp_tool",
-            "server": "plugin:satchel:satchel",
-            "tool": "load_memory_context",
-            "input": {
-              "session_key": "${session_id}",
-              "event": "UserPromptSubmit",
-              "prompt": "${prompt}",
-              "user_prompt": "${user_prompt}"
-            },
-            "timeout": 5
-          }
-        ]
+        "matcher": "^(startup|clear|compact|resume)$"
       }
     ],
     "Stop": [
       {
         "hooks": [
           {
-            "type": "mcp_tool",
-            "server": "plugin:satchel:satchel",
-            "tool": "load_memory_context",
-            "input": {
-              "session_key": "${session_id}",
-              "event": "Stop",
-              "last_assistant_message": "${last_assistant_message}"
-            },
-            "timeout": 10
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/capture.mjs\"",
+            "timeout": 25
           }
         ]
       }

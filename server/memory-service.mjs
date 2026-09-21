@@ -1,4 +1,7 @@
-import {indexedText, toVectorLiteral} from './embedding.mjs';
+// From vector.mjs and not embedding.mjs: these two are pure, and reaching them
+// through the embedder would load the Vercel AI SDK into every endpoint that
+// touches the service, including the one a session start waits on.
+import {indexedText, toVectorLiteral} from './vector.mjs';
 
 // Request-scoped adapter. RLS remains authoritative even for direct RPC calls.
 export function memoryService(db, embedder = null, router = null) {
@@ -73,6 +76,16 @@ export function memoryService(db, embedder = null, router = null) {
     // is deliberately left staged in that case so this can still see it.
     repositoryCandidates: session =>
       result(db.rpc('agent_repository_candidates',{p_session_key:session})),
+    // The hook scripts' path, and the one that has no staging in it. They hold
+    // their own credential, so the caller that knows the repository is also the
+    // caller that may resolve it: one authenticated call, no hint row, no
+    // expiry, and no poll waiting for an anonymous POST to land.
+    //
+    // Returns every candidate project, with `selected` true on the one it
+    // activated. It only activates when there is exactly one.
+    resolveRepository: (session,provider,repository) =>
+      result(db.rpc('resolve_agent_repository',
+        {p_session_key:session,p_provider:provider,p_repository:repository})),
     async selectProject(session,projectId) {
       await result(db.rpc('select_agent_project',{p_session_key:session,p_project_id:projectId}));
       return {project_id:projectId};
@@ -201,9 +214,13 @@ export function memoryService(db, embedder = null, router = null) {
     // never written. The defaults below must match the column defaults, or
     // behaviour changes depending on whether a settings row exists.
     async settings() {
+      // per_prompt_matches is not selected. Per-prompt retrieval was removed in
+      // 0.3.0: a command hook on UserPromptSubmit is not handed the prompt
+      // text. The column is left in the table rather than dropped, because
+      // dropping it is destructive and buys nothing.
       const rows=await result(db.from('memory_settings')
-        .select('per_prompt_matches,gate,scope_boost,session_budget_tokens,capture,capture_window').limit(1));
-      return rows?.[0]??{per_prompt_matches:5,gate:0.67,scope_boost:1.1,
+        .select('gate,scope_boost,session_budget_tokens,capture,capture_window').limit(1));
+      return rows?.[0]??{gate:0.67,scope_boost:1.1,
         session_budget_tokens:15000,capture:true,capture_window:5};
     },
     // The log is what turns "why did it not know that" into a query, and it is

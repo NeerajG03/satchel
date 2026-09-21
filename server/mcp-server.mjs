@@ -1,7 +1,8 @@
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {z} from 'zod';
-import {sessionStartBlock, promptBlock, estimateTokens, noticeFor} from './injection-format.mjs';
-import {traced, retrieval} from './tracing.mjs';
+import {errorText} from './error-text.mjs';
+import {sessionStart} from './lifecycle.mjs';
+import {traced} from './tracing.mjs';
 
 const scope=z.uuid().nullable().describe('null means personal memory; otherwise an explicitly selected project UUID.');
 const session=z.string().min(1).max(200);
@@ -17,7 +18,7 @@ const content={
 const identity={project_id:scope,id:z.uuid(),revision:z.number().int().positive()};
 const readAnnotations={readOnlyHint:true,destructiveHint:false,openWorldHint:false};
 const writeAnnotations={readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false};
-const lifecycle=z.enum(['SessionStart','PostCompact','UserPromptSubmit','Stop']);
+const lifecycle=z.enum(['SessionStart','PostCompact']);
 // Only the server-side link table maps a repository to a project, so the provider stays implicit.
 const PROVIDER='github';
 const repositoryName=z.string().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/).max(201).nullable()
@@ -64,24 +65,6 @@ const taskUpdate=z.discriminatedUnion('kind',[
     resource_ids:z.array(z.uuid()).max(50).default([])}),
 ]);
 const textResult=data=>({content:[{type:'text',text:JSON.stringify(data)}]});
-// A failure that can say what it was says it. Everything from the embedder and
-// the router carries a plain-words `reason`, because routing those through the
-// code table below produced "Satchel request failed. Reload before retrying a
-// write: it may have completed" for a spent embedding quota: unhelpful, and
-// also untrue, since nothing was written.
-const errorText=error=>error?.reason
-  ?(error.reason.charAt(0).toUpperCase()+error.reason.slice(1)).replace(/\.?$/,'.')
-  :({
-  '42501':'Access denied. Check the connection and granted memory or task scopes in Satchel.',
-  'P0002':'The requested Satchel record is unavailable. Refresh before trying again.',
-  'PT400':'Provide exactly one of project_id (null for personal scope) or repository.',
-  'PT404':'That repository is not linked to a project in this connection\'s grant. Report that project memory was not loaded; do not guess a project.',
-  'PT409':'Revision or request conflict. Read the current record; do not overwrite blindly.',
-  'PT300':'That repository belongs to more than one project, so it does not name one. Call list_projects and select_project with an explicit project_id.',
-  '23505':'This name is already used in the selected scope.',
-  '23514':'The supplied fields or relationships violate the Satchel contract.',
-}[error?.code] ?? 'Satchel request failed. Reload before retrying a write: it may have completed.');
-
 // ownerId attributes a trace to the person and nothing more: never an email,
 // never a token.
 export function createMemoryServer(service, {ownerId} = {}) {
@@ -92,222 +75,12 @@ export function createMemoryServer(service, {ownerId} = {}) {
       {src:'https://satchel-pi.vercel.app/mark.svg',mimeType:'image/svg+xml',sizes:['any']},
       {src:'https://satchel-pi.vercel.app/mark-512.png',mimeType:'image/png',sizes:['512x512']},
     ]});
-  // The bootstrap stages the workspace's repository at SessionStart and this is
-  // the only thing that reads it. It used to read it on SessionStart alone,
-  // which is the source the mcp_tool hook is skipped on at launch, so the note
-  // sat unread for the whole session: active_project stayed null, capture had
-  // no scope to hand the router, and everything went to personal.
-  //
-  // Polling is for SessionStart only, where this races the bootstrap's own POST
-  // to the staging endpoint. On any later event that POST finished long ago, so
-  // one look is enough, and UserPromptSubmit has a five second hook budget that
-  // 3.25s of polling would eat.
-  async function consumeLifecycleHint(sessionKey,event) {
-    const attempts=['SessionStart','PostCompact'].includes(event)?13:1;
-    for(let attempt=0;attempt<attempts;attempt++) {
-      if(await service.repositoryHintExists(sessionKey))
-        return {staged:true,project:await service.activateRepositoryHint(sessionKey)};
-      if(attempt<attempts-1)await new Promise(resolve=>setTimeout(resolve,250));
-    }
-    return {staged:false};
-  }
-  /** The scope this conversation is in, activating a pending repository hint
-   *  first. Deterministic whenever it can be: the workspace's git remote
-   *  resolves to a project through project_repositories and no model is asked
-   *  to guess it.
-   *
-   *  A repository may name more than one project, because a project is a
-   *  collection of context and a monorepo holds several of them. When it does,
-   *  the hint stays staged and this returns the candidates instead of a scope.
-   *  Picking one arbitrarily would put a memory in a real project that is the
-   *  wrong project, which is worse than personal: personal is at least visible
-   *  everywhere and obviously unscoped. */
-  async function scopeFor(sessionKey,event,selected) {
-    if(selected!==undefined)return {project:selected,candidates:[]};
-    const active=await service.activeProject(sessionKey);
-    if(active)return {project:active,candidates:[]};
-    const hint=await consumeLifecycleHint(sessionKey,event);
-    if(hint.project)return {project:hint.project,candidates:[]};
-    if(!hint.staged)return {project:null,candidates:[]};
-    // Staged but unresolved is the ambiguous case. Anything else is a workspace
-    // with no linked project at all, where there is nothing to offer.
-    const candidates=await service.repositoryCandidates?.(sessionKey)??[];
-    return {project:null,candidates};
-  }
-  /** What the model is told when its workspace could be either of two projects.
-   *  Named by slug, chosen by project_id, because the id is what select_project
-   *  takes and a slug it had to look up is a second place to go wrong. */
-  const chooseProjectLine=candidates=>candidates.length<2?'':
-    `\nThis workspace's repository belongs to ${candidates.length} projects: `
-    +candidates.map(c=>`${c.slug} (${c.project_id})`).join(', ')
-    +`. Nothing is scoped to a project until you call select_project with one of those project_id values.`
-    +` Do not guess, and do not treat memory as project-scoped before then.`;
   // Shared by explicit selection and the lifecycle hook so both report the same scope.
   async function scopedIndex(project,status) {
     const scopes=[...(status.personal?[null]:[]),...(project?[project]:[])];
     const indexes=await Promise.all(scopes.map(target=>service.index(target)));
     return {active_project:project,personal_included:scopes.includes(null),
       memories:indexes.flatMap(x=>x.memories),complete:indexes.every(x=>x.complete)};
-  }
-  // A hook placeholder that did not substitute arrives as its own literal text.
-  // Treating that as a query would search for "${user_prompt}" on every turn,
-  // so anything still shaped like a placeholder is discarded and the other
-  // spelling is used instead.
-  const substituted=value=>{
-    const text=typeof value==='string'?value.trim():'';
-    return /^\$\{[^}]*\}$/.test(text)?'':text;
-  };
-  const resolvePrompt=options=>substituted(options.prompt)||substituted(options.user_prompt);
-
-  // Injected context is unrequested, so it is budgeted and it says what it is.
-  // Session start carries only what applies no matter what you do today: the
-  // projects that exist, and every personal memory. Anything scoped to a
-  // project or a task is earned by something the user said, and arrives
-  // through UserPromptSubmit instead.
-  async function contextPayload(sessionKey,event,selectedProject,options={}) {
-    // One trace per lifecycle event, grouped by conversation. The session is
-    // what makes a capture explicable later: you can see the retrievals that
-    // preceded it in the same session view.
-    return traced(`satchel.${event}`,
-      {sessionId:sessionKey,userId:ownerId,metadata:{event},tags:['satchel',event],
-       input:event==='UserPromptSubmit'?resolvePrompt(options):null},
-      (setOutput,setInput)=>buildContext(sessionKey,event,selectedProject,options,setOutput,setInput));
-  }
-  async function buildContext(sessionKey,event,selectedProject,options,setOutput=()=>{},setInput=()=>{}) {
-    let context;
-    let logged=null;
-    // What the person sees, as opposed to what the model sees. Kept separate
-    // the whole way down: a failure has to reach them even when the model is
-    // told nothing, which is every Stop and every quiet prompt.
-    let notice='';
-    try {
-      const status=await service.status();
-      if (!status) throw {code:'42501'};
-      const settings=await service.settings();
-      if (event==='Stop') {
-        // Capture, and nothing injected. Claude Code can inject from Stop and
-        // Codex cannot, so a design that used it would work on one host only,
-        // and the next turn may change subject anyway.
-        // Codex has no last_assistant_message, so on that host the placeholder
-        // arrives as its own literal text. Recording it would put the string
-        // "${last_assistant_message}" into the window the router reads on
-        // every single turn.
-        const assistant=substituted(options.last_assistant_message);
-        if (assistant) void service.recordSessionMessage(sessionKey,'assistant',assistant);
-        if (!settings.capture||!service.captureTurn) return null;
-        const window=await service.sessionWindow(sessionKey,settings.capture_window*2);
-        const ordered=[...window].reverse();
-        // The turn is exactly what has not been classified yet, which is a
-        // boundary rather than a guess. It used to be the last capture_window
-        // user messages, so with the default of 5 every Stop re-offered the
-        // last five and consecutive Stops overlapped by four. Anything durable
-        // got five chances and was duly saved twice.
-        const start=ordered.findIndex(m=>m.classified_at==null&&m.role==='user');
-        if (start===-1) return null;
-        const turn=ordered.slice(start).filter(m=>m.role==='user').map(m=>m.content);
-        if (!turn.length) return null;
-        // The turn being classified is the only thing that may supply a source.
-        // Everything before it is there to understand it. Named `earlier` and
-        // not `context`: a block-scoped `context` here shadows the outer one
-        // for the whole block, and reading it before its declaration threw a
-        // ReferenceError that the catch below swallowed, so capture silently
-        // never ran.
-        const earlier=ordered.slice(0,start);
-        // The turn is what this trace is actually about, and it is only known
-        // now, so the input is replaced rather than left as the event name.
-        setInput({turn,contextMessages:earlier.length});
-        // Scope is resolved, not inferred. The workspace's git remote already
-        // maps to a project through project_repositories, and handing the
-        // router a flat list with nothing saying which one the conversation was
-        // in is why a memory about this project's own deployment key was filed
-        // under personal.
-        const {project:scope}=await scopeFor(sessionKey,event,selectedProject);
-        const [projects,tasks,saved]=await Promise.all([
-          service.projects(),service.openTasks(),
-          service.capturedThisSession?.(sessionKey)??[]]);
-        const active=projects.find(p=>p.id===scope)??null;
-        // Named only when it is unambiguous. A project may link to several
-        // repositories, and naming an arbitrary one of them would be worse
-        // than naming none.
-        const links=active?.project_repositories??[];
-        const capture=await service.captureTurn(sessionKey,{
-          codebase:links.length===1?links[0].repository:null,
-          project:active?{slug:active.slug,brief:active.brief}:null,
-          projects:projects.filter(p=>p.id!==scope).map(p=>({slug:p.slug,brief:p.brief})),
-          tasks:tasks.map(t=>({slug:t.slug,title:t.title,project:projects.find(p=>p.id===t.project_id)?.slug??null})),
-          context:earlier,turn,saved});
-        // The boundary moves only when the model actually answered. A run that
-        // died on a rate limit leaves its messages for the next turn.
-        const through=ordered[ordered.length-1]?.id;
-        if (capture&&!capture.failed&&through!=null)
-          void service.markSessionClassified?.(sessionKey,through);
-        notice=noticeFor('Stop',{captured:capture?.memories?.length??0});
-        return notice?{hookSpecificOutput:{hookEventName:event,additionalContext:''},systemMessage:notice}:null;
-      }
-      if (event==='UserPromptSubmit') {
-        const prompt=resolvePrompt(options);
-        if (!prompt) return null;
-        // Recorded whether or not anything is retrieved, because the window the
-        // router reads is built from exactly this.
-        if (settings.capture) void service.recordSessionMessage(sessionKey,'user',prompt,settings.capture_window*2);
-        if (!settings.per_prompt_matches) return null;
-        const {project}=await scopeFor(sessionKey,event,selectedProject);
-        const lookup=retrieval('retrieve-memory',{input:prompt,
-          metadata:{gate:settings.gate,limit:settings.per_prompt_matches,
-            inScope:project??'personal',excluded:(options.exclude??[]).length}});
-        let rows;
-        try { rows=await service.search({query:prompt,in_scope:project??null,
-          limit:settings.per_prompt_matches,gate:settings.gate,boost:settings.scope_boost,
-          exclude:options.exclude??[]}); }
-        catch (error) { lookup.fail(error); throw error; }
-        lookup.end(rows.map(r=>({id:r.id,statement:r.statement,score:r.score})),
-          {metadata:{shown:rows.length,matched:rows[0]?.matched??0,inScope:rows[0]?.in_scope??0}});
-        if (!rows.length) return null;
-        notice=noticeFor('UserPromptSubmit',{shown:rows.length,matched:rows[0].matched});
-        const tasks=await service.tasksByIds?.(rows.map(r=>r.task_id).filter(Boolean))??new Map();
-        const block=promptBlock({rows,matched:rows[0].matched,inScope:rows[0].in_scope,tasks});
-        logged={query:prompt,memory_ids:rows.map(r=>r.id),
-          matched:rows[0].matched,in_scope:rows[0].in_scope,tokens:estimateTokens(block)};
-        context=block;
-      } else {
-        const {project,candidates}=await scopeFor(sessionKey,event,selectedProject);
-        const [projects,personal]=await Promise.all([
-          // all_projects is its own scope: a blanket grant keeps no list, so
-          // checking project_ids alone would load nothing for the connection
-          // that was given everything.
-          status.all_projects||status.project_ids?.length||status.personal?service.projects():[],
-          status.personal?service.personal():[],
-        ]);
-        const block=sessionStartBlock({projects,personal});
-        const tokens=estimateTokens(block);
-        notice=noticeFor('SessionStart',{projects:projects.length,personal:personal.length});
-        if (!block) {
-          context='Satchel is connected and has nothing saved yet. Do not invent memory.';
-        } else if (tokens>settings.session_budget_tokens) {
-          // Withheld rather than truncated: a partial block that looks complete
-          // is worse than an honest absence, because the agent cannot tell.
-          context=`Satchel memory NOT loaded: ${tokens} tokens exceeds the ${settings.session_budget_tokens} budget for this session. Use retrieve_memory for anything you need; do not claim memory loaded.`;
-          notice=noticeFor(event,{withheld:`${tokens} tokens over the ${settings.session_budget_tokens} budget`});
-        } else {
-          context=block;
-          logged={query:null,memory_ids:personal.map(m=>m.id),matched:personal.length,
-            in_scope:personal.length,tokens};
-        }
-        if (project) context+=`\nactive project: ${project}`;
-        else context+=chooseProjectLine(candidates);
-      }
-    } catch(error) {
-      context='Satchel memory unavailable. '+errorText(error)+' Do not claim that memory loaded.';
-      notice=noticeFor(event,{error:errorText(error)});
-    }
-    if (logged) void service.logInjection({id:crypto.randomUUID(),session_key:sessionKey,event,...logged});
-    // The exact bytes the model receives, so a trace answers "what did it
-    // actually see" rather than "what did we intend to send".
-    setOutput(context);
-    // Stop never injects, on either host, so a failure there reaches the
-    // person and no one else.
-    return {hookSpecificOutput:{hookEventName:event,additionalContext:event==='Stop'?'':context},
-      ...(notice?{systemMessage:notice}:{})};
   }
   function register(name,description,inputSchema,operation,annotations=readAnnotations) {
     server.registerTool(name,{description,inputSchema,annotations},async args=>{
@@ -339,7 +112,15 @@ export function createMemoryServer(service, {ownerId} = {}) {
       const {project_id}=byRepository
         ? await selectRepositoryScope(a.session_key,a.repository)
         : await service.selectProject(a.session_key,a.project_id);
-      if (a.event) return contextPayload(a.session_key,a.event,project_id);
+      // The recovery path, for a session whose hook could not run. Same code
+      // the hook endpoint calls, so what it returns is what the hook would have
+      // injected.
+      if (a.event) {
+        const loaded=await sessionStart(service,{sessionKey:a.session_key,event:a.event,
+          project:project_id,ownerId,traced});
+        return {hookSpecificOutput:{hookEventName:a.event,additionalContext:loaded.context},
+          ...(loaded.notice?{systemMessage:loaded.notice}:{})};
+      }
       // The scope change is already committed, so an index failure must not read as a failed selection.
       try { return await scopedIndex(project_id,status); }
       catch(error) { return {active_project:project_id,selected:true,index_error:errorText(error)}; }
@@ -397,24 +178,5 @@ export function createMemoryServer(service, {ownerId} = {}) {
         provider:z.string().trim().max(80).nullable().default(null)},a=>service.tasks.addResource(a),writeAnnotations);
   }
 
-  // This tool is deliberately read-only. Only our formatter controls hook JSON.
-  // Read only, and the only thing that formats hook output. On
-  // UserPromptSubmit the prompt is the search query and nothing else; no
-  // transcript, no assistant text, and nothing is written.
-  server.registerTool('load_memory_context',{
-    description:'Lifecycle hook. At session start and after compaction it injects the projects list and every personal memory. On UserPromptSubmit it retrieves memories relevant to that prompt. On Stop it reviews the turn that just ended and may record a memory the user stated, which arrives unconfirmed. It never stores the conversation itself beyond a short rolling window used for that review.',
-    inputSchema:{session_key:session,event:lifecycle,
-      prompt:z.string().max(2000).optional().describe('Only for UserPromptSubmit: the prompt to retrieve against.'),
-      last_assistant_message:z.string().max(8000).optional().describe('Only for Stop, where the host provides it: the final assistant text of the turn.'),
-      user_prompt:z.string().max(2000).optional().describe('The same thing under the other host spelling; whichever actually carries text is used.'),
-      exclude:z.array(z.uuid()).max(50).default([])},
-    annotations:readAnnotations,
-  },async ({session_key,event,prompt,user_prompt,last_assistant_message,exclude})=>{
-    const payload=await contextPayload(session_key,event,undefined,
-      {prompt,user_prompt,last_assistant_message,exclude});
-    // Nothing relevant is a real answer. Returning an empty result keeps the
-    // per-prompt cost at zero on the turns that need nothing.
-    return textResult(payload??{hookSpecificOutput:{hookEventName:event,additionalContext:''}});
-  });
   return server;
 }

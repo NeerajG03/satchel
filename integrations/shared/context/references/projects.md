@@ -22,7 +22,7 @@ It deliberately still returns connection permissions when the project query itse
 - Provide exactly one of `project_id` (with `null` meaning personal scope) or `repository`. Both or neither gives `PT400`.
 - `session_key` comes from the hook context. If none is available, do not invent one: use the explicitly scoped memory and task tools instead.
 - `repository` resolves only through the server-side link table, and only to a project already inside this connection's grant. `PT404` means the repository is not linked or not granted: report that project context was not loaded, and do not fall back to a similar-looking project.
-- Pass `event` only when the bootstrap asks for it on a new conversation or after compaction.
+- Pass `event` only to recover a session whose Satchel hook did not run, on a new conversation or after compaction. It returns what that hook would have injected.
 
 Selection affects this conversation only. It never changes another conversation and never grants permissions. Tell the user which scope you selected.
 

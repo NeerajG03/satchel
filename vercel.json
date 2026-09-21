@@ -2,6 +2,14 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/mcp.mjs": {
+      "includeFiles": "server/prompts/**"
+    },
+    "api/hook-capture.mjs": {
+      "includeFiles": "server/prompts/**"
+    }
+  },
   "rewrites": [
     {"source":"/.well-known/oauth-protected-resource","destination":"/api/resource-metadata"},
     {"source":"/.well-known/oauth-protected-resource/api/mcp","destination":"/api/resource-metadata"},
