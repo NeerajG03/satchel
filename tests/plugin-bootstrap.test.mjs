@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {spawnSync} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {mkdtempSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -17,7 +17,7 @@ test('startup fallback supplies only a session-bound retrieval instruction',()=>
     assert.equal(output.hookEventName,'SessionStart');
     assert.match(output.additionalContext,/not a loaded memory index/);
     assert.match(output.additionalContext,/test-session-123/);
-    assert.match(output.additionalContext,/do not repeat index checks/);
+    assert.match(output.additionalContext,/do not repeat the call on ordinary messages/);
     assert.doesNotMatch(result.stdout,/PRIVATE PROMPT|\/private\/secret/);
   } finally { rmSync(cwd,{recursive:true,force:true}); }
 });
@@ -41,6 +41,130 @@ test('startup detects a GitHub origin without exposing remote credentials',()=>{
     assert.doesNotMatch(context,/PRIVATE_TOKEN|user:/);
   } finally { rmSync(cwd,{recursive:true,force:true}); }
 });
+// The four branches the bootstrap can take, and the bug they were written to
+// pin. Two facts decide the text: whether the repository staged, and whether
+// the authenticated mcp_tool hook runs on this SessionStart source at all. It
+// only runs on clear and compact, because at launch the session's MCP servers
+// are not available to hooks yet.
+//
+// The staged branch used to promise that the hook would handle it regardless of
+// source. After the matcher was narrowed to clear and compact, that promise was
+// false on every launch: staging succeeding told the model not to call a tool
+// and then nothing loaded, while staging failing was the only path that worked.
+const repoWorkspace=()=>{
+  const cwd=mkdtempSync(join(tmpdir(),'satchel-source-branch-'));
+  assert.equal(spawnSync('git',['init'],{cwd,encoding:'utf8'}).status,0);
+  assert.equal(spawnSync('git',['remote','add','origin','git@github.com:NeerajG03/Satchel.git'],
+    {cwd,encoding:'utf8'}).status,0);
+  return cwd;
+};
+const hookInput=(source,cwd)=>JSON.stringify({session_id:'branch-session-1234',
+  hook_event_name:'SessionStart',cwd,...(source?{source}:{})});
+const contextFor=(source,cwd,env={})=>{
+  const result=spawnSync(process.execPath,[script.pathname],{input:hookInput(source,cwd),
+    encoding:'utf8',env:{...process.env,SATCHEL_DISABLE_REPOSITORY_STAGING:'1',...env}});
+  assert.equal(result.status,0);
+  return JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+};
+// The staging test stands up an HTTP server in this process, and spawnSync
+// blocks this process's event loop, so that server can never accept the child's
+// connection: the fetch just waits out its own 2500ms timeout and the branch
+// under test is never reached. Anything that needs the server running has to
+// spawn asynchronously.
+const contextForAsync=(source,cwd,env={})=>new Promise((resolve,reject)=>{
+  const child=spawn(process.execPath,[script.pathname],
+    {env:{...process.env,SATCHEL_DISABLE_REPOSITORY_STAGING:'1',...env}});
+  let out='';
+  child.stdout.on('data',chunk=>{out+=chunk;});
+  child.on('error',reject);
+  child.on('close',code=>{
+    if(code!==0)return reject(Error(`bootstrap exited ${code}`));
+    try { resolve(JSON.parse(out).hookSpecificOutput.additionalContext); }
+    catch(error) { reject(error); }
+  });
+  child.stdin.end(hookInput(source,cwd));
+});
+
+test('a source the memory hook cannot run on always asks for one call',()=>{
+  const cwd=repoWorkspace();
+  try {
+    // startup and resume are launch: the mcp_tool hook is skipped by the host,
+    // so a text that says the hook will handle it loads nothing at all.
+    for(const source of ['startup','resume',undefined]) {
+      const context=contextFor(source,cwd);
+      assert.match(context,/does not run on this event/,`${source}: must not promise a hook that is skipped`);
+      assert.match(context,/select_project/,`${source}: must ask for the call`);
+      const payload=JSON.parse(context.match(/\{"session_key".*?\}/)[0]);
+      assert.deepEqual(payload,{session_key:'branch-session-1234',event:'SessionStart',
+        repository:'neerajg03/satchel'});
+    }
+  } finally { rmSync(cwd,{recursive:true,force:true}); }
+});
+
+test('an unstaged repository still asks for the call on a source that does load',()=>{
+  // The hook runs here and returns the personal and project lists, but with no
+  // staged hint it cannot select this workspace's project on its own.
+  const cwd=repoWorkspace();
+  try {
+    for(const source of ['clear','compact']) {
+      const context=contextFor(source,cwd);
+      assert.match(context,/runs on this event, but the repository could not be staged/);
+      assert.match(context,/select_project/);
+    }
+  } finally { rmSync(cwd,{recursive:true,force:true}); }
+});
+
+test('a staged repository asks for nothing, but only where the hook runs',async()=>{
+  // The one branch that tells the model to sit still. It has to be unreachable
+  // on a source the hook is skipped on, which is the whole bug.
+  const {createServer}=await import('node:http');
+  const asked=[];
+  const server=createServer((req,res)=>{
+    let body='';
+    req.on('data',chunk=>{body+=chunk;});
+    req.on('end',()=>{asked.push(JSON.parse(body));res.writeHead(204);res.end();});
+  });
+  await new Promise(done=>server.listen(0,'127.0.0.1',done));
+  const env={SATCHEL_DISABLE_REPOSITORY_STAGING:'0',
+    SATCHEL_REPOSITORY_HINT_URL:`http://127.0.0.1:${server.address().port}/api/repository-hint`};
+  const cwd=repoWorkspace();
+  try {
+    const loaded=await contextForAsync('clear',cwd,env);
+    assert.match(loaded,/detected and staged/);
+    assert.match(loaded,/runs on this event and is responsible for consuming it/);
+    assert.doesNotMatch(loaded,/select_project/,'nothing is asked of the model on this branch');
+
+    const launched=await contextForAsync('startup',cwd,env);
+    assert.doesNotMatch(launched,/detected and staged/,
+      'staging succeeding must not silence the model on a source the hook is skipped on');
+    assert.match(launched,/select_project/);
+
+    // The bridge sends the normalized name and nothing else, on both.
+    assert.deepEqual(asked,[
+      {session_key:'branch-session-1234',provider:'github',repository:'neerajg03/satchel'},
+      {session_key:'branch-session-1234',provider:'github',repository:'neerajg03/satchel'},
+    ]);
+  } finally {
+    rmSync(cwd,{recursive:true,force:true});
+    await new Promise(done=>server.close(done));
+  }
+});
+
+test('an unlinked workspace is told plainly when no hook will load anything',()=>{
+  const cwd=mkdtempSync(join(tmpdir(),'satchel-unlinked-branch-'));
+  try {
+    // On clear and compact the hook does load, so checking for the index and
+    // falling back once is right.
+    assert.match(contextFor('clear',cwd),/check whether its Satchel index arrived/);
+    // At launch it cannot arrive, and asking the model to check for something
+    // that cannot arrive invites it to decide no call was needed.
+    const launched=contextFor('startup',cwd);
+    assert.match(launched,/does not run on this event/);
+    assert.match(launched,/load_memory_context once/);
+    assert.doesNotMatch(launched,/check whether its Satchel index arrived/);
+  } finally { rmSync(cwd,{recursive:true,force:true}); }
+});
+
 test('built packages stay in sync with their shared sources',()=>{
   // Nothing else fails when integrations/shared changes without re-running build-plugins.
   const shared=path=>readFileSync(new URL(`../integrations/shared/${path}`,import.meta.url),'utf8');
