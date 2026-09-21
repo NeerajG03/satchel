@@ -14,7 +14,15 @@ Things that have already gone wrong here, or that are shaped so they will.
 
 **The token hook deletes `satchel_grant_id` before writing it.** That one subtraction is what stops a client supplying its own generation. Never simplify it to a plain `||` merge.
 
-**Four constants are one deployment.** `RESOURCE` and `SUPABASE_URL` in `server/http-handler.mjs`, the audience literal inside `satchel_access_token_hook`, the URL in `bootstrap.mjs`, and the `.mcp.json` URL in `scripts/build-plugins.mjs`. Change one and discovery or verification breaks in a way that looks like an auth bug.
+**Four constants are one deployment.** `RESOURCE` and `SUPABASE_URL` in `server/http-handler.mjs`, the audience literal inside `satchel_access_token_hook`, the default URL in `bootstrap.mjs` (now overridable with `SATCHEL_REPOSITORY_HINT_URL`), and the `.mcp.json` URL in `scripts/build-plugins.mjs`. Change one and discovery or verification breaks in a way that looks like an auth bug.
+
+**A hook matcher and the text that describes it are one change.** `bootstrap.mjs` told the model "the authenticated Satchel hook is responsible for consuming it; repository activation does not require a model tool call" on every SessionStart source. That was true while the `mcp_tool` hook matched all four sources. Narrowing it to `clear|compact` changed `scripts/build-plugins.mjs` and left the sentence alone, so at launch the paths inverted: staging **succeeding** told the model not to call a tool and then nothing loaded, while staging **failing** was the only path that worked.
+
+Silent in both directions. Nothing logs a hook the host skipped, and the model had been told not to look. The branch is now chosen by `event.source` as well as by whether staging worked, an unknown source counts as launch, and `tests/plugin-bootstrap.test.mjs` asserts the staged text is *unreachable* on a source the hook cannot run on.
+
+**Rule:** the list in `bootstrap.mjs` and `mcpSessionMatcher` in `scripts/build-plugins.mjs` are the same fact written twice. Change both, and assert the pairing in a test rather than in a comment.
+
+**spawnSync cannot be used against a server in the same process.** The test that reaches the staged branch serves the hint endpoint from the test process itself. `spawnSync` blocks that process's event loop, so the child's `fetch` never gets accepted and just waits out its 2500ms timeout, landing on the unstaged branch. It looks exactly like a staging failure, which is the branch being tested against. Use `spawn`.
 
 **Editing a generated plugin copy works until the next build.** `integrations/claude/satchel` and `integrations/codex/satchel` are output. The source is `integrations/shared`. A fix made in one generated copy also quietly makes the two hosts behave differently.
 
