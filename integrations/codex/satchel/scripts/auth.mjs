@@ -108,7 +108,7 @@ const PAGE = message => `<!doctype html><meta charset="utf-8"><title>Satchel</ti
 
 /** The interactive half. Opens a browser at Satchel's own consent page and
  *  waits on the loopback listener for the code to come back. */
-export async function connect({timeoutMs = 180000, open = openBrowser, log = () => {}} = {}) {
+export async function connect({timeoutMs = 15 * 60 * 1000, open = openBrowser, log = () => {}} = {}) {
   const existing = readCredentials();
   const redirectUris = PORTS.map(port => `http://127.0.0.1:${port}/callback`);
   const clientId = existing?.client_id ?? await registerClient(redirectUris);

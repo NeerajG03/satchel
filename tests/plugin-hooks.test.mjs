@@ -18,12 +18,13 @@ import {join} from 'node:path';
 
 const scriptPath = name => new URL(`../integrations/shared/${name}`, import.meta.url).pathname;
 
-/** A SATCHEL_HOME with no credential, and with the connect attempt already
- *  recorded so the script does not spawn a browser at us. */
+/** A SATCHEL_HOME with no credential, and with a connect attempt recorded just
+ *  now so the script does not spawn a browser at us mid-test. pid 1 is always
+ *  alive, which puts it in the 'waiting' state deterministically. */
 function home() {
   const dir = mkdtempSync(join(tmpdir(), 'satchel-home-'));
   mkdirSync(dir, {recursive: true});
-  writeFileSync(join(dir, 'last-connect-attempt'), String(Date.now()));
+  writeFileSync(join(dir, 'connect-attempt.json'), JSON.stringify({at: Date.now(), pid: 1}));
   return dir;
 }
 
@@ -62,6 +63,11 @@ test('session start says plainly when nothing is connected, and asks for nothing
     assert.match(hookSpecificOutput.additionalContext, /installed but not connected/);
     assert.match(hookSpecificOutput.additionalContext, /Do not claim memory loaded/);
     assert.match(systemMessage, /not connected/);
+    // A window is already open in this fixture, so the person is pointed at it
+    // rather than handed a command to run. Printing a command while a browser
+    // tab sits waiting is the exact manual step this is meant to remove.
+    assert.match(hookSpecificOutput.additionalContext, /already open and waiting/);
+    assert.doesNotMatch(hookSpecificOutput.additionalContext, /Run: node/);
     // The hook input carries a prompt and a transcript path on some hosts.
     // Neither is this script's business and neither may reach its output.
     assert.doesNotMatch(stdout, /PRIVATE PROMPT|\/private\/secret/);
@@ -264,6 +270,37 @@ test('a capture that cannot be sent leaves the mark where it was', async () => {
     rmSync(cwd, {recursive: true, force: true});
     rmSync(SATCHEL_HOME, {recursive: true, force: true});
     await new Promise(done => server.close(done));
+  }
+});
+
+test('a missed window is retried, and an open one is never replaced', async () => {
+  // The first version recorded an attempt and never checked whether it worked,
+  // so one window the person did not reach in time meant an hour of every new
+  // session printing a command at them. That is the manual step this whole
+  // design exists to remove.
+  const {connectState, recordConnectAttempt} = await import('../integrations/shared/connect.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'satchel-state-'));
+  const previous = process.env.SATCHEL_HOME;
+  process.env.SATCHEL_HOME = dir;
+  try {
+    assert.equal(connectState(), 'offer', 'never tried, so offer');
+
+    // pid 1 is always alive: a window is open right now.
+    recordConnectAttempt(1);
+    assert.equal(connectState(), 'waiting', 'do not open a second window');
+
+    // A pid that is gone, recorded just now: it did not finish. Quiet for a
+    // few minutes, then try again, rather than for an hour.
+    recordConnectAttempt(0x7ffffffe);
+    assert.equal(connectState(), 'recent');
+    assert.equal(connectState(Date.now() + 11 * 60 * 1000), 'offer',
+      'a window that was missed is offered again, not replaced by a command forever');
+
+    writeFileSync(join(dir, 'credentials.json'), JSON.stringify({refresh_token: 'r'}));
+    assert.equal(connectState(), 'connected', 'a credential ends all of it');
+  } finally {
+    if (previous === undefined) delete process.env.SATCHEL_HOME; else process.env.SATCHEL_HOME = previous;
+    rmSync(dir, {recursive: true, force: true});
   }
 });
 

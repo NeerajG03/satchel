@@ -18,7 +18,7 @@
 // and never the host's own credentials.
 import {call} from './auth.mjs';
 import {repositoryFrom, readHookInput, sessionIdOf, cwdOf, emit} from './workspace.mjs';
-import {shouldOfferConnect, recordConnectAttempt} from './connect.mjs';
+import {connectState, recordConnectAttempt} from './connect.mjs';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {dirname, join} from 'node:path';
@@ -32,12 +32,34 @@ const RULES = ' Read relevant more info with read_memory; only names and descrip
  *  wait for someone to click Allow, and holding it open until they do would
  *  make the first session after install feel broken. */
 function offerConnect() {
-  recordConnectAttempt();
   try {
     const script = join(dirname(fileURLToPath(import.meta.url)), 'connect.mjs');
-    spawn(process.execPath, [script, '--background'], {stdio: 'ignore', detached: true}).unref();
+    const child = spawn(process.execPath, [script, '--background'], {stdio: 'ignore', detached: true});
+    child.unref();
+    // The pid, so the next session can tell "a window is open right now" from
+    // "we tried and it did not finish". Recorded after the spawn, because a
+    // spawn that threw is not an attempt.
+    recordConnectAttempt(child.pid);
     return true;
   } catch { return false; }
+}
+
+/** What to say when there is no credential. Not an error: this is a Satchel
+ *  that has not been set up yet, and it must not read like a broken one. */
+function notConnected() {
+  const state = connectState();
+  if (state === 'waiting') return {
+    context: 'Satchel is installed but not connected. A browser window is already open and waiting for you to allow it.',
+    notice: 'Satchel not connected · finish in the browser window already open'};
+  if (state === 'offer' && offerConnect()) return {
+    context: 'Satchel is installed but not connected, so no memory has been loaded. A browser window was opened to connect it.',
+    notice: 'Satchel not connected · opening your browser'};
+  // Either a window was offered a few minutes ago and did not finish, or the
+  // spawn failed. Both are rare, and both leave the person something to do.
+  return {
+    context: 'Satchel is installed but not connected, so no memory has been loaded. Run: node '
+      + join(dirname(fileURLToPath(import.meta.url)), 'connect.mjs'),
+    notice: 'Satchel not connected · run satchel connect'};
 }
 
 const event = await readHookInput();
@@ -56,14 +78,8 @@ try {
     {session_key: sessionKey, event: hookEvent, repository}, {timeout: 6000});
 
   if (!response.connected) {
-    // No credential at all. This is a Satchel that has not been set up yet,
-    // which is not an error and must not read like one.
-    const offered = shouldOfferConnect() && offerConnect();
-    emit({event: hookEvent,
-      context: 'Satchel is installed but not connected, so no memory has been loaded.'
-        + (offered ? ' A browser window was opened to connect it.' : ' Run: node ' + join(dirname(fileURLToPath(import.meta.url)), 'connect.mjs'))
-        + ' Do not claim memory loaded and do not invent any.',
-      notice: offered ? 'Satchel not connected · opening your browser' : 'Satchel not connected · run satchel connect'});
+    const {context, notice} = notConnected();
+    emit({event: hookEvent, context: context + ' Do not claim memory loaded and do not invent any.', notice});
     process.exit(0);
   }
   if (!response.ok) {
