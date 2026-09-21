@@ -13,6 +13,7 @@ import {registerTelemetry} from 'ai';
 import {NodeSDK} from '@opentelemetry/sdk-node';
 import {LangfuseSpanProcessor} from '@langfuse/otel';
 import {LangfuseVercelAiSdkIntegration} from '@langfuse/vercel-ai-sdk';
+import {LangfuseOtelSpanAttributes as LF} from '@langfuse/core';
 import {startActiveObservation, startObservation, propagateAttributes, setActiveTraceIO,
         updateActiveObservation} from '@langfuse/tracing';
 
@@ -32,7 +33,7 @@ if (tracingEnabled) {
       // identify beyond the owner id is removed before it leaves the process.
       mask: ({data}) => redact(data),
     });
-    new NodeSDK({spanProcessors: [processor]}).start();
+    new NodeSDK({spanProcessors: [genAiToLangfuse(processor)]}).start();
     // Every AI SDK call now emits its own spans, typed by the SDK: an
     // `embeddings {modelId}` observation for embed/embedMany and a generation
     // for generateObject, with token usage attached by the provider rather
@@ -44,6 +45,62 @@ if (tracingEnabled) {
     // most worth having, were the ones never recorded.
     registerTelemetry(new LangfuseVercelAiSdkIntegration());
   } catch { processor = null; }
+}
+
+// The AI SDK describes its calls in OpenTelemetry's GenAI semantic conventions:
+// gen_ai.request.model, gen_ai.usage.input_tokens, gen_ai.input.messages and so
+// on. Langfuse reads its own langfuse.observation.* attributes and, as of
+// @langfuse/otel 5.11, only looks at the gen_ai ones to pull media out of
+// messages. Nothing carries the model or the token counts across.
+//
+// The effect is quiet and expensive: the observation still arrives, correctly
+// typed and timed, with the prompt and the reply on it, and the model, the
+// usage and therefore the cost are simply absent. Adding the model definitions
+// did not fix it, and a model whose definition has existed since 2025 did not
+// resolve either, which is what ruled the definitions out.
+//
+// So the attributes are translated on the way out. Anything Langfuse has
+// already set wins, because a hand-set value is deliberate.
+const GEN_AI_USAGE = {
+  'gen_ai.usage.input_tokens': 'input',
+  'gen_ai.usage.output_tokens': 'output',
+  'gen_ai.usage.cache_read.input_tokens': 'cache_read_input',
+  'gen_ai.usage.reasoning.output_tokens': 'reasoning_output',
+};
+
+export function genAiToLangfuse(inner) {
+  const bridge = span => {
+    const a = span.attributes;
+    if (!a || a[LF.OBSERVATION_MODEL]) return;
+    const model = a['gen_ai.response.model'] ?? a['gen_ai.request.model'];
+    if (!model) return;
+    a[LF.OBSERVATION_MODEL] = model;
+    const usage = {};
+    for (const [from, to] of Object.entries(GEN_AI_USAGE))
+      if (typeof a[from] === 'number') usage[to] = a[from];
+    // Langfuse derives total itself when the parts are there, but a provider
+    // that reports only a total would otherwise contribute nothing.
+    if (Object.keys(usage).length) a[LF.OBSERVATION_USAGE_DETAILS] = JSON.stringify(usage);
+    if (!a[LF.OBSERVATION_INPUT] && a['gen_ai.input.messages'])
+      a[LF.OBSERVATION_INPUT] = a['gen_ai.input.messages'];
+    if (!a[LF.OBSERVATION_OUTPUT] && a['gen_ai.output.messages'])
+      a[LF.OBSERVATION_OUTPUT] = a['gen_ai.output.messages'];
+    const parameters = {};
+    for (const key of ['temperature', 'max_tokens', 'top_p'])
+      if (a[`gen_ai.request.${key}`] !== undefined) parameters[key] = a[`gen_ai.request.${key}`];
+    if (Object.keys(parameters).length && !a[LF.OBSERVATION_MODEL_PARAMETERS])
+      a[LF.OBSERVATION_MODEL_PARAMETERS] = JSON.stringify(parameters);
+  };
+  return {
+    onStart: (span, context) => inner.onStart?.(span, context),
+    onEnd(span) {
+      // Never let a translation failure cost the span itself.
+      try { bridge(span); } catch { /* the observation is worth more than the mapping */ }
+      inner.onEnd?.(span);
+    },
+    forceFlush: () => inner.forceFlush(),
+    shutdown: () => inner.shutdown(),
+  };
 }
 
 const SECRETS = /\b(sk-[a-z0-9-]{8,}|pk-lf-[a-z0-9-]{8,}|eyJ[A-Za-z0-9_-]{10,}|AQ\.[A-Za-z0-9_-]{10,})/gi;
