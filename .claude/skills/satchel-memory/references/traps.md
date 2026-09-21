@@ -52,6 +52,47 @@ A router eval showed nine "failures" that were 429 responses being swallowed. An
 
 **Rule:** surface the reason, never just the count.
 
+### A spent daily quota answers like a burst limit
+
+The same trap, one layer down, and it cost a day of retrieval.
+
+Gemini's free embedding quota is **1,000 requests a day per project per model**, and Google counts every input in a batch. When it is gone, the 429 does not say "come back tomorrow". It says:
+
+```
+Please retry in 9.878146082s.
+details[].RetryInfo.retryDelay = "9s"
+```
+
+Ten seconds. That is the bucket refilling at 1,000 a day, so honouring it buys exactly one request and then fails again. Retrieval looked flaky and intermittent when it was simply out of quota, and the intermittency is what kept the real cause hidden: a couple of prompts in ten would work.
+
+Worse, nothing read any of it. Both the embedder and the router read one header, `x-ratelimit-reset`, which **Google does not send at all**. Every Gemini 429 fell through to the 500ms floor, retried once into the same wall, and surfaced as `gemini-embedding-001 returned 429`. The quota name, the limit and the advised delay were all in the response body, which was never read.
+
+**Rule:** the reason for a 429 is in the body as often as in the headers, and a per-day quota is a different thing from a per-minute one. `server/rate-limit.mjs` reads Retry-After, X-RateLimit-Reset and Google's `RetryInfo`/`QuotaFailure` details, and tells a spent day (`quotaId` matching per-day) apart from a burst. A spent day is never slept on.
+
+### A retry that is counted rather than budgeted
+
+The old retry was "wait 500 to 2000ms, once". That number cannot be right, because the thing it has to fit inside is the hook's ten second timeout, and how much of that is left depends on how long the first attempt took.
+
+Retries are budgeted now: `budgetMs` covers the whole call including every wait, an attempt is only started if there is time for one, and an advised wait that does not fit is not taken. Sleeping past the hook timeout means holding the turn open and then failing anyway, which is strictly worse than failing at once, because the caller degrades to silence either way.
+
+The read path gets 6 seconds. `scripts/embed-memories.mjs` gets 60, because a repair is not behind a hook timeout.
+
+### An eval and production sharing one free-tier key
+
+`eval/embed.mjs` used `GEMINI_API_KEY`, which is the same key and therefore the same 1,000-a-day project bucket the deployment retrieves with. One pass over the corpus is 632 texts. An eval run six minutes into a quota day left production with 368 requests for the next twenty-four hours.
+
+**Rule:** the eval asks for `SATCHEL_EVAL_GEMINI_KEY`, and when it falls back to the deployment's key it prints what it is about to spend before spending it. A cost that is invisible until it is paid is a cost that gets paid by accident.
+
+### A generic error message for a specific failure
+
+Every failure from the embedder and the router landed on the default branch of `errorText`, because that table keys on Postgres error codes and an `EmbeddingError` has none. So a spent quota reached the person as:
+
+> Satchel memory unavailable · Satchel request failed. Reload before retrying a write: it may have completed.
+
+Every clause after the first four words is wrong. There was no write. Reloading does nothing. And the one fact that would have ended the debugging in a minute was thrown away with the response body.
+
+**Rule:** a failure that can say what it was carries a plain-words `reason`, and `errorText` prefers it over the code table.
+
 ## Code traps
 
 ### An explicit NULL is not an absent argument

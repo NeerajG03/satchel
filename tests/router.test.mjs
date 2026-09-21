@@ -93,14 +93,43 @@ test('content that is not JSON fails loudly rather than capturing nothing quietl
   await assert.rejects(router.route({projects,tasks,context:[],turn:['x']}),/not JSON/);
 });
 
+/** A 429 shaped the way Google actually sends one: no rate limit headers at
+ *  all, and the quota, the limit and the retry delay in the body. */
+const limited=(quotaId,retryDelay='0s')=>({ok:false,status:429,headers:{get:()=>null},
+  text:async()=>JSON.stringify({error:{code:429,
+    message:`Quota exceeded for metric: x, limit: 1000. Please retry in 0.05s.`,
+    details:[{'@type':'type.googleapis.com/google.rpc.QuotaFailure',
+      violations:[{quotaId,quotaValue:'1000'}]},
+      {'@type':'type.googleapis.com/google.rpc.RetryInfo',retryDelay}]}})});
+
 test('a rate limit is retried once and then surfaces',async()=>{
   let calls=0;
   const router=createRouter({apiKey:'x',fetchImpl:async()=>{
     calls++;
-    return {ok:false,status:429,headers:{get:()=>String(Date.now()+10)},json:async()=>({})};
+    return limited('GenerateRequestsPerMinutePerProjectPerModel-FreeTier');
   }});
-  await assert.rejects(router.route({projects,tasks,context:[],turn:['x']}),/429/);
+  await assert.rejects(router.route({projects,tasks,context:[],turn:['x']}),/rate limited/);
   assert.equal(calls,2,'one retry, not a loop');
+});
+
+test('a spent daily quota is reported, not slept on',async()=>{
+  // Google answers an exhausted per-day quota with a short retryDelay anyway,
+  // which reads like a burst limit and is not one. Waiting it out holds the
+  // turn open and fails again, so the turn is given up on instead. Capture
+  // missing a turn is the behaviour Satchel had before capture existed.
+  let calls=0;
+  const started=Date.now();
+  const router=createRouter({apiKey:'x',fetchImpl:async()=>{
+    calls++;
+    return limited('GenerateContentPaidTierInputTokensPerDay','9s');
+  }});
+  await assert.rejects(router.route({projects,tasks,context:[],turn:['x']}),error=>{
+    assert.equal(error.code,'ROUTER_LIMIT');
+    assert.match(error.reason,/day's free quota is used up \(1000 requests\)/);
+    return true;
+  });
+  assert.equal(calls,1);
+  assert.ok(Date.now()-started<500,'and nothing sleeps on the way out');
 });
 
 test('a missing key is a configuration error, not a silent no-op',async()=>{

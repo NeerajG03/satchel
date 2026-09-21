@@ -12,9 +12,19 @@
 // is settled by looking at the source.
 
 import {generation} from './tracing.mjs';
+import {readRateLimit, readFailure} from './rate-limit.mjs';
 
 export class RouterError extends Error {
-  constructor(message, {cause} = {}) { super(message); this.name = 'RouterError'; this.cause = cause; }
+  constructor(message, {cause, code, reason} = {}) {
+    super(message);
+    this.name = 'RouterError';
+    this.cause = cause;
+    // Carried so the hook can tell the person what happened. A capture that
+    // did not run because the day's quota is spent is a different thing from
+    // one that found nothing worth keeping, and they looked identical.
+    if (code) this.code = code;
+    if (reason) this.reason = reason;
+  }
 }
 
 export const ROUTER_SCHEMA = {
@@ -231,14 +241,26 @@ export function createRouter({
       } catch (cause) { throw new RouterError(`router did not respond within ${timeoutMs}ms`, {cause}); }
       // Rate limited: wait once and try again, then give up. Capture missing a
       // turn is the behaviour Satchel had before it existed; retrying in a loop
-      // would hold the turn open.
-      if (response.status === 429 && retry) {
-        const reset = Number(response.headers?.get?.('x-ratelimit-reset')) || 0;
-        await new Promise(done => setTimeout(done, Math.min(Math.max(reset - Date.now(), 500), 2000)));
-        return call(prompt, false);
+      // would hold the turn open. What the limit actually says is read rather
+      // than guessed, because `x-ratelimit-reset` is a header Google never
+      // sends, so every Gemini 429 used to fall through to the 500ms floor.
+      if (response.status === 429) {
+        const limit = readRateLimit(response, await readFailure(response));
+        // A spent daily quota does not come back from a wait, and Google
+        // answers one with a ten second retryDelay regardless, so honouring
+        // that would hold the turn open and fail anyway. Only a wait that is
+        // both short and advised is worth taking.
+        const wait = limit.spent ? 0 : Math.min(limit.retryAfterMs || 500, 2000);
+        if (retry && wait) {
+          await new Promise(done => setTimeout(done, wait));
+          return call(prompt, false, schema);
+        }
+        throw new RouterError(`router is rate limited: ${limit.reason}`,
+          {code: 'ROUTER_LIMIT', reason: `capture is rate limited, ${limit.reason}`});
       }
       if (response.status === 400 && schema) return call(prompt, retry, false);
-      if (!response.ok) throw new RouterError(`router returned ${response.status}`);
+      if (!response.ok) throw new RouterError(`router returned ${response.status}`,
+        {code: 'ROUTER_HOST', reason: `the capture model answered ${response.status}`});
       return response.json();
   }
 }

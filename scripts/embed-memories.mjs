@@ -20,7 +20,10 @@ if (!key) {
   console.error('SUPABASE_SERVICE_KEY is required. This writes to every owner\'s rows, so it cannot use the publishable key.');
   process.exit(2);
 }
-const embedder = createEmbedder();
+// Nothing here is behind a hook timeout, so a rate limit is worth waiting out
+// rather than giving up on. The read path uses six seconds because it is; this
+// is a repair that can afford a minute.
+const embedder = createEmbedder({budgetMs: Number(process.env.SATCHEL_EMBEDDING_BUDGET_MS ?? 60000)});
 const db = createClient(SUPABASE_URL, key, {auth: {persistSession: false, autoRefreshToken: false}});
 
 const BATCH = 50;
@@ -45,7 +48,15 @@ for (;;) {
 
   let vectors;
   try { vectors = await embedder.embed(rows.map(indexedText)); }
-  catch (error) { console.error(`Embedding failed, stopping with ${done} done:`, error.message); process.exit(1); }
+  catch (error) {
+    console.error(`\nEmbedding failed, stopping with ${done} done: ${error.message}`);
+    // A spent daily quota is the one failure where re-running now is pointless,
+    // and it is also the one that looks most like a transient blip.
+    if (error.code === 'EMB_LIMIT')
+      console.error('The rows left are still unretrievable. Re-run once the quota resets, or set '
+        + 'SATCHEL_EMBEDDING_FALLBACK_KEY to a second project\'s key and re-run now.');
+    process.exit(1);
+  }
 
   const embedded_at = new Date().toISOString();
   for (const [index, row] of rows.entries()) {

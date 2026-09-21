@@ -14,13 +14,25 @@
 // detectable instead of silent.
 
 import {embedding as traceEmbedding} from './tracing.mjs';
+import {readRateLimit, readFailure} from './rate-limit.mjs';
 
 export const EMBEDDING_DIMENSIONS = 768;
 const MAX_BATCH = 64;
 const MAX_CHARS = 8000;
 
 export class EmbeddingError extends Error {
-  constructor(message, {cause} = {}) { super(message); this.name = 'EmbeddingError'; this.cause = cause; }
+  constructor(message, {cause, code, reason, retryAfterMs} = {}) {
+    super(message);
+    this.name = 'EmbeddingError';
+    this.cause = cause;
+    // `code` and `reason` are what the lifecycle hook turns into the line the
+    // person reads. Without them every failure in this file arrived as
+    // "Satchel request failed. Reload before retrying a write: it may have
+    // completed", which is unhelpful and also untrue: nothing was written.
+    if (code) this.code = code;
+    if (reason) this.reason = reason;
+    if (retryAfterMs) this.retryAfterMs = retryAfterMs;
+  }
 }
 
 function normalize(vector, model, expected) {
@@ -71,6 +83,8 @@ const PROVIDERS = {
   },
 };
 
+const sleep = ms => new Promise(done => setTimeout(done, ms));
+
 export function createEmbedder({
   // Gemini by default: it is the only free tier measured to survive real use,
   // and gemini-embedding-001 honours a dimensions request, so 768 fits the
@@ -85,10 +99,29 @@ export function createEmbedder({
   dimensions = Number(process.env.SATCHEL_EMBEDDING_DIMENSIONS ?? EMBEDDING_DIMENSIONS),
   path = process.env.SATCHEL_EMBEDDING_PATH,
   timeoutMs = Number(process.env.SATCHEL_EMBEDDING_TIMEOUT_MS ?? 4000),
+  // A second route for the SAME model, on a different key. Gemini's free
+  // embedding quota is per project per model, so a second project doubles it,
+  // and the day this was written the first one ran out at 1,000 requests and
+  // took retrieval down with it for the rest of the day.
+  fallbackKey = process.env.SATCHEL_EMBEDDING_FALLBACK_KEY,
+  fallbackUrl = process.env.SATCHEL_EMBEDDING_FALLBACK_URL,
+  // The whole call, including every wait and every retry. The lifecycle hook
+  // that calls this has a ten second timeout, so the useful question is never
+  // "how long is a retry" but "how much time is left".
+  budgetMs = Number(process.env.SATCHEL_EMBEDDING_BUDGET_MS ?? 6000),
   fetchImpl = fetch,
 } = {}) {
   const spec = PROVIDERS[provider];
   if (!spec) throw new EmbeddingError(`Unknown embedding provider ${provider}`);
+
+  const endpoint = (base, at) => String(base).replace(/\/+$/, '') + (at ?? path ?? spec.path);
+  const routes = [{endpoint: endpoint(url), apiKey, label: 'primary'}];
+  // Deliberately the same model on both routes, and there is no setting to
+  // make it anything else. Each row stores embedding_model beside its vector
+  // because two models' vectors are not comparable, so a fallback that
+  // answered with a different model would turn a rate limit into quietly wrong
+  // matches, which is the one failure this file exists to prevent.
+  if (fallbackKey) routes.push({endpoint: endpoint(fallbackUrl ?? url), apiKey: fallbackKey, label: 'fallback'});
 
   // One observation covers the whole call including the retry. Ending the span
   // on the 429 branch was the bug: it returned into a fresh attempt with
@@ -98,7 +131,7 @@ export function createEmbedder({
   async function batch(inputs) {
     const trace = traceEmbedding('embed', {model, input: inputs, metadata: {dimensions, count: inputs.length}});
     try {
-      const payload = await attempt(inputs, true);
+      const payload = await attempt(inputs);
       const vectors = spec.read(payload);
       if (!Array.isArray(vectors) || vectors.length !== inputs.length)
         throw new EmbeddingError(`${model} returned ${vectors?.length ?? 0} embeddings for ${inputs.length} inputs`);
@@ -112,34 +145,69 @@ export function createEmbedder({
     }
   }
 
-  async function attempt(inputs, retryOn429) {
-    let response;
-    try {
-      response = await fetchImpl(url.replace(/\/+$/, '') + (path ?? spec.path), {
-        method: 'POST',
-        headers: {'content-type': 'application/json', ...(apiKey ? {authorization: `Bearer ${apiKey}`} : {})},
-        body: JSON.stringify(spec.body(model, inputs, dimensions)),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-    } catch (cause) {
-      throw new EmbeddingError(`${model} did not respond within ${timeoutMs}ms`, {cause});
+  // Budgeted rather than counted. An advised wait that does not fit in what is
+  // left is not waited at all: holding the turn open and then failing anyway is
+  // strictly worse than failing now, because the caller degrades to silence
+  // either way and the person gets the answer sooner.
+  async function attempt(inputs) {
+    const deadline = Date.now() + budgetMs;
+    const payload = JSON.stringify(spec.body(model, inputs, dimensions));
+    let last = null;
+    for (const route of routes) {
+      for (;;) {
+        const left = deadline - Date.now();
+        // Under a quarter second there is no attempt worth starting, only a
+        // timeout to report.
+        if (left < 250) break;
+        let response;
+        try {
+          response = await fetchImpl(route.endpoint, {
+            method: 'POST',
+            headers: {'content-type': 'application/json', ...(route.apiKey ? {authorization: `Bearer ${route.apiKey}`} : {})},
+            body: payload,
+            signal: AbortSignal.timeout(Math.min(timeoutMs, left)),
+          });
+        } catch (cause) {
+          // A host that did not answer inside the timeout will not answer
+          // sooner for being asked again on the same route.
+          last = new EmbeddingError(`${model} did not respond within ${Math.min(timeoutMs, left)}ms`,
+            {cause, code: 'EMB_TIMEOUT', reason: 'the embedding service did not answer in time'});
+          break;
+        }
+        if (response.ok) {
+          try { return await response.json(); }
+          catch (cause) {
+            throw new EmbeddingError(`${model} returned a malformed response`,
+              {cause, code: 'EMB_SHAPE', reason: 'the embedding service sent something unreadable'});
+          }
+        }
+        const body = await readFailure(response);
+        if (response.status !== 429) {
+          last = new EmbeddingError(`${model} returned ${response.status}`,
+            {code: 'EMB_HOST', reason: `the embedding service answered ${response.status}`});
+          break;
+        }
+        const limit = readRateLimit(response, body);
+        last = new EmbeddingError(`${model} is rate limited: ${limit.reason}${limit.quota ? ` [${limit.quota}]` : ''}`,
+          {code: 'EMB_LIMIT', retryAfterMs: limit.retryAfterMs,
+           reason: `embedding is rate limited, ${limit.reason}`});
+        // A spent daily quota does not come back from a wait. Google answers
+        // one with a ten second retryDelay anyway, which is the bucket
+        // refilling, so honouring it buys a single request and then fails
+        // again: that is what made retrieval look flaky instead of out of
+        // quota. Go straight to the other key, or stop.
+        if (limit.spent) break;
+        const wait = limit.retryAfterMs || 500;
+        if (Date.now() + wait + 250 > deadline) break;
+        await sleep(wait);
+      }
     }
-    // OpenRouter's free models allow 20 requests a minute per account, shared
-    // across every user of this deployment. On the read path that is one
-    // retrieval's worth of delay against no retrieval at all, so it is worth a
-    // single short wait and no more; the caller still degrades to silence.
-    if (response.status === 429 && retryOn429) {
-      const reset = Number(response.headers?.get?.('x-ratelimit-reset')) || 0;
-      await new Promise(done => setTimeout(done, Math.min(Math.max(reset - Date.now(), 500), 2000)));
-      return attempt(inputs, false);
-    }
-    if (!response.ok) throw new EmbeddingError(`${model} returned ${response.status}`);
-    try { return await response.json(); }
-    catch (cause) { throw new EmbeddingError(`${model} returned a malformed response`, {cause}); }
+    throw last ?? new EmbeddingError(`${model} could not be reached`,
+      {code: 'EMB_HOST', reason: 'the embedding service could not be reached'});
   }
 
   return {
-    model, provider, dimensions,
+    model, provider, dimensions, routes: routes.length,
     /** Embeds many texts, preserving order. Throws rather than returning a hole. */
     async embed(texts) {
       const inputs = texts.map(text => {

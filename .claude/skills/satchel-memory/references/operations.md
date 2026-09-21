@@ -85,7 +85,23 @@ SATCHEL_GITHUB_APP_*
 
 `SUPABASE_URL` is a constant in `server/http-handler.mjs`. `SUPABASE_SERVICE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are used only by local maintenance scripts and are deliberately **not** on Vercel. `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` are only for `verify-pgvector.mjs`.
 
-Overridable without a code change: `SATCHEL_EMBEDDING_PROVIDER|MODEL|URL|PATH|KEY|DIMENSIONS|TIMEOUT_MS`, `SATCHEL_ROUTER_MODEL|URL|KEY|TIMEOUT_MS`.
+Overridable without a code change: `SATCHEL_EMBEDDING_PROVIDER|MODEL|URL|PATH|KEY|DIMENSIONS|TIMEOUT_MS|BUDGET_MS|FALLBACK_KEY|FALLBACK_URL`, `SATCHEL_ROUTER_MODEL|URL|KEY|TIMEOUT_MS`.
+
+## The embedding quota, which is a capacity limit and not a bug
+
+`gemini-embedding-001` on the free tier allows **1,000 requests a day per project per model**, and Google counts **every input in a batch**, so a batch of 64 costs 64. The day resets at midnight US/Pacific, which is 12:30 IST.
+
+That number is small enough to matter. One pass of `eval/embed.mjs` over the corpus is 473 memories plus 159 prompts, so **632 of the 1,000**. On 20 September 2026 an eval run six minutes into the quota day took most of the budget, and production retrieval spent the rest of the day answering "Satchel memory unavailable" on every prompt.
+
+Three things follow.
+
+**The eval takes its own key.** `SATCHEL_EVAL_GEMINI_KEY` if it is set, otherwise the deployment's `GEMINI_API_KEY` with a line saying what it is about to spend. Set the dedicated one before any embedding work.
+
+**A second key doubles the ceiling.** The quota is per project, so `SATCHEL_EMBEDDING_FALLBACK_KEY` (a second Google project's key) is tried when the first route is rate limited. It is deliberately the *same model* on a different key, with no setting to make it anything else: `embedding_model` is stored beside every vector because two models' vectors are not comparable, so a fallback that answered with a different model would turn a rate limit into quietly wrong matches.
+
+**Waiting does not fix a spent day.** Google answers an exhausted per-day quota with a ~10 second `retryDelay`, which is the bucket refilling at 1,000 a day and reads exactly like a burst limit. Honouring it buys one request and then fails again, which is what made retrieval look flaky rather than out of quota. `server/rate-limit.mjs` tells the two apart from the `quotaId` and the embedder does not sleep on a spent day.
+
+Beyond that the answer is billing, not code: the paid tier lifts the limit.
 
 Keys live in `~/.config/env` and never in the repo. `.env` and `.env.*` are gitignored. When setting a Vercel variable, pipe the value from the env file so the key never appears in visible command text.
 

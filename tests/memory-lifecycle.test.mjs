@@ -244,3 +244,31 @@ test('retrieval speaks only when it found something', async () => {
       'finding nothing is the common case; a line on every prompt is noise people learn to ignore');
   } finally { await close(); }
 });
+
+test('a rate limit tells the person what actually happened', async () => {
+  // Retrieval failing on a spent embedding quota showed "Satchel memory
+  // unavailable · Satchel request failed. Reload before retrying a write: it
+  // may have completed." Every part of that after the first four words is
+  // wrong: there was no write, reloading does nothing, and the one fact that
+  // would have ended the debugging (the day's free quota is gone) was thrown
+  // away with the response body.
+  const spent = Object.assign(new Error('gemini-embedding-001 is rate limited'),
+    {code: 'EMB_LIMIT', reason: "embedding is rate limited, the day's free quota is used up (1000 requests)"});
+  const {client, close} = await connect({
+    status: async () => ({label: 'Test', personal: true, can_write: true, project_ids: []}),
+    settings: async () => baseSettings,
+    recordSessionMessage: async () => {},
+    activeProject: async () => null,
+    search: async () => { throw spent; },
+  });
+  try {
+    const hook = hookOf(await client.callTool({name: 'load_memory_context',
+      arguments: {session_key: 's', event: 'UserPromptSubmit', prompt: 'what did we decide'}}));
+    assert.match(hook.systemMessage, /day's free quota is used up \(1000 requests\)/);
+    assert.doesNotMatch(hook.systemMessage, /Reload before retrying a write/,
+      'nothing was written, so do not tell the person a write may have completed');
+    // The model is told the same thing, and told not to pretend otherwise.
+    assert.match(hook.hookSpecificOutput.additionalContext, /day's free quota is used up/);
+    assert.match(hook.hookSpecificOutput.additionalContext, /Do not claim that memory loaded/);
+  } finally { await close(); }
+});

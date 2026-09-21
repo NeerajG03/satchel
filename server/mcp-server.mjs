@@ -64,7 +64,14 @@ const taskUpdate=z.discriminatedUnion('kind',[
     resource_ids:z.array(z.uuid()).max(50).default([])}),
 ]);
 const textResult=data=>({content:[{type:'text',text:JSON.stringify(data)}]});
-const errorText=error=>({
+// A failure that can say what it was says it. Everything from the embedder and
+// the router carries a plain-words `reason`, because routing those through the
+// code table below produced "Satchel request failed. Reload before retrying a
+// write: it may have completed" for a spent embedding quota: unhelpful, and
+// also untrue, since nothing was written.
+const errorText=error=>error?.reason
+  ?(error.reason.charAt(0).toUpperCase()+error.reason.slice(1)).replace(/\.?$/,'.')
+  :({
   '42501':'Access denied. Check the connection and granted memory or task scopes in Satchel.',
   'P0002':'The requested Satchel record is unavailable. Refresh before trying again.',
   'PT400':'Provide exactly one of project_id (null for personal scope) or repository.',

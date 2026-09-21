@@ -109,14 +109,130 @@ test('a model that ignores the dimension request is refused, not stored short', 
   await assert.rejects(embedder.embed(['anything']), /2048 dimensions, expected 768/);
 });
 
-test('a rate limit is waited out once, then surfaces rather than retrying forever', async () => {
+// Everything below is the 21 Sep 2026 outage, where retrieval failed more
+// often than it succeeded and said only "gemini-embedding-001 returned 429".
+// The real answer was in the response body, which nothing read.
+
+/** A 429 shaped the way Google actually sends one: no rate limit headers at
+ *  all, and the quota, the limit and the retry delay in the body. */
+const geminiLimit = (quotaId, retryDelay = '9s', seconds = '9.878146082') => ({
+  ok: false, status: 429, headers: {get: () => null},
+  text: async () => JSON.stringify({error: {
+    code: 429,
+    message: `Quota exceeded for metric: generativelanguage.googleapis.com/embed_content_free_tier_requests, limit: 1000, model: gemini-embedding-1.0\nPlease retry in ${seconds}s.`,
+    status: 'RESOURCE_EXHAUSTED',
+    details: [
+      {'@type': 'type.googleapis.com/google.rpc.QuotaFailure',
+       violations: [{quotaMetric: 'generativelanguage.googleapis.com/embed_content_free_tier_requests',
+         quotaId, quotaValue: '1000'}]},
+      {'@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay},
+    ],
+  }}),
+});
+const DAILY = 'EmbedContentRequestsPerDayPerProjectPerModel-FreeTier';
+const PER_MINUTE = 'EmbedContentRequestsPerMinutePerProjectPerModel-FreeTier';
+
+test("a spent daily quota is not waited out, because waiting cannot fix it", async () => {
+  // Google answers an exhausted per-day quota with a ~10 second retryDelay,
+  // which reads exactly like a burst limit and is not one: it is the bucket
+  // refilling at 1000 a day. Honouring it buys one request and then fails
+  // again, which is what made retrieval look flaky rather than out of quota.
+  let calls = 0;
+  const started = Date.now();
+  const embedder = createEmbedder({provider: 'openai', apiKey: 'x',
+    fetchImpl: async () => { calls++; return geminiLimit(DAILY); }});
+  await assert.rejects(embedder.embed(['anything']), error => {
+    assert.equal(error.code, 'EMB_LIMIT');
+    assert.match(error.reason, /day's free quota is used up \(1000 requests\)/);
+    return true;
+  });
+  assert.equal(calls, 1, 'a spent daily quota is asked once and reported, not retried');
+  assert.ok(Date.now() - started < 500, 'and nothing sleeps on the way out');
+});
+
+test('a short advised wait is honoured, and the retry is what succeeds', async () => {
   let calls = 0;
   const embedder = createEmbedder({provider: 'openai', apiKey: 'x', fetchImpl: async () => {
     calls++;
-    return {ok: false, status: 429, headers: {get: () => String(Date.now() + 10)}, json: async () => ({})};
+    if (calls === 1) return geminiLimit(PER_MINUTE, '0s', '0.05');
+    return {ok: true, status: 200, json: async () => ({data: [{index: 0, embedding: vector(1)}]})};
   }});
-  await assert.rejects(embedder.embed(['anything']), /429/);
-  assert.equal(calls, 2, 'one retry, not a loop');
+  const [result] = await embedder.embed(['anything']);
+  assert.equal(result.length, EMBEDDING_DIMENSIONS);
+  assert.equal(calls, 2);
+});
+
+test('an advised wait that does not fit the budget is not taken', async () => {
+  // Sleeping past the hook's own timeout means holding the turn open and then
+  // failing anyway, which is strictly worse than failing now: the caller
+  // degrades to silence either way and the person hears about it sooner.
+  let calls = 0;
+  const started = Date.now();
+  const embedder = createEmbedder({provider: 'openai', apiKey: 'x', budgetMs: 600,
+    fetchImpl: async () => { calls++; return geminiLimit(PER_MINUTE, '30s', '30'); }});
+  await assert.rejects(embedder.embed(['anything']), /rate limited/);
+  assert.equal(calls, 1);
+  assert.ok(Date.now() - started < 600, `gave up inside the budget, took ${Date.now() - started}ms`);
+});
+
+test('Retry-After in seconds and an epoch reset are both read', async () => {
+  // Three hosts, three ways of saying the same thing. Reading only
+  // x-ratelimit-reset, which Google never sends, meant every Gemini limit fell
+  // through to a 500ms floor.
+  const seen = [];
+  const headers = map => ({get: name => map[name] ?? null});
+  const limited = map => ({ok: false, status: 429, headers: headers(map), text: async () => ''});
+  for (const map of [{'retry-after': '0.05'}, {'x-ratelimit-reset': String(Date.now() + 50)}]) {
+    let calls = 0;
+    const embedder = createEmbedder({provider: 'openai', apiKey: 'x', fetchImpl: async () => {
+      calls++;
+      if (calls === 1) return limited(map);
+      return {ok: true, status: 200, json: async () => ({data: [{index: 0, embedding: vector(1)}]})};
+    }});
+    await embedder.embed(['anything']);
+    seen.push(calls);
+  }
+  assert.deepEqual(seen, [2, 2], 'both spellings of "try again shortly" have to be understood');
+});
+
+test('a second key is tried for the same model, and only for the same model', async () => {
+  // Gemini's free embedding quota is per project per model, so a second
+  // project doubles it. The model is deliberately not configurable per route:
+  // each row stores embedding_model beside its vector because two models'
+  // vectors are not comparable, so a fallback answering with a different model
+  // would turn a rate limit into quietly wrong matches.
+  const asked = [];
+  const embedder = createEmbedder({provider: 'openai', apiKey: 'first', fallbackKey: 'second',
+    url: 'https://primary/v1', fallbackUrl: 'https://secondary/v1',
+    fetchImpl: async (url, init) => {
+      asked.push({url, key: init.headers.authorization, model: JSON.parse(init.body).model});
+      if (asked.length === 1) return geminiLimit(DAILY);
+      return {ok: true, status: 200, json: async () => ({data: [{index: 0, embedding: vector(1)}]})};
+    }});
+  const [result] = await embedder.embed(['anything']);
+  assert.equal(result.length, EMBEDDING_DIMENSIONS);
+  assert.deepEqual(asked.map(a => a.url),
+    ['https://primary/v1/embeddings', 'https://secondary/v1/embeddings']);
+  assert.deepEqual(asked.map(a => a.key), ['Bearer first', 'Bearer second']);
+  assert.equal(asked[0].model, asked[1].model, 'both routes must embed with the same model');
+});
+
+test('a failure carries a plain-words reason, not only a status', async () => {
+  // The hook turns this into the line the person reads. Without it every
+  // failure here arrived as "Satchel request failed. Reload before retrying a
+  // write: it may have completed", which is unhelpful and also untrue.
+  const cases = [
+    [{ok: false, status: 503, headers: {get: () => null}, text: async () => ''}, 'EMB_HOST', /answered 503/],
+    [geminiLimit(DAILY), 'EMB_LIMIT', /quota is used up/],
+  ];
+  for (const [response, code, reason] of cases) {
+    const embedder = createEmbedder({provider: 'openai', apiKey: 'x', fetchImpl: async () => response});
+    await assert.rejects(embedder.embed(['anything']), error => {
+      assert.equal(error.code, code);
+      assert.match(error.reason, reason);
+      return true;
+    });
+  }
 });
 
 test('each provider is asked at its own path', async () => {

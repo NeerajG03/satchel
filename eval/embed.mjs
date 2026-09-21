@@ -38,7 +38,7 @@ async function embed(spec,texts){
     const batch=texts.slice(i,i+64);
     const hosted={
       openrouter:['https://openrouter.ai/api/v1/embeddings',process.env.OPENROUTER_API_KEY],
-      gemini:['https://generativelanguage.googleapis.com/v1beta/openai/embeddings',process.env.GEMINI_API_KEY],
+      gemini:['https://generativelanguage.googleapis.com/v1beta/openai/embeddings',GEMINI_KEY],
     }[provider];
     const r=hosted
       ? await fetch(hosted[0],{method:'POST',
@@ -67,18 +67,37 @@ async function embed(spec,texts){
   return out;
 }
 
+// A separate key on purpose. Gemini's free embedding quota is 1,000 requests a
+// day per project per model, and Google counts every input in a batch, so one
+// pass over this corpus costs 632 of it. On 20 Sep 2026 an eval run six minutes
+// into the quota day took most of the day's budget and production retrieval
+// spent the next twenty-four hours answering "Satchel memory unavailable".
+//
+// So the eval asks for SATCHEL_EVAL_GEMINI_KEY first. Falling back to the
+// deployment's key still works, because refusing to run would be worse, but it
+// says what it is about to spend before it spends it.
+const GEMINI_KEY=process.env.SATCHEL_EVAL_GEMINI_KEY??process.env.GEMINI_API_KEY;
+const SHARED_KEY=!process.env.SATCHEL_EVAL_GEMINI_KEY&&!!process.env.GEMINI_API_KEY;
+
 const only=process.argv.slice(2);
 for(const [name,spec] of Object.entries(INDEXES)){
   if(only.length&&!only.includes(name)) continue;
   const {model,textOf}=spec;
-  const needs={openrouter:'OPENROUTER_API_KEY',gemini:'GEMINI_API_KEY'}[spec.provider];
-  if(needs&&!process.env[needs]){ console.log(`  ${name}: skipped, no ${needs}`); continue; }
+  const key={openrouter:process.env.OPENROUTER_API_KEY,gemini:GEMINI_KEY}[spec.provider];
+  const needs={openrouter:'OPENROUTER_API_KEY',gemini:'SATCHEL_EVAL_GEMINI_KEY or GEMINI_API_KEY'}[spec.provider];
+  if(needs&&!key){ console.log(`  ${name}: skipped, no ${needs}`); continue; }
   const file=new URL(`./${name.replace(/[/+]/g,'_')}.json`,dir);
   const cache=existsSync(file)?JSON.parse(readFileSync(file,'utf8'))
     :{name,model,dims:0,memories:{},prompts:{}};
   const newMem=corpus.memories.filter(m=>!cache.memories[m.id]);
   const newPro=corpus.prompts.filter(p=>!cache.prompts[p.id]);
   if(!newMem.length&&!newPro.length){console.log(`  ${name}: up to date`);continue;}
+  // Said out loud before the requests go out, because the cost is invisible
+  // otherwise: it is not the wall clock, it is the rest of the day's retrieval.
+  if(spec.provider==='gemini'&&SHARED_KEY)
+    console.log(`  ${name}: about to embed ${newMem.length+newPro.length} texts on GEMINI_API_KEY, `
+      +`which is the deployment's key. The free quota is 1,000 a day per project and every text counts. `
+      +`Set SATCHEL_EVAL_GEMINI_KEY to keep this off production retrieval.`);
   const t=Date.now();
   if(newMem.length){
     const v=await embed(spec,newMem.map(textOf));
