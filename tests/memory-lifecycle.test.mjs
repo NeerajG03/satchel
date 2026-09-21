@@ -21,7 +21,7 @@ import {sessionStart, retrieve, capture} from '../server/lifecycle.mjs';
 
 /** Records what the service actually sends, the way supabase-js would take it. */
 function recorder(responses = {}) {
-  const calls = {rpc: [], select: []};
+  const calls = {rpc: [], select: [], update: []};
   const answer = data => ({abortSignal: () => Promise.resolve({data, error: null})});
   return {
     calls,
@@ -32,6 +32,13 @@ function recorder(responses = {}) {
           calls.select.push({table, columns});
           const rows = responses[table] ?? [];
           return {limit: () => answer(rows), ...answer(rows)};
+        },
+        // Writing the vector is an update, and it was the one call this
+        // recorder could not see. That blind spot is why capture shipped
+        // without it.
+        update(values) {
+          calls.update.push({table, values});
+          return {eq: () => answer(null)};
         },
       };
     },
@@ -424,4 +431,45 @@ test('retrieve_memory with no embedder configured says so, not that a write may 
       'nothing was written, and nothing was even sent to an embedder');
     assert.match(error, /no embedding model is configured/i);
   } finally { await client.close(); await server.close(); }
+});
+
+// Every writer that produces a searchable row has to embed it. save() and
+// correct() did; captureMemory did not, and capture is the only writer nobody
+// checks afterwards, so nothing noticed. In production every automatically
+// captured memory was saved and invisible to retrieval, 5 of 5, while every
+// explicitly saved one was fine. That asymmetry read as a capture-quality
+// problem for weeks and it was a missing line.
+//
+// Stubbing captureTurn, which is what the tests above do, cannot see this: the
+// bug lives underneath that stub.
+const writerRow = {id: 'm1', project_id: null, band: 'heard',
+  statement: 'Customer cap lives in GrowthBook', source: 'customer cap can be stored in growthbook'};
+
+test('an automatically captured memory is embedded, exactly like a saved one', async () => {
+  const db = recorder({capture_memory: writerRow, save_memory: writerRow, agent_can_access: true});
+  const service = memoryService(db, embedder, null);
+
+  await service.captureMemory({id: 'm1', statement: writerRow.statement,
+    source: writerRow.source, project: 'ledger'});
+  const captured = db.calls.update.find(call => call.table === 'memories');
+  assert.ok(captured, 'capture must write the vector, not only the row');
+  assert.ok(String(captured.values.embedding).startsWith('['), 'and it must be a vector literal');
+  assert.equal(captured.values.embedding_model, 'test-model',
+    'the model is stamped, so two vector spaces stay distinguishable');
+
+  db.calls.update.length = 0;
+  await service.save({id: 'm2', project_id: null, statement: writerRow.statement, source: writerRow.source});
+  assert.equal(db.calls.update.length, 1, 'save embeds too, and this is the parity that was broken');
+});
+
+test('a capture whose embedding fails is still written and still counted', async () => {
+  // Retrieval degrades to silence, never to noise: the memory is saved and the
+  // backfill picks the vector up later. Losing the write over an index entry
+  // would be the worse trade.
+  const db = recorder({capture_memory: writerRow});
+  const failing = {...embedder, embedOne: async () => { throw new Error('quota spent'); }};
+  const service = memoryService(db, failing, null);
+  const row = await service.captureMemory({id: 'm1', statement: writerRow.statement,
+    source: writerRow.source, project: 'ledger'});
+  assert.equal(row.id, 'm1', 'the caller still gets the row, so the turn counts it as kept');
 });

@@ -197,10 +197,23 @@ export function memoryService(db, embedder = null, router = null) {
       return rows ?? [];
     },
     // Slug to UUID happens in the database, so the model never handles an id.
-    captureMemory: args => result(db.rpc('capture_memory', {
-      p_id:args.id, p_statement:args.statement, p_source:args.source,
-      p_project_slug:args.project ?? null, p_task_slug:args.task ?? null,
-    })),
+    //
+    // Embedded here for the same reason save() embeds: a row without a vector
+    // is saved and invisible to retrieval. This call did not, and capture is
+    // the only writer that never asks anyone afterwards, so nothing noticed.
+    // Every automatically captured memory in production was unsearchable, 5
+    // of 5, while every explicitly saved one was fine, which is what made it
+    // look like a capture-quality problem rather than a missing line.
+    async captureMemory(args) {
+      const row = await result(db.rpc('capture_memory', {
+        p_id:args.id, p_statement:args.statement, p_source:args.source,
+        p_project_slug:args.project ?? null, p_task_slug:args.task ?? null,
+      }));
+      // embedRow swallows its own failures, so a slow or rate-limited embedder
+      // still leaves the memory written and the turn counted.
+      await embedRow(row);
+      return row;
+    },
     async logRouterRun(entry) {
       try {
         await result(db.from('router_runs').insert({
