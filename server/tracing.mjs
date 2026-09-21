@@ -82,7 +82,7 @@ export function genAiToLangfuse(inner) {
     // that reports only a total would otherwise contribute nothing.
     if (Object.keys(usage).length) a[LF.OBSERVATION_USAGE_DETAILS] = JSON.stringify(usage);
     if (!a[LF.OBSERVATION_INPUT] && a['gen_ai.input.messages'])
-      a[LF.OBSERVATION_INPUT] = a['gen_ai.input.messages'];
+      a[LF.OBSERVATION_INPUT] = withSystem(a['gen_ai.system_instructions'], a['gen_ai.input.messages']);
     if (!a[LF.OBSERVATION_OUTPUT] && a['gen_ai.output.messages'])
       a[LF.OBSERVATION_OUTPUT] = a['gen_ai.output.messages'];
     const parameters = {};
@@ -101,6 +101,28 @@ export function genAiToLangfuse(inner) {
     forceFlush: () => inner.forceFlush(),
     shutdown: () => inner.shutdown(),
   };
+}
+
+/** The rules the model was given, put back in front of the messages.
+ *
+ *  The AI SDK splits a call in two: the system prompt goes to
+ *  gen_ai.system_instructions and gen_ai.input.messages holds only what came
+ *  after it. Langfuse reads the messages and nothing else, so a trace showed
+ *  the conversation with the instructions missing, which is the half that
+ *  decides what capture does. Reading a capture meant guessing at the wording
+ *  from the repository, and after a prompt change the guess was wrong.
+ *
+ *  Anything unparseable is left alone: the messages on their own are worth
+ *  more than a tidy shape. */
+function withSystem(instructions, messages) {
+  if (!instructions) return messages;
+  try {
+    const parsed = JSON.parse(messages);
+    if (!Array.isArray(parsed)) return messages;
+    const parts = JSON.parse(instructions);
+    if (!Array.isArray(parts) || !parts.length) return messages;
+    return JSON.stringify([{role: 'system', parts}, ...parsed]);
+  } catch { return messages; }
 }
 
 const SECRETS = /\b(sk-[a-z0-9-]{8,}|pk-lf-[a-z0-9-]{8,}|eyJ[A-Za-z0-9_-]{10,}|AQ\.[A-Za-z0-9_-]{10,})/gi;
