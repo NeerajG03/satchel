@@ -23,6 +23,8 @@ This organisation was created after 16 September 2026, so the v1 endpoints are g
 | Endpoint | Status |
 | --- | --- |
 | `GET /api/public/v2/observations` | works, and is the main tool |
+| `GET /api/public/v2/prompts` and `/{name}` | works, and is where the capture wording lives |
+| `POST /api/public/v2/prompts` | works, creates a version and moves a label |
 | `GET /api/public/models` | works |
 | `POST /api/public/models` | works |
 | `GET /api/public/observations/{id}` | **410** `LEGACY_API_UNAVAILABLE_FOR_NEW_ORGANIZATION` |
@@ -101,6 +103,24 @@ npx langfuse-cli api models create --body-file model.json
 A definition applies at ingestion, so it never reprices observations that already arrived. To test one, make a new call.
 
 An embedding with `usageDetails={}` is normal: Google's embed endpoint does not report token counts, so there is nothing to price.
+
+## Which wording produced a capture
+
+The capture instructions are a Langfuse prompt, `satchel-capture-router`, not a string in the code. Every router generation carries `promptName`, `promptVersion` and `promptSource` in its metadata, so a trace from before a wording change and one from after are distinguishable, which is the whole reason the prompt moved:
+
+```bash
+curl -s -H "Authorization: Basic $AUTH" \
+  "$BU/api/public/v2/observations?limit=20&type=GENERATION&fields=core,io,metadata"
+```
+
+`promptSource: local` means the instance did not reach Langfuse and used the copy committed at `server/prompts/capture-router.md`. That is a healthy fallback, not a fault, but a run of them means the fetch is failing and the published version is not the one being served.
+
+To read a version's text, or to compare two:
+
+```bash
+curl -s -H "Authorization: Basic $AUTH" "$BU/api/public/v2/prompts/satchel-capture-router?version=1"
+node eval/router-rigour.mjs --prompt 1 --prompt production
+```
 
 ## What a trace can tell you that nothing else can
 

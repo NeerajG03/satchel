@@ -15,6 +15,7 @@ import {z} from 'zod';
 import {generateObject, APICallError, NoObjectGeneratedError} from 'ai';
 import {readApiFailure} from './rate-limit.mjs';
 import {providerFor, asBaseUrl, describeFailure} from './model-provider.mjs';
+import {capturePrompt, localText, CAPTURE_PROMPT} from './prompt-store.mjs';
 
 export class RouterError extends Error {
   constructor(message, {cause, code, reason} = {}) {
@@ -43,44 +44,14 @@ export const ROUTER_SCHEMA = z.object({
   })),
 });
 
-const INSTRUCTIONS = `You read the end of a conversation and decide whether the user said anything worth remembering.
-
-Return a list. An empty list is a normal and correct answer. Do not add an item to seem useful.
-
-Keep a claim when it would still be true and still be useful in six weeks. In practice that is:
-- a preference about how they want things done: "no em dashes", "give me one recommendation, not three options"
-- a decision they made and the shape of it: "entries are append only, corrections are reversing entries"
-- a constraint or a rule: "never bump the Go version until payouts are finished"
-- a durable fact about their work or their life: a figure, a deadline, who owns what, how something is configured
-- something about a person: what they are responsible for, what they always ask for
-
-Do not keep:
-- anything the assistant said, suggested or concluded. Only the user's own claims.
-- the current moment: what is open, what is running, what just failed, what you are about to do next
-- a question, or thinking out loud that the user did not land on
-- a one-off instruction for this task alone: "make it shorter", "try again", "use the other one"
-- a bare continuation with no content: "go on", "yeah that one", "keep going"
-
-Anything listed under "already saved in this session" is kept. Do not return it again in different words.
-
-Three worked examples. In all three the user is working on the project "ledger".
-
-The user types: "ok so no personas in v1, and don't use em dashes anywhere. also the consent page still has that corner leak on .paper"
-You return three items. "no personas in v1" with project "ledger", because it is about the thing being worked on. "don't use em dashes anywhere" with project null, because a preference about how they want things done is not about one project. And the corner leak with project "ledger", plus the open task about it if one is listed.
-
-The user types: "i also added a paid key to vercel instead of the free one"
-You return one item with project "ledger". It says nothing about ledger by name, and it is still about ledger: it is a fact about how the thing being worked on is configured. Defaulting to null here is the mistake that files a project's own deployment detail under everything.
-
-The user types: "go on, and make that shorter"
-You return an empty list. Neither part is durable.
-
-For each thing you keep:
-- "statement" is the claim written clearly. Fix grammar, drop filler, resolve a pronoun whose referent is in this window, and keep the user's own vocabulary. Do not add a reason they did not give, do not widen it, and do not merge two separate claims into one.
-- "source" must be text the user actually typed in the turn being classified. Copy it exactly. If you cannot point at the words, do not keep the item.
-- "project" is the scope this belongs to. Use the project named under "working on" by default, because that is what the conversation is about. Use null only when the claim applies everywhere and not just to that project, which is almost always a preference about how they want things worked on. Use a slug from "other projects" only when the user named that project.
-- "task" is a slug from the open tasks list only when the claim is plainly about that task, otherwise null.
-
-Split one message into several items only when the parts already stand alone. "no jargon, no em dashes" is two. "no personas and no curator in v1" is one.`;
+// The instructions are no longer written here. They live in Langfuse, versioned
+// and labelled, with server/prompts/capture-router.md as the editing surface
+// and the fallback. See prompt-store.mjs for why.
+//
+// This is the fallback text, and it is also what buildPrompt() uses when no
+// instructions are handed to it, so every test and every offline caller gets
+// the committed wording rather than whatever a network call returned.
+export const INSTRUCTIONS = localText;
 
 /** Two messages, not one.
  *
@@ -94,7 +65,11 @@ Split one message into several items only when the parts already stand alone. "n
  *  Context is for understanding only; only the turn being classified can supply
  *  a source. */
 export function buildPrompt({codebase = null, project = null, projects = [],
-  tasks = [], context = [], turn = [], saved = []} = {}) {
+  tasks = [], context = [], turn = [], saved = [],
+  // The wording Langfuse is serving, when there is one. Defaulting to the
+  // committed copy keeps this function synchronous and keeps every test
+  // measuring the text in the repository.
+  instructions = INSTRUCTIONS} = {}) {
   const lines = [];
   const table = (rows, first) => {
     const width = Math.max(...rows.map(r => String(r[first] ?? '').length));
@@ -144,7 +119,7 @@ export function buildPrompt({codebase = null, project = null, projects = [],
   lines.push('<turn>');
   for (const message of turn) lines.push(message);
   lines.push('</turn>');
-  return {system: INSTRUCTIONS, prompt: lines.join('\n')};
+  return {system: instructions, prompt: lines.join('\n')};
 }
 
 /** Everything the model returned that does not hold up is dropped here rather
@@ -212,13 +187,23 @@ export function createRouter({
   baseURL = asBaseUrl(process.env.SATCHEL_ROUTER_URL),
   apiKey = process.env.SATCHEL_ROUTER_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY,
   timeoutMs = Number(process.env.SATCHEL_ROUTER_TIMEOUT_MS ?? 8000),
+  // Where the instructions come from. Injected so the eval can hold one
+  // wording against another through this exact code path, rather than
+  // measuring a copy of the prompt that has drifted from the one shipped.
+  promptResolver = capturePrompt,
   fetchImpl = fetch,
 } = {}) {
   return {
     model,
     async route(input) {
       if (!apiKey) throw new RouterError('No router key configured');
-      const {system, prompt} = buildPrompt(input);
+      // Resolved before the model call, not at import: the label can be moved
+      // in Langfuse to roll a wording back without a deploy, and a warm
+      // instance that never re-reads it would keep serving the old one for as
+      // long as it lives. This cannot fail the capture; the worst case is the
+      // committed file.
+      const instructions = await promptResolver();
+      const {system, prompt} = buildPrompt({...input, instructions: instructions.text});
       let lastSignal;
       // One retry, on a short advised wait only. Capture missing a turn is the
       // behaviour Satchel had before capture existed, so a loop here would
@@ -256,6 +241,12 @@ export function createRouter({
           // including which projects and open tasks it had to choose from.
           telemetry: {functionId: 'router', metadata: {
             codebase: input.codebase ?? 'none',
+            // Which wording produced this capture. Without it a trace from
+            // before a prompt change and one from after are indistinguishable,
+            // which makes the whole exercise unmeasurable after the fact.
+            promptName: CAPTURE_PROMPT,
+            promptSource: instructions.source,
+            promptVersion: instructions.version ?? 'file',
             // The scope the router was handed, which is the thing to look at
             // first when something files itself in the wrong place.
             workingOn: input.project?.slug ?? 'personal',
@@ -287,6 +278,7 @@ export function createRouter({
       // rather than a matter of trust.
       const checked = validate(result.object, input);
       return {...checked, prompt: `${system}\n\n${prompt}`,
+        promptVersion: instructions.version, promptSource: instructions.source,
         raw: JSON.stringify(result.object), usage: result.usage ?? null};
       }
     },

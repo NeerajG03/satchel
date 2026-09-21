@@ -1,4 +1,14 @@
-# Retrieval evaluation
+# Evaluation
+
+Two measurements that do not overlap.
+
+| Run | Measures | Corpus |
+|---|---|---|
+| `node eval/run.mjs` | retrieval: does the right memory come back, and does the system stay quiet when nothing should | the invented 473-memory corpus |
+| `node eval/router.mjs` | capture at scale: does a claim survive being replayed, and does it land in the right scope | the same corpus, replayed as turns |
+| `node eval/router-rigour.mjs` | capture rigour: does the router keep *only* claims | real turns, copied out of Langfuse |
+
+## Retrieval evaluation
 
 A labelled corpus and a harness for measuring memory retrieval. This is the baseline any change to retrieval gets measured against.
 
@@ -84,3 +94,21 @@ Prompts with no correct answer are the most valuable thing to add, and the harde
 Recorded in [docs/memory-v2-build.md](../docs/memory-v2-build.md) section 4.
 
 The short version: `websearch_to_tsquery` returns nothing for most prompts because it ANDs every term; `ts_rank_cd` cannot rank because it has no corpus statistics; summed IDF ranks correctly but no lexical score thresholds usefully; vectors beat lexical by a real margin while hybrid over pure vector is noise; a 3x scope multiplier needs to be right 87% of the time to break even while 1.1 captures the same benefit; demoting closed-task memories is contradicted by the labels; and the cosine gate is **per model**, not a shared constant.
+
+## Capture rigour
+
+```bash
+GEMINI_API_KEY=... node eval/router-rigour.mjs                    # the local prompt file
+GEMINI_API_KEY=... node eval/router-rigour.mjs --prompt production --prompt local
+GEMINI_API_KEY=... node eval/router-rigour.mjs --only work-order
+```
+
+`eval/router.mjs` cannot measure this. Its corpus is made of memories, so every turn it replays has an answer, and the thing that actually went wrong in production was the opposite: turns with no answer that the router answered anyway.
+
+So `router-cases.json` is not invented. Most of its cases were copied out of a Langfuse observation after the router stored something it should not have, and each one carries the observation id under `from`. The rest are written to sit next to those, because a wording that only handles the exact sentence that failed has not been fixed, it has been patched.
+
+The cases split into turns where the right answer is nothing (a work order, a premise the user was rejecting, a question, a bare continuation) and turns where a claim has to survive with the right scope. Read the two numbers together. Staying quiet is trivially won by saying nothing, and the durable half is what stops that being an improvement.
+
+`--prompt <version>` resolves a version from Langfuse and runs it through the real router, so two wordings can be compared on the same cases in one run. That is the only honest way to argue a prompt change: the counterfactual is a run, not a reading.
+
+Cases marked `"expect": "either"` are printed and not scored. There are turns where both answers are defensible, and forcing a verdict on them just moves the argument into the scoring.

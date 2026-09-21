@@ -161,6 +161,44 @@ The eval scored the project slug only on memories that have one, which is the di
 
 Everything the model returns is validated before it reaches the database. An item is dropped if its statement is missing or over 500 characters, if it has no source, or if its source is not in the turn being classified. A project slug not in the supplied list becomes personal, which is the safer mistake. A task drags its own project.
 
+## A work order is not a memory, and the prompt is where that is decided
+
+On 21 September 2026 the memory list filled with things that were not memories: "Update the plugin marketplace so installs get 0.2.2", "Link data-model-2-0 to cbx1/backend", "fix the repository-hint import so cold start drops". Each one is the user's own words, each is plainly about the open project, each is specific, and each is stale the moment the work lands. Langfuse has all three, with the turn that produced them.
+
+Worse, one of them was a belief the user was arguing against. "One codebase can only be connected to one project this is the wrong way to look at it" was stored as its first eight words.
+
+`eval/router.mjs` could not have caught either. Every turn it replays comes from a memory, so it can only measure whether a real claim survives; it has nothing to say about a turn that should produce nothing. So `eval/router-cases.json` was built out of the traces themselves, 24 scored cases, each failing one copied from the observation it came from.
+
+Same cases, same model, same code path, two wordings:
+
+| | stayed quiet | kept the claim | both |
+|---|---|---|---|
+| prompt v1, what production ran | 9/15  60% | 5/9  56% | 14/24  58% |
+| prompt v2 | 15/15  100% | 6/9  67% | 21/24  88% |
+
+Work orders went 3/8 to 8/8, the rejected premise from stored to silent, and the correction case from keeping the premise to keeping only the correction. Nothing that should be kept was lost to it.
+
+What did the work, in order of how much:
+
+- Naming the failure instead of describing its opposite. The old wording said not to keep "a one-off instruction for this task alone: make it shorter, try again". Every example was trivial, so a model reading it generalised to trivial instructions. The new wording says a work order is not a claim however precise it is, and that specific is not the same as durable.
+- A syntactic tell the model can actually apply: if the statement you are about to write is the user's sentence with the grammar tidied and it starts with a verb, drop it.
+- An instruction to read the whole turn before keeping part of it, because people quote a thing in order to reject it.
+
+A tighter prompt can buy silence by making the router timid, so `eval/router.mjs` was run on both wordings as the control, 40 positives and 16 negatives:
+
+| | extracted | scope in a project | scope universal | stayed quiet | median |
+|---|---|---|---|---|---|
+| v1 | 32/40  80% | 15/15 | 16/17  94% | 15/16  94% | 1522ms |
+| v2 | 31/40  78% | 15/15 | 15/16  94% | 16/16  100% | 1584ms |
+
+One extraction apart on 40 samples, and v1 lost one call to a timeout so the denominators are not even the same run. Scope is unchanged. So the rigour gain did not come out of extraction.
+
+It is not free: the wording went from 3403 to 6387 characters, about 750 more input tokens on every capture, roughly $0.0002 a turn at the flash-lite input price, and 60ms on the median. That is the price of the 6 cases, and it is worth paying.
+
+The three cases still wrong are all the same one, and it is not this: a universal rule filed into the open project rather than personal. That is the known cost of defaulting to the working project, measured separately in `eval/router.mjs`, and this change neither helped nor hurt it.
+
+The prompt now lives in Langfuse as `satchel-capture-router` with `server/prompts/capture-router.md` as the editing surface and the fallback. Not for convenience: a wording change can only be argued about afterwards if the traces from before and after can be told apart, and v1 is published under the `baseline` label for exactly that reason.
+
 ## pgvector, verified against the live database
 
 ```

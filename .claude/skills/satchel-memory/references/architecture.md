@@ -104,6 +104,8 @@ Tools: `load_memory_context`, `memory_index`, `retrieve_memory`, `read_memory`, 
 
 **`server/router.mjs`** is the capture model. `buildPrompt` assembles the window; `validate` drops anything that does not hold up; `createRouter` handles the call, including falling back from a JSON schema to asking in words when a provider rejects the schema outright.
 
+**`server/prompt-store.mjs`** resolves the capture wording. Langfuse holds it as the prompt `satchel-capture-router`, labelled `production`; `server/prompts/capture-router.md` is the copy you edit and the fallback when Langfuse is slow, down or unconfigured. One fetch per warm instance, an hour of cache, and a failure is cached too so an unpublished repo does not pay a request per turn. Whichever was used is named on the trace.
+
 **`server/injection-format.mjs`** is pure and holds the exact bytes that reach the model, so the context preview can render what was actually injected rather than a description of it.
 
 **`server/tracing.mjs`** is Langfuse. Every export is safe to call when it is unconfigured and nothing in it can throw into a request.

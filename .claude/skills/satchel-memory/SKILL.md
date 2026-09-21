@@ -40,29 +40,43 @@ These are the ones that were paid for. Breaking one is a decision, not a refacto
 
 **Retrieval degrades to silence, never to noise.** If embedding fails, the save still happens and the row is simply not searchable until the backfill picks it up. Nothing ever stores a zero vector or a partial batch, because a plausible wrong vector is worse than no retrieval.
 
-**The transcript is never read from disk.** Both hosts hand the prompt to the hook as an argument. The rolling window lives in the database, server side, trimmed on write and expired after 24 hours. No transcript file is parsed on either host, and no conversation is kept beyond that window.
+**The transcript is read at `Stop`, and only there.** This changed in 0.3.0 and used to say the opposite, so it is worth knowing why. While the hooks were `mcp_tool` calls the host substituted `${prompt}` and `${last_assistant_message}` into the arguments. Hooks are command scripts now, because an `mcp_tool` hook cannot run at launch, and a command hook on `UserPromptSubmit` is not handed the prompt at all. `transcript_path` is the only way left to reach it.
+
+The host warns that the transcript lags the in-memory conversation. That is about reading it mid-turn; at `Stop` the turn is over and there is nothing to race. The content that leaves the machine is the same content as before. `integrations/shared/transcript.mjs` is the boundary, and it takes the person's typed messages and the assistant's plain text only: no tool calls, no tool results, no thinking, no subagents, no compaction summaries, no shell or slash commands, no host-injected blocks. The rolling window still lives in the database, trimmed on write and expired after 24 hours, and no conversation is kept beyond it.
 
 **Numbers in migrations are measured, not chosen.** The gate of 0.67, the boost of 1.1 and the cap of 5 each have a measurement behind them in `references/decisions.md`. The gate in particular is per embedding model: the same corpus gives 0.43 for all-minilm and 0.28 for nemotron. Changing the embedding model means re-running `eval/run.mjs` and updating the setting, not guessing.
 
-**Everything proprietary runs on the server.** Hooks carry a session key and a prompt to an MCP endpoint and nothing else. No key, no prompt text, and none of the ranking or routing logic ever lands on the user's machine.
+**Specific is not durable, and the router's job is telling them apart.** The failure that costs the most is not a missed memory, it is a work order stored as a claim. "update the plugin marketplace so installs get 0.2.2" names a version and a component, is plainly about the project, and is stale the moment the work lands. Three of those reached the memory list in one afternoon before the wording was tightened. The turns that caused it are in `eval/router-cases.json`, each naming the Langfuse observation it was copied out of, and `node eval/router-rigour.mjs` is the measurement.
+
+**The capture prompt lives in Langfuse, not in the code.** `server/prompts/capture-router.md` is the editing surface and the fallback; `scripts/push-prompt.mjs` publishes a version and moves the `production` label. Every trace records which version produced it, which is the only way a wording change can be argued about after the fact. Nothing pulls a Langfuse version back over the file.
+
+**Everything proprietary runs on the server.** The hook scripts carry a session key, a repository name and the turn, and nothing else. No key, no prompt, and none of the ranking or routing logic ever lands on the user's machine.
 
 ## Where things live
 
 ```
 server/
-  mcp-server.mjs        the tool surface and the lifecycle handler (SessionStart, UserPromptSubmit, Stop)
+  mcp-server.mjs        the tool surface
+  lifecycle.mjs         what a session start injects and what the end of a turn captures
+  hook-handler.mjs      the two endpoints the plugin's hook scripts call
+  agent-token.mjs       bearer verification, kept apart so a cheap endpoint stays cheap
+  vector.mjs            indexedText and toVectorLiteral, for the same reason
   memory-service.mjs    the only place that talks to the database
   embedding.mjs         text to vector, provider independent, always L2 normalised
-  router.mjs            the end-of-turn capture model: prompt, schema, and validation
+  router.mjs            the end-of-turn capture model: schema, validation, the call
+  prompt-store.mjs      resolves the capture wording from Langfuse, falls back to the file
+  prompts/              the committed copy of that wording, and the thing you edit
   injection-format.mjs  the exact bytes that reach the model, kept pure
   tracing.mjs           Langfuse, safe to call when unconfigured, never throws into a request
 supabase/migrations/    the schema, the functions and every policy
 eval/                   the corpus, the labels, the metrics and the baseline
-scripts/                verify-pgvector.mjs, embed-memories.mjs
+eval/router-cases.json  turns the router got wrong in production, and the ones it must still keep
+scripts/                verify-pgvector.mjs, embed-memories.mjs, push-prompt.mjs
 ```
 
 ## When you change something
 
+0. If it changes the capture wording, edit `server/prompts/capture-router.md`, run `node eval/router-rigour.mjs --prompt production --prompt local` to hold the new text against what is live, and only then `node scripts/push-prompt.mjs --push`. Publishing before measuring makes the label the experiment.
 1. If it touches ranking, gating, scoping or what gets embedded, re-run `npm run eval`. It compares against `eval/baseline.json` and exits non-zero on a regression worse than 0.02.
 2. If it touches the schema, add a migration. Never edit an applied one except to correct a comment, and if you do that, resync the recorded statement so the file and the ledger agree.
 3. If it touches the lifecycle path, add to `tests/memory-lifecycle.test.mjs`. That file exists because three bugs that made the whole system inert shipped green past a suite of 141 tests.

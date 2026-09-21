@@ -1,0 +1,319 @@
+{
+  "note": "Turns the router got wrong in production, the near misses around them, and the positives that must survive a fix. Every case marked `from` names the Langfuse observation it was copied out of; the rest are written to sit next to one, because a fix that only handles the exact sentence that failed has not been measured.",
+  "projects": [
+    {
+      "slug": "satchel",
+      "brief": "Satchel keeps your memory, projects and tasks in one place and hands them to the agent"
+    },
+    {
+      "slug": "email-self-serve",
+      "brief": "CBX1's email channel: moving from email that works when our team runs it to email a customer runs"
+    },
+    {
+      "slug": "data-model-2-0",
+      "brief": "A rearchitecture of the campaign data model that breaks apart tightly-coupled, channel-specific entities"
+    }
+  ],
+  "tasks": [
+    {
+      "slug": "agent-session",
+      "project": "satchel",
+      "title": "Make the agent session a thing Satchel holds, not a key it passes around"
+    },
+    {
+      "slug": "scope-from-session",
+      "project": "satchel",
+      "title": "Work out the project a memory belongs to, when the repository cannot say"
+    },
+    {
+      "slug": "email-pacing-v1",
+      "project": "email-self-serve",
+      "title": "Ship the first pacing strategy"
+    }
+  ],
+  "cases": [
+    {
+      "id": "w01",
+      "category": "work-order",
+      "working": "satchel",
+      "expect": "nothing",
+      "turn": [
+        "update the plugin marketplace so installs get 0.2.2"
+      ],
+      "from": "799348b38a46a6dc",
+      "why": "Captured as a memory in production. It names a version and a component and it is still only a job to do today."
+    },
+    {
+      "id": "w02",
+      "category": "work-order",
+      "working": "satchel",
+      "expect": "nothing",
+      "turn": [
+        "fix the repository-hint import so cold start drops"
+      ],
+      "from": "497bca994e3963ab",
+      "why": "Captured in production. The reason clause is what makes it look durable; it is still a work order."
+    },
+    {
+      "id": "w03",
+      "category": "work-order",
+      "working": "satchel",
+      "expect": "nothing",
+      "turn": [
+        "Link data-model-2-0 to cbx1/backend"
+      ],
+      "why": "Captured in production, and the shortest possible form of the same error: a verb, an object, nothing else."
+    },
+    {
+      "id": "w04",
+      "category": "work-order",
+      "working": "email-self-serve",
+      "expect": "nothing",
+      "turn": [
+        "bump the ledger client to 4.2 everywhere and regenerate the fixtures"
+      ],
+      "why": "Two imperatives and a version pin. A prompt that only learned the three sentences above would keep this."
+    },
+    {
+      "id": "w05",
+      "category": "work-order",
+      "working": "satchel",
+      "expect": "nothing",
+      "turn": [
+        "move the eval baseline into the repo and gate the push on it"
+      ],
+      "why": "Reads like a policy. It is a job, and after it lands the policy is in the repo, not in memory."
+    },
+    {
+      "id": "w06",
+      "category": "work-order",
+      "working": "data-model-2-0",
+      "expect": "nothing",
+      "turn": [
+        "add both model definitions to langfuse so cost shows up"
+      ],
+      "why": "Names a system, a reason and a concrete artefact, and is finished the moment it is done."
+    },
+    {
+      "id": "w07",
+      "category": "work-order",
+      "working": "satchel",
+      "expect": "nothing",
+      "turn": [
+        "create a debugging skill in the satchel repo, and add langfuse and how you accessed it"
+      ],
+      "why": "A long specific instruction. The router stayed quiet on this one in production; it must keep doing so."
+    },
+    {
+      "id": "w08",
+      "category": "work-order",
+      "working": "email-self-serve",
+      "expect": "nothing",
+      "turn": [
+        "You added a bunch of tasks to me to get rate-limiter up and running, put them all into one ticket on notion with all of them as subtasks"
+      ],
+      "why": "A work order that talks about durable-sounding things: tasks, a ticket, ownership."
+    },
+    {
+      "id": "r01",
+      "category": "rejected-premise",
+      "working": "satchel",
+      "expect": "nothing",
+      "turn": [
+        "One codebase can only be connected to one project this is the wrong way to look at it"
+      ],
+      "from": "94ae039f394f133d",
+      "why": "Captured in production as the belief the user was rejecting. Storing it is worse than storing nothing."
+    },
+    {
+      "id": "r02",
+      "category": "rejected-premise",
+      "working": "satchel",
+      "expect": "nothing",
+      "turn": [
+        "we said memories are immutable but that is not right either, i need to think about it"
+      ],
+      "why": "A rejection with no landing. The correct answer is nothing, because there is no claim yet."
+    },
+    {
+      "id": "r03",
+      "category": "rejected-premise",
+      "working": "data-model-2-0",
+      "expect": "nothing",
+      "turn": [
+        "content generation is per channel, no wait, ignore that, it is not per channel at all"
+      ],
+      "why": "Self-correcting mid-sentence. Keeping the first clause inverts the meaning."
+    },
+    {
+      "id": "q01",
+      "category": "question",
+      "working": "satchel",
+      "expect": "nothing",
+      "turn": [
+        "so we cannot have two codebases on one project right?"
+      ],
+      "why": "A question that shares almost every word with r01. It must not become a claim."
+    },
+    {
+      "id": "q02",
+      "category": "question",
+      "working": "email-self-serve",
+      "expect": "nothing",
+      "turn": [
+        "So i need to make any updates or is it completely just backend?"
+      ],
+      "from": "eceef966028a451a",
+      "why": "Correct in production. A positive control for the question rule."
+    },
+    {
+      "id": "q03",
+      "category": "question",
+      "working": "email-self-serve",
+      "expect": "either",
+      "turn": [
+        "I also added a paid key to vercel instead of the free one we were using so the limits should be much more generous right?"
+      ],
+      "why": "A fact wrapped in a check. Both answers are defensible, so it is recorded and reported rather than scored: it shows which way a wording leans."
+    },
+    {
+      "id": "c01",
+      "category": "continuation",
+      "working": "satchel",
+      "expect": "nothing",
+      "turn": [
+        "push it"
+      ],
+      "from": "d16c01fd57c09c93",
+      "why": "Correct in production. Positive control."
+    },
+    {
+      "id": "c02",
+      "category": "continuation",
+      "working": "satchel",
+      "expect": "nothing",
+      "turn": [
+        "go ahead"
+      ],
+      "from": "ce387fbe08473c4f",
+      "why": "Correct in production. Positive control."
+    },
+    {
+      "id": "d01",
+      "category": "durable",
+      "working": "satchel",
+      "expect": "something",
+      "turn": [
+        "never bump the Go version until payouts ship"
+      ],
+      "from": "1ec287a4f14f0a65",
+      "want": "Never bump the Go version until payouts ship",
+      "wantProject": null,
+      "why": "A rule, stated as one. Grammatically an imperative, which is exactly why a crude anti-imperative rule would break it."
+    },
+    {
+      "id": "d02",
+      "category": "durable",
+      "working": "email-self-serve",
+      "expect": "something",
+      "turn": [
+        "- customer cap can be stored in growthbook, default to a value override at a orgId level"
+      ],
+      "from": "4585e9d7457d9353",
+      "want": "Customer cap can be stored in GrowthBook, with a default value override at an orgId level",
+      "wantProject": "email-self-serve",
+      "why": "A design decision inside a bullet list. Captured correctly in production and must stay captured."
+    },
+    {
+      "id": "d03",
+      "category": "durable",
+      "working": "satchel",
+      "expect": "something",
+      "turn": [
+        "i also added a paid key to vercel instead of the free one"
+      ],
+      "want": "A paid Vercel key is in use instead of the free one",
+      "wantProject": "satchel",
+      "why": "The scope case the previous change was built for. It regresses quietly if the prompt gets more timid."
+    },
+    {
+      "id": "d04",
+      "category": "durable",
+      "working": "satchel",
+      "expect": "something",
+      "turn": [
+        "no em dashes anywhere, and give me one recommendation not three options"
+      ],
+      "want": "No em dashes",
+      "wantProject": null,
+      "why": "Two universal preferences. Must stay personal, not fall into the open project."
+    },
+    {
+      "id": "d05",
+      "category": "durable",
+      "working": "data-model-2-0",
+      "expect": "something",
+      "turn": [
+        "Data Model 2.0 replaces the Channel Segment approach with explicit entities, so content generation becomes combinatorial over offers, templates and audiences"
+      ],
+      "want": "Data Model 2.0 replaces the Channel Segment approach with explicit entities, making content generation combinatorial over offers, templates and audiences",
+      "wantProject": "data-model-2-0",
+      "why": "A description of how the thing works. Durable, and worded as a statement rather than a job."
+    },
+    {
+      "id": "d06",
+      "category": "durable",
+      "working": "email-self-serve",
+      "expect": "something",
+      "turn": [
+        "deploys go out on tuesdays only, never on a friday"
+      ],
+      "want": "Deploys go out on Tuesdays only, never on a Friday",
+      "wantProject": null,
+      "why": "A standing constraint phrased close to a work order."
+    },
+    {
+      "id": "d07",
+      "category": "durable",
+      "working": "satchel",
+      "expect": "something",
+      "turn": [
+        "mrigesh owns the pacing strategy side, i own the orchestration"
+      ],
+      "want": "Mrigesh owns the pacing strategy, the user owns the orchestration",
+      "wantProject": null,
+      "why": "Who owns what. The people case."
+    },
+    {
+      "id": "x01",
+      "category": "correction-landed",
+      "working": "satchel",
+      "expect": "something",
+      "turn": [
+        "entries are immutable, this is the wrong way to think about it, a correction is a new reversing entry"
+      ],
+      "want": "A correction is made with a new reversing entry",
+      "wantProject": "satchel",
+      "forbid": [
+        "entries are immutable"
+      ],
+      "why": "A rejection that lands somewhere. The correction is the memory; the rejected premise must not be one."
+    },
+    {
+      "id": "x02",
+      "category": "correction-landed",
+      "working": "satchel",
+      "expect": "something",
+      "turn": [
+        "one codebase to one project is wrong, a codebase can belong to several projects"
+      ],
+      "want": "A codebase can belong to several projects",
+      "wantProject": "satchel",
+      "forbid": [
+        "can only be connected to one project",
+        "one codebase to one project"
+      ],
+      "why": "The real version of the sentence the router got backwards."
+    }
+  ]
+}
