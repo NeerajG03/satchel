@@ -83,9 +83,12 @@ export function memoryService(db, embedder = null, router = null) {
     //
     // Returns every candidate project, with `selected` true on the one it
     // activated. It only activates when there is exactly one.
-    resolveRepository: (session,provider,repository) =>
+    // p_select false asks which projects the repository is linked to without
+    // touching the scope. That matters after a /clear, where the session key
+    // survives and an explicit select_project made earlier is still active.
+    resolveRepository: (session,provider,repository,select=true) =>
       result(db.rpc('resolve_agent_repository',
-        {p_session_key:session,p_provider:provider,p_repository:repository})),
+        {p_session_key:session,p_provider:provider,p_repository:repository,p_select:select})),
     async selectProject(session,projectId) {
       await result(db.rpc('select_agent_project',{p_session_key:session,p_project_id:projectId}));
       return {project_id:projectId};

@@ -251,6 +251,35 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       // Normalized on the way in, the same as every other repository path.
       assert.equal((await call(codex,'select project_id from resolve_agent_repository($1,$2,$3)',
         ['40000000-0000-4000-8000-000000000007','GitHub','NeerajG03/Satchel']))[0].project_id,a);
+
+      // Read-only: which projects this repository is linked to, without
+      // touching the scope. The session-start block needs the linked set in
+      // order to stop listing projects that have nothing to do with the
+      // workspace, and the session key survives a /clear, so an explicit
+      // select_project made earlier must not be overwritten to get it.
+      //
+      // A repository linked to exactly one project is the case that proves it:
+      // with selection on this would choose, so a scope that survives can only
+      // be the flag working.
+      await call(user,'select link_project_repository($1,$2,$3)',[a,'github','acme/solo']);
+      const both2=await claims('both-fixture');
+      const untouched='40000000-0000-4000-8000-000000000008';
+      await call(both2,'select select_agent_project($1,$2)',[untouched,b]);
+
+      const read=await call(both2,
+        'select project_id, selected from resolve_agent_repository($1,$2,$3,false)',
+        [untouched,'github','acme/solo']);
+      assert.deepEqual(read.map(r=>r.project_id),[a],'it still answers which project the repository belongs to');
+      assert.equal(read[0].selected,false,'and selects nothing');
+      assert.equal((await call(both2,'select agent_active_project($1) id',[untouched]))[0].id,b,
+        'the scope chosen by hand is still the scope');
+
+      // The contrast, on a session with nothing chosen: the same lookup with
+      // selection on does choose, which is the common path at session start.
+      const fresh='40000000-0000-4000-8000-000000000009';
+      assert.equal((await call(both2,'select selected from resolve_agent_repository($1,$2,$3)',
+        [fresh,'github','acme/solo']))[0].selected,true);
+      assert.equal((await call(both2,'select agent_active_project($1) id',[fresh]))[0].id,a);
     });
     await t.test('revoke blocks an unexpired token immediately and re-consent cannot revive it',async()=>{
       await call(user,'select revoke_agent($1)',[ca]);

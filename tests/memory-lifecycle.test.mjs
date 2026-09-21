@@ -283,6 +283,54 @@ test('an ambiguous repository names the choice rather than picking one', async (
   assert.doesNotMatch(result.context, /active project:/, 'nothing is scoped until it is chosen');
 });
 
+test('the linked set is read without changing a scope the person already chose', async () => {
+  // The session key survives a /clear, so an explicit select_project made
+  // earlier is still active when the session-start hook runs again. The block
+  // still needs to know which projects belong to this codebase, so it asks,
+  // but read-only: re-resolving with selection on would quietly overwrite the
+  // scope the person picked.
+  const asked = [];
+  const service = {
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    activeProject: async () => 'chosen-by-hand',
+    resolveRepository: async (_s, _p, repository, select) => {
+      asked.push({repository, select});
+      return [{project_id: 'p1', slug: 'a', name: 'A', brief: '', selected: false},
+        {project_id: 'p2', slug: 'b', name: 'B', brief: '', selected: false}];
+    },
+    projects: async () => [
+      {id: 'p1', slug: 'a', brief: ''}, {id: 'p2', slug: 'b', brief: ''}, {id: 'p3', slug: 'c', brief: ''}],
+    personal: async () => [],
+  };
+  const result = await sessionStart(service, {sessionKey: 's', repository: 'acme/mono'});
+  assert.deepEqual(asked, [{repository: 'acme/mono', select: false}],
+    'asked, but told not to select');
+  assert.equal(result.active_project, 'chosen-by-hand', 'the chosen scope survives');
+  assert.match(result.context, /projects in this codebase/);
+  assert.match(result.context, /1 other project not linked/, 'and the block still filters');
+});
+
+test('with no scope chosen yet, resolving the repository is allowed to select', async () => {
+  const asked = [];
+  const result = await sessionStart({
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    activeProject: async () => null,
+    resolveRepository: async (_s, _p, repository, select) => {
+      asked.push({repository, select});
+      return [{project_id: 'p1', slug: 'a', name: 'A', brief: '', selected: true}];
+    },
+    projects: async () => [{id: 'p1', slug: 'a', brief: ''}, {id: 'p2', slug: 'b', brief: ''}],
+    personal: async () => [],
+  }, {sessionKey: 's', repository: 'acme/one'});
+  assert.deepEqual(asked, [{repository: 'acme/one', select: true}]);
+  assert.equal(result.active_project, 'p1');
+  assert.match(result.context, /1 other project not linked/);
+});
+
 test('a rate limit tells the person what actually happened', async () => {
   // Capture failing on a spent embedding quota showed "Satchel memory
   // unavailable · Satchel request failed. Reload before retrying a write: it

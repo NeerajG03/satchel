@@ -33,6 +33,42 @@ test('nothing to say produces nothing, not an empty wrapper', () => {
   assert.equal(sessionStartBlock({}), '');
 });
 
+test('only the projects this codebase belongs to are listed, the rest are counted', () => {
+  // A flat list of every project reads as though they all bear on the work in
+  // front of you. Sitting in cbx1/backend and being shown `satchel` beside the
+  // two projects actually linked there is three equal-looking options, two of
+  // which are right.
+  const projects = [
+    {id: 'p1', slug: 'data-model-2-0', brief: 'DM2.0'},
+    {id: 'p2', slug: 'email-self-serve', brief: 'CBX1 email'},
+    {id: 'p3', slug: 'satchel', brief: 'Memory'},
+  ];
+  const here = sessionStartBlock({projects, linked: ['p1', 'p2']});
+  assert.match(here, /^projects in this codebase$/m);
+  assert.match(here, /data-model-2-0/);
+  assert.match(here, /email-self-serve/);
+  assert.doesNotMatch(here, /satchel {2,}Memory/, 'an unlinked project is not listed');
+  // Counted, not hidden: it stays discoverable without implying relevance.
+  assert.match(here, /1 other project not linked to this codebase, by name from list_projects/);
+
+  assert.match(sessionStartBlock({projects, linked: ['p3']}),
+    /2 other projects not linked to this codebase/, 'and it pluralises');
+
+  // Every project linked here means there is no "other" line at all.
+  assert.doesNotMatch(sessionStartBlock({projects, linked: ['p1', 'p2', 'p3']}), /other project/);
+});
+
+test('an unlinked workspace still sees every project, because there is nothing to filter by', () => {
+  // Non-Git and unlinked workspaces are ordinary. Hiding projects there would
+  // leave the agent knowing about none of them.
+  const projects = [{id: 'p1', slug: 'a', brief: 'x'}, {id: 'p2', slug: 'b', brief: 'y'}];
+  const block = sessionStartBlock({projects, linked: []});
+  assert.match(block, /^projects$/m, 'not "in this codebase", because it is not');
+  assert.match(block, /^ {2}a {2}x$/m);
+  assert.match(block, /^ {2}b {2}y$/m);
+  assert.doesNotMatch(block, /other project/);
+});
+
 test('session start never mentions a task, because nothing task-scoped loads there', () => {
   const block = sessionStartBlock({
     projects: [{slug: 'satchel', brief: 'x'}],

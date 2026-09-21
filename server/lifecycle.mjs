@@ -45,11 +45,21 @@ const untraced = (_name, _options, run) => run(() => {}, () => {});
  *  nothing is selected and the candidates come back instead. */
 export async function resolveScope(service, {sessionKey, repository}) {
   const active = await service.activeProject(sessionKey);
-  if (active) return {project: active, candidates: []};
-  if (!repository) return {project: null, candidates: []};
-  const rows = await service.resolveRepository(sessionKey, PROVIDER, repository);
+  // Still asked, even with a scope already chosen, because the session-start
+  // block needs to know which projects belong to this codebase in order to
+  // stop listing the ones that do not. Read-only in that case: the session key
+  // survives a /clear, so an explicit select_project made earlier is still
+  // active and must not be quietly overwritten.
+  const rows = repository
+    ? await service.resolveRepository(sessionKey, PROVIDER, repository, !active) ?? []
+    : [];
+  const linked = rows.map(row => row.project_id);
+  if (active) return {project: active, linked, candidates: []};
   const selected = rows.find(row => row.selected);
-  return {project: selected?.project_id ?? null, candidates: selected ? [] : rows};
+  // `candidates` is the narrower thing: projects this repository names when it
+  // names more than one, so nothing could be chosen. `linked` is every project
+  // the repository belongs to, chosen or not.
+  return {project: selected?.project_id ?? null, linked, candidates: selected ? [] : rows};
 }
 
 /** What the agent is told when its workspace could be either of two projects.
@@ -79,7 +89,7 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
         const status = await service.status();
         if (!status) throw {code: '42501'};
         const settings = await service.settings();
-        const scope = project !== undefined ? {project, candidates: []}
+        const scope = project !== undefined ? {project, linked: [], candidates: []}
           : await resolveScope(service, {sessionKey, repository});
         active = scope.project;
         const [projects, personal] = await Promise.all([
@@ -89,7 +99,7 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
           status.all_projects || status.project_ids?.length || status.personal ? service.projects() : [],
           status.personal ? service.personal() : [],
         ]);
-        const block = sessionStartBlock({projects, personal});
+        const block = sessionStartBlock({projects, personal, linked: scope.linked ?? []});
         const tokens = estimateTokens(block);
         notice = noticeFor('SessionStart', {projects: projects.length, personal: personal.length});
         if (!block) {

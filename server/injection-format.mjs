@@ -25,17 +25,36 @@ const pad = (text, width) => text + ' '.repeat(Math.max(0, width - text.length))
  *  whether a block fits. */
 export const estimateTokens = text => Math.ceil(text.length / 3.8);
 
+const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+
 /** Session start. Only what applies no matter what you do today: the projects
  *  that exist, and every personal memory. Nothing scoped to a project or a task
- *  is injected here, because loading it assumes you will touch it. */
-export function sessionStartBlock({projects = [], personal = []} = {}) {
+ *  is injected here, because loading it assumes you will touch it.
+ *
+ *  `linked` is the projects this workspace's repository belongs to. When it is
+ *  known, the others are counted rather than listed. A flat list of every
+ *  project reads as though they all bear on the work in front of you: sitting
+ *  in cbx1/backend and being shown `satchel` alongside the two projects that
+ *  are actually linked there is three equal-looking options, two of which are
+ *  right. The count keeps them discoverable without implying relevance, and
+ *  list_projects still names them on request.
+ *
+ *  With nothing linked, which is every non-Git and unlinked workspace, there is
+ *  nothing to filter by and the full list is the honest answer. */
+export function sessionStartBlock({projects = [], personal = [], linked = []} = {}) {
   const lines = [];
-  if (projects.length) {
-    lines.push('projects');
-    const width = Math.max(...projects.map(p => (p.slug ?? p.name ?? '').length));
-    for (const project of projects)
+  const ids = new Set(linked);
+  const here = ids.size ? projects.filter(p => ids.has(p.id)) : projects;
+  const elsewhere = ids.size ? projects.length - here.length : 0;
+  if (here.length) {
+    lines.push(ids.size ? 'projects in this codebase' : 'projects');
+    const width = Math.max(...here.map(p => (p.slug ?? p.name ?? '').length));
+    for (const project of here)
       lines.push(`  ${pad(project.slug ?? project.name ?? '', width)}  ${clip(project.brief, 70)}`.trimEnd());
   }
+  // Inside the group, because that is where the reader is looking when the
+  // question "is this all of them" occurs to them.
+  if (elsewhere) lines.push(`  ${plural(elsewhere, 'other project')} not linked to this codebase, by name from list_projects`);
   const said = personal.filter(m => m.band !== 'heard');
   const heard = personal.filter(m => m.band === 'heard');
   if (said.length) {
@@ -53,8 +72,6 @@ export function sessionStartBlock({projects = [], personal = []} = {}) {
   lines.push('more exists, search satchel for anything not listed above');
   return `<satchel>\n${lines.join('\n')}\n</satchel>`;
 }
-
-const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 
 /** The one line the person sees in their own terminal.
  *
