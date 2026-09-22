@@ -65,6 +65,7 @@ People quote a thing in order to argue with it. "One codebase can only be connec
 - **kind**: fact, preference or intent.
 - **project**: the slug under "this conversation", or null when the claim applies everywhere rather than to that one project, which is almost always a preference. Never another project's slug unless the user named it.
 - **target**: the number of the memory being extended, replaced, retired or affirmed. Null for an add.
+- **expires**: an ISO date, and only when the user gave one. "The freeze is on until the 30th" has an end and should carry it; "no em dashes" does not. Null is the normal answer. Do not invent a lifetime because a claim feels temporary: a memory that disappears on a day nobody chose is worse than one that stays too long, because nobody will notice it went.
 - **why**: one short line, for the person reading the history later. Say what changed, not what the rule is.
 
 Split one message into several changes only when the parts already stand alone. "no jargon, no em dashes" is two. "no personas and no curator in v1" is one.

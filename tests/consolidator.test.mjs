@@ -23,7 +23,7 @@ const turns = [
 const context = {turns, memories, project: {slug: 'ledger', brief: 'Go payments ledger'}, projects};
 
 const change = over => ({action: 'add', target: null, statement: 'A claim.', source: 'done, entries are append only',
-  kind: 'fact', project: null, why: 'because', ...over});
+  kind: 'fact', project: null, expires: null, why: 'because', ...over});
 
 test('the model is told what day it is, and how old each memory is', () => {
   // R7. Nothing had a temporal anchor, which is how "not in the review list
@@ -165,7 +165,7 @@ const answers = changes => async () => json({
 test('a run comes back explainable, with the prompt, the reply and the wording it used', async () => {
   const consolidator = createConsolidator({apiKey: 'x', fetchImpl: answers([
     {action: 'retire', target: 2, statement: '', source: 'done, entries are append only',
-     kind: 'intent', project: 'ledger', why: 'the user said it was done'}])});
+     kind: 'intent', project: 'ledger', expires: null, why: 'the user said it was done'}])});
   const out = await consolidator.consolidate(context);
   assert.equal(out.changes.length, 1);
   assert.equal(out.changes[0].target, 'm2');
@@ -197,7 +197,7 @@ test('the schema the provider enforces is the five decisions and nothing else', 
   await consolidator.consolidate(context);
   const schema = sent.generationConfig.responseJsonSchema ?? sent.generationConfig.responseSchema;
   assert.deepEqual(Object.keys(schema.properties.changes.items.properties).sort(),
-    ['action', 'kind', 'project', 'source', 'statement', 'target', 'why']);
+    ['action', 'expires', 'kind', 'project', 'source', 'statement', 'target', 'why']);
   assert.deepEqual(CONSOLIDATION_SCHEMA.shape.changes.element.shape.action.options,
     ['add', 'extend', 'replace', 'retire', 'affirm']);
 });
@@ -206,4 +206,18 @@ test('nothing to change is a real answer', async () => {
   const out = await createConsolidator({apiKey: 'x', fetchImpl: answers([])}).consolidate(context);
   assert.deepEqual(out.changes, []);
   assert.deepEqual(out.dropped, []);
+});
+
+test('an expiry is kept only when it is a date the user could have given', () => {
+  // A memory that disappears on a day nobody chose is worse than one that
+  // stays too long, because nobody notices it went. Everything doubtful is
+  // dropped rather than corrected.
+  const now = new Date('2026-09-22T00:00:00Z');
+  const of = expires => validateConsolidation({changes: [change({expires})]}, {...context, now})
+    .changes[0].expires;
+  assert.equal(of('2026-10-30'), new Date('2026-10-30').toISOString());
+  assert.equal(of(null), null);
+  assert.equal(of('the thirtieth'), null, 'not a date');
+  assert.equal(of('2026-09-01'), null, 'already past');
+  assert.equal(of('2199-01-01'), null, 'further out than anyone states a deadline');
 });

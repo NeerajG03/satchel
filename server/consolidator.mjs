@@ -46,6 +46,8 @@ export const CONSOLIDATION_SCHEMA = z.object({
     source: z.string().describe('The words the user actually typed that this came from.'),
     kind: z.enum(['fact', 'preference', 'intent']),
     project: z.string().nullable().describe('A project slug, or null for personal.'),
+    expires: z.string().nullable()
+      .describe('An ISO date this stops being true, only when the user gave one. Otherwise null.'),
     why: z.string().describe('One short line for the person reading the history later.'),
   })),
 });
@@ -115,13 +117,27 @@ export function buildConsolidationPrompt({project = null, projects = [],
  *  punctuation or spacing. Deliberately narrow, same as the router's. */
 const normalize = text => String(text ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+/** A date the user gave, or nothing.
+ *
+ *  Anything unparseable, already past, or further out than a couple of years
+ *  is dropped rather than corrected. A wrong expiry is a memory that
+ *  disappears on a day nobody chose, and the harmless failure is the memory
+ *  simply not having one. */
+function expiry(value, now) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const when = new Date(value);
+  if (Number.isNaN(when.getTime())) return null;
+  const years = (when.getTime() - now.getTime()) / (365 * 24 * 3600 * 1000);
+  return years > 0 && years < 2 ? when.toISOString() : null;
+}
+
 /** Everything the model returned that does not hold up, dropped here rather
  *  than reaching the database.
  *
  *  A pass that occasionally changes nothing is the behaviour we already have.
  *  One that invents a memory, or ends one nobody was talking about, is a new
  *  failure and a worse one, because it is destructive. */
-export function validateConsolidation(payload, {turns = [], memories = [], project = null, projects = []} = {}) {
+export function validateConsolidation(payload, {turns = [], memories = [], project = null, projects = [], now = new Date()} = {}) {
   // Only the user's half. The assistant's words are in the prompt so the model
   // can read the conversation, and a source drawn from them would be the model
   // quoting itself, which is exactly the fabrication this rule exists for.
@@ -154,7 +170,7 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
       if (existing.has(normalize(statement))) { drop('already remembered'); continue; }
       existing.add(normalize(statement));
       changes.push({action, statement, source, kind: change.kind, why: String(change.why ?? '').slice(0, 500),
-        project: slugs.has(change?.project) ? change.project : null});
+        project: slugs.has(change?.project) ? change.project : null, expires: expiry(change?.expires, now)});
       continue;
     }
     const target = memories[Number(change?.target) - 1];

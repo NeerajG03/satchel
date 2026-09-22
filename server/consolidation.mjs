@@ -26,7 +26,8 @@ async function apply(service, change, {projects, trace, document}) {
   const slug = change.project ?? null;
   if (change.action === 'add') {
     await service.captureMemory({id: crypto.randomUUID(), statement: change.statement,
-      source: change.source, project: slug, kind: change.kind, trace, document});
+      source: change.source, project: slug, kind: change.kind,
+      expires: change.expires ?? null, trace, document});
     return 'added';
   }
   if (change.action === 'extend') {
@@ -51,7 +52,8 @@ async function apply(service, change, {projects, trace, document}) {
     // both, which is untidy and true. The other order loses the claim
     // entirely and leaves nothing saying it was ever made.
     const written = await service.captureMemory({id: crypto.randomUUID(), statement: change.statement,
-      source: change.source, project: slug, kind: change.kind, trace, document});
+      source: change.source, project: slug, kind: change.kind,
+      expires: change.expires ?? null, trace, document});
     await service.endMemory({id: change.target, revision: change.revision,
       reason: 'replaced', ended_by: written.id, note: change.why, trace, document});
     return 'replaced';

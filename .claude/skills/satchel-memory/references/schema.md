@@ -18,6 +18,8 @@ Almost everything is `security invoker`, so RLS stays authoritative. The service
 | `20260922100000` | `one_scope_per_memory`: the task link is removed, everywhere |
 | `20260922110000` | `memory_lifecycle`: kind, ending, expiry, repetition, and `memory_events` |
 | `20260922120000` | `consolidation_runs`: `capture_mode`, `memories_in_scope`, the run log |
+| `20260922130000` | `memories_carry_their_age`: `affirmed_at` on the scope read, `affirmed` on the log |
+| `20260922140000` | `a_memory_may_carry_a_deadline`: `capture_memory` can set `expires_at` |
 
 ## `memories`
 
@@ -149,7 +151,7 @@ One row per background pass, including the ones that changed nothing and the one
 
 ## `capture_memory`
 
-Takes a **slug**, not an id, so the model never handles a UUID, and one slug because a memory has one scope. Resolves it to a UUID inside the database. Always writes band `heard`.
+Takes a **slug**, not an id, so the model never handles a UUID, and one slug because a memory has one scope. Resolves it to a UUID inside the database. Always writes band `heard`. Carries `p_trace` and `p_document`, which the trigger puts on the event, so a captured row names the run that decided it. `p_expires` is only ever a date the user gave; one already past is dropped rather than honoured, because writing something invisible is worse than writing something without an end.
 
 ## `router_runs`
 

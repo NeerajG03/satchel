@@ -269,6 +269,7 @@ export function memoryService(db, embedder = null, router = null) {
         // inside the same transaction as the write, so the event the trigger
         // raises carries them.
         p_trace:args.trace ?? null, p_document:args.document ?? null,
+        p_expires:args.expires ?? null,
       }));
       // embedRow swallows its own failures, so a slow or rate-limited embedder
       // still leaves the memory written and the turn counted.

@@ -202,3 +202,25 @@ test('deleting a memory is the one thing that destroys, and only a person can', 
     assert.equal(count, 0, 'the history of a thing they asked to be gone goes with it');
   } finally { await db.close(); }
 });
+
+test('a deadline the user gave is kept, and one already past is not', async () => {
+  // The column has existed since the life cycle migration and nothing could
+  // set it, which made it a column rather than a feature. "The freeze is on
+  // until the 30th" is a real claim with a real end.
+  const {db, owner, call} = await database();
+  const dated = crypto.randomUUID(), stale = crypto.randomUUID();
+  try {
+    await call(owner, 'select * from capture_memory($1,$2,$3,$4,$5,$6,$7,$8)',
+      [dated, 'The deploy freeze runs until the 30th.', 'freeze until the 30th',
+       null, 'fact', null, null, '2099-09-30T00:00:00Z']);
+    await call(owner, 'select * from capture_memory($1,$2,$3,$4,$5,$6,$7,$8)',
+      [stale, 'Something with a date behind us.', 'a date behind us',
+       null, 'fact', null, null, '2000-01-01T00:00:00Z']);
+    const rows = await call(owner, 'select id, expires_at from memories order by statement');
+    const byId = new Map(rows.map(r => [r.id, r.expires_at]));
+    assert.notEqual(byId.get(dated), null);
+    assert.equal(byId.get(stale), null,
+      'an expiry already past would write something invisible, so it is dropped');
+    assert.equal((await live(call, owner)).length, 2, 'both are readable and deletable');
+  } finally { await db.close(); }
+});
