@@ -17,9 +17,22 @@
 // select_project path instead.
 //
 // Nothing here may import anything. That is the whole point of the file, so a
-// future import is the thing to refuse in review.
-export const RESOURCE = 'https://satchel-pi.vercel.app/api/mcp';
-export const SUPABASE_URL = 'https://prpgcrwteepcunizdcut.supabase.co';
+// future import is the thing to refuse in review. Reading the environment is
+// not an import.
+//
+// The deployment's own values are the defaults, so nothing changes for it.
+// The overrides exist for one reason: pointing the whole system at a local
+// Supabase, which is what makes a head to head against a self hosted
+// supermemory a command rather than a project. They are named SATCHEL_
+// deliberately. SUPABASE_URL is a common variable name and a deployment that
+// happened to have one set for something else would silently start verifying
+// tokens against a different issuer, which is not a failure anyone would spot.
+const configured = name => {
+  const value = String(globalThis.process?.env?.[name] ?? '').trim().replace(/\/+$/, '');
+  return value || null;
+};
+export const RESOURCE = configured('SATCHEL_RESOURCE') ?? 'https://satchel-pi.vercel.app/api/mcp';
+export const SUPABASE_URL = configured('SATCHEL_SUPABASE_URL') ?? 'https://prpgcrwteepcunizdcut.supabase.co';
 export const ISSUER = SUPABASE_URL + '/auth/v1';
 
 /** The OAuth protected-resource document, served at /.well-known. Static, so

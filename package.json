@@ -11,6 +11,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
+    "serve": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.mjs",
     "memories:embed": "node scripts/embed-memories.mjs",
     "verify:pgvector": "node scripts/verify-pgvector.mjs",

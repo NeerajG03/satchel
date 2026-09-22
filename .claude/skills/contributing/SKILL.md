@@ -25,6 +25,7 @@ A hosted home for a person's memory, projects and tasks, handed to the AI coding
 | `integrations/claude/`, `integrations/codex/` | Generated packages | Never edit by hand |
 | `.claude-plugin/`, `.agents/plugins/` | Marketplace files | Generated |
 | `tests/` | `node --test`, runs real migrations in PGlite | No cloud needed |
+| `Dockerfile`, `compose.yaml`, `supabase/config.toml` | Running the whole thing locally | See `docs/running-locally.md`. Unverified: written without a Docker daemon or the Supabase CLI |
 | `docs/`, `design/` | Product, architecture, design system | Keep them current |
 
 ## How a change travels

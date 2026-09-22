@@ -1,0 +1,35 @@
+# The app on its own, against whichever Supabase it is pointed at.
+#
+#   docker compose up --build
+#
+# Local Supabase is the CLI's job rather than this file's: `supabase start`
+# brings up Postgres, GoTrue, storage and pgvector as a set of containers it
+# manages, and duplicating that here would be a second, worse copy of it. Point
+# SUPABASE_URL at what `supabase status` prints and the two sit side by side.
+#
+# Satchel's auth and isolation are Supabase specific on purpose. GoTrue issues
+# the JWT, a custom access token hook puts the grant claims in it, and RLS
+# reads them. Replacing that is not in scope; running it locally is.
+services:
+  satchel:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # Where the database is. On macOS and Windows a local `supabase start`
+      # is reachable from inside a container as host.docker.internal.
+      SATCHEL_SUPABASE_URL: ${SATCHEL_SUPABASE_URL:-http://host.docker.internal:54321}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY:-}
+      # The model keys. Without them capture, consolidation and retrieval each
+      # report themselves unavailable rather than failing anything.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      SATCHEL_ROUTER_KEY: ${SATCHEL_ROUTER_KEY:-}
+      SATCHEL_ROUTER_MODEL: ${SATCHEL_ROUTER_MODEL:-}
+      SATCHEL_EMBEDDING_KEY: ${SATCHEL_EMBEDDING_KEY:-}
+      # Tracing. Without these the endpoints run untraced, which is the one
+      # thing you do not want while tuning the memory system.
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

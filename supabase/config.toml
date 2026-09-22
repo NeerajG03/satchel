@@ -1,0 +1,72 @@
+# Local Supabase, so the migrations, the policies and the access token hook
+# can be proved against a real database rather than only against PGlite.
+#
+# PGlite runs every migration in tests/ and catches most of what matters, but
+# it is not Postgres-with-Supabase: it has no pgvector, so the type and the
+# distance operator are shimmed, no GoTrue, so the access token hook has never
+# run, and no storage. This config is what closes that gap.
+#
+#   supabase start          brings the stack up
+#   supabase db reset       applies every migration to an empty database
+#   supabase status         prints the URL and the keys
+#
+# Then point the app at it with SATCHEL_SUPABASE_URL and the publishable key
+# that `supabase status` prints.
+project_id = "satchel"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+# Match the hosted project. A migration that works on one major version and
+# not the other is exactly the surprise this file exists to remove.
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+
+# Mail sent locally is caught rather than delivered.
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["http://127.0.0.1:3000", "http://localhost:5173"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+# The reason a local stack is worth having at all.
+#
+# Grant claims reach RLS through this hook: GoTrue calls it while minting a
+# token and the claims it adds are what agent_can_access() reads. Nothing in
+# the test suite can exercise that, because PGlite has no GoTrue. Here it runs
+# for real on every sign-in.
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/public/satchel_access_token_hook"
+
+[analytics]
+enabled = false
