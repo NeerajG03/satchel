@@ -1,19 +1,25 @@
-// The one fact about the workspace Satchel reads: its GitHub origin.
+// Two facts about the workspace Satchel reads: its GitHub origin, and how many
+// commits are behind HEAD.
 //
-// Not the files, not the branch, not the path. A normalized `owner/name` is
-// enough to resolve which project this conversation is in, because
-// project_repositories maps it server side. Anything more would be reading the
-// person's code to decide where to file a sentence they said.
+// Not the files, not the branch, not the path, not a message, not a diff. A
+// normalized `owner/name` is enough to resolve which project this conversation
+// is in, because project_repositories maps it server side. The count is a
+// single integer and it exists for one thing: a memory about how something is
+// built can stop being true because a commit landed, and nothing anyone says
+// will mention it. Both stale memories in Satchel's own production data were
+// killed that way. A number is the smallest thing that can notice.
 import {execFileSync} from 'node:child_process';
+
+const git = (cwd, args) => execFileSync('git', args, {
+  cwd, encoding: 'utf8', timeout: 1000, maxBuffer: 4096, stdio: ['ignore', 'pipe', 'ignore'],
+}).trim();
 
 /** `owner/name`, lowercased, or null. Non-Git and non-GitHub workspaces are not
  *  an error: they simply have no repository, and memory stays personal until
  *  someone selects a project by hand. */
 export function repositoryFrom(cwd) {
   try {
-    const remote = execFileSync('git', ['config', '--get', 'remote.origin.url'], {
-      cwd, encoding: 'utf8', timeout: 1000, maxBuffer: 4096, stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
+    const remote = git(cwd, ['config', '--get', 'remote.origin.url']);
     let repository = null;
     const scp = remote.match(/^git@github\.com:([^/]+\/[^/]+?)(?:\.git)?$/i);
     if (scp) repository = scp[1];
@@ -25,6 +31,24 @@ export function repositoryFrom(cwd) {
     repository = repository?.toLowerCase() ?? null;
     return repository && repository.length <= 201 && /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/.test(repository)
       ? repository : null;
+  } catch { return null; }
+}
+
+/** How many commits are behind HEAD, or null.
+ *
+ *  Only ever a count. Not a message, not a sha, not an author, not a path: a
+ *  number says the work moved and says nothing whatever about what the work
+ *  was. An empty repository, a detached nothing, or no Git at all is null,
+ *  which simply means no observation this turn.
+ *
+ *  Sent from the Stop hook alone. Every hook could report it and the one that
+ *  runs on every prompt has a five second budget, so the hook that is allowed
+ *  to be heavy carries it. Once a turn is fresh enough for a doubt measured in
+ *  tens of commits. */
+export function commitsFrom(cwd) {
+  try {
+    const count = Number(git(cwd, ['rev-list', '--count', 'HEAD']));
+    return Number.isInteger(count) && count >= 0 ? count : null;
   } catch { return null; }
 }
 

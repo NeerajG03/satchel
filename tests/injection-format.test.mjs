@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {sessionStartBlock, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
+import {sessionStartBlock, promptBlock, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
 
 const memory = (id, statement, band = 'said', task_id = null) => ({id, statement, band, task_id});
 
@@ -145,4 +145,22 @@ test('the block is bounded, and what falls past it is findable rather than gone'
   assert.doesNotMatch(block, /Claim 7\./);
   assert.match(block, /5 older memories past the block, search satchel for them/);
   assert.doesNotMatch(sessionStartBlock({personal: many.slice(0, 2), cap: 3}), /past the block/);
+});
+
+test('a memory whose repository moved is flagged, and nothing more than flagged', () => {
+  // The doubt the task link was supposed to raise, raised by the thing that
+  // actually falsifies a memory. A merge is a reason to check a claim, never
+  // a reason to know it is wrong, so this is a marker and not a removal.
+  const rows = [
+    {id: 'aaaaaa11-0000-4000-8000-000000000001', statement: 'The hook reads the transcript.',
+     anchor_repository: 'acme/ledger', commits_since: 140, matched: 2, in_scope: 9},
+    {id: 'bbbbbb22-0000-4000-8000-000000000002', statement: 'Deploys are on Tuesdays.',
+     anchor_repository: 'acme/ledger', commits_since: 3, matched: 2, in_scope: 9},
+  ];
+  const block = promptBlock({rows, matched: 2, inScope: 9, churn: 25});
+  assert.match(block, /The hook reads the transcript\.\n {10}\[acme\/ledger has moved 140 commits since this was confirmed/);
+  assert.doesNotMatch(block, /Deploys are on Tuesdays\.\n {10}\[/, 'three commits is not a reason to doubt anything');
+  assert.match(block, /Deploys are on Tuesdays\./, 'and it is still injected');
+  assert.doesNotMatch(promptBlock({rows, matched: 2, inScope: 9, churn: 500}), /has moved/,
+    'the threshold is a setting, not a constant');
 });

@@ -96,6 +96,7 @@ async function connect(req, res, {embedder = null, router = null} = {}) {
 }
 
 const clamp = (value, fallback, low, high) => {
+  if (value == null) return fallback;
   const number = Number(value);
   return Number.isFinite(number) ? Math.min(Math.max(Math.trunc(number), low), high) : fallback;
 };
@@ -181,14 +182,18 @@ export async function handleHookCapture(req, res, {embedder = null, router = nul
   const connection = await connect(req, res, {embedder, router});
   if (!connection) return;
   let input;
-  try { input = parseHookBody(req.body, new Set(['session_key', 'repository', 'assistant'])); }
+  try { input = parseHookBody(req.body, new Set(['session_key', 'repository', 'assistant', 'commits'])); }
   catch { res.writeHead(400); return res.end(); }
   let sessionKey;
   try { sessionKey = readSession(input.session_key); }
   catch { res.writeHead(400); return res.end(); }
   const assistant = typeof input.assistant === 'string' ? input.assistant.slice(0, 8000) : '';
+  // How many commits the workspace's repository has. Absent, out of range or
+  // not a number all mean the same thing: no observation this turn, which is
+  // the ordinary case on a non-Git workspace.
+  const commits = clamp(input.commits, null, 0, 100_000_000);
   const result = await capture(connection.service, {
-    sessionKey, repository: readRepository(input.repository), assistant,
+    sessionKey, repository: readRepository(input.repository), assistant, commits,
     ownerId: connection.ownerId, ...(traced ? {traced} : {})});
   send(res, {captured: result.captured, notice: result.notice});
 }

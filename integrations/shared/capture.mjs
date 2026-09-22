@@ -14,7 +14,7 @@
 // Both halves of the turn reach the server without a file being opened, which
 // is what Satchel always claimed and is true again.
 import {call} from './auth.mjs';
-import {repositoryFrom, readHookInput, sessionIdOf, cwdOf, emit} from './workspace.mjs';
+import {repositoryFrom, commitsFrom, readHookInput, sessionIdOf, cwdOf, emit} from './workspace.mjs';
 
 const event = await readHookInput();
 const sessionKey = sessionIdOf(event);
@@ -25,10 +25,19 @@ if (!sessionKey || event.hook_event_name !== 'Stop') process.exit(0);
 const assistant = typeof event.last_assistant_message === 'string'
   ? event.last_assistant_message.trim() : '';
 
+const cwd = cwdOf(event);
+const quiet = process.env.SATCHEL_DISABLE_REPOSITORY_STAGING === '1';
+const repository = quiet ? null : repositoryFrom(cwd);
+
 try {
   const response = await call('/api/hook-capture', {
     session_key: sessionKey,
-    repository: process.env.SATCHEL_DISABLE_REPOSITORY_STAGING === '1' ? null : repositoryFrom(cwdOf(event)),
+    repository,
+    // A count and nothing else, and only when there is a repository to count
+    // in. It exists so a memory about how something is built can be doubted
+    // when the code moved under it, which is the one kind of staleness no
+    // conversation ever mentions.
+    ...(repository ? {commits: commitsFrom(cwd)} : {}),
     assistant,
   }, {timeout: 20000});
   // Not connected is silent here. Session start already said so once, and

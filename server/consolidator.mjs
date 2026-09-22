@@ -62,7 +62,8 @@ export const INSTRUCTIONS = localTextFor(CONSOLIDATE_PROMPT);
  *  "yes, do that one" readable at all. Only the user's half may supply a
  *  source, and validate() is where that is enforced rather than here. */
 export function buildConsolidationPrompt({project = null, projects = [],
-  memories = [], turns = [], instructions = INSTRUCTIONS, now = new Date(), cap = 30} = {}) {
+  memories = [], turns = [], instructions = INSTRUCTIONS, now = new Date(), cap = 30,
+  churn = 25} = {}) {
   const lines = [];
   // R7. Nothing had a temporal anchor of any kind, which is how "do not
   // include names of people who are not in the review list this time around"
@@ -98,7 +99,12 @@ export function buildConsolidationPrompt({project = null, projects = [],
       const seen = memory.mentions > 1 ? `, said ${memory.mentions} times` : '';
       const last = memory.affirmed_at ?? memory.updated_at;
       const when = last ? `, last on ${day(last)}` : '';
-      lines.push(`  #${index + 1}  [${memory.kind}, ${scope}${seen}${when}]  ${String(memory.statement).slice(0, 300)}`);
+      // R8. The repository moving is the one kind of staleness a conversation
+      // never mentions, and it is what made both stale rows in production
+      // false. Shown as a fact, not a verdict: the pass decides whether to
+      // re-check, and nothing is ended for it.
+      const moved = memory.commits_since >= churn ? `, repo +${memory.commits_since} commits since` : '';
+      lines.push(`  #${index + 1}  [${memory.kind}, ${scope}${seen}${when}${moved}]  ${String(memory.statement).slice(0, 300)}`);
     });
     lines.push('');
     // R3's comparative pressure, stated only when it is true. The block holds

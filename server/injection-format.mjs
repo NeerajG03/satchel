@@ -30,16 +30,24 @@ const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 /** Per prompt. The counts are the point: they let the agent tell "there is no
  *  rule about this" from "nothing scored high enough", which is the failure a
  *  silently truncated top-5 causes. */
-export function promptBlock({rows = [], matched = 0, inScope = 0} = {}) {
+export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25} = {}) {
   if (!rows.length) return '';
   const lines = [`◪ retrieved · ${rows.length} shown · ${matched} matched · ${inScope} in scope`];
   // A `[task closed, may be fixed]` hint used to hang off rows whose task had
   // been completed. It was the only thing the memory-to-task link ever
-  // produced, and the link cost a scope the model could get wrong. A memory
-  // has one scope now. The doubt itself is worth keeping and comes back in R8,
-  // raised by the repository moving rather than by a task closing, which is
-  // what actually made the two stale rows in production false.
-  for (const row of rows) lines.push(`  ${handleOf(row.id)}  ${clip(row.statement, 300)}`);
+  // produced, and the link cost a scope the model could get wrong.
+  //
+  // The doubt was worth keeping and this is where it came back, raised by the
+  // repository moving rather than by a task closing. Both stale rows in
+  // production were made false by a migration and a commit, and nothing
+  // anyone said contradicted either of them. The marker says how far the
+  // repository has moved and stops there: a merge is a reason to check a
+  // claim, never a reason to know it is wrong.
+  for (const row of rows) {
+    lines.push(`  ${handleOf(row.id)}  ${clip(row.statement, 300)}`);
+    if (row.commits_since >= churn)
+      lines.push(`          [${row.anchor_repository ?? 'the repo'} has moved ${row.commits_since} commits since this was confirmed, check before relying on it]`);
+  }
   return lines.join('\n');
 }
 

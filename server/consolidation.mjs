@@ -68,7 +68,7 @@ async function apply(service, change, {projects, trace, document}) {
  *  Returns what it did rather than throwing, because the caller is a loop over
  *  documents and one failure must not end the others. */
 export async function consolidateDocument(service, consolidator, document,
-  {projects = [], cap = 30, traced = untraced, ownerId} = {}) {
+  {projects = [], cap = 30, churn = 25, traced = untraced, ownerId} = {}) {
   return traced('satchel.consolidate',
     {sessionId: document.session_key, userId: ownerId,
      metadata: {event: 'consolidate', document: document.id,
@@ -94,7 +94,7 @@ export async function consolidateDocument(service, consolidator, document,
         outcome = await consolidator.consolidate({
           project: project ? {slug: project.slug, brief: project.brief} : null,
           projects: projects.filter(p => p.id !== document.project_id).map(p => ({slug: p.slug, brief: p.brief})),
-          memories, turns, cap,
+          memories, turns, cap, churn,
         });
       } catch (error) {
         // The document is left pending. A run that never reached the model has
@@ -147,6 +147,6 @@ export async function consolidatePending(service, consolidator,
   const runs = [];
   for (const document of documents)
     runs.push(await consolidateDocument(service, consolidator, document,
-      {projects, cap: settings.block_size, traced, ownerId}));
+      {projects, cap: settings.block_size, churn: settings.staleness_commits, traced, ownerId}));
   return {documents: documents.length, runs};
 }

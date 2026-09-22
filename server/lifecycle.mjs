@@ -194,7 +194,8 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
           // nothing and says nothing.
           if (rows.length) {
             notice = noticeFor('UserPromptSubmit', {shown: rows.length, matched: rows[0].matched});
-            context = promptBlock({rows, matched: rows[0].matched, inScope: rows[0].in_scope});
+            context = promptBlock({rows, matched: rows[0].matched, inScope: rows[0].in_scope,
+              churn: settings.staleness_commits});
             logged = {query: prompt, memory_ids: rows.map(r => r.id),
               matched: rows[0].matched, in_scope: rows[0].in_scope, tokens: estimateTokens(context)};
           }
@@ -228,7 +229,7 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
  *  5 every Stop re-offered the last five and consecutive Stops overlapped by
  *  four. Anything durable got five chances and was duly saved twice. */
 export async function capture(service, {sessionKey, repository = null, assistant = '',
-  project, ownerId, traced = untraced} = {}) {
+  commits = null, project, ownerId, traced = untraced} = {}) {
   return traced('satchel.Stop',
     {sessionId: sessionKey, userId: ownerId, metadata: {event: 'Stop', repository}, tags: ['satchel', 'Stop'], input: null},
     async (setOutput, setInput) => {
@@ -247,6 +248,12 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // the end of the turn does not say which project this was, nothing
         // ever will.
         const scope = project !== undefined ? {project} : await resolveScope(service, {sessionKey, repository});
+        // How far the repository has come, recorded here and nowhere else.
+        // Every hook could report it, but the per-prompt one has a five
+        // second budget and this is the hook that is allowed to be heavy. Once
+        // a turn is fresh enough for a doubt measured in tens of commits.
+        if (repository && commits != null)
+          await service.recordRepositoryHead?.(repository, commits);
         // The reply lands before the window is read, so the router sees the
         // turn it is classifying rather than the one before it.
         //

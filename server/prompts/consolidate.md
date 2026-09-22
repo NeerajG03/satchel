@@ -54,6 +54,12 @@ The set has a size. When the lines above say it is full, an add is not free: it 
 - anything they pasted rather than said, unless they are plainly adopting it as their own
 - anything already in the list, said again in different words. If they repeated it and added nothing, that is an affirm; if they repeated it and made it more specific, that is an extend. Never an add
 
+## When a memory says the repository moved
+
+Some memories are marked with how far the repository has come since anyone last confirmed them. That is a reason to look, not a verdict. A rule about how the work is done does not expire because code changed; a claim about how something is built might have stopped being true without anyone saying so.
+
+If the conversation settles it either way, act: replace it if it is now wrong, affirm it if the user said it again. If the conversation says nothing about it, leave it alone. Do not end a memory because it is old.
+
 ## Read the whole conversation before keeping a piece of it
 
 People quote a thing in order to argue with it. "One codebase can only be connected to one project, this is the wrong way to look at it" says the opposite of its first eight words. If the meaning is reversed, denied or corrected later, keep the correction they landed on, and only if they landed on one. If they only said what is wrong and never what is right, return nothing.

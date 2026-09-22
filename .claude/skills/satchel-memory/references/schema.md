@@ -21,6 +21,7 @@ Almost everything is `security invoker`, so RLS stays authoritative. The service
 | `20260922130000` | `memories_carry_their_age`: `affirmed_at` on the scope read, `affirmed` on the log |
 | `20260922140000` | `a_memory_may_carry_a_deadline`: `capture_memory` can set `expires_at` |
 | `20260922150000` | `the_block_is_bounded`: `block_size`, and `personal_memories` ranks |
+| `20260922160000` | `the_repository_moved`: `repository_heads`, anchors, and the doubt marker |
 
 ## `memories`
 
@@ -109,6 +110,7 @@ capture                true
 capture_window         5      1..20
 capture_mode           'turn' 'turn' | 'session'
 block_size             30     5..200
+staleness_commits      25     1..10000
 ```
 
 `block_size` is R3's cap: how many confirmed memories load at session start, per scope. Nothing past it is ended or hidden, it is simply not injected, and a rule is not wrong for being old. The cap is the mechanism rather than a limit: it turns extraction from "is this durable forever", which the old prompt kept getting wrong, into "is this worth more than the weakest line already here", which a small model can answer. The consolidation prompt says so only when the set is actually near it.
@@ -146,6 +148,18 @@ No table grants at all, exactly like `session_messages`. An agent connection is 
 `record_turn`, `record_document_turn`, `expire_documents`, `session_document`, `document_content`, `pending_documents`, `mark_document_consolidated`.
 
 `consolidated_through` is the document's equivalent of `classified_at`: the last turn a consolidation pass has read. A session that carries on afterwards is pending again and only the new turns are new. It only ever moves forward.
+
+## `repository_heads` and the anchor
+
+A memory can go stale because something merged. Every system we looked at detects contradiction from conversation, which assumes the world changes when the user mentions it; for a coding agent it changes when something lands. Both stale rows in production were made false by a migration and a commit, and nothing anyone said contradicted either.
+
+`repository_heads` is one row per repository holding the commit count the Stop hook last reported. It only moves forward: a stale hook, a shallow clone or an older branch checked out must not make everything look freshly confirmed. Only Stop reports it, because the per-prompt hook has a five second budget and a doubt measured in tens of commits does not need to be fresher than once a turn.
+
+`memories.anchor_repository` and `anchor_commits` are where the repository was when the memory was last meant. Set by the `anchor_memory` trigger, not by each writer, and only when `affirmed_at` moves: saving, capturing, extending, affirming, confirming and correcting all move it, embedding and expiry do not. Correcting and confirming were changed to move `affirmed_at` for exactly this reason, or a corrected memory would carry the doubt of the version it replaced forever.
+
+Personal memories never anchor, because a merge cannot falsify a preference. `search_memories` and `memories_in_scope` both return `commits_since`, so the caller that injects the marker does not have to ask a second question per row.
+
+Nothing is ever ended by churn. It is a marker in the retrieval block and a line in the consolidation prompt, and both say how far the repository moved and stop there.
 
 ## `memories_in_scope`
 

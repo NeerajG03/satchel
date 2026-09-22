@@ -6,8 +6,8 @@ that is not mine, listed at the end.
 
 | | |
 | --- | --- |
-| built | R1 documents, R2 consolidation, R2a the taxonomy, R3 the bounded block, R4 ending and history, R5 extends, R6 apart from decay, R7 temporal grounding, R9a one scope, R10 local, R11 observability |
-| not built | R8 repository churn, R6's decay curve |
+| built | R1 through R11, apart from R6's decay curve |
+| not built | R6's decay curve, which needs a number nobody has measured yet |
 | not switched on | consolidation runs only when `memory_settings.capture_mode` is `session`, and nothing calls `/api/consolidate` on a schedule yet |
 
 The last row is the one to read twice. Everything works and nothing has
@@ -315,7 +315,7 @@ time around**", which is a relative reference frozen into a permanent claim.
 | supermemory | contradiction from conversation |
 | mem0 | contradiction from conversation |
 | decision | **exceed. Nobody we looked at does this.** |
-| status | **not built.** It needs the hook to send something it does not send: there is no commit count or head anywhere in the system, so there is no churn signal to read. That means a change to `integrations/shared/`, a `plugins:build` and a version bump, which ships to every install |
+| status | **built**, plugin 0.4.0. Stop sends a commit count, `repository_heads` holds it and only moves forward, the `anchor_memory` trigger stamps every memory with where the repository was when it was last meant, and `staleness_commits` decides when the marker shows. Nothing is ended by churn |
 
 Both stale rows in production were made false by a migration and a commit. Nothing
 anyone *said* contradicted them, so no amount of conversational contradiction
@@ -521,8 +521,6 @@ built.
    rather than a constant. At eight memories it does not bind, which is the
    argument for shipping the shape before the pressure arrives.
 
-9. **Whether R8 is worth a plugin release.** The churn check needs the hook to
-   send a commit count, which nothing sends today. That is a change to
-   `integrations/shared/`, a rebuild of the generated packages and a version
-   bump, and installs read those from `main`, so it reaches everyone on the
-   next session rather than when we are ready.
+9. ~~**Whether R8 is worth a plugin release.**~~ Answered: yes. Plugin 0.4.0
+   sends a commit count from the Stop hook. A count and nothing else: not a
+   message, not a sha, not a path.
