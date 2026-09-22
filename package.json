@@ -16,7 +16,7 @@
     "memories:embed": "node scripts/embed-memories.mjs",
     "verify:pgvector": "node scripts/verify-pgvector.mjs",
     "eval": "node eval/run.mjs",
-    "consolidation:enable": "node scripts/enable-consolidation.mjs",
+    "consolidation:enable": "node --env-file-if-exists=.env scripts/enable-consolidation.mjs",
     "task-storage:provision": "node scripts/provision-task-storage.mjs",
     "task-storage:cleanup": "node scripts/cleanup-task-files.mjs",
     "plugins:build": "node scripts/build-plugins.mjs"

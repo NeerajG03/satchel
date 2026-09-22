@@ -111,13 +111,18 @@ const PAGE = message => `<!doctype html><meta charset="utf-8"><title>Satchel</ti
 export async function connect({timeoutMs = 15 * 60 * 1000, open = openBrowser, log = () => {},
   // The background consolidation job runs a second flow for a second client,
   // and it keeps its credential in the owner's database rather than on this
-  // machine. Both are parameters rather than a copy of this function, because
+  // machine. These are parameters rather than a copy of this function, because
   // the flow is the part that must not drift: one of these two would end up
   // being the one nobody fixed.
-  clientName = 'Satchel Hooks', persist = true} = {}) {
+  //
+  // `clientId` is how a caller that does not persist here still registers
+  // once. Without it every run would create another client and another row in
+  // Apps, and turning the job off would register a client purely in order to
+  // authenticate the request that turns it off.
+  clientName = 'Satchel Hooks', persist = true, clientId: supplied = null} = {}) {
   const existing = persist ? readCredentials() : null;
   const redirectUris = PORTS.map(port => `http://127.0.0.1:${port}/callback`);
-  const clientId = existing?.client_id ?? await registerClient(redirectUris, clientName);
+  const clientId = supplied ?? existing?.client_id ?? await registerClient(redirectUris, clientName);
   const verifier = base64url(randomBytes(48));
   const challenge = base64url(createHash('sha256').update(verifier).digest());
   const state = base64url(randomBytes(24));

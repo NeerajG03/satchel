@@ -8,9 +8,8 @@
 // for someone to click Allow, so session start spawns this detached, says so in
 // one line, and gets out of the way. The session it was started from carries no
 // memory; the next one does.
-import {connect, readCredentials, satchelHome} from './auth.mjs';
-import {mkdirSync, writeFileSync, readFileSync} from 'node:fs';
-import {join} from 'node:path';
+import {connect, readCredentials} from './auth.mjs';
+import {alive, attemptState, recordAttempt} from './background.mjs';
 
 const background = process.argv.includes('--background');
 const log = background ? () => {} : message => process.stderr.write(message + '\n');
@@ -26,16 +25,6 @@ const log = background ? () => {} : message => process.stderr.write(message + '\
 // finish is worth making again, just not on every single session, and an
 // attempt still running is worth saying out loud rather than replacing.
 const RETRY_AFTER_MS = 10 * 60 * 1000;
-const attemptPath = () => join(satchelHome(), 'connect-attempt.json');
-
-const alive = pid => {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  // Signal 0 checks for the process without touching it. EPERM is a yes: the
-  // process exists and belongs to someone else. Treating every throw as "gone"
-  // is the easy version of this and it is wrong.
-  try { process.kill(pid, 0); return true; }
-  catch (error) { return error?.code === 'EPERM'; }
-};
 
 /** One of four answers, because the person needs a different sentence for each.
  *
@@ -46,19 +35,14 @@ const alive = pid => {
  */
 export function connectState(now = Date.now()) {
   if (readCredentials()?.refresh_token) return 'connected';
-  let last = null;
-  try { last = JSON.parse(readFileSync(attemptPath(), 'utf8')); } catch { /* Never tried. */ }
-  if (alive(last?.pid)) return 'waiting';
-  if (last?.at && now - Number(last.at) < RETRY_AFTER_MS) return 'recent';
-  return 'offer';
+  const state = attemptState('connect', RETRY_AFTER_MS, now);
+  return state === 'running' ? 'waiting' : state === 'recent' ? 'recent' : 'offer';
 }
 
-export function recordConnectAttempt(pid, now = Date.now()) {
-  try {
-    mkdirSync(satchelHome(), {recursive: true, mode: 0o700});
-    writeFileSync(attemptPath(), JSON.stringify({at: now, pid}), {mode: 0o600});
-  } catch { /* Then it asks again next time, which is the safe direction. */ }
-}
+export const recordConnectAttempt = (pid, now = Date.now()) =>
+  recordAttempt('connect', pid, {}, now);
+
+export {alive};
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   try {

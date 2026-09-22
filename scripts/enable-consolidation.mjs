@@ -1,11 +1,20 @@
 #!/usr/bin/env node
 // Turns the six hourly consolidation pass on, once, for you.
 //
-//   node scripts/enable-consolidation.mjs            # show what is set up
-//   node scripts/enable-consolidation.mjs --enable   # sign in and turn it on
-//   node scripts/enable-consolidation.mjs --disable  # turn it off and destroy the token
+//   npm run consolidation:enable               # show what is set up
+//   npm run consolidation:enable -- --enable   # sign in and turn it on
+//   npm run consolidation:enable -- --disable  # turn it off and destroy the token
 //
-// Why this exists rather than a button. The pass runs with nobody at the
+// **This is a developer path and it is not how consolidation normally runs.**
+// By default the Stop hook spawns integrations/shared/consolidate.mjs detached
+// and the pass uses the credential the plugin already holds, so a person
+// installing Satchel does nothing at all. See docs/memory-hooks.md.
+//
+// What this adds is the one thing the hook cannot do: process conversations
+// while you are away and never open a session. It costs a second sign-in and a
+// second long-lived token, so it is deliberately not surfaced in the product.
+//
+// Why a sign-in rather than a setting. The pass runs with nobody at the
 // keyboard, and /api/consolidate runs under RLS as a real person, which is the
 // property that keeps one account's memory out of another's. A job inside the
 // database is nobody, so it has to be given a connection of its own, and the
@@ -22,8 +31,10 @@
 //   a security definer routine. It is rotated on every run
 //
 // It never writes the token to disk and never prints it.
+import {readFileSync, writeFileSync, mkdirSync} from 'node:fs';
+import {join} from 'node:path';
 import {createClient} from '@supabase/supabase-js';
-import {connect, ISSUER, SATCHEL_URL} from '../integrations/shared/auth.mjs';
+import {connect, satchelHome, ISSUER, SATCHEL_URL} from '../integrations/shared/auth.mjs';
 import {SUPABASE_URL} from '../server/identity.mjs';
 
 const args = process.argv.slice(2);
@@ -32,11 +43,33 @@ const flag = name => {
   return at === -1 ? null : (args[at + 1]?.startsWith('--') ? true : args[at + 1] ?? true);
 };
 
+// npm run consolidation:enable loads .env for this, the same file Vite reads.
+// The publishable key is not a secret; it ships inside the built app.
 const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 if (!key) {
   console.error('Set VITE_SUPABASE_PUBLISHABLE_KEY. It is in .env and it is not a secret.');
+  console.error('Run this through npm, which loads .env, rather than node directly.');
   process.exit(1);
 }
+
+/** The consolidation client id, and only the id.
+ *
+ *  Registering is once per machine, not once per run. Without remembering it,
+ *  every --enable would leave another dead client and another row in Apps for
+ *  you to clean up, and --disable would register a client purely in order to
+ *  authenticate the request that turns the job off. A client id is not a
+ *  secret; the token it is for never touches this disk. */
+const clientPath = () => join(satchelHome(), 'consolidation-client.json');
+const rememberedClient = () => {
+  try { return JSON.parse(readFileSync(clientPath(), 'utf8'))?.client_id ?? null; }
+  catch { return null; }
+};
+const rememberClient = client_id => {
+  try {
+    mkdirSync(satchelHome(), {recursive: true, mode: 0o700});
+    writeFileSync(clientPath(), JSON.stringify({client_id}, null, 2) + '\n', {mode: 0o600});
+  } catch { /* It still works, it just registers again next time. */ }
+};
 const endpoint = String(flag('endpoint') ?? `${SATCHEL_URL}/api/consolidate`);
 const idle = Number(flag('idle') ?? 30);
 
@@ -49,7 +82,10 @@ const as = accessToken => createClient(SUPABASE_URL, key, {
 async function signIn() {
   console.log(`Signing in to ${ISSUER} as a separate client, "Satchel consolidation".`);
   console.log('This is not the plugin\'s connection. Revoking one leaves the other alone.\n');
-  return connect({clientName: 'Satchel consolidation', persist: false, log: message => console.log(message)});
+  const credentials = await connect({clientName: 'Satchel consolidation', persist: false,
+    clientId: rememberedClient(), log: message => console.log(message)});
+  rememberClient(credentials.client_id);
+  return credentials;
 }
 
 async function report(db) {
@@ -102,6 +138,6 @@ if (error) {
 }
 console.log('\nStored. The token is in your own Vault, encrypted, and rotated on every run.\n');
 await report(db);
-console.log('\nOne more step: set memory_settings.capture_mode to \'session\' when you want the');
-console.log('background pass to be the writer instead of the turn-by-turn router. Until then');
-console.log('both exist and only the router writes.');
+console.log('\nThe Stop hook already runs this pass with its own credential, so this only adds');
+console.log('processing while you are away. Set memory_settings.capture_mode to \'session\' when');
+console.log('you want the pass to be the writer instead of the turn-by-turn router.');

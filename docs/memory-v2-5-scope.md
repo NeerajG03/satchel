@@ -8,7 +8,8 @@ that is not mine, listed at the end.
 | --- | --- |
 | built | R1 through R11, apart from R6's decay curve |
 | not built | R6's decay curve, which needs a number nobody has measured yet |
-| not switched on | the schedule exists but nobody has enabled it, and `memory_settings.capture_mode` is still `turn`. Two deliberate steps, not an oversight |
+| how it runs | the Stop hook spawns the pass detached, with the credential the plugin already holds. No setup, no second sign-in. The `pg_cron` job stays as a developer path for processing while you are away |
+| not switched on | `memory_settings.capture_mode` is still `turn`, so the old turn-by-turn router is still the writer |
 
 The last row is the one to read twice. Everything works and nothing has
 changed for anyone, because the default is still the turn-by-turn router.
@@ -500,22 +501,25 @@ These change the work and are not mine to make.
 **Still open.** These are what is left. Everything else in this document is
 built.
 
-6. ~~**What actually runs the six hourly schedule.**~~ Answered: Supabase
-   `pg_cron` with `pg_net`. The credential turned out to be the hard half, not
-   the schedule: `/api/consolidate` runs under RLS as a real person and a job
-   inside the database is nobody. So the owner grants it its own OAuth client
-   once, with `npm run consolidation:enable`, and the refresh token lives in
-   their own Vault and is rotated on every run. Vercel Hobby caps crons at once
-   per day and rejects a more frequent expression at deploy time; Pro allows per
-   minute at $20/mo per user. Free alternatives, in the order I would try them:
-   Supabase `pg_cron` with `pg_net` calling the endpoint, since the database is
-   already there; a GitHub Actions schedule doing an authenticated `curl`; or lazy
-   processing on the next hook, which needs nothing new but puts model work inside a
-   hook timeout. The idle threshold is an argument to the endpoint and defaults to
-   30 minutes, which is a placeholder rather than a measurement.
+6. ~~**What actually runs the six hourly schedule.**~~ Answered twice. First
+   Supabase `pg_cron` with `pg_net`, where the credential turned out to be the
+   hard half rather than the schedule: `/api/consolidate` runs under RLS as a
+   real person and a job inside the database is nobody, so the owner has to
+   grant it its own OAuth client. Then, once it was clear that meant every new
+   user signing in twice, the default moved to the Stop hook spawning the pass
+   detached with the credential the plugin already holds. That removes the
+   second sign-in rather than automating it, and it takes the whole stored
+   credential path off the critical path, which matters because it is the one
+   piece of this that has never been run. The cron stays for developers,
+   because processing conversations while you are away is the one thing the
+   hook cannot do, and it is not worth a second sign-in for a product user.
 
-   Until this is answered `capture_mode` stays `turn`, because switching it
-   without something calling the endpoint would mean no capture at all.
+   The idle threshold is 30 minutes, which is a placeholder rather than a
+   measurement, and `capture_mode` stays `turn` until the pass has written
+   enough memory to be judged against the router it replaces.
+
+   Vercel's own cron was never an option: Hobby caps them at once per day and
+   rejects a more frequent expression at deploy time.
 7. **Does a work order become a task, or nothing?** R9a removes the memory-to-task
    link, which is settled. Separately, the classifier could file a directive as a
    task instead of discarding it. That creates no memory and no link, so R9a does not
