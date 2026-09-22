@@ -7,17 +7,18 @@ import { Provenance } from '../../ui/Provenance';
 type Props = {
   memory: MemorySummary; expanded: Memory | null; busy: boolean; dim: boolean; fresh: boolean;
   confirmingForget: boolean; canCorrect: boolean; highlight: (text: string) => ReactNode;
-  onRead: () => void; onHide: () => void; onCorrect: () => void; onConfirm: () => void;
+  onRead: () => void; onHide: () => void; onCorrect: () => void;
   onAskForget: (ask: boolean) => void; onForget: () => void;
 };
 
 export function MemoryEntry({ memory, expanded, busy, dim, fresh, confirmingForget, canCorrect, highlight,
-  onRead, onHide, onCorrect, onConfirm, onAskForget, onForget }: Props) {
+  onRead, onHide, onCorrect, onAskForget, onForget }: Props) {
   const open = expanded?.id === memory.id;
   // Satchel wrote this one from something you said, rather than because you
-  // asked. Until you agree it is right it does not load at the start of a
-  // session, so this is the row that actually needs reviewing.
-  const unconfirmed = memory.band === 'heard';
+  // asked. That is a fact about where it came from and nothing more. It is not
+  // a request for approval: memory is hands off, and whether the person agrees
+  // with a row is not what makes it one.
+  const picked = memory.band === 'heard';
   // The source of a memory you wrote yourself is the sentence you wrote, so
   // repeating it would be noise. For a captured one it is the words you
   // actually typed, which is the only evidence the claim is really yours.
@@ -27,7 +28,7 @@ export function MemoryEntry({ memory, expanded, busy, dim, fresh, confirmingForg
   // there is nothing. It was computed in SQL, typed, computed again in the
   // model, and then read by nobody, so nine rows in eleven offered to open
   // something that was not there.
-  const openable = memory.has_more_info || unconfirmed;
+  const openable = memory.has_more_info || picked;
   const openLabel = memory.has_more_info ? 'Read more info' : 'See what you said';
 
   return <article className={`entry ${dim ? 'dim' : ''} ${fresh ? 'fresh' : ''}`.trim()}>
@@ -50,14 +51,14 @@ export function MemoryEntry({ memory, expanded, busy, dim, fresh, confirmingForg
         // there is that a memory is real, and it is also what keeps a memory
         // at the top of the block when the block is full.
         memory.mentions > 1 && `said ${memory.mentions} times`,
-        unconfirmed && 'heard, not loaded until you agree',
+        picked && 'picked up automatically',
         `revision ${memory.revision}`]} at={memory.updated_at} />
       <div className="actions">
-        {/* Agreeing is the only thing that promotes a heard memory, and since
-            unconfirmed ones stopped loading at the start of a session it is
-            the only way one ever gets used. The routine existed and nothing
-            in the app called it. */}
-        {unconfirmed && <Button small disabled={busy} onClick={onConfirm}>Yes, that’s right</Button>}
+        {/* No "is this right?" here, on purpose. A memory is a memory whether
+            or not the person agrees with it, and a button asking them to
+            approve their own memory turns a thing that is supposed to look
+            after itself into a queue of chores. Capture quality is capture's
+            problem to solve, not the reader's. */}
         <Button look="quiet" small disabled={busy || !canCorrect} onClick={onCorrect}>Correct</Button>
         {openable && <Button look="quiet" small disabled={busy} aria-expanded={open}
           onClick={open ? onHide : onRead}>{open ? 'Hide' : openLabel}</Button>}
