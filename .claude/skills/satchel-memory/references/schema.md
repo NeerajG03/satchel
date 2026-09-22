@@ -16,11 +16,20 @@ Almost everything is `security invoker`, so RLS stays authoritative. The service
 | `20260920130000` | `retrieval_and_slug_fixes`: null-safe gate, slug length, hyphen, rename uniqueness |
 | `20260922090000` | `documents`: the durable record of a conversation, and its retention |
 | `20260922100000` | `one_scope_per_memory`: the task link is removed, everywhere |
+| `20260922110000` | `memory_lifecycle`: kind, ending, expiry, repetition, and `memory_events` |
 
 ## `memories`
 
 ```
 id, owner_id, project_id
+kind             text not null   'fact' | 'preference' | 'intent', default 'fact'
+ended_at         timestamptz     null while live
+ended_reason     text            'replaced' | 'retired' | 'forgotten'
+ended_by         uuid            the memory that replaced this one, replacements only
+ended_note       text            why, <= 500
+expires_at       timestamptz     null means no expiry
+affirmed_at      timestamptz     the last time anyone said it again
+mentions         integer         how many times, >= 1
 statement        text not null   1..500 characters after trimming
 source           text not null   default '', <= 4000, provenance only, never injected
 band             text not null   'said' | 'heard'
@@ -38,11 +47,23 @@ revision, created_at, updated_at
 
 **A memory has one scope: a project, or personal.** There is no task link and there is no column for one. It was removed in `20260922100000` because it produced exactly one thing, a `[task closed, may be fixed]` hint, and cost three ways to get the scope wrong: `save_memory` silently moved a memory into the task's project, so a wrong guess by a small model relocated a rule; the router made four decisions per item instead of three; and the foreign key could not be scope-qualified at all, because Postgres refuses `ON DELETE SET NULL` against a generated column and `tasks.scope_key` is generated, so a function had to enforce what the database could not. The doubt the link was for comes back in v2.5 R8, raised by the repository moving, which is what actually made the stale rows in production false. See `docs/memory-v2-5-scope.md`, R9a.
 
+**A memory ends, it is not deleted.** `ended_at`/`ended_reason` is one way out with a reason instead of four flag pairs, and `(ended_at is null) = (ended_reason is null)` is enforced. `replaced` means the claim is false now and `ended_by` names its successor; `retired` means an intent was fulfilled, which is spent rather than wrong; `forgotten` is a decision. Expiry is separate, because it is time passing rather than something happening: a row past `expires_at` is not live and no event was raised. Everything that reads a memory to use it filters to live; `archived_memories()` is where the rest goes, and it is the undo that makes auto-applied consolidation acceptable.
+
 **Column privileges are per column.** A new column is not writable until it appears in a `grant insert(...)` / `grant update(...)`.
+
+## `memory_events`
+
+Every change to a memory, with a before and an after: added, corrected, confirmed, extended, replaced, retired, forgotten. Written by an `after insert or update` trigger rather than by each writer, for the reason capture shipped for weeks without embedding its own rows: the writer nobody checks afterwards is the one that silently skips a step. A write straight at the table still leaves an event.
+
+`actor` comes from the JWT through `private.memory_actor()`, so it cannot be claimed. `trace_id` and `document_id` are the R11 link between a row and the model run that produced it, and they are set by `private.attribute()` inside the same transaction as the write, because every PostgREST request is its own transaction and a `set_config` from outside would not be there. `satchel.change` can relabel a statement change as `extended` rather than `corrected`, which is the one piece of enrichment that cannot lie about anything that matters.
+
+Reading an event requires being able to read its memory, expressed as a policy that checks exactly that rather than as a second copy of the grant rules. `memory_history(id)` is the ordered read.
+
+Deleting a memory cascades its history. The system never deletes, it ends; a person's explicit delete is the one destructive act, and taking the record of a thing they asked to be gone is right rather than a gap.
 
 ## `stamp_memory_revision`
 
-Bumps `revision` and moves `updated_at` **only** when the statement, source, more_info, name, band or project changes.
+Bumps `revision` and moves `updated_at` **only** when the statement, source, more_info, name, band, project, kind or `ended_at` changes. Ending a memory moves it, so a client holding the old revision cannot go on to correct something that is no longer live. Affirming, expiring and embedding do not.
 
 Embedding a row is bookkeeping, not an edit. The revision is the optimistic concurrency token, so bumping it for an embedding hands every client holding the old one a conflict it cannot explain, and re-embedding after a model change does that to the whole corpus at once.
 
@@ -56,7 +77,7 @@ search_memories(
   p_gate    real     default 0.67,
   p_boost   real     default 1.1,
   p_exclude uuid[]   default '{}')
-returns (id, project_id, statement, band, score, matched, in_scope)
+returns (id, project_id, statement, band, kind, score, matched, in_scope)
 ```
 
 Every optional argument is `coalesce`d inside the function, because "not supplied" and "supplied as nothing" have to mean the same thing to every caller. A NULL gate once silenced retrieval completely.
@@ -67,7 +88,7 @@ Scope is a boost, not a filter. Rows without an embedding are invisible and do n
 
 ## `personal_memories`
 
-Every row with `project_id is null`, newest first. Loaded whole at session start rather than retrieved, because similarity measures topic overlap and a standing preference is relevant by category of activity. See `decisions.md` for the 4.4x measurement.
+Every live row with `project_id is null`, newest first. Loaded whole at session start rather than retrieved, because similarity measures topic overlap and a standing preference is relevant by category of activity. See `decisions.md` for the 4.4x measurement.
 
 ## `memory_settings`
 
