@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 // Pushes the local copy of the capture prompt to Langfuse as a new version.
 //
-//   node scripts/push-prompt.mjs             # show what would change
-//   node scripts/push-prompt.mjs --push      # create a version, label it production
+//   node scripts/push-prompt.mjs                        # show what would change
+//   node scripts/push-prompt.mjs --push                 # create a version, label it production
 //   node scripts/push-prompt.mjs --push --label staging
+//   node scripts/push-prompt.mjs --prompt satchel-consolidate --push
+//
+// There is more than one prompt now. --prompt takes a name from PROMPT_FILES;
+// the default is the capture router, which is the one that existed first.
 //
 // One direction only. The file is where you edit, Langfuse is where it lives
 // and where the history is. Nothing pulls a Langfuse version back over the
@@ -13,7 +17,7 @@
 // A push with no change is refused rather than being a no-op version: version
 // numbers are what a trace points at, and a run of identical versions makes
 // "which wording produced this" unanswerable again.
-import {localText, CAPTURE_PROMPT} from '../server/prompt-store.mjs';
+import {localTextFor, PROMPT_FILES, CAPTURE_PROMPT} from '../server/prompt-store.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name, fallback = null) => {
@@ -22,6 +26,12 @@ const flag = (name, fallback = null) => {
 };
 const push = args.includes('--push');
 const label = flag('label', 'production');
+const name = flag('prompt', CAPTURE_PROMPT);
+if (!PROMPT_FILES[name]) {
+  console.error(`Unknown prompt "${name}". Known: ${Object.keys(PROMPT_FILES).join(', ')}`);
+  process.exit(1);
+}
+const localText = localTextFor(name);
 
 const baseUrl = process.env.LANGFUSE_BASE_URL ?? process.env.LANGFUSE_HOST;
 const publicKey = process.env.LANGFUSE_PUBLIC_KEY;
@@ -34,7 +44,7 @@ if (!baseUrl || !publicKey || !secretKey) {
 const auth = {authorization: `Basic ${Buffer.from(`${publicKey}:${secretKey}`).toString('base64')}`,
   'content-type': 'application/json'};
 
-const at = new URL(`/api/public/v2/prompts/${encodeURIComponent(CAPTURE_PROMPT)}`, baseUrl);
+const at = new URL(`/api/public/v2/prompts/${encodeURIComponent(name)}`, baseUrl);
 const live = await (async () => {
   const url = new URL(at);
   url.searchParams.set('label', label);
@@ -44,7 +54,7 @@ const live = await (async () => {
   return response.json();
 })();
 
-console.log(`prompt  ${CAPTURE_PROMPT}`);
+console.log(`prompt  ${name}`);
 console.log(`label   ${label}`);
 console.log(`live    ${live ? `version ${live.version}, ${String(live.prompt).length} characters` : 'nothing published yet'}`);
 console.log(`local   ${localText.length} characters`);
@@ -72,14 +82,14 @@ if (!push) {
 const response = await fetch(new URL('/api/public/v2/prompts', baseUrl), {
   method: 'POST', headers: auth,
   body: JSON.stringify({
-    name: CAPTURE_PROMPT,
+    name,
     type: 'text',
     prompt: localText,
     labels: [label],
     // Read in Langfuse next to the version, so it is obvious which revision of
     // this repository the wording belongs to.
     commitMessage: flag('message', null) || undefined,
-    tags: ['satchel', 'capture'],
+    tags: ['satchel', name === CAPTURE_PROMPT ? 'capture' : 'consolidation'],
   }),
 });
 if (!response.ok) {

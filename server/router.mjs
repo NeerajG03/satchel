@@ -208,7 +208,7 @@ export function createRouter({
       for (let attempt = 0; ; attempt++) {
         try { return await ask(); }
         catch (error) {
-          const failure = asRouterError(error, lastSignal);
+          const failure = asModelError(error, lastSignal);
           const wait = failure.code === 'ROUTER_LIMIT' && !failure.spent ? failure.retryAfterMs || 500 : 0;
           if (attempt > 0 || !wait || wait > 2000) throw failure;
           await new Promise(done => setTimeout(done, wait));
@@ -269,8 +269,8 @@ export function createRouter({
         // This is leniency about the wrapper, never about the contents:
         // whatever comes out is parsed against the same schema, and validate()
         // still has to find the source in what the user typed.
-        const salvaged = NoObjectGeneratedError.isInstance(error) && salvage(error.text);
-        if (!salvaged) throw asRouterError(error, signal);
+        const salvaged = NoObjectGeneratedError.isInstance(error) && salvage(ROUTER_SCHEMA, error.text);
+        if (!salvaged) throw asModelError(error, signal);
         result = {object: salvaged, usage: error.usage ?? null};
       }
       // Everything the model returned still goes through validate(). The schema
@@ -287,8 +287,12 @@ export function createRouter({
 }
 
 /** Pulls an object out of a reply that carries one but is not one. Returns
- *  null rather than throwing, so the caller reports the original failure. */
-function salvage(text) {
+ *  null rather than throwing, so the caller reports the original failure.
+ *
+ *  Exported because the consolidation pass asks a model the same way and needs
+ *  the same leniency about wrappers, and only about wrappers: whatever comes
+ *  out is still parsed against the schema it was given. */
+export function salvage(schema, text) {
   if (typeof text !== 'string') return null;
   const attempts = [text];
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -296,7 +300,7 @@ function salvage(text) {
   const first = text.indexOf('{'), last = text.lastIndexOf('}');
   if (first !== -1 && last > first) attempts.push(text.slice(first, last + 1));
   for (const attempt of attempts) {
-    const parsed = ROUTER_SCHEMA.safeParse((() => {
+    const parsed = schema.safeParse((() => {
       try { return JSON.parse(attempt.trim()); } catch { return null; }
     })());
     if (parsed.success) return parsed.data;
@@ -307,29 +311,32 @@ function salvage(text) {
 /** Turns an SDK failure into something the hook can say out loud. These carry
  *  no Postgres code, so without a `reason` they all land on the default branch
  *  of errorText and reach the person as "Satchel request failed. Reload before
- *  retrying a write: it may have completed", which is wrong twice over. */
-function asRouterError(error, signal) {
+ *  retrying a write: it may have completed", which is wrong twice over.
+ *
+ *  `noun` is what the person is told went wrong. Two small model calls exist
+ *  now and "capture is rate limited" would be a lie about the other one. */
+export function asModelError(error, signal, noun = 'capture') {
   if (error instanceof RouterError) return error;
   if (NoObjectGeneratedError.isInstance(error))
     return new RouterError('router returned nothing matching the schema',
-      {cause: error, code: 'ROUTER_SHAPE', reason: 'the capture model returned nothing usable'});
+      {cause: error, code: 'ROUTER_SHAPE', reason: `the ${noun} model returned nothing usable`});
   const {kind, status} = describeFailure(error, signal);
   if (kind === 'timeout')
     return new RouterError(`router did not respond within its timeout`,
-      {cause: error, code: 'ROUTER_TIMEOUT', reason: 'the capture model did not answer in time'});
+      {cause: error, code: 'ROUTER_TIMEOUT', reason: `the ${noun} model did not answer in time`});
   if (kind === 'shape')
     return new RouterError('router returned a response that is not usable',
-      {cause: error, code: 'ROUTER_SHAPE', reason: 'the capture model returned nothing usable'});
+      {cause: error, code: 'ROUTER_SHAPE', reason: `the ${noun} model returned nothing usable`});
   if (kind === 'host')
     return new RouterError(`router returned ${status}`,
-      {cause: error, code: 'ROUTER_HOST', reason: `the capture model answered ${status}`});
+      {cause: error, code: 'ROUTER_HOST', reason: `the ${noun} model answered ${status}`});
   // What the limit says is read rather than guessed. A spent daily quota comes
   // back with a ten second retryDelay that reads exactly like a burst limit, so
   // the reason has to name which one it was or every 429 looks transient.
   const limit = readApiFailure(error);
   return Object.assign(
     new RouterError(`router is rate limited: ${limit.reason}`,
-      {cause: error, code: 'ROUTER_LIMIT', reason: `capture is rate limited, ${limit.reason}`}),
+      {cause: error, code: 'ROUTER_LIMIT', reason: `${noun} is rate limited, ${limit.reason}`}),
     // Read by the single retry above: a spent day and a burst need opposite
     // answers and the status code cannot tell them apart.
     {spent: limit.spent, retryAfterMs: limit.retryAfterMs});
