@@ -232,7 +232,7 @@ export async function capture(service, {sessionKey, repository = null, assistant
   commits = null, project, ownerId, traced = untraced} = {}) {
   return traced('satchel.Stop',
     {sessionId: sessionKey, userId: ownerId, metadata: {event: 'Stop', repository}, tags: ['satchel', 'Stop'], input: null},
-    async (setOutput, setInput) => {
+    async (setOutput, setInput, traceId) => {
       try {
         const status = await service.status();
         if (!status) throw {code: '42501'};
@@ -296,7 +296,7 @@ export async function capture(service, {sessionKey, repository = null, assistant
           codebase: links.length === 1 ? links[0].repository : null,
           project: active ? {slug: active.slug, brief: active.brief} : null,
           projects: projects.filter(p => p.id !== scope.project).map(p => ({slug: p.slug, brief: p.brief})),
-          context: earlier, turn, saved});
+          context: earlier, turn, saved, trace: traceId});
         // The boundary moves only when the model actually answered. A run that
         // died on a rate limit leaves its messages for the next turn.
         const through = ordered[ordered.length - 1]?.id;

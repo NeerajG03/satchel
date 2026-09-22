@@ -109,14 +109,18 @@ scope_boost            1.1    1..2
 session_budget_tokens  15000
 capture                true
 capture_window         5      1..20
-capture_mode           'turn' 'turn' | 'session'
+capture_mode        'session' 'turn' | 'session'
 block_size             30     5..200
 staleness_commits      25     1..10000
 ```
 
 `block_size` is R3's cap: how many confirmed memories load at session start, per scope. Nothing past it is ended or hidden, it is simply not injected, and a rule is not wrong for being old. The cap is the mechanism rather than a limit: it turns extraction from "is this durable forever", which the old prompt kept getting wrong, into "is this worth more than the weakest line already here", which a small model can answer. The consolidation prompt says so only when the set is actually near it.
 
-`capture_mode` picks which writer runs. `turn` is one model call at the end of every Stop, blind to what is stored, output always an insert. `session` records the conversation and leaves it to the background pass, which reads the whole thing against what already exists. They are not meant to run together: two writers over the same turns save the same claim in two wordings, which production has already done once. It defaults to `turn` because what schedules the pass is still open, and switching before something calls the endpoint would mean no capture at all.
+`capture_mode` picks which writer runs. `turn` is one model call at the end of every Stop, blind to what is stored, output always an insert. `session` records the conversation and leaves it to the background pass, which reads the whole thing against what already exists. They are not meant to run together: two writers over the same turns save the same claim in two wordings, which production has already done once.
+
+**It defaults to `session`.** `turn` was the default only while nothing called the pass; there is a button now. The cost is real and worth saying plainly: with `session` and no schedule, memory appears when someone asks for it and not before. The conversation is recorded either way, so nothing is lost and the pass can read it whenever it runs.
+
+**Every column here needs its own grant.** Four were granted when the table was created and every column added since was granted `select` alone, so `capture` and `capture_window` were unwritable from the day the router shipped and nobody noticed until `capture_mode` needed changing. The policies were always right, `companion_memory_settings` is ALL and `agent_memory_settings_read` is SELECT, so the grant keeps an agent read-only on its own. The service fallback must match the column defaults, or behaviour depends on whether a row happens to exist.
 
 An agent connection may **read** settings and not change them. Every column the lifecycle path reads must be in `memoryService.settings()`'s select and in its no-row fallback, with matching values.
 

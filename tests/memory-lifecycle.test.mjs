@@ -54,7 +54,7 @@ const embedder = {model: 'test-model',
   embedQuery: async () => Array(768).fill(0.1)};
 
 const baseSettings = {per_prompt_matches: 5, gate: 0.67, scope_boost: 1.1,
-  session_budget_tokens: 15000, capture: true, capture_window: 5};
+  session_budget_tokens: 15000, capture: true, capture_window: 5, capture_mode: 'turn'};
 
 const connected = {label: 'Test', personal: true, can_write: true, project_ids: []};
 
@@ -542,4 +542,48 @@ test('with no router the conversation is still kept', async () => {
   assert.deepEqual(recorded, [{role: 'assistant', content: 'Understood.'}]);
   assert.equal(result.captured, 0);
   assert.equal(result.notice, '', 'nothing was classified, so there is nothing to announce');
+});
+
+test('a memory the router captured names the run that decided it', () => {
+  // The one row in the system nobody asked for, and until now the one row
+  // whose event could not say what produced it. Consolidation carried its
+  // trace from the start; the Stop router did not, so a captured memory in
+  // the activity page was a dead end.
+  const captured = [];
+  const db = recorder({capture_memory: {id: 'm1', statement: 'A claim.'}});
+  const service = memoryService(db, null, {
+    model: 'test-model',
+    route: async () => ({memories: [{statement: 'A claim.', source: 'a claim', project: null}],
+      dropped: [], prompt: 'p', raw: '{}'}),
+  });
+  void captured;
+  return service.captureTurn('s', {context: [], turn: ['a claim'], saved: [], trace: 'trace-xyz'})
+    .then(() => {
+      const call = db.calls.rpc.find(c => c.name === 'capture_memory');
+      assert.equal(call.args.p_trace, 'trace-xyz');
+    });
+});
+
+test('the default is that nothing writes a memory without reading the conversation', async () => {
+  // capture_mode used to default to `turn`, which is the five-row blind
+  // insert this rebuild exists to replace. It was the default only because
+  // nothing called the pass; there is a button now. The service fallback and
+  // the column default have to agree, or behaviour depends on whether a
+  // settings row happens to exist.
+  const db = recorder({});
+  const service = memoryService(db, null, null);
+  assert.equal((await service.settings()).capture_mode, 'session');
+
+  let routed = false;
+  const result = await capture({
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => ({...baseSettings, capture_mode: 'session'}),
+    recordTurn: async () => {},
+    projects: async () => [],
+    sessionWindow: async () => [{id: 1, role: 'user', content: 'something durable', classified_at: null}],
+    captureTurn: async () => { routed = true; return {memories: [], dropped: 0, failed: false}; },
+  }, {sessionKey: 's', assistant: 'Understood.'});
+  assert.equal(routed, false, 'the turn router must not run when the pass is the writer');
+  assert.equal(result.captured, 0);
 });

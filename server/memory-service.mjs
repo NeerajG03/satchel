@@ -28,7 +28,7 @@ export function memoryService(db, embedder = null, router = null) {
   // One turn's worth of capture. Everything the router returns has already
   // been checked against what the user actually typed; this only resolves
   // scope and writes.
-  async function captureTurn(sessionKey, {codebase, project, projects, context, turn, saved}) {
+  async function captureTurn(sessionKey, {codebase, project, projects, context, turn, saved, trace}) {
     const runId = crypto.randomUUID();
     let outcome;
     try {
@@ -45,7 +45,11 @@ export function memoryService(db, embedder = null, router = null) {
     }
     const written = [];
     for (const item of outcome.memories) {
-      try { written.push(await api.captureMemory({id:crypto.randomUUID(), ...item})); }
+      // The trace the Stop hook is already inside. Without it a captured
+      // memory is the one row in the system whose event cannot name what
+      // decided it, which is exactly the row most worth explaining: nobody
+      // asked for it.
+      try { written.push(await api.captureMemory({id:crypto.randomUUID(), ...item, trace})); }
       catch { /* One bad item must not lose the rest of the turn. */ }
     }
     await api.logRouterRun({id:runId, session_key:sessionKey, model:router.model,
@@ -306,7 +310,7 @@ export function memoryService(db, embedder = null, router = null) {
       const rows=await result(db.from('memory_settings')
         .select('per_prompt_matches,gate,scope_boost,session_budget_tokens,capture,capture_window,capture_mode,block_size,staleness_commits').limit(1));
       return rows?.[0]??{per_prompt_matches:5,gate:0.67,scope_boost:1.1,
-        session_budget_tokens:15000,capture:true,capture_window:5,capture_mode:'turn',
+        session_budget_tokens:15000,capture:true,capture_window:5,capture_mode:'session',
         block_size:30,staleness_commits:25};
     },
     // The log is what turns "why did it not know that" into a query, and it is

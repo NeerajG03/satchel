@@ -181,6 +181,33 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
     assert.equal(Number(owner[0].gate).toFixed(2),'0.80','the owner still can');
   });
 
+  await t.test('the owner can change every setting, and an agent still cannot change any', async () => {
+    // Four columns were granted when the table was created and every column
+    // added since was granted select alone, so `capture` has been unwritable
+    // since the router shipped. capture_mode is the one that matters: it
+    // decides which of the two writers runs, and unsettable means the
+    // turn-by-turn router is the writer forever.
+    const tunable = ['per_prompt_matches', 'gate', 'scope_boost', 'session_budget_tokens',
+      'capture', 'capture_window', 'capture_mode', 'block_size', 'staleness_commits'];
+    const writable = (await as(alice,
+      `select column_name from information_schema.column_privileges
+       where table_name='memory_settings' and grantee='authenticated'
+         and privilege_type='UPDATE' order by column_name`)).map(r => r.column_name);
+    assert.deepEqual(writable.sort(), [...tunable].sort(),
+      'a column nobody can write is not a setting');
+
+    await as(alice, `update memory_settings set capture_mode='session'`);
+    assert.equal((await as(alice, 'select capture_mode from memory_settings'))[0].capture_mode, 'session');
+
+    // The grant is per column and the policy is per role, so this is the half
+    // that keeps an agent out: it has SELECT on the table and no permissive
+    // policy for UPDATE, so the write finds nothing and changes nothing.
+    await as(alice, `update memory_settings set capture_mode='turn'`, [], 'agent-1');
+    assert.equal((await as(alice, 'select capture_mode from memory_settings'))[0].capture_mode, 'session',
+      'an agent must not be able to switch the writer');
+    await as(alice, `update memory_settings set capture_mode='turn'`);
+  });
+
   await t.test('a memory has one scope and no task to hang off', async () => {
     // The link is gone, and with it the only way a wrong task guess could move
     // a memory into a project nobody mentioned. A memory is scoped by the
