@@ -126,7 +126,11 @@ export async function consolidateDocument(service, consolidator, document,
       // loses the conversation's only chance to be read.
       if (through != null) await service.markDocumentConsolidated(document.id, through);
       await service.logConsolidationRun({id: runId, document_id: document.id, trace_id: traceId,
-        model: consolidator.model, prompt: outcome.prompt, response: outcome.raw, through,
+        // The model that answered, which is not always the one configured: a
+        // spent quota or an overloaded host sends the call to the fallback.
+        // Logging the configured one would make the log agree with the
+        // settings and disagree with what happened.
+        model: outcome.model ?? consolidator.model, prompt: outcome.prompt, response: outcome.raw, through,
         ...counts, input_tokens: outcome.usage?.inputTokens ?? null,
         output_tokens: outcome.usage?.outputTokens ?? null,
         duration_ms: Date.now() - started, error: null});

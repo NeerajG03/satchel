@@ -82,12 +82,23 @@ export const fallbackModel = model => {
 
 /** Whether trying a different model is worth doing.
  *
- *  Only for the host being unable to answer at all. A 4xx is the request and
- *  another model would refuse it the same way; a timeout has already spent
- *  the budget; a bad shape is the prompt. Overload is the one failure where
- *  the same question asked elsewhere gets an answer. */
-export const worthFallingBackFrom = failure =>
-  failure?.kind === 'host' && typeof failure.status === 'number' && failure.status >= 500;
+ *  Two failures, and they look nothing alike. The host cannot answer at all,
+ *  which is a 5xx. Or this model's quota is gone for the day, which on the
+ *  free tier is a per-model daily cap: gemini-3.8-flash allows 20 requests a
+ *  day and then answers 429 until midnight.
+ *
+ *  The second one is the reason this predicate is not just "5xx". A spent
+ *  daily quota is per model, so the same question asked of another one is
+ *  answered immediately, and without this a free key gets 20 consolidations
+ *  and then silence.
+ *
+ *  Nothing else. A 4xx that is not a quota is the request, and another model
+ *  refuses it identically. A burst limit comes back on its own and is worth
+ *  waiting out rather than switching for. A timeout has already spent the
+ *  budget, and a bad shape is the prompt. */
+export const worthAnotherModel = failure =>
+  (failure?.code === 'ROUTER_HOST' && Number(failure.status) >= 500)
+  || (failure?.code === 'ROUTER_LIMIT' && failure?.spent === true);
 
 export function describeFailure(error, signal) {
   if (signal?.aborted || error?.name === 'AbortError' || error?.name === 'TimeoutError')

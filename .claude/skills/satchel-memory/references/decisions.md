@@ -135,21 +135,26 @@ Medium rather than high or off, because the failure these calls exist to prevent
 
 Pinned and not `-latest`, because a floating alias would move the thing a measurement describes, silently, between two runs of it. `gemini-3.5-flash-lite` was the previous pin.
 
-**There is a fallback, and it is not a nicety.** Measured on 22 September against the real API:
+**There is a fallback, and the reason for it is a quota rather than load.** Measured on 22 September against the real API, on a free-tier key:
 
 ```
-gemini-3.8-flash       thinking=medium   503 on every attempt
-gemini-3.8-flash       thinking=off      503 on every attempt
-gemini-3.7-flash       thinking=medium   503 on every attempt
-gemini-3.5-flash       thinking=medium   ok   3.9s   1797 in / 571 out
-gemini-3.5-flash-lite  thinking=off      ok  14.2s   1797 in /  93 out
+gemini-3.8-flash   bare "reply ok"       200 on 3 of 4, 6-21s
+gemini-3.8-flash   the real call         503, then 429 once the day's quota went
+gemini-3.7-flash   the real call         503
+gemini-3.6-flash   bare                  200
+gemini-3.5-flash   thinking=medium       200   3.9s   1797 in / 571 out
+gemini-3.5-flash-lite thinking=off       200  14.2s   1797 in /  93 out
 ```
 
-The newest flash models answer 503 "experiencing high demand" under load, and pinning one without a fallback means consolidation is broken on the days it is busy with no way for the person pressing the button to tell that from a bug. `SATCHEL_MODEL_FALLBACK` defaults to `gemini-3.5-flash`. One older model, not a chain: a chain is a way never to find out that your first choice does not work.
+The 429 names it exactly: `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, **limit 20**, model `gemini-3.8-flash`. The free tier caps requests per day **per model**, so twenty calls to the newest model is the whole day, and the 503s before that are the same tier shedding load on the model everyone wants.
 
-Two details that matter more than they look. The decision is made on the raw error rather than the readable one, because the wrapper keeps the reason and drops the status, and only a 5xx is worth asking elsewhere: a 4xx is the request and another model refuses it identically. And a model that has just said it cannot answer is not asked again for `SATCHEL_MODEL_AVOID_MS`, five minutes by default, because it took twelve seconds to say so and a batch of ten documents would otherwise spend its entire budget learning the same thing ten times.
+That is why the fallback exists and why it is not just "retry on 5xx". A spent daily quota is per model, so the same question asked of an older one is answered immediately. Without it a free key gets twenty consolidations and then silence, and the person pressing the button cannot tell that from a bug. `SATCHEL_MODEL_FALLBACK` defaults to `gemini-3.5-flash`. One older model, not a chain: a chain is a way never to find out that your first choice does not work.
 
-Worth noting from that table: thinking made the call **faster**, not slower. 3.5-flash at medium answered in 3.9s against flash-lite's 14.2s, with 571 output tokens against 93.
+`worthAnotherModel` is deliberately narrow. A 5xx, or a quota that is gone for the day. Not a burst limit, which comes back on its own and is worth waiting out rather than spreading around. Not a 4xx, which is the request and is refused identically everywhere; that one needed the status to survive `asModelError`, because `host` covers everything from 400 up and falling back on a bad request would double the bill for the same refusal. Not a timeout, whose budget is already spent.
+
+A model that has just refused is not asked again for `SATCHEL_MODEL_AVOID_MS`, five minutes by default. It took twelve of sixteen seconds to say no, and a batch of ten documents would otherwise spend the entire request budget learning the same thing ten times and read nothing.
+
+Two things worth keeping from that table. Thinking made the call **faster**, not slower: 3.5-flash at medium answered in 3.9s against flash-lite's 14.2s, with 571 output tokens against 93. And the numbers above are a free key; production may hold a different one, so the tier is worth confirming before reading any of this as what users get.
 
 Measured over 24 real turns replayed from the corpus plus 16 that contain nothing durable:
 

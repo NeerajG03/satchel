@@ -349,9 +349,14 @@ export function asModelError(error, signal, noun = 'capture') {
   if (kind === 'shape')
     return new RouterError('router returned a response that is not usable',
       {cause: error, code: 'ROUTER_SHAPE', reason: `the ${noun} model returned nothing usable`});
+  // The status travels. `host` covers everything from 400 up, and the
+  // difference between 400 and 503 decides whether asking a different model
+  // is worth anything: a bad request is refused identically everywhere.
   if (kind === 'host')
-    return new RouterError(`router returned ${status}`,
-      {cause: error, code: 'ROUTER_HOST', reason: `the ${noun} model answered ${status}`});
+    return Object.assign(
+      new RouterError(`router returned ${status}`,
+        {cause: error, code: 'ROUTER_HOST', reason: `the ${noun} model answered ${status}`}),
+      {status});
   // What the limit says is read rather than guessed. A spent daily quota comes
   // back with a ten second retryDelay that reads exactly like a burst limit, so
   // the reason has to name which one it was or every 429 looks transient.

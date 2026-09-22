@@ -8,6 +8,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {buildConsolidationPrompt, validateConsolidation, createConsolidator,
   CONSOLIDATION_SCHEMA} from '../server/consolidator.mjs';
+import {worthAnotherModel} from '../server/model-provider.mjs';
 
 const projects = [{slug: 'ledger', brief: 'Go payments ledger'}, {slug: 'sourdough', brief: 'Baking'}];
 const memories = [
@@ -303,4 +304,19 @@ test('a fallback that also fails is reported rather than looped', async () => {
     fetchImpl: async () => new Response(JSON.stringify({error: {code: 503}}),
       {status: 503, headers: {'content-type': 'application/json'}})});
   await assert.rejects(consolidator.consolidate(context), /503/);
+});
+
+test('a spent daily quota is answered by another model, a burst limit is not', () => {
+  // The free tier caps requests per day per model: gemini-3.8-flash allows 20
+  // and then answers 429 until midnight. That is per model, so another one
+  // answers immediately, and without this a free key gets 20 consolidations
+  // and then silence. A burst limit is the opposite: it comes back on its own
+  // and switching models for it just spreads the load around.
+  assert.equal(worthAnotherModel({code: 'ROUTER_LIMIT', spent: true}), true);
+  assert.equal(worthAnotherModel({code: 'ROUTER_LIMIT', spent: false}), false);
+  assert.equal(worthAnotherModel({code: 'ROUTER_HOST', status: 503}), true);
+  assert.equal(worthAnotherModel({code: 'ROUTER_HOST', status: 400}), false,
+    'a bad request is refused identically everywhere');
+  assert.equal(worthAnotherModel({code: 'ROUTER_TIMEOUT'}), false, 'the budget is already spent');
+  assert.equal(worthAnotherModel({code: 'ROUTER_SHAPE'}), false, 'that is the prompt, not the host');
 });

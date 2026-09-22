@@ -30,7 +30,7 @@
 // See docs/memory-v2-5-scope.md, R2, R2a and R5.
 import {z} from 'zod';
 import {generateObject, NoObjectGeneratedError} from 'ai';
-import {providerFor, asBaseUrl, describeFailure, fallbackModel, worthFallingBackFrom} from './model-provider.mjs';
+import {providerFor, asBaseUrl, fallbackModel, worthAnotherModel} from './model-provider.mjs';
 import {salvage, asModelError} from './router.mjs';
 import {consolidatePrompt, localTextFor, CONSOLIDATE_PROMPT} from './prompt-store.mjs';
 
@@ -287,11 +287,13 @@ export function createConsolidator({
         // that silently did not run is worse than one that ran on second
         // best. The trace says which, so this cannot hide.
         //
-        // Classified on the raw error, before asModelError turns it into
-        // something a person can read: the wrapper keeps the reason and drops
-        // the status, and the status is the whole decision here.
-        if (used === fallback || !fallback || !worthFallingBackFrom(describeFailure(error, signal)))
-          throw asModelError(error, signal, 'consolidation');
+        // asModelError is what knows the difference between a burst limit,
+        // which comes back on its own, and a daily quota that is gone until
+        // midnight. That difference is the whole decision: the free tier caps
+        // requests per day per model, so a spent quota on one model is
+        // answered immediately by another.
+        const failure = asModelError(error, signal, 'consolidation');
+        if (used === fallback || !fallback || !worthAnotherModel(failure)) throw failure;
         avoidUntil = Date.now() + avoidForMs;
         used = fallback;
         try { result = await ask(fallback); }
