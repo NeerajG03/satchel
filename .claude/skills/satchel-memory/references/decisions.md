@@ -154,7 +154,9 @@ That is why the fallback exists and why it is not just "retry on 5xx". A spent d
 
 A model that has just refused is not asked again for `SATCHEL_MODEL_AVOID_MS`, five minutes by default. It took twelve of sixteen seconds to say no, and a batch of ten documents would otherwise spend the entire request budget learning the same thing ten times and read nothing.
 
-Two things worth keeping from that table. Thinking made the call **faster**, not slower: 3.5-flash at medium answered in 3.9s against flash-lite's 14.2s, with 571 output tokens against 93. And the numbers above are a free key; production may hold a different one, so the tier is worth confirming before reading any of this as what users get.
+Two things worth keeping from that table. Thinking made the call **faster**, not slower: 3.5-flash at medium answered in 3.9s against flash-lite's 14.2s, with 571 output tokens against 93.
+
+**And the table is a free key, which production does not use.** With the local key exhausted for the day, a consolidation through the deployed endpoint answered on `gemini-3.8-flash` in 3.7 seconds, 2471 in / 100 out, no fallback. The same key could not have been both exhausted and fine, so Vercel holds a different one. The twenty-a-day cap is a constraint on testing from this machine and not on what users get, which is worth remembering before reading a local failure as a production one. It is also why the fallback stays: it costs nothing when the key is paid and it is the difference between working and silent when it is not.
 
 Measured over 24 real turns replayed from the corpus plus 16 that contain nothing durable:
 
