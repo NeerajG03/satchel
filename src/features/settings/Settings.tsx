@@ -5,8 +5,10 @@ import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
 import { count } from '../../app/format';
 import { accountHandle } from '../../shell/Header';
+import { Link } from 'react-router';
+import { setDevMode, useDevMode } from '../../app/dev';
 import { Button } from '../../ui/Button';
-import { SelectField } from '../../ui/Field';
+import { CheckField, SelectField } from '../../ui/Field';
 import { SaveError } from '../../ui/Notice';
 
 export function Settings() {
@@ -15,6 +17,7 @@ export function Settings() {
   const { announce } = useReadout();
   const projects = useLoad(() => stores.projects.list(), [stores]);
   const action = useAction();
+  const dev = useDevMode();
   const [pick, setPick] = useState('');
   useFooter('Settings');
 
@@ -55,6 +58,17 @@ export function Settings() {
             <Button disabled={action.busy} onClick={() => void exportOne()}>Export this one</Button>
           </div>
           {action.error && <SaveError message={action.error} />}
+        </div>
+      </div>
+      <div className="settings-row">
+        <h2>Developer mode</h2>
+        <div className="stack-tight">
+          <p className="muted">Adds an Activity page showing every request that came in, every
+            conversation Satchel kept, and every change to a memory. Read-only. It is a view, not a
+            permission: nothing about what is stored or who may read it changes.</p>
+          <CheckField label="Show Activity in the rail" hint="this browser only"
+            checked={dev} onChange={e => setDevMode(e.target.checked)} />
+          {dev && <p className="fine"><Link to="/activity">Open Activity</Link></p>}
         </div>
       </div>
       <div className="settings-row">

@@ -4,6 +4,7 @@ A ledger so settled choices are not re-argued. Newest first. Each entry says wha
 
 | Date | Decision | Why | Replaces |
 |---|---|---|---|
+| 22 Sep 2026 | Developer mode: a switch in Settings that adds a seventh rail destination, Activity, showing every request, document and memory change in one stream. Per browser, read-only. | Six tables answer six questions and none answers "what happened". Telling a bad retrieval from a bad capture from a bad consolidation meant four queries and comparing timestamps by hand. The switch keeps the rail at six for everyone who does not ask for it. | The rail being six fixed destinations with no exception, and "correction history view" being v2 with nothing in its place. |
 | 17 Sep 2026 | Moving a task to Blocked always records a progress update with status `blocked` and the reason as the body. One call, one transaction. | The timeline must always show why. A checkbox to opt in was one more thing to forget. | A separate transition call plus an optional progress note. |
 | 17 Sep 2026 | No "Delete this Satchel" in v1 Settings. | Not needed yet. Export covers taking your data out. | A danger-zone row in the Settings mockup. |
 | 17 Sep 2026 | Real URL routing for every destination and detail page. | Back, refresh and links must work. The rail, picker, task detail and search all need addresses. | View held in React state; reload lands on Memory. |

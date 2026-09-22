@@ -4,7 +4,7 @@
 
 ## Shell
 
-Hardware frame around a paper panel. The rail sits on the hardware at the left with six fixed destinations; it never lists projects, so nothing in it can grow. The header on the hardware shows the wordmark, device, date, a sync light with a word, and the account. The paper has a footer readout on every page: a left slot for counts and success messages, a right slot for a fixed line such as "Explicit saves only".
+Hardware frame around a paper panel. The rail sits on the hardware at the left with six fixed destinations; it never lists projects, so nothing in it can grow. A seventh, Activity, appears only when developer mode is switched on in Settings, which is a person turning it on for themselves rather than the list growing on its own. The header on the hardware shows the wordmark, device, date, a sync light with a word, and the account. The paper has a footer readout on every page: a left slot for counts and success messages, a right slot for a fixed line such as "Explicit saves only".
 
 ## Routes
 
@@ -23,7 +23,8 @@ Hardware frame around a paper panel. The rail sits on the hardware at the left w
 | `/apps` | AppsEmpty · Apps | Connected apps with lights, scopes and revoke. | Empty version is the three install steps. |
 | `/apps/consent?authorization_id=` | Consent | An app asks for access. Memory and Tasks side by side, Select all / None, quick-start row. | Already the entry point when `authorization_id` is present. |
 | `/apps/connected/:client` | ConnectedClaude · ConnectedCodex | Plain split acknowledgement after Allow. | Right half is the partner’s colour (Claude clay, Codex black) with the partner’s mark faint behind the text. |
-| `/settings` | Settings | Account, export, forgetting explained. | No Appearance, no delete. |
+| `/settings` | Settings | Account, export, developer mode, forgetting explained. | No Appearance, no delete. |
+| `/activity` | none yet | Developer mode. Every request, document and memory change in one stream, newest first, each row expandable. | Reachable by address always; the rail item appears only when the Settings switch is on. Read-only. |
 
 Unknown routes go to `/`. A signed-out visit to any route shows Welcome and returns to that route after sign-in.
 
@@ -43,6 +44,7 @@ src/
     projects/ ProjectList.tsx  ProjectPage.tsx  NewProjectSheet.tsx  RepositoryLinks.tsx
     connections/ Apps.tsx  Consent.tsx  Connected.tsx
     settings/ Settings.tsx
+    activity/ Activity.tsx  model.ts  repository.ts
 ```
 
 Existing repositories (`features/*/repository.ts`) and models stay. The shell and features above replace `Workspace.tsx`, `TaskWorkspace.tsx`, `Connections.tsx` and the view switch in `main.tsx`.
@@ -53,4 +55,4 @@ Existing repositories (`features/*/repository.ts`) and models stay. The shell an
 - Phone layouts (four reference boards). The phone becomes a native Android app with app intents.
 - Skills. Removed from the project.
 - Resume. Satchel holds context; it does not launch work.
-- Correction history view. The "N revisions" link exists; what it opens is v2.
+- Correction history view. The "N revisions" link exists; what it opens is v2. Developer mode's Activity page shows the same events as a machine readout, which is not the same thing: it is the raw record, not a history a person reads next to an entry.

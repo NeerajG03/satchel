@@ -13,6 +13,7 @@ import { Apps } from '../features/connections/Apps';
 import { Consent } from '../features/connections/Consent';
 import { Connected } from '../features/connections/Connected';
 import { Settings } from '../features/settings/Settings';
+import { Activity } from '../features/activity/Activity';
 
 function AuthorizeRedirect() {
   const [params] = useSearchParams();
@@ -39,6 +40,10 @@ export const router = createBrowserRouter([
       { path: 'apps/consent', Component: Consent },
       { path: 'authorize', Component: AuthorizeRedirect },
       { path: 'settings', Component: Settings },
+      // Reachable by address whether or not developer mode is on. The switch
+      // reveals the rail item; it is not a permission, and a page that 404s
+      // depending on a localStorage key would be a bad thing to debug.
+      { path: 'activity', Component: Activity },
       { path: '*', element: <Navigate replace to="/" /> },
     ],
   },

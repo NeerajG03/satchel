@@ -194,3 +194,23 @@ a.entry:hover { text-decoration: none; background: linear-gradient(to right, var
 }
 
 .plain-list { margin: 8px 0 0; padding-left: 18px; list-style: disc; display: grid; gap: 4px; }
+
+/* Developer activity. Machine readings, so mono throughout and a column that
+   keeps its own width; the paper voice is for what the person wrote. */
+.kind { display: inline-flex; align-items: center; gap: 6px; }
+.kind::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.kind.session::before, .kind.prompt::before { background: var(--accent); }
+.kind.capture::before, .kind.consolidation::before { background: var(--amber); }
+.kind.document::before { background: var(--ink); }
+.kind.memory::before { background: var(--green); }
+.detail { padding-top: 4px; }
+.facts { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr); gap: 2px 16px; margin: 0; }
+.facts dt { font: 500 11px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding-top: 2px; }
+.facts dd { margin: 0; font: 13px/1.5 var(--font-mono); overflow-wrap: anywhere; }
+.readout {
+  font: 12px/1.55 var(--font-mono); background: var(--paper-2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 12px; margin: 0; max-height: 22em; overflow: auto;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.turn { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; }
+.turn .who { font: 500 11px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
