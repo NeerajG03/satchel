@@ -28,7 +28,7 @@
 // have made every session start pay the router's cold start.
 import {createClient} from '@supabase/supabase-js';
 import {SUPABASE_URL} from './identity.mjs';
-import {verifyAgentToken, CHALLENGE} from './agent-token.mjs';
+import {verifyAgentToken, CHALLENGE, exchangeRefreshToken} from './agent-token.mjs';
 import {memoryService} from './memory-service.mjs';
 import {sessionStart, retrieve, capture} from './lifecycle.mjs';
 import {consolidatePending} from './consolidation.mjs';
@@ -69,13 +69,37 @@ const readRepository = value => {
 };
 
 /** Everything both endpoints do before they differ. Returns null once it has
- *  answered the request itself. */
-async function connect(req, res, {embedder = null, router = null} = {}) {
+ *  answered the request itself.
+ *
+ *  `allowRefresh` is the one caller that cannot hold a bearer token: the
+ *  scheduled job, which runs inside the database and has no session. It sends
+ *  the refresh token from the owner's own Vault and this exchanges it, so
+ *  everything after is an ordinary access token under ordinary RLS. Only
+ *  /api/consolidate allows it; a hook that accepted a refresh token would be
+ *  a second way in for no reason. */
+async function connect(req, res, {embedder = null, router = null, allowRefresh = false,
+  exchange = exchangeRefreshToken} = {}) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Access-Control-Expose-Headers', 'WWW-Authenticate');
   if (req.method !== 'POST') { res.writeHead(405, {Allow: 'POST'}); res.end(); return null; }
   if (Number(req.headers['content-length'] ?? 0) > MAX_BYTES) { res.writeHead(413); res.end(); return null; }
-  const token = req.headers.authorization?.match(/^Bearer (\S+)$/i)?.[1];
+  let token = req.headers.authorization?.match(/^Bearer (\S+)$/i)?.[1];
+  let rotated = null;
+  if (!token && allowRefresh && typeof req.headers['x-satchel-refresh'] === 'string') {
+    try {
+      const fresh = await exchange({refreshToken: req.headers['x-satchel-refresh'],
+        clientId: String(req.headers['x-satchel-client'] ?? '')});
+      token = fresh.accessToken;
+      rotated = fresh.refreshToken;
+    } catch (error) {
+      // The status is what the schedule reads out of pg_net's response log,
+      // and three refusals in a row switch the job off. A revoked grant has
+      // to stop it rather than be retried forever.
+      res.writeHead(error?.status === 400 || error?.status === 401 ? 401 : 503);
+      res.end('Consolidation credential refused');
+      return null;
+    }
+  }
   let claims;
   try { if (!token) throw Error('Missing token'); claims = await verifyAgentToken(token); }
   catch { res.writeHead(401, {'WWW-Authenticate': CHALLENGE}); res.end('Authentication required'); return null; }
@@ -92,7 +116,7 @@ async function connect(req, res, {embedder = null, router = null} = {}) {
   try {
     if (!await service.status()) { res.writeHead(403); res.end('Connection revoked or unavailable'); return null; }
   } catch { res.writeHead(503); res.end('Unable to verify connection'); return null; }
-  return {service, ownerId: typeof claims?.sub === 'string' ? claims.sub : undefined};
+  return {service, rotated, ownerId: typeof claims?.sub === 'string' ? claims.sub : undefined};
 }
 
 const clamp = (value, fallback, low, high) => {
@@ -158,8 +182,10 @@ export async function handleHookRetrieve(req, res, {embedder = null, traced, ret
  *  right values depend on what calls this, which is not settled. A lazy
  *  trigger from a hook wants one document and a long idle window; a six hourly
  *  job wants many and a short one. */
-export async function handleConsolidate(req, res, {embedder = null, consolidator = null, traced} = {}) {
-  const connection = await connect(req, res, {embedder});
+export async function handleConsolidate(req, res, {embedder = null, consolidator = null, traced,
+  exchange} = {}) {
+  const connection = await connect(req, res, {embedder, allowRefresh: true,
+    ...(exchange ? {exchange} : {})});
   if (!connection) return;
   if (!consolidator) { res.writeHead(503); return res.end('No consolidation model is configured'); }
   let input;
@@ -170,6 +196,11 @@ export async function handleConsolidate(req, res, {embedder = null, consolidator
   catch { res.writeHead(400); return res.end(); }
   const idleMinutes = clamp(input.idle_minutes, 30, 0, 10080);
   const limit = clamp(input.limit, 10, 1, 50);
+  // Stored before the work, not after. Supabase rotated the token the moment
+  // it was exchanged, so the copy in the Vault is already dead; a run that
+  // crashed before writing the new one back would leave the job unable to
+  // authenticate ever again.
+  if (connection.rotated) await connection.service.rotateConsolidationCredential(connection.rotated);
   const result = await consolidatePending(connection.service, consolidator, {
     idleMinutes, limit, ownerId: connection.ownerId, ...(traced ? {traced} : {})});
   send(res, result);

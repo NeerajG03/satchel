@@ -28,3 +28,38 @@ export async function verifyAgentToken(token, verificationKeys = keys) {
 }
 
 export const CHALLENGE = `Bearer resource_metadata="https://satchel-pi.vercel.app/.well-known/oauth-protected-resource", scope="openid"`;
+
+/** A refresh token for an access token, for the one caller that cannot hold a
+ *  bearer one: the six hourly consolidation job.
+ *
+ *  It lives in the owner's own Vault and pg_net sends it, because a scheduled
+ *  job inside the database has no session and the alternative is handing a
+ *  background writer a blanket key. The access token it gets back is an
+ *  ordinary one and everything after this point runs under RLS exactly like a
+ *  hook.
+ *
+ *  Supabase rotates on use, so the new refresh token comes back here and the
+ *  caller has to store it. Without that the job works exactly once. */
+export async function exchangeRefreshToken({refreshToken, clientId, issuer = ISSUER,
+  fetchImpl = fetch, timeoutMs = 8000} = {}) {
+  if (!refreshToken || !clientId) throw Error('Missing refresh credential');
+  const response = await fetchImpl(`${issuer}/oauth/token`, {
+    method: 'POST', headers: {'content-type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({grant_type: 'refresh_token', refresh_token: refreshToken, client_id: clientId}),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  let body = null;
+  try { body = await response.json(); } catch { /* Reported as a refusal below. */ }
+  // A refused refresh is a revoked grant far more often than a bad request,
+  // and either way the answer is the same: this job is over until someone
+  // turns it on again. The status travels so the caller can say which.
+  if (!response.ok || typeof body?.access_token !== 'string')
+    throw Object.assign(Error(`Refresh refused (${response.status})`), {status: response.status});
+  return {
+    accessToken: body.access_token,
+    // Rotation can be off, in which case the token that came in is still the
+    // one to keep. Returning it unconditionally means the caller stores
+    // something correct either way.
+    refreshToken: typeof body.refresh_token === 'string' ? body.refresh_token : refreshToken,
+  };
+}

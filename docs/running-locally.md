@@ -48,6 +48,32 @@ The image builds the app and runs the same server. Local Supabase stays the CLI'
 
 Satchel's auth and isolation are Supabase specific on purpose. GoTrue issues the JWT, a custom access token hook puts the grant claims in it, and RLS reads them. Replacing that is not in scope. Running it locally is, and the container exists so deploying somewhere other than Vercel stays possible rather than becoming a rewrite.
 
+
+## Turning the background pass on
+
+The consolidation pass runs every six hours, and what it needs is not a schedule, it is a credential. `/api/consolidate` runs under RLS as a real person, which is what keeps one account's memory out of another's, and a job inside the database is nobody. Handing a background writer a blanket key would be the service role key wearing a different hat.
+
+So you grant the job its own connection, once:
+
+```bash
+npm run consolidation:enable -- --enable
+```
+
+That registers a second OAuth client, "Satchel consolidation", separate from the plugin's, runs the ordinary consent flow in a browser, and puts the refresh token in your own Supabase Vault. It is never written to disk and never printed. It is rotated on every run, three refusals in a row switch the job off, and revoking either client in Apps leaves the other alone.
+
+```bash
+npm run consolidation:enable             # what is set up, including whether pg_cron installed
+npm run consolidation:enable -- --disable # off, and the stored token is destroyed
+```
+
+The schedule installs inside a guarded block in the migration, because a project without pg_cron must still deploy. The status output says whether it actually installed, which is worth reading rather than assuming.
+
+Turning it on does not change what writes memory. That is `memory_settings.capture_mode`: `turn` is the old router at the end of every Stop, `session` is the background pass. They are not meant to run together, and the default is still `turn`.
+
 ## What is not verified here
 
-The `Dockerfile`, `compose.yaml` and `supabase/config.toml` in this repository have not been run: there is no Supabase CLI on the machine they were written on and no Docker daemon. What has been run is `npm run serve`, against the real handlers, and `tests/local-server.test.mjs` covers the routing. Treat the other three as a first draft until someone brings them up.
+Worth saying plainly rather than implying it all works.
+
+The `Dockerfile`, `compose.yaml` and `supabase/config.toml` have not been run. There is no Docker daemon and no Supabase CLI on the machine they were written on. What has been run is `npm run serve`, against the real handlers, and `tests/local-server.test.mjs` covers the routing, the body handling, the size limit and every way out of `api/`.
+
+Nothing about pg_cron, pg_net or the Vault has been run either: PGlite has none of the three. What is tested is the refresh exchange, the grants on `consolidation_credentials`, and that nothing but a definer routine can reach the secret. The schedule and the Vault calls are a first draft until someone runs them against a real project.

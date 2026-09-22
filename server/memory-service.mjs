@@ -240,6 +240,11 @@ export function memoryService(db, embedder = null, router = null) {
     // What the workspace's repository is up to. The anchor every memory is
     // measured against is derived in the database from this, so nothing has
     // to be threaded through a write.
+    // Written back on every scheduled run, because Supabase rotates a refresh
+    // token the moment it is used and the copy in the Vault is dead from that
+    // instant. Skipping this once means the job never authenticates again.
+    rotateConsolidationCredential: refreshToken =>
+      result(db.rpc('rotate_consolidation_credential', {p_refresh_token:refreshToken})),
     recordRepositoryHead: (repository, commits, provider = 'github') =>
       result(db.rpc('record_repository_head',
         {p_provider:provider, p_repository:repository, p_commits:commits})),

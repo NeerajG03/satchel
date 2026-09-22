@@ -8,7 +8,7 @@ that is not mine, listed at the end.
 | --- | --- |
 | built | R1 through R11, apart from R6's decay curve |
 | not built | R6's decay curve, which needs a number nobody has measured yet |
-| not switched on | consolidation runs only when `memory_settings.capture_mode` is `session`, and nothing calls `/api/consolidate` on a schedule yet |
+| not switched on | the schedule exists but nobody has enabled it, and `memory_settings.capture_mode` is still `turn`. Two deliberate steps, not an oversight |
 
 The last row is the one to read twice. Everything works and nothing has
 changed for anyone, because the default is still the turn-by-turn router.
@@ -500,9 +500,12 @@ These change the work and are not mine to make.
 **Still open.** These are what is left. Everything else in this document is
 built.
 
-6. **What actually runs the six hourly schedule.** `/api/consolidate` exists and
-   takes the credential the hook scripts already hold, so any of the three can
-   call it without a new kind of secret. Nothing calls it yet. Vercel Hobby caps crons at once
+6. ~~**What actually runs the six hourly schedule.**~~ Answered: Supabase
+   `pg_cron` with `pg_net`. The credential turned out to be the hard half, not
+   the schedule: `/api/consolidate` runs under RLS as a real person and a job
+   inside the database is nobody. So the owner grants it its own OAuth client
+   once, with `npm run consolidation:enable`, and the refresh token lives in
+   their own Vault and is rotated on every run. Vercel Hobby caps crons at once
    per day and rejects a more frequent expression at deploy time; Pro allows per
    minute at $20/mo per user. Free alternatives, in the order I would try them:
    Supabase `pg_cron` with `pg_net` calling the endpoint, since the database is

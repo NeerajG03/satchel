@@ -22,6 +22,7 @@ Almost everything is `security invoker`, so RLS stays authoritative. The service
 | `20260922140000` | `a_memory_may_carry_a_deadline`: `capture_memory` can set `expires_at` |
 | `20260922150000` | `the_block_is_bounded`: `block_size`, and `personal_memories` ranks |
 | `20260922160000` | `the_repository_moved`: `repository_heads`, anchors, and the doubt marker |
+| `20260922170000` | `consolidation_schedule`: the credential, pg_cron and pg_net |
 
 ## `memories`
 
@@ -168,6 +169,25 @@ The project's live memories and the personal ones together, newest first inside 
 ## `consolidation_runs`
 
 One row per background pass, including the ones that changed nothing and the ones that failed. `memory_events` already carries the trace id on every write, so this is the half with nowhere else to live: the quiet runs. Prompt up to 200,000 characters because it holds a whole conversation, plus the raw reply, the counts by action, the tokens, the duration and the trace id.
+
+## The consolidation schedule
+
+The hard part is not the schedule, it is the credential. `/api/consolidate` runs under RLS as a real person, which is R9's "isolation is enforced by the database for every caller", and pg_cron runs inside the database and is nobody. Handing a background job a blanket key is the service role key wearing a different hat, so the owner grants the job its own connection instead.
+
+```
+scripts/enable-consolidation.mjs   one OAuth flow, its own client
+vault                              the refresh token, encrypted at rest
+consolidation_credentials          who is enabled, and nothing secret
+cron -> private.run_consolidation -> net.http_post -> /api/consolidate
+                                   the endpoint refreshes, acts as that
+                                   person, writes the rotated token back
+```
+
+Four properties, each one a line of code. It is a **separate OAuth client**, so revoking it in Apps leaves the plugin's connection alone and the reverse. **Nothing but a security definer routine can read the secret**; `consolidation_credentials` has no grants at all, not even select, and it holds the secret's id rather than the secret. The token is **rotated on every use**, which is what Supabase does anyway and what makes a stolen copy short-lived; `rotate_consolidation_credential` is called before the work, not after, because the copy in the Vault is dead from the moment it is exchanged. And **three refusals in a row switch it off**, read out of pg_net's own `net._http_response` log at the start of the next tick rather than reported by the endpoint, because a caller whose credential was just refused has no session to report from and the alternative was an unauthenticated routine that can disable someone's job.
+
+`/api/consolidate` is the only endpoint that accepts `x-satchel-refresh`. A hook that took a refresh token would be a second way in for no reason.
+
+The schedule itself installs inside a guarded `do` block: a project without pg_cron, or one where creating extensions is not ours, must still deploy. That makes "did it install" a real question, so `consolidation_status()` answers it.
 
 ## `capture_memory`
 

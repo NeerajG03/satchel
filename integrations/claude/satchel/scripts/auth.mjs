@@ -76,11 +76,11 @@ const post = async (url, body, timeout = 10000) => {
 /** Register once and keep the client_id. Re-registering on every flow would
  *  leave a trail of dead clients and a trail of grant rows in Apps, one per
  *  connect, which is a mess the person has to clean up by hand. */
-async function registerClient(redirectUris) {
+async function registerClient(redirectUris, clientName = 'Satchel Hooks') {
   const response = await fetch(`${ISSUER}/oauth/clients/register`, {
     method: 'POST', headers: {'content-type': 'application/json'},
     body: JSON.stringify({
-      client_name: 'Satchel Hooks', application_type: 'native',
+      client_name: clientName, application_type: 'native',
       redirect_uris: redirectUris, grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'], token_endpoint_auth_method: 'none',
       client_uri: SATCHEL_URL,
@@ -108,10 +108,16 @@ const PAGE = message => `<!doctype html><meta charset="utf-8"><title>Satchel</ti
 
 /** The interactive half. Opens a browser at Satchel's own consent page and
  *  waits on the loopback listener for the code to come back. */
-export async function connect({timeoutMs = 15 * 60 * 1000, open = openBrowser, log = () => {}} = {}) {
-  const existing = readCredentials();
+export async function connect({timeoutMs = 15 * 60 * 1000, open = openBrowser, log = () => {},
+  // The background consolidation job runs a second flow for a second client,
+  // and it keeps its credential in the owner's database rather than on this
+  // machine. Both are parameters rather than a copy of this function, because
+  // the flow is the part that must not drift: one of these two would end up
+  // being the one nobody fixed.
+  clientName = 'Satchel Hooks', persist = true} = {}) {
+  const existing = persist ? readCredentials() : null;
   const redirectUris = PORTS.map(port => `http://127.0.0.1:${port}/callback`);
-  const clientId = existing?.client_id ?? await registerClient(redirectUris);
+  const clientId = existing?.client_id ?? await registerClient(redirectUris, clientName);
   const verifier = base64url(randomBytes(48));
   const challenge = base64url(createHash('sha256').update(verifier).digest());
   const state = base64url(randomBytes(24));
@@ -179,12 +185,13 @@ export async function connect({timeoutMs = 15 * 60 * 1000, open = openBrowser, l
     throw Error(`Could not finish signing in (${exchanged.status})`);
   if (typeof exchanged.body.refresh_token !== 'string')
     throw Error('Satchel got a token that cannot be refreshed. offline_access was not granted.');
-  return writeCredentials({
+  const credentials = {
     issuer: ISSUER, client_id: clientId, refresh_token: exchanged.body.refresh_token,
     access_token: exchanged.body.access_token,
     expires_at: Date.now() + Math.max(0, Number(exchanged.body.expires_in ?? 3600) - 60) * 1000,
     connected_at: new Date().toISOString(),
-  });
+  };
+  return persist ? writeCredentials(credentials) : credentials;
 }
 
 /** A lock around refresh, because Supabase rotates the refresh token: two
