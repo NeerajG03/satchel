@@ -5,7 +5,7 @@ description: Use Satchel for the user's saved context across conversations - per
 
 # Satchel
 
-Satchel is the authoritative hosted store for context the user explicitly saves: **memories**, **tasks** and the **projects** that scope both. It is the sole authority for that data. Nothing is inferred, summarized from transcripts, or written without an explicit request.
+Satchel is the authoritative hosted store for context the user explicitly saves: **memories**, **tasks** and the **projects** that scope both. It is the sole authority for that data. You never write memory without an explicit request. Satchel itself may add memories later from recorded conversations, and those arrive unconfirmed.
 
 ## Read this first, then route
 
@@ -34,7 +34,7 @@ Grants are separate and independently denied. Memory access does not imply task 
 
 You do not have to go and get context. It arrives once, at the start.
 
-**At the start of a conversation, after a clear, after compaction and on resume**, you receive the list of projects and every personal memory. A local Satchel script reads the workspace's GitHub origin and resolves it, so the active project is named too. If the block says the repository belongs to several projects, none was chosen: call `select_project` with one of the `project_id` values it listed, and never substitute a similar name.
+**At the start of a conversation, after a clear, after compaction and on resume**, you receive the list of projects and the confirmed personal memories, up to a cap. A local Satchel script reads the workspace's GitHub origin and resolves it, so the active project is named too. If the block says the repository belongs to several projects, none was chosen: call `select_project` with one of the `project_id` values it listed, and never substitute a similar name.
 
 Nothing scoped to a project or a task loads here. That is deliberate: loading it would assume you are about to touch it.
 
@@ -44,7 +44,7 @@ So do not add per-turn freshness checks, and do not re-read a scope you were alr
 
 Never claim memory or tasks loaded when a hook is disabled, untrusted, incomplete or unavailable. Say what actually happened and fall back to explicit scoped calls.
 
-**At the end of a turn**, a Satchel script may keep something the user stated as a durable fact. It arrives unconfirmed, and the user is shown a line saying so. You never trigger this and never write memory on your own.
+**Each turn is recorded** so Satchel can read the conversation later. After a session has gone quiet, a background pass may add something the user stated as a durable fact, enrich or replace an older memory, or retire an intent the user said is done. What it adds arrives unconfirmed, and nothing it changes is deleted: the user can see and undo it in the Satchel app. You never trigger this and never write memory on your own.
 
 ## Completeness
 
