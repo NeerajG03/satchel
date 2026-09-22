@@ -99,13 +99,14 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
           status.all_projects || status.project_ids?.length || status.personal ? service.projects() : [],
           status.personal ? service.personal() : [],
         ]);
-        const block = sessionStartBlock({projects, personal, linked: scope.linked ?? []});
+        const block = sessionStartBlock({projects, personal, linked: scope.linked ?? [],
+          cap: settings.block_size});
         const tokens = estimateTokens(block);
         // What the block actually injects, which is no longer all of it: an
         // unconfirmed memory is counted and withheld. The log has to say what
         // reached the model, not what was fetched, or "why did it not know
         // that" stops being answerable from the log.
-        const loaded = personal.filter(m => m.band !== 'heard');
+        const loaded = personal.filter(m => m.band !== 'heard').slice(0, settings.block_size);
         notice = noticeFor('SessionStart', {projects: projects.length, personal: loaded.length,
           unconfirmed: personal.length - loaded.length});
         if (!block) {

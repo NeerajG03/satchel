@@ -62,7 +62,7 @@ export const INSTRUCTIONS = localTextFor(CONSOLIDATE_PROMPT);
  *  "yes, do that one" readable at all. Only the user's half may supply a
  *  source, and validate() is where that is enforced rather than here. */
 export function buildConsolidationPrompt({project = null, projects = [],
-  memories = [], turns = [], instructions = INSTRUCTIONS, now = new Date()} = {}) {
+  memories = [], turns = [], instructions = INSTRUCTIONS, now = new Date(), cap = 30} = {}) {
   const lines = [];
   // R7. Nothing had a temporal anchor of any kind, which is how "do not
   // include names of people who are not in the review list this time around"
@@ -101,6 +101,19 @@ export function buildConsolidationPrompt({project = null, projects = [],
       lines.push(`  #${index + 1}  [${memory.kind}, ${scope}${seen}${when}]  ${String(memory.statement).slice(0, 300)}`);
     });
     lines.push('');
+    // R3's comparative pressure, stated only when it is true. The block holds
+    // a fixed number and the rest is archive, so past the cap "is this
+    // durable" stops being the question and "is this worth more than the
+    // weakest line already here" starts being it. That is a judgement a small
+    // model can actually make, where the absolute one is what the old 2000
+    // word prompt kept getting wrong.
+    if (memories.length >= cap)
+      lines.push(`the block holds ${cap} and there are already ${memories.length}.`
+        + ' Anything you add pushes the weakest line out of context, so add only what is worth'
+        + ' more than the weakest line above. Extending costs nothing.');
+    else if (memories.length >= cap * 0.8)
+      lines.push(`the block holds ${cap}. There is not much room left, so prefer extending to adding.`);
+    if (memories.length >= cap * 0.8) lines.push('');
   } else {
     lines.push('nothing is remembered for this conversation yet');
     lines.push('');

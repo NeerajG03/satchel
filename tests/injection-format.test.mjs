@@ -132,3 +132,17 @@ test('the notice is plain, singular where it should be, and quiet by default', (
   assert.equal(noticeFor('SessionStart', {withheld: '18000 tokens over the 15000 budget'}),
     'Satchel memory not loaded · 18000 tokens over the 15000 budget');
 });
+
+test('the block is bounded, and what falls past it is findable rather than gone', () => {
+  // A set that loads whole has to be small. Nothing past the cap is ended or
+  // hidden: it stays live and stays searchable, and a rule is not wrong for
+  // being old.
+  const many = Array.from({length: 8}, (_, i) =>
+    memory(`aaaaaa${i}0-0000-4000-8000-00000000000${i}`, `Claim ${i}.`));
+  const block = sessionStartBlock({personal: many, cap: 3});
+  assert.equal((block.match(/Claim \d\./g) ?? []).length, 3, 'only the top of the ranking loads');
+  assert.match(block, /Claim 0\./, 'and it is the top, in the order the database ranked them');
+  assert.doesNotMatch(block, /Claim 7\./);
+  assert.match(block, /5 older memories past the block, search satchel for them/);
+  assert.doesNotMatch(sessionStartBlock({personal: many.slice(0, 2), cap: 3}), /past the block/);
+});

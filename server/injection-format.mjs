@@ -57,7 +57,7 @@ export function promptBlock({rows = [], matched = 0, inScope = 0} = {}) {
  *
  *  With nothing linked, which is every non-Git and unlinked workspace, there is
  *  nothing to filter by and the full list is the honest answer. */
-export function sessionStartBlock({projects = [], personal = [], linked = []} = {}) {
+export function sessionStartBlock({projects = [], personal = [], linked = [], cap = 30} = {}) {
   const lines = [];
   const ids = new Set(linked);
   const here = ids.size ? projects.filter(p => ids.has(p.id)) : projects;
@@ -71,12 +71,19 @@ export function sessionStartBlock({projects = [], personal = [], linked = []} = 
   // Inside the group, because that is where the reader is looking when the
   // question "is this all of them" occurs to them.
   if (elsewhere) lines.push(`  ${plural(elsewhere, 'other project')} not linked to this codebase, by name from list_projects`);
-  const said = personal.filter(m => m.band !== 'heard');
+  const ranked = personal.filter(m => m.band !== 'heard');
   const heard = personal.filter(m => m.band === 'heard');
+  // Bounded, because the whole set loads and a set that loads whole has to be
+  // small. The rows arrive ranked: most said, most recently meant, first. What
+  // falls past the cap is still live and still searchable, and nothing about
+  // it is ended. A rule is not wrong for being old.
+  const said = ranked.slice(0, Math.max(1, cap));
+  const past = ranked.length - said.length;
   if (said.length) {
     if (lines.length) lines.push('');
     lines.push('personal, confirmed, use freely');
     for (const memory of said) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
+    if (past) lines.push(`  ${plural(past, 'older memory', 'older memories')} past the block, search satchel for them`);
   }
   // Counted, not injected.
   //

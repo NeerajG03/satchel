@@ -43,6 +43,8 @@ Prefer extend over replace. Most of what looks like a contradiction is one claim
 
 Prefer nothing over all of them. A memory set the user has to clean up by hand is worse than a thin one.
 
+The set has a size. When the lines above say it is full, an add is not free: it pushes the weakest line out of what loads into a session. So the question stops being "is this durable" and becomes "is this worth more than the weakest line already there". If it is not, return nothing. Extending and affirming cost nothing either way.
+
 ## Also do not keep
 
 - anything the assistant said, suggested or concluded. Only the user's own claims. The assistant's half is there so you can tell what "yes, that one" refers to, and for nothing else.

@@ -6,8 +6,8 @@ that is not mine, listed at the end.
 
 | | |
 | --- | --- |
-| built | R1 documents, R2 consolidation, R2a the taxonomy, R4 ending and history, R5 extends, R6 apart from decay, R7 temporal grounding, R9a one scope, R10 local, R11 observability |
-| not built | R3 the bounded block, R8 repository churn, R6's decay curve |
+| built | R1 documents, R2 consolidation, R2a the taxonomy, R3 the bounded block, R4 ending and history, R5 extends, R6 apart from decay, R7 temporal grounding, R9a one scope, R10 local, R11 observability |
+| not built | R8 repository churn, R6's decay curve |
 | not switched on | consolidation runs only when `memory_settings.capture_mode` is `session`, and nothing calls `/api/consolidate` on a schedule yet |
 
 The last row is the one to read twice. Everything works and nothing has
@@ -229,7 +229,7 @@ instruction, so this one has to go when the prompt is revised.
 | Letta | small character capped blocks that live in context and get rewritten |
 | our own eval | on the slice that matters most, loading scores nDCG 0.772 against retrieval's 0.174 |
 | decision | **exceed supermemory, follow Letta** |
-| status | **not built.** Blocked on decision 8, the cap. `memories_in_scope` has a bound of 60 so a prompt cannot run away, which is a safety limit and not the cap |
+| status | **built**, `block_size` defaults to 30. Nothing past the cap is ended or hidden, only not injected, and `personal_memories` ranks by repetition then by when it was last meant so "the weakest line" is a fact. The consolidation prompt states the pressure only when the set is near the cap |
 
 At eight memories, and at a realistic steady state of tens per scope, a memory set
 fits in context whole. A cap is not a limitation here, it is the mechanism:
@@ -517,8 +517,9 @@ built.
    link, which is settled. Separately, the classifier could file a directive as a
    task instead of discarding it. That creates no memory and no link, so R9a does not
    forbid it, but it is a new behaviour and it has not been agreed.
-8. **The block cap.** A number, per scope. At eight memories it does not bind yet,
-   which is an argument for shipping the shape before the pressure arrives.
+8. ~~**The block cap.**~~ Answered: 30 per scope, and it is `memory_settings.block_size`
+   rather than a constant. At eight memories it does not bind, which is the
+   argument for shipping the shape before the pressure arrives.
 
 9. **Whether R8 is worth a plugin release.** The churn check needs the hook to
    send a commit count, which nothing sends today. That is a change to

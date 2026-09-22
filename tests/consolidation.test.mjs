@@ -35,6 +35,7 @@ function fake({changes = [], dropped = [], fail = null, writes = {}} = {}) {
     endMemory: async args => { calls.push({call: 'end', ...args}); if (writes.end) throw writes.end; return {id: args.id}; },
     markDocumentConsolidated: async (id, through) => { calls.push({call: 'marked', id, through}); },
     logConsolidationRun: async entry => { calls.push({call: 'logged', ...entry}); },
+    settings: async () => ({block_size: 30}),
   };
   const consolidator = {
     model: 'test-model',
@@ -168,6 +169,13 @@ test('nothing pending costs nothing at all', async () => {
   service.pendingDocuments = async () => [];
   const result = await consolidatePending(service, consolidator);
   assert.deepEqual(result, {documents: 0, runs: []});
+});
+
+test('the block cap the session injects under is the one the pass judges against', async () => {
+  const {service, consolidator, of} = fake();
+  service.settings = async () => ({block_size: 12});
+  await consolidatePending(service, consolidator);
+  assert.equal(of('consolidate')[0].input.cap, 12);
 });
 
 test('the projects are read once for the batch, not once per document', async () => {

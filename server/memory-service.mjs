@@ -293,9 +293,9 @@ export function memoryService(db, embedder = null, router = null) {
     // behaviour changes depending on whether a settings row exists.
     async settings() {
       const rows=await result(db.from('memory_settings')
-        .select('per_prompt_matches,gate,scope_boost,session_budget_tokens,capture,capture_window,capture_mode').limit(1));
+        .select('per_prompt_matches,gate,scope_boost,session_budget_tokens,capture,capture_window,capture_mode,block_size').limit(1));
       return rows?.[0]??{per_prompt_matches:5,gate:0.67,scope_boost:1.1,
-        session_budget_tokens:15000,capture:true,capture_window:5,capture_mode:'turn'};
+        session_budget_tokens:15000,capture:true,capture_window:5,capture_mode:'turn',block_size:30};
     },
     // The log is what turns "why did it not know that" into a query, and it is
     // the trigger for every deferred decision in the design. A failure to log

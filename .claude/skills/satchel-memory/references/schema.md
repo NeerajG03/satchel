@@ -20,6 +20,7 @@ Almost everything is `security invoker`, so RLS stays authoritative. The service
 | `20260922120000` | `consolidation_runs`: `capture_mode`, `memories_in_scope`, the run log |
 | `20260922130000` | `memories_carry_their_age`: `affirmed_at` on the scope read, `affirmed` on the log |
 | `20260922140000` | `a_memory_may_carry_a_deadline`: `capture_memory` can set `expires_at` |
+| `20260922150000` | `the_block_is_bounded`: `block_size`, and `personal_memories` ranks |
 
 ## `memories`
 
@@ -91,7 +92,9 @@ Scope is a boost, not a filter. Rows without an embedding are invisible and do n
 
 ## `personal_memories`
 
-Every live row with `project_id is null`, newest first. Loaded whole at session start rather than retrieved, because similarity measures topic overlap and a standing preference is relevant by category of activity. See `decisions.md` for the 4.4x measurement.
+Every live row with `project_id is null`, **ranked**: most mentioned, then most recently affirmed, then most recently edited. Loaded whole at session start rather than retrieved, because similarity measures topic overlap and a standing preference is relevant by category of activity. See `decisions.md` for the 4.4x measurement.
+
+The ranking exists so "the weakest line" is a fact rather than an opinion. Repetition comes first because a claim restated across sessions is the strongest evidence there is and it costs nothing, and recency is `affirmed_at`, the last time anyone meant it, not `updated_at`, the last time the wording moved.
 
 ## `memory_settings`
 
@@ -105,7 +108,10 @@ session_budget_tokens  15000
 capture                true
 capture_window         5      1..20
 capture_mode           'turn' 'turn' | 'session'
+block_size             30     5..200
 ```
+
+`block_size` is R3's cap: how many confirmed memories load at session start, per scope. Nothing past it is ended or hidden, it is simply not injected, and a rule is not wrong for being old. The cap is the mechanism rather than a limit: it turns extraction from "is this durable forever", which the old prompt kept getting wrong, into "is this worth more than the weakest line already here", which a small model can answer. The consolidation prompt says so only when the set is actually near it.
 
 `capture_mode` picks which writer runs. `turn` is one model call at the end of every Stop, blind to what is stored, output always an insert. `session` records the conversation and leaves it to the background pass, which reads the whole thing against what already exists. They are not meant to run together: two writers over the same turns save the same claim in two wordings, which production has already done once. It defaults to `turn` because what schedules the pass is still open, and switching before something calls the endpoint would mean no capture at all.
 

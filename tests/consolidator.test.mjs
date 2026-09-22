@@ -221,3 +221,18 @@ test('an expiry is kept only when it is a date the user could have given', () =>
   assert.equal(of('2026-09-01'), null, 'already past');
   assert.equal(of('2199-01-01'), null, 'further out than anyone states a deadline');
 });
+
+test('a full block turns the question from absolute into comparative', () => {
+  // R3. "Is this durable forever" is the question the old 2000 word prompt
+  // kept getting wrong. "Is this worth more than the weakest line already
+  // here" is one a small model can answer, and it only exists once the set
+  // has a size.
+  const many = Array.from({length: 30}, (_, i) =>
+    ({id: `m${i}`, statement: `Claim ${i}.`, kind: 'fact', project_slug: null, revision: 1, mentions: 1}));
+  const full = buildConsolidationPrompt({...context, memories: many, cap: 30}).prompt;
+  assert.match(full, /the block holds 30 and there are already 30/);
+  assert.match(full, /worth more than the weakest line above/);
+
+  const roomy = buildConsolidationPrompt({...context, memories: many.slice(0, 5), cap: 30}).prompt;
+  assert.doesNotMatch(roomy, /the block holds/, 'no pressure is invented when there is room');
+});
