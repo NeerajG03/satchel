@@ -361,12 +361,13 @@ personal — confirmed, use freely
   a3f291  don't use em dashes anywhere
   7c04b8  never add yourself as coauthor on commits
 
-personal — not confirmed, mention these before relying on them
-  5b7f03  never propose a development timeline unless it's in scope
+1 unconfirmed memory not loaded · retrieve_memory finds one if it turns out to matter
 
 more exists — search satchel for anything not listed above
 </satchel>
 ```
+
+Unconfirmed memories are counted here, not printed. They were written without anyone asking, and a personal memory loads in every session forever, so one bad capture is not one bad row, it is permanent context pollution. A header saying "mention these first" did not fix that: the agent read them either way. They stay searchable, so one that matters surfaces when the person says something about it, and confirming it moves it into the group above. See `docs/memory-v2-5-scope.md`, R6.
 
 Six-character handles so a delete or correction can name a row. No UUIDs, no timestamps, no relevance scores, and **no description of what Satchel is**, because that is the 128-token paragraph measured in 2.2.
 

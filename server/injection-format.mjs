@@ -81,10 +81,23 @@ export function sessionStartBlock({projects = [], personal = [], linked = []} = 
     lines.push('personal, confirmed, use freely');
     for (const memory of said) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
   }
+  // Counted, not injected.
+  //
+  // A heard memory was written without anyone asking for it, and a personal
+  // one loads at full strength in every session forever. So one bad capture is
+  // not one bad row, it is permanent context pollution, and on 21 September
+  // every retrievable satchel-scoped memory in production was wrong. Listing
+  // them under a "say this out loud first" header did not help: the agent read
+  // them either way, and the header is advice a model can skip.
+  //
+  // They stay searchable, so one that matters surfaces when the person
+  // actually says something about it, and confirming it moves it into the
+  // group above. Until then the count is the honest amount of trust to give
+  // something nobody has agreed to.
   if (heard.length) {
     if (lines.length) lines.push('');
-    lines.push('personal, not confirmed, say these out loud before relying on them');
-    for (const memory of heard) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
+    lines.push(`${plural(heard.length, 'unconfirmed memory', 'unconfirmed memories')} not loaded`
+      + ' · retrieve_memory finds one if it turns out to matter');
   }
   if (!lines.length) return '';
   lines.push('');
@@ -104,7 +117,7 @@ export function sessionStartBlock({projects = [], personal = [], linked = []} = 
  *  and stays silent, because a line on every prompt is noise people learn to
  *  ignore, and Codex renders this as a warning. */
 export function noticeFor(event, {error, withheld, unrecorded, projects = 0, personal = 0,
-  shown = 0, matched = 0, captured = 0} = {}) {
+  unconfirmed = 0, shown = 0, matched = 0, captured = 0} = {}) {
   if (error) return `Satchel memory unavailable · ${error}`;
   if (withheld) return `Satchel memory not loaded · ${withheld}`;
   // Not the same as memory being unavailable: the prompt was still answered
@@ -112,8 +125,12 @@ export function noticeFor(event, {error, withheld, unrecorded, projects = 0, per
   // was said, which nothing later can reconstruct.
   if (unrecorded) return `Satchel did not record this turn · ${unrecorded}`;
   if (event === 'SessionStart') {
-    return projects || personal
-      ? `Satchel loaded · ${plural(projects, 'project')}, ${plural(personal, 'personal memory', 'personal memories')}`
+    // The unconfirmed count is said here and nowhere else the person looks.
+    // Rows nobody agreed to no longer reach the agent, so this line is the
+    // only prompt to go and deal with them.
+    const held = unconfirmed ? ` · ${unconfirmed} unconfirmed not loaded` : '';
+    return projects || personal || unconfirmed
+      ? `Satchel loaded · ${plural(projects, 'project')}, ${plural(personal, 'personal memory', 'personal memories')}${held}`
       : 'Satchel connected · nothing saved yet';
   }
   // Counts, not just a number shown, because "2 of 9" and "2 of 2" mean very

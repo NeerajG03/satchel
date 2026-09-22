@@ -11,7 +11,7 @@ There is a second skill with a similar name. `integrations/shared/context/` is t
 
 ## The one paragraph version
 
-A memory is one sentence. It is either `said` (the user asked for it) or `heard` (a small model picked it up and the agent must announce it before relying on it). Memories live in exactly one scope: personal, or one project. At session start, every personal memory loads whole. On every prompt, the prompt is embedded and the closest memories above a similarity gate are injected. At the end of a turn, a small model reads a short rolling window and decides whether anything the user said is worth keeping. Every number in that sentence came from an eval over a 473-memory labelled corpus.
+A memory is one sentence. It is either `said` (the user asked for it) or `heard` (a small model picked it up and the agent must announce it before relying on it). Memories live in exactly one scope: personal, or one project. At session start, every confirmed personal memory loads whole and unconfirmed ones are counted rather than injected. On every prompt, the prompt is embedded and the closest memories above a similarity gate are injected. At the end of a turn, a small model reads a short rolling window and decides whether anything the user said is worth keeping. Every number in that sentence came from an eval over a 473-memory labelled corpus.
 
 ## Read this first, then route
 
@@ -32,7 +32,7 @@ These are the ones that were paid for. Breaking one is a decision, not a refacto
 
 **A memory is one sentence, and `source` is what the user typed.** Statements are rewritten for clarity; they are never invented. Every automatically captured memory carries a span from the turn it came from, and the router drops any item whose source is not in that turn. That check is what makes fabrication detectable instead of a matter of trust.
 
-**`said` and `heard` are not cosmetic.** Automatic capture only ever writes `heard`. An agent must say a heard memory out loud before acting on it. Confirming is the only thing that promotes it. Without that line, automatic capture is a system that quietly invents the user's opinions.
+**`said` and `heard` are not cosmetic.** Automatic capture only ever writes `heard`. A heard memory is never injected at session start, only counted; it can still be retrieved, and an agent must say it out loud before acting on it. Confirming is the only thing that promotes it. Without that, automatic capture is a system that quietly invents the user's opinions and then loads them into every session forever.
 
 **Personal memories load, they are not retrieved.** Measured: on prompts whose only relevant memories are standing writing rules, retrieval scores nDCG 0.174 and loading scores 0.772. Similarity measures topic overlap, and a standing preference is relevant by category of activity instead. This is why personal scope is not a setting.
 

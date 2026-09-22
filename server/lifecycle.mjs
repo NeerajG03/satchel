@@ -101,7 +101,13 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
         ]);
         const block = sessionStartBlock({projects, personal, linked: scope.linked ?? []});
         const tokens = estimateTokens(block);
-        notice = noticeFor('SessionStart', {projects: projects.length, personal: personal.length});
+        // What the block actually injects, which is no longer all of it: an
+        // unconfirmed memory is counted and withheld. The log has to say what
+        // reached the model, not what was fetched, or "why did it not know
+        // that" stops being answerable from the log.
+        const loaded = personal.filter(m => m.band !== 'heard');
+        notice = noticeFor('SessionStart', {projects: projects.length, personal: loaded.length,
+          unconfirmed: personal.length - loaded.length});
         if (!block) {
           context = 'Satchel is connected and has nothing saved yet. Do not invent memory.';
         } else if (tokens > settings.session_budget_tokens) {
@@ -111,8 +117,8 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
           notice = noticeFor(event, {withheld: `${tokens} tokens over the ${settings.session_budget_tokens} budget`});
         } else {
           context = block;
-          logged = {query: null, memory_ids: personal.map(m => m.id), matched: personal.length,
-            in_scope: personal.length, tokens};
+          logged = {query: null, memory_ids: loaded.map(m => m.id), matched: loaded.length,
+            in_scope: loaded.length, tokens};
         }
         if (active) context += `\nactive project: ${active}`;
         else context += chooseProjectLine(scope.candidates);

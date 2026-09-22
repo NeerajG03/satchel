@@ -18,15 +18,31 @@ test('session start carries projects and personal memories, split by band', () =
   assert.match(block, /^<satchel>\n/);
   assert.match(block, /\n<\/satchel>$/);
   assert.match(block, /personal, confirmed, use freely\n {2}aaaaaa {2}No em dashes\./);
-  assert.match(block, /not confirmed, say these out loud[^\n]*\n {2}bbbbbb {2}Serif headings\./);
+  // Counted, never printed. A heard memory was written without anyone asking,
+  // and a personal one loads in every session forever, so one bad capture is
+  // permanent context pollution rather than one bad row.
+  assert.ok(!block.includes('Serif headings'), 'an unconfirmed memory must not reach the model');
+  assert.match(block, /1 unconfirmed memory not loaded/);
   assert.match(block, /more exists, search satchel/);
 });
 
 test('a band header only appears when that band has rows', () => {
   const onlySaid = sessionStartBlock({personal: [memory('a1000000-0000-4000-8000-000000000001', 'One.')]});
-  assert.ok(!onlySaid.includes('not confirmed'), 'no unconfirmed header when nothing is unconfirmed');
+  assert.ok(!onlySaid.includes('unconfirmed'), 'no unconfirmed line when nothing is unconfirmed');
   const onlyHeard = sessionStartBlock({personal: [memory('a2000000-0000-4000-8000-000000000002', 'Two.', 'heard')]});
   assert.ok(!onlyHeard.includes('use freely'), 'no confirmed header when nothing is confirmed');
+  assert.ok(!onlyHeard.includes('Two.'), 'and still nothing unconfirmed in the text');
+  assert.match(onlyHeard, /1 unconfirmed memory not loaded/);
+});
+
+test('the person is told how many memories are being held back', () => {
+  // The one place it is said. Nothing unconfirmed reaches the agent now, so
+  // without this line a bad capture is invisible to everyone and stays.
+  assert.match(noticeFor('SessionStart', {projects: 1, personal: 2, unconfirmed: 3}),
+    /Satchel loaded · 1 project, 2 personal memories · 3 unconfirmed not loaded/);
+  assert.match(noticeFor('SessionStart', {projects: 1, personal: 2}),
+    /Satchel loaded · 1 project, 2 personal memories$/);
+  assert.match(noticeFor('SessionStart', {unconfirmed: 1}), /0 personal memories · 1 unconfirmed not loaded/);
 });
 
 test('nothing to say produces nothing, not an empty wrapper', () => {
