@@ -7,18 +7,39 @@ import { Provenance } from '../../ui/Provenance';
 type Props = {
   memory: MemorySummary; expanded: Memory | null; busy: boolean; dim: boolean; fresh: boolean;
   confirmingForget: boolean; canCorrect: boolean; highlight: (text: string) => ReactNode;
-  onRead: () => void; onHide: () => void; onCorrect: () => void; onAskForget: (ask: boolean) => void; onForget: () => void;
+  onRead: () => void; onHide: () => void; onCorrect: () => void; onConfirm: () => void;
+  onAskForget: (ask: boolean) => void; onForget: () => void;
 };
 
-export function MemoryEntry({ memory, expanded, busy, dim, fresh, confirmingForget, canCorrect, highlight, onRead, onHide, onCorrect, onAskForget, onForget }: Props) {
+export function MemoryEntry({ memory, expanded, busy, dim, fresh, confirmingForget, canCorrect, highlight,
+  onRead, onHide, onCorrect, onConfirm, onAskForget, onForget }: Props) {
   const open = expanded?.id === memory.id;
+  // Satchel wrote this one from something you said, rather than because you
+  // asked. Until you agree it is right it does not load at the start of a
+  // session, so this is the row that actually needs reviewing.
+  const unconfirmed = memory.band === 'heard';
+  // The source of a memory you wrote yourself is the sentence you wrote, so
+  // repeating it would be noise. For a captured one it is the words you
+  // actually typed, which is the only evidence the claim is really yours.
+  const said = open && expanded?.source?.trim() && expanded.source.trim() !== expanded.statement.trim()
+    ? expanded.source.trim() : '';
+  // has_more_info exists so this does not have to be a round trip to find out
+  // there is nothing. It was computed in SQL, typed, computed again in the
+  // model, and then read by nobody, so nine rows in eleven offered to open
+  // something that was not there.
+  const openable = memory.has_more_info || unconfirmed;
+  const openLabel = memory.has_more_info ? 'Read more info' : 'See what you said';
+
   return <article className={`entry ${dim ? 'dim' : ''} ${fresh ? 'fresh' : ''}`.trim()}>
     <div className="between" style={{ alignItems: 'flex-start' }}>
       <h2 className="title">{highlight(memory.statement)}</h2>
       <Button look="quiet" small className="tear" disabled={busy} aria-label={`Forget: ${memory.statement}`} title="Forget this memory"
         aria-expanded={confirmingForget} onClick={() => onAskForget(!confirmingForget)}><TornPageIcon /></Button>
     </div>
-    {open && <p className="body">{expanded?.more_info || <span className="muted">No more info on this one.</span>}</p>}
+    {open && <>
+      {expanded?.more_info && <p className="body">{expanded.more_info}</p>}
+      {said && <p className="said"><span className="eyebrow">From what you said</span>{said}</p>}
+    </>}
     <div className="between wrap">
       <Provenance parts={[memory.name && `handle ${memory.name}`,
         // What kind of claim it is, because it decides what can happen to it:
@@ -29,14 +50,17 @@ export function MemoryEntry({ memory, expanded, busy, dim, fresh, confirmingForg
         // there is that a memory is real, and it is also what keeps a memory
         // at the top of the block when the block is full.
         memory.mentions > 1 && `said ${memory.mentions} times`,
-        // Heard means Satchel picked it up rather than being asked, and an
-        // agent has to say it out loud before relying on it. Saying so here is
-        // what makes confirming it mean something.
-        memory.band === 'heard' && 'heard, not confirmed',
+        unconfirmed && 'heard, not loaded until you agree',
         `revision ${memory.revision}`]} at={memory.updated_at} />
       <div className="actions">
+        {/* Agreeing is the only thing that promotes a heard memory, and since
+            unconfirmed ones stopped loading at the start of a session it is
+            the only way one ever gets used. The routine existed and nothing
+            in the app called it. */}
+        {unconfirmed && <Button small disabled={busy} onClick={onConfirm}>Yes, that’s right</Button>}
         <Button look="quiet" small disabled={busy || !canCorrect} onClick={onCorrect}>Correct</Button>
-        <Button look="quiet" small disabled={busy} aria-expanded={open} onClick={open ? onHide : onRead}>{open ? 'Hide more info' : 'Read more info'}</Button>
+        {openable && <Button look="quiet" small disabled={busy} aria-expanded={open}
+          onClick={open ? onHide : onRead}>{open ? 'Hide' : openLabel}</Button>}
       </div>
     </div>
     {confirmingForget && <div className="notice" role="group" aria-label="Forget this memory?">

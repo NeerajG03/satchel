@@ -102,6 +102,16 @@ export function Book() {
     clearDraft();
     announce(`Saved to your book · revision ${saved.revision}`);
   }
+  // Agreeing that a captured memory is right. It is the only thing that
+  // promotes one, and since unconfirmed memories stopped loading at session
+  // start it is the only way one is ever used again.
+  async function confirm(memory: MemorySummary) {
+    const agreed = await action.run(() => stores.memories.confirm(memory));
+    if (!agreed) return;
+    memories.replace(items => replaceSummary(items, agreed));
+    if (expanded?.id === memory.id) setExpanded(agreed);
+    announce('Confirmed · it loads at the start of a session now');
+  }
   async function forget(memory: MemorySummary) {
     const done = await action.run(async () => { await stores.memories.forget(memory); return true; });
     if (!done) return;
@@ -170,6 +180,7 @@ export function Book() {
         dim={Boolean(editing) && editing?.id !== memory.id} fresh={freshId === memory.id} confirmingForget={forgetId === memory.id}
         canCorrect={!hasDraft} highlight={highlight}
         onRead={() => void read(memory)} onHide={() => setExpanded(null)} onCorrect={() => void read(memory, true)}
+        onConfirm={() => void confirm(memory)}
         onAskForget={ask => setForgetId(ask ? memory.id : null)} onForget={() => void forget(memory)} />)}
     </div>
     {searchAll && query && <p className="fine muted">Results from every scope. <Link to={`/book${scopeQuery(scope)}`}>Back to {label}</Link>.</p>}

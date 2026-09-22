@@ -214,3 +214,12 @@ a.entry:hover { text-decoration: none; background: linear-gradient(to right, var
 }
 .turn { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; }
 .turn .who { font: 500 11px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+
+/* The words a captured memory came from. Paper voice, because it is the
+   person's own writing, and set apart because it is evidence for the claim
+   above rather than more of it. */
+.said {
+  font: 17px/1.5 var(--font-content); white-space: pre-wrap; overflow-wrap: anywhere;
+  border-left: 2px solid var(--line); padding: 4px 0 4px 14px; margin: 4px 0;
+  display: flex; flex-direction: column; gap: 6px; color: var(--muted);
+}
