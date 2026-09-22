@@ -27,7 +27,7 @@ The function is `stable security definer` with an empty search path, and `execut
 
 ## Verifying the token
 
-`verifyAgentToken` in `server/http-handler.mjs` uses `jose` against the issuer's JWKS and requires all of `exp`, `sub`, `client_id` and `satchel_grant_id`, with `audience` equal to `RESOURCE` and the algorithm limited to ES256 or RS256. A token without a `client_id` is a companion token, and it fails here rather than being treated as an app.
+`verifyAgentToken` in `server/agent-token.mjs` uses `jose` against the issuer's JWKS and requires all of `exp`, `sub`, `client_id` and `satchel_grant_id`, with `audience` equal to `RESOURCE` and the algorithm limited to ES256 or RS256. A token without a `client_id` is a companion token, and it fails here rather than being treated as an app.
 
 A failure returns 401 with a `WWW-Authenticate` header naming `https://satchel-pi.vercel.app/.well-known/oauth-protected-resource`, which is how a client discovers where to authorize. `api/resource-metadata.mjs` serves that document from the `metadata` constant, so the resource, the issuer and the scopes are written once.
 
@@ -49,6 +49,28 @@ The embedder and the router are built once per process, both in a `try` that lea
 `flush()` runs in a `finally`. A serverless function can freeze the moment it responds, so a batched trace exporter would lose its spans.
 
 Only `claims.sub` reaches the MCP server, as `ownerId`. Never an email, never the token.
+
+## One person, up to three OAuth clients
+
+Each is its own `agent_connections` row with its own grant and its own Revoke button:
+
+| client | who registers it | holds |
+|---|---|---|
+| the agent's | Claude Code or Codex, through `/api/mcp` discovery | the host's own token, which Satchel never reads |
+| the hook scripts' | `integrations/shared/auth.mjs`, dynamic registration | `~/.satchel/credentials.json`, mode 0600 |
+| the consolidation job's | `scripts/enable-consolidation.mjs`, developer only | a refresh token in Supabase Vault |
+
+Revoking one leaves the others alone, which is the reason they are separate.
+
+## `/api/consolidate` and its three credentials
+
+`connect()` in `server/hook-handler.mjs` takes `allowRefresh` and `allowCompanion`, and only `handleConsolidate` passes either.
+
+- **An agent bearer**, verified exactly as above. The hook credential works here.
+- **A companion session**, from the web app's button. `verifyCompanionToken` checks issuer, `aud=authenticated` and the algorithm, and **refuses any token carrying `client_id`**, so an app cannot pass itself off as the person. `agent_connection_status()` answers nothing for a companion session, so that check is skipped for this caller rather than read as "revoked".
+- **`x-satchel-refresh`**, from `private.run_consolidation` through `pg_net`. `exchangeRefreshToken` trades it at the token endpoint for an access token, `rotate_consolidation_credential` writes the new refresh token back to Vault **before** the work runs (the old one is dead from the moment it was exchanged), and the request then runs as that person under RLS. Three refusals in a row switch the job off, read from pg_net's own response log on the next tick, because a caller whose credential was refused has no session to report from.
+
+Every one of the three ends in the same thing: a Supabase client carrying a token for that person, and RLS deciding every row.
 
 ## CORS and method handling
 

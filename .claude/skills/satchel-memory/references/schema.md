@@ -4,7 +4,7 @@ Every function is `set search_path = ''`, so everything is schema qualified. Sup
 
 Almost everything is `security invoker`, so RLS stays authoritative. The service layer is convenience, not security.
 
-## The Memory v2 migrations
+## The Memory v2 and v2.5 migrations
 
 | version | what it does |
 |---|---|
@@ -23,6 +23,11 @@ Almost everything is `security invoker`, so RLS stays authoritative. The service
 | `20260922150000` | `the_block_is_bounded`: `block_size`, and `personal_memories` ranks |
 | `20260922160000` | `the_repository_moved`: `repository_heads`, anchors, and the doubt marker |
 | `20260922170000` | `consolidation_schedule`: the credential, pg_cron and pg_net |
+| `20260922180000` | `look_at_what_it_did`: `recent_documents`, companion only |
+| `20260922190000` | `forgetting_is_reversible`: `restore_memory`, and a `restored` event |
+| `20260922200000` | `settings_you_can_actually_set`: write grants on every settings column |
+| `20260922210000` | `consolidation_is_the_writer`: `capture_mode` defaults to `session`, and every row moves |
+| `20260922220000` | `activity_pages`: `recent_documents` pages by time for the developer feed |
 
 ## `memories`
 
@@ -53,19 +58,19 @@ revision, created_at, updated_at
 
 **A memory has one scope: a project, or personal.** There is no task link and there is no column for one. It was removed in `20260922100000` because it produced exactly one thing, a `[task closed, may be fixed]` hint, and cost three ways to get the scope wrong: `save_memory` silently moved a memory into the task's project, so a wrong guess by a small model relocated a rule; the router made four decisions per item instead of three; and the foreign key could not be scope-qualified at all, because Postgres refuses `ON DELETE SET NULL` against a generated column and `tasks.scope_key` is generated, so a function had to enforce what the database could not. The doubt the link was for comes back in v2.5 R8, raised by the repository moving, which is what actually made the stale rows in production false. See `docs/memory-v2-5-scope.md`, R9a.
 
-**A memory ends, it is not deleted.** `ended_at`/`ended_reason` is one way out with a reason instead of four flag pairs, and `(ended_at is null) = (ended_reason is null)` is enforced. `replaced` means the claim is false now and `ended_by` names its successor; `retired` means an intent was fulfilled, which is spent rather than wrong; `forgotten` is a decision. Expiry is separate, because it is time passing rather than something happening: a row past `expires_at` is not live and no event was raised. Everything that reads a memory to use it filters to live; `archived_memories()` is where the rest goes, and it is the undo that makes auto-applied consolidation acceptable.
+**A memory ends, it is not deleted.** `ended_at`/`ended_reason` is one way out with a reason instead of four flag pairs, and `(ended_at is null) = (ended_reason is null)` is enforced. `replaced` means the claim is false now and `ended_by` names its successor; `retired` means an intent was fulfilled, which is spent rather than wrong; `forgotten` is a decision, a person's Forget in the web app or a pass deciding it should not be there. `restore_memory(id, revision)` undoes any of them: it clears the ending, clears an expiry that has already passed (a future one is a deadline the person gave, so it stays), and moves `affirmed_at`. Expiry is separate, because it is time passing rather than something happening: a row past `expires_at` is not live and no event was raised. Everything that reads a memory to use it filters to live; `archived_memories()` is where the rest goes, and it is the undo that makes auto-applied consolidation acceptable.
 
 **Column privileges are per column.** A new column is not writable until it appears in a `grant insert(...)` / `grant update(...)`.
 
 ## `memory_events`
 
-Every change to a memory, with a before and an after: added, corrected, confirmed, extended, replaced, retired, forgotten. Written by an `after insert or update` trigger rather than by each writer, for the reason capture shipped for weeks without embedding its own rows: the writer nobody checks afterwards is the one that silently skips a step. A write straight at the table still leaves an event.
+Every change to a memory, with a before and an after: added, corrected, confirmed, extended, replaced, retired, forgotten, restored. Restoring is recorded because an undo that leaves no trace is the same missing record pointing the other way. Written by an `after insert or update` trigger rather than by each writer, for the reason capture shipped for weeks without embedding its own rows: the writer nobody checks afterwards is the one that silently skips a step. A write straight at the table still leaves an event.
 
 `actor` comes from the JWT through `private.memory_actor()`, so it cannot be claimed. `trace_id` and `document_id` are the R11 link between a row and the model run that produced it, and they are set by `private.attribute()` inside the same transaction as the write, because every PostgREST request is its own transaction and a `set_config` from outside would not be there. `satchel.change` can relabel a statement change as `extended` rather than `corrected`, which is the one piece of enrichment that cannot lie about anything that matters.
 
 Reading an event requires being able to read its memory, expressed as a policy that checks exactly that rather than as a second copy of the grant rules. `memory_history(id)` is the ordered read.
 
-Deleting a memory cascades its history. The system never deletes, it ends; a person's explicit delete is the one destructive act, and taking the record of a thing they asked to be gone is right rather than a gap.
+Deleting a memory cascades its history. The system never deletes, it ends; a person's explicit delete, offered from the archive rather than the book, is meant to be the one destructive act, and taking the record of a thing they asked to be gone is right rather than a gap. The MCP `delete_memory` tool is the exception that has not caught up: it still deletes, so an agent can take the history too.
 
 ## `stamp_memory_revision`
 
@@ -152,6 +157,8 @@ No table grants at all, exactly like `session_messages`. An agent connection is 
 
 `record_turn`, `record_document_turn`, `expire_documents`, `session_document`, `document_content`, `pending_documents`, `mark_document_consolidated`.
 
+`recent_documents(limit, before)` is the one way a person lists their own conversations, for the developer feed. A routine rather than a grant, and it refuses any token carrying a `client_id`, because the one caller who should see every session is the person in their own browser, never a connection acting for them. It pages by `last_turn_at` rather than by offset, inclusive at the boundary, because the feed merges six sources and an offset into a merged list means nothing.
+
 `consolidated_through` is the document's equivalent of `classified_at`: the last turn a consolidation pass has read. A session that carries on afterwards is pending again and only the new turns are new. It only ever moves forward.
 
 ## `repository_heads` and the anchor
@@ -168,7 +175,7 @@ Nothing is ever ended by churn. It is a marker in the retrieval block and a line
 
 ## `memories_in_scope`
 
-The project's live memories and the personal ones together, newest first inside each scope, with the project slug joined on. This is what the consolidation pass is shown, because a conversation inside a project still produces preferences that belong everywhere and "is this already remembered" cannot be judged against half the set. `p_limit` is a bound that stops one enormous scope producing a prompt nobody can pay for; it is not R3's block cap, which is still an open decision. The ordering is deterministic because the model is handed integer labels over it.
+The project's live memories and the personal ones together, newest first inside each scope, with the project slug joined on. This is what the consolidation pass is shown, because a conversation inside a project still produces preferences that belong everywhere and "is this already remembered" cannot be judged against half the set. `p_limit` is a bound that stops one enormous scope producing a prompt nobody can pay for. It is not R3's block cap; `block_size` is, and the prompt only mentions the pressure when the set is near it. The ordering is deterministic because the model is handed integer labels over it.
 
 ## `consolidation_runs`
 

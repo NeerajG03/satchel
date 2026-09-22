@@ -70,10 +70,17 @@ Useful filters: `type=GENERATION|EMBEDDING|SPAN|RETRIEVER|AGENT`, `userId`, `ses
 SPAN       satchel.UserPromptSubmit          ← ours, one per lifecycle event
   EMBEDDING  embeddings gemini-embedding-001   ← the AI SDK's, one per embed call
   RETRIEVER  retrieve-memory                   ← ours, the pgvector lookup
-SPAN       satchel.Stop
-  AGENT      invoke_agent gemini-3.5-flash-lite  ← the AI SDK's outer call
-    GENERATION chat gemini-3.5-flash-lite        ← the actual model request
+SPAN       satchel.Stop                      ← records the turn; no model call in session mode
+  AGENT      invoke_agent gemini-3.8-flash     ← turn mode only, the router
+    GENERATION chat gemini-3.8-flash
+SPAN       satchel.consolidate               ← one per document the pass reads
+  AGENT      invoke_agent gemini-3.8-flash     ← functionId consolidate
+    GENERATION chat gemini-3.8-flash           ← may say gemini-3.5-flash if it fell back
 ```
+
+A `satchel.consolidate` trace is the whole explanation of a consolidation: its input names the scope, the turn count and how many memories it was shown; its output is every action taken and every one validation dropped, each with the memory it touched and why. The prompt version is in the generation's metadata as `promptName: satchel-consolidate`. Every `memory_events` row it caused carries the same trace id.
+
+A Stop span with no generation under it is **normal** in session mode. It is not a broken router.
 
 `satchel.*` spans are opened by hand in `server/tracing.mjs`. Everything under them is emitted by the Vercel AI SDK. `retrieve-memory` is the only hand-opened child, because it is a database query and the SDK has no opinion about it.
 

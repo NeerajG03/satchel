@@ -9,7 +9,7 @@ Start here for any change. Then read the `design` skill for anything visible and
 
 ## What Satchel is
 
-A hosted home for a person's memory, projects and tasks, handed to the AI coding apps they use through a plugin. Explicit saves only. Every app sees only what it was allowed to see. `README.md` and `docs/product.md` say more. `docs/decisions.md` is the product ledger and `design/decisions.md` is the design ledger. Read the relevant rows before proposing something that looks like it was already settled.
+A hosted home for a person's memory, projects and tasks, handed to the AI coding apps they use through a plugin. Agents write only when asked. Satchel may add memories itself from recorded conversations, always unconfirmed, always with a record that can be undone. Every app sees only what it was allowed to see. `README.md` and `docs/product.md` say more. `docs/decisions.md` is the product ledger and `design/decisions.md` is the design ledger. Read the relevant rows before proposing something that looks like it was already settled.
 
 ## Layout
 
@@ -49,7 +49,9 @@ npm run build
 
 Both must pass. `npm run build` type checks first. If you touched `integrations/shared/`, also run `npm run plugins:build` and bump the version in `scripts/build-plugins.mjs`, then commit the generated packages and marketplace files. Installs read them straight from `main`. Run `claude plugin validate .` to check the marketplace.
 
-Migrations in the hosted pilot are applied by hand through the Supabase SQL editor. Say so in the PR when a change needs one. CI does not migrate.
+Migrations in the hosted pilot are applied by hand. Say so in the PR when a change needs one. CI does not migrate. **Vercel deploys `main` on every push, so apply the migration before you push code that reads it.** The other order took every hook down for about two hours on 22 September. `satchel-memory` `references/operations.md` has the commands.
+
+If you changed a model prompt, run its eval before publishing it to Langfuse: `eval/router-rigour.mjs` for capture, `eval/consolidation.mjs` for the pass. A local free Gemini key will not cover a full consolidation run.
 
 ## Docs to update with the code
 

@@ -28,6 +28,12 @@ insert into supabase_migrations.schema_migrations(version, name, statements)
 values ('20260920130000', 'retrieval_and_slug_fixes', array[$sql$...$sql$]);
 ```
 
+### Apply before you push
+
+Vercel deploys `main` the moment it lands. Migrations are applied by hand. So the order is: apply the migration, check it landed, then push the code that reads it. The other order is an outage, not a warning. On 22 September server code that selected `memory_settings.capture_mode` deployed before the migration adding the column, `settings()` threw, and every hook failed for about two hours until nine migrations were applied. Nothing guards this yet.
+
+To see what production is missing, compare `supabase_migrations.schema_migrations` against `ls supabase/migrations`.
+
 ### Before you touch the live database
 
 1. **`git fetch`, then compare the ledger against the repo.** Without the fetch, a stale `origin/main` makes ordinary work look like drift: I once reported a live migration as existing on no merged branch when it was on `main` and covered by a test.
@@ -74,7 +80,7 @@ Below 90% means raising `hnsw.ef_search`, or the eval's measured quality does no
 Set on Vercel Production and Preview:
 
 ```
-GEMINI_API_KEY                  both the embedder and the router
+GEMINI_API_KEY                  the embedder, the router and the consolidation pass
 LANGFUSE_PUBLIC_KEY
 LANGFUSE_SECRET_KEY
 LANGFUSE_BASE_URL
@@ -85,7 +91,11 @@ SATCHEL_GITHUB_APP_*
 
 `SUPABASE_URL` is a constant in `server/http-handler.mjs`. `SUPABASE_SERVICE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are used only by local maintenance scripts and are deliberately **not** on Vercel. `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` are only for `verify-pgvector.mjs`.
 
-Overridable without a code change: `SATCHEL_EMBEDDING_PROVIDER|MODEL|URL|KEY|DIMENSIONS|TIMEOUT_MS|BUDGET_MS|TASK_TYPE|FALLBACK_KEY|FALLBACK_URL`, `SATCHEL_ROUTER_PROVIDER|MODEL|URL|KEY|TIMEOUT_MS`.
+Overridable without a code change: `SATCHEL_EMBEDDING_PROVIDER|MODEL|URL|KEY|DIMENSIONS|TIMEOUT_MS|BUDGET_MS|TASK_TYPE|FALLBACK_KEY|FALLBACK_URL`, `SATCHEL_ROUTER_PROVIDER|MODEL|URL|KEY|TIMEOUT_MS`, `SATCHEL_THINKING_LEVEL`, `SATCHEL_MODEL_FALLBACK`, `SATCHEL_MODEL_AVOID_MS`, `SATCHEL_CONSOLIDATE_TIMEOUT_MS`, `SATCHEL_PROMPT_LABEL|TIMEOUT_MS|TTL_MS`.
+
+The router and the pass share `SATCHEL_ROUTER_MODEL` (default `gemini-3.8-flash`) and `SATCHEL_THINKING_LEVEL` (default `medium`). `SATCHEL_MODEL_FALLBACK` defaults to `gemini-3.5-flash`; set it to the same model, or to an empty string, to switch the fallback off.
+
+**Production's Gemini key is not the local one.** Production is on a paid key; a local free key allows 20 requests a day per model on the newest models. A local 429 or 503 is not evidence about production, and was once misread as exactly that.
 
 `SATCHEL_EMBEDDING_PATH` is gone: the SDK builds the path from the base URL. A `_URL` still naming a full endpoint is trimmed rather than left to 404, so an old value keeps working. A provider name must be one of `google`, `openai`, `openai-compatible`, `openrouter`, `ollama`; anything else is a startup error, because a typo used to become a silent call to whatever host happened to be the default.
 
@@ -144,6 +154,16 @@ Two things worth knowing before debugging it:
 
 Spans are flushed in a `finally` before the handler returns, because a serverless function can freeze the moment it responds.
 
+## Running the consolidation pass
+
+Three ways, all through `/api/consolidate`, all under RLS as the owner:
+
+- **The button.** "Consolidate now" on the activity page in dev mode, with the person's browser session.
+- **The developer cron.** `npm run consolidation:enable -- --enable` runs one OAuth flow for a separate client, stores the refresh token in Vault, and schedules `private.run_consolidation` through `pg_cron` and `pg_net`. Needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `.env`. `consolidation_status()` says whether the job installed. Not surfaced to product users on purpose.
+- **By hand**, with a hook credential as the bearer, for a test.
+
+A quiet run is normal. `consolidation_runs` has a row for every document read, including the ones that changed nothing, and `memory_events` has one for every change, carrying the trace id.
+
 ## Smoke testing a release
 
 Test the path production takes. Memory v2 was once reported working after a check that called `search_memories` directly in SQL, and every critical bug was in the service layer that check skipped: direct SQL returned two rows, the same query through the service returned zero.
@@ -151,7 +171,7 @@ Test the path production takes. Memory v2 was once reported working after a chec
 The real check goes through `memoryService`:
 
 ```
-settings()            must carry capture and capture_window, not just the four ranking columns
+settings()            must carry capture, capture_window, capture_mode, block_size and staleness_commits
 search({query})       with nothing else supplied, must still return rows
 search({query, gate, boost, limit})   must return the same or fewer
 an unrelated question must return zero
@@ -168,4 +188,4 @@ Changing the embedding model means:
 5. Re-embed everything. The pairing constraint is what makes a half-migrated corpus impossible rather than merely mediocre.
 6. Re-run `verify:pgvector` if the dimension count changed.
 
-The router model is pinned rather than floating, because the prompt was tuned against that version and an alias would move the thing the measurement describes.
+The router and consolidation model is pinned rather than floating, because the prompts were tuned against that version and an alias would move the thing the measurement describes. Changing it means `node eval/consolidation.mjs` on the new model with a paid key, then `--update-baseline` only after reading it.

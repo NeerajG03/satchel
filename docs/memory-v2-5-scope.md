@@ -9,10 +9,11 @@ that is not mine, listed at the end.
 | built | R1 through R11, apart from R6's decay curve |
 | not built | R6's decay curve, which needs a number nobody has measured yet |
 | how it runs | nothing runs it automatically for a product user yet. The `pg_cron` job is a developer path, and a manual trigger from the activity page is the other |
-| not switched on | `memory_settings.capture_mode` is still `turn`, so the old turn-by-turn router is still the writer |
+| switched on | `memory_settings.capture_mode` defaults to `session` and every owner was moved to it in `20260922210000`, so the consolidation pass is the only automatic writer |
 
-The last row is the one to read twice. Everything works and nothing has
-changed for anyone, because the default is still the turn-by-turn router.
+The last two rows are the ones to read together. The pass is the writer, and
+nothing runs it on its own for a product user yet, so memory appears when the
+cron or the button asks and not before. Conversations are recorded either way.
 
 ## What this is
 
@@ -514,8 +515,9 @@ built.
    product user is still open.
 
    The idle threshold is 30 minutes, which is a placeholder rather than a
-   measurement, and `capture_mode` stays `turn` until the pass has written
-   enough memory to be judged against the router it replaces.
+   measurement. `capture_mode` was switched to `session` for everyone on
+   22 September, after the old router was found still writing alongside the
+   pass.
 
    Vercel's own cron was never an option: Hobby caps them at once per day and
    rejects a more frequent expression at deploy time.

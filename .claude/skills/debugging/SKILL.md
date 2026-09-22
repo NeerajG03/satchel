@@ -21,7 +21,7 @@ Most real investigations need both, in that order: Langfuse says what happened i
 | What you are chasing | Read |
 | --- | --- |
 | A model call: prompt, reply, tokens, cost, latency, an error | `references/langfuse.md` |
-| Stored state: memories, injections, router runs, grants, hints | `references/database.md` |
+| Stored state: memories and their history, documents, consolidation runs, injections, router runs, grants | `references/database.md` |
 | A symptom you have seen before | `references/symptoms.md` |
 
 ## The one rule that outranks the rest

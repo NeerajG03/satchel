@@ -137,7 +137,7 @@ ended wrongly      0            <- the number that has to stay here
 dropped by validate 1
 ```
 
-Nothing was retired or replaced that should not have been, on the weakest model available, which is the result that matters most: the destructive outcome is the one with no undo from the user's side.
+Nothing was retired or replaced that should not have been, on the weakest model available, which is the result that matters most. An ended memory can be restored from the archive, but only by someone who notices it has stopped loading, so the destructive outcome is the one most likely to go unseen.
 
 Three failures, and each is worth more than the score.
 
@@ -150,6 +150,8 @@ Three failures, and each is worth more than the score.
 The four `either` cases all came back with a defensible answer, which is what they are for.
 
 ## The router
+
+**No longer the default writer.** Since `20260922210000` every owner is on `capture_mode = 'session'`, so the router runs only for someone who switches back to `turn`. What follows is kept because the pass inherited its failure cases and its measurement habits, and because `turn` mode still works.
 
 One small model call at the end of a turn. It is not an agent: no tools, no memory of its own, and no access to what is already stored. It sees a rolling window and returns a list, and an empty list is the answer on most turns.
 
@@ -274,4 +276,9 @@ Recorded as judgement, not as evidence:
 - Slugs supplied on create, not derived from the title. A 40-character slug derived from a sentence is something nobody would say, and a model matches it worse than the title. The derived form exists only so no row can lack one.
 - Slugs unique per user across projects and tasks together, so there is one thing to get right instead of two.
 - A session-start block withheld entirely when it exceeds the token budget, rather than truncated. A partial block that looks complete is worse than an honest absence, because the agent cannot tell.
+- Documents kept 30 days, then deleted. Long enough to re-run a changed prompt over a month of real sessions, and the largest privacy surface of the options, which is why the deletion is a routine with a row count.
+- One session is one document, because a whole conversation is the unit the pass can judge.
+- A session counts as finished after 30 quiet minutes. A placeholder, not a measurement.
+- `block_size` 30 and `staleness_commits` 25. Chosen so neither binds at today's size; both are settings, not constants, so a measurement can move them without a deploy.
+- The pass gets 45 seconds per request and ten documents per batch, and a model that refused is avoided for five minutes. Sized to a Vercel function's budget, not to anything measured about quality.
 - No fixed instruction preamble in injected context. The headers carry the instructions instead, because a fixed paragraph was measured at 58% of a competitor's per-prompt cost, and a header sits beside the rows it governs and cannot be skipped.

@@ -29,8 +29,15 @@ The application itself only ever holds the publishable key. RLS does the rest. I
 | --- | --- |
 | What is stored, and is it embedded? | `memories` |
 | Was anything injected into a session, and what? | `memory_injections` |
-| Did capture run, and did it keep anything? | `router_runs` |
-| What did the rolling window hold? | `session_messages` |
+| Which writer is live for this person? | `memory_settings.capture_mode` |
+| Who wrote or changed this memory, and from which trace? | `memory_events` |
+| Did the consolidation pass run, and what did it decide? | `consolidation_runs` |
+| What was said in a session, both halves? | `documents`, `document_turns` |
+| Which sessions are waiting for the pass? | `pending_documents(30, 10)` |
+| Did per-turn capture run (turn mode only)? | `router_runs` |
+| What did the short window hold? | `session_messages` |
+| Where is a repository, in commits? | `repository_heads` |
+| Is the developer cron installed? | `consolidation_status()`, `consolidation_credentials` |
 | Can this app read this scope at all? | `agent_connections` |
 | Did the bootstrap stage the repository? | `agent_repository_hints` |
 | Which project is this session in? | `agent_session_scopes` |
@@ -80,6 +87,44 @@ from agent_connections order by created_at desc limit 10;
 
 `agent_connections` is keyed on `(owner_id, client_id)`, and every OAuth client is a different row. Claude Code's CLI registers its own client, claude.ai registers another. Authorizing one does nothing for the other, and that looks exactly like a broken grant.
 
+**Where did this memory come from?** The first question when a memory appears that nobody expected.
+
+```sql
+select e.created_at, e.action, e.actor, e.trace_id, e.document_id, e.reason,
+       left(e.after, 80) as statement
+from memory_events e where e.memory_id = '<id>' order by e.created_at;
+```
+
+`actor` comes from the JWT and cannot be claimed. `trace_id` opens the Langfuse trace that decided it. Open the trace to tell the two writers apart: `satchel.consolidate` is the pass, `satchel.Stop` is the per-turn router, and the second one means that person is still on `capture_mode = 'turn'`. `router_runs` for the same minute is the cross-check.
+
+**Did the pass run, and was it quiet or broken?**
+
+```sql
+select created_at, model, added, extended, replaced, retired, affirmed, dropped,
+       duration_ms, error
+from consolidation_runs order by created_at desc limit 20;
+```
+
+All zeros with no error is the **usual** answer. `error` set and `prompt = '(not sent)'` means the model was never reached and the document is still pending.
+
+**Is a session recorded, and has the pass read it?**
+
+```sql
+select session_key, project_id, turns, chars, last_turn_at,
+       consolidated_through, consolidated_at, truncated_at, expires_at
+from documents order by last_turn_at desc limit 10;
+```
+
+A document with `turns` counting only one role on Claude Code means one of the two hooks is not writing. On Codex that is expected: there is no reply to record.
+
+**Is production missing a migration?** Run this before believing any other symptom when every hook fails at once.
+
+```sql
+select version from supabase_migrations.schema_migrations order by version desc limit 10;
+```
+
+Compare with `ls supabase/migrations`. Vercel deploys on push and migrations are applied by hand, so code can reach production before the column it reads.
+
 ## Traps this database has actually sprung
 
 **An explicit NULL is not an absent argument.** `p_gate real default 0.67` applies when the argument is missing. JSON null arrives as SQL NULL, `score >= NULL` is NULL, and every row is dropped. The same query returned two rows with the default and zero with an explicit null, silently, everywhere.
@@ -88,6 +133,8 @@ from agent_connections order by created_at desc limit 10;
 
 **A new column is not read until it is named in the select.** `capture` and `capture_window` were added by a migration and `settings()` was never updated, so capture short-circuited on every request and turning the setting on in the database changed nothing.
 
-**Column privileges are per column.** A new column on `memories` is not writable until it is named in a `grant insert(...)` and `grant update(...)`. Nothing reminds you.
+**Column privileges are per column.** A new column on `memories` is not writable until it is named in a `grant insert(...)` and `grant update(...)`. Nothing reminds you. `capture_mode` shipped readable and unwritable, so the one switch that turned the old writer off could not be flipped from the app.
+
+**`documents` and `document_turns` have no grants on purpose.** Querying them as an agent returns permission denied, which is correct: an agent connection is `authenticated` too, and a select grant would let it read every session. Read them through the management API, or as the person through `recent_documents` and `document_content`.
 
 **Recreating a function can revert an earlier migration.** Read every migration that touched a function before recreating it. `agent_can_access_tasks` nearly lost its personal-task branch this way, twice.

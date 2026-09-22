@@ -73,7 +73,9 @@ A `default_slug` trigger fills the column when nothing supplies one, so no row c
 
 ## Capture and retrieval touchpoints
 
-The memory router sees tasks. `memoryService.openTasks()` feeds the end-of-turn router the 12 most recently active non-done tasks as `{slug, title, project}`, so a captured memory can be attached to a task by slug and the model never handles a UUID. `tasksByIds` lets the per-prompt injection name the task a memory belongs to. Changing the task list shape changes what the router can attach to; re-read the `satchel-memory` skill before touching it.
+None, since v2.5. A memory used to be able to hang off a task (`memories.task_id`), and the router was fed the open tasks so it could attach one. `20260922100000_one_scope_per_memory.sql` removed the column, the router field, the scope check and the `[task closed, may be fixed]` hint, because the link produced one hint and cost three ways to put a memory in the wrong scope. A memory is personal or one project, nothing else.
+
+Whether a directive the user gives should become a task instead of being dropped is an open decision (decision 7 in `docs/memory-v2-5-scope.md`). Nothing does that today.
 
 ## Companion flow
 

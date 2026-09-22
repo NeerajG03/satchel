@@ -65,7 +65,9 @@ The polling loop exists because the two hooks race: Claude Code can start `Sessi
 
 ## Where scope shows up elsewhere
 
-- **Memory**: `project_id is null` is personal, and personal memories are loaded whole at session start rather than retrieved. Retrieval takes `in_scope` as a boost of 1.1, not a filter, so a first mention of an unrelated project can still win on similarity.
+- **Memory**: `project_id is null` is personal, and confirmed personal memories are loaded at session start, ranked and capped at `block_size`, rather than retrieved. Retrieval takes `in_scope` as a boost of 1.1, not a filter, so a first mention of an unrelated project can still win on similarity. A memory has one scope and no task link (v2.5 R9a).
+- **Documents**: the session's scope is written onto its document by whichever turn first resolves it, and never cleared, because the consolidation pass reads it hours later with no workspace to resolve from. A project id the caller does not own is dropped rather than borrowed.
+- **Churn**: a linked repository's commit count lives in `repository_heads`, and a project memory remembers where the repository was when it was last meant. That is how a merge, not a conversation, raises doubt about a project memory.
 - **Tasks**: the same null, plus the generated `scope_key` of `'personal'` for composite foreign keys.
 - **Grants**: `personal`, `all_projects` and `project_ids` for memory; `task_personal`, `task_all_projects` and `agent_task_grants` rows for tasks. Four independent switches, not one.
 - **Companion UI**: `src/app/scope.ts` owns the `?scope=me|project:<id>` query and its labels.

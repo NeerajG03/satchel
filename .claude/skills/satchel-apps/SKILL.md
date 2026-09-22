@@ -40,6 +40,8 @@ An app registers through Supabase's OAuth server and sends the person to Satchel
 
 **Nothing proprietary runs on the user's machine.** The plugin is instructions, a hook manifest, a bootstrap script and one URL. Ranking, routing and prompts live on the server.
 
+**One endpoint takes more than an agent token, and only one.** `/api/consolidate` also accepts a companion session (the person pressing "Consolidate now") and an `x-satchel-refresh` header (the developer cron). Both are off by default in `connect()` and switched on for that endpoint alone. A hook endpoint that took a refresh token would be a second way in for no reason.
+
 **Revocation cannot recall what was already read.** Both screens say this plainly. Do not write copy that implies otherwise.
 
 ## Where things live
@@ -49,7 +51,11 @@ supabase/migrations/
   202609110003_agent_connections.sql     the table, authorize/revoke, access helpers, the token hook
   20260920150000_all_projects_grant.sql  all_projects, task_all_projects, authorize_agent_v3
   20260916070509_task_management.sql     agent_task_grants, private.agent_can_access_tasks
-server/http-handler.mjs        token verification, the per-request client, the 401 challenge
+  20260922170000_consolidation_schedule.sql  the cron's own OAuth client, its Vault secret, rotation
+server/http-handler.mjs        the per-request client and the 401 challenge for /api/mcp
+server/agent-token.mjs         verifyAgentToken, verifyCompanionToken, exchangeRefreshToken
+server/hook-handler.mjs        connect() for the hook endpoints and /api/consolidate
+api/hook-*.mjs, api/consolidate.mjs   the hook endpoints and the background pass
 api/mcp.mjs                    the Vercel entry point
 api/resource-metadata.mjs      the protected-resource document
 src/features/connections/      Consent, Apps, Connected, install commands, repository

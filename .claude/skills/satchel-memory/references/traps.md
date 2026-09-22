@@ -83,6 +83,12 @@ The read path gets 6 seconds. `scripts/embed-memories.mjs` gets 60, because a re
 
 **Rule:** the eval asks for `SATCHEL_EVAL_GEMINI_KEY`, and when it falls back to the deployment's key it prints what it is about to spend before spending it. A cost that is invisible until it is paid is a cost that gets paid by accident.
 
+### A free key failing locally says nothing about production
+
+On 22 September `gemini-3.8-flash` answered 503 on every attempt from this machine, and that was written into `decisions.md` as the model being overloaded. It was not. The local key is free tier, which allows **20 requests a day per model** on the newest models, and the eval had spent it. The deployed endpoint answered on the same model in 3.7 seconds the same afternoon, because Vercel holds a paid key.
+
+**Rule:** before calling a model broken, read the 429 body for its `quotaId`, and check the same call through production. Two keys are two different facts.
+
 ### A generic error message for a specific failure
 
 Every failure from the embedder and the router landed on the default branch of `errorText`, because that table keys on Postgres error codes and an `EmbeddingError` has none. So a spent quota reached the person as:
@@ -130,6 +136,18 @@ Moving the model calls to the Vercel AI SDK, the first classification was writte
 - only an abort is really a timeout, and that has to be read off the signal, because the SDK surfaces it as an ordinary error.
 
 **Rule:** `describeFailure` in `server/model-provider.mjs` is the one place that decides, and it was written against probe output rather than documentation. Probe a new error path before mapping it.
+
+### `undefined` falls through to a default that reads the environment
+
+`tests/router.test.mjs` built a router with `apiKey: undefined` to test the no-key path. A destructured default treats `undefined` as missing, so it fell through to `process.env.GEMINI_API_KEY`, and the test passed or failed depending on whether the shell running it exported a key. It is `apiKey: null` now.
+
+**Rule:** to say "none" to a parameter with an environment default, pass `null`.
+
+### An error wrapper that drops the status
+
+`asModelError` turned every SDK failure into a `RouterError` with a code and a reason, and dropped the HTTP status on the way. The fallback decides on `status >= 500`, so with the status gone a 400, which is the request and fails identically on every model, would have been retried on a second model and billed twice. It was found by reading the code after a wrong diagnosis, not by a test.
+
+**Rule:** a wrapper keeps every field something downstream decides on. Write the test for the decision, not for the wrapper.
 
 ### A default parameter makes its own fallback unreachable
 
@@ -203,9 +221,27 @@ Three bugs that made Memory v2 completely inert all shipped past a full green su
 
 `SessionStart` at launch fires before the session's MCP servers are available to hooks, so Claude Code skips the event's `mcp_tool` hooks without calling them and logs `mcp_tool hooks are not available for the 'SessionStart' hook event (no MCP client context)`. `--continue` and `--resume` count as launch. After a `/clear` or a compaction the servers are already up and the hook does run, so the same event works or does not depending only on why it fired.
 
-Satchel matched all four sources for a long time, which produced a visible hook error on every single launch and never once ran. The `mcp_tool` hook now matches `clear` and `compact` only. Launch is covered by the bootstrap `command` hook asking the model to make one `select_project` call, which is model-dependent rather than automatic.
+Satchel matched all four sources for a long time, which produced a visible hook error on every single launch and never once ran. As of plugin 0.3.0 there is no `mcp_tool` hook at all: every hook is a `command` script holding its own credential.
 
 **Rule:** a hook handler type has preconditions, and the event firing is not the same as the handler being able to run.
+
+### Deployed code ahead of the schema
+
+Vercel deploys `main` on every push. Migrations are applied by hand. On 22 September server code that selected `memory_settings.capture_mode` deployed before the migration that added it, `settings()` threw on every request, and every hook in every session failed for about two hours. The suite was green, because the suite runs every migration.
+
+**Rule:** apply first, push second. Nothing enforces this yet, so it is on whoever pushes.
+
+### Two writers over the same turns
+
+The consolidation pass shipped with `capture_mode` still defaulting to `turn`, so the old per-turn router kept writing. New memories showed up that the pass had not made, and they read like a leak. `memory_events.actor` and `trace_id` settled it in one query: the router, from Stop traces. Separately, `capture_mode` had no write grant, so nobody could have switched it off from the app anyway.
+
+**Rule:** when a new writer replaces an old one, switching the old one off is part of the same change. And when a memory appears that nobody expected, ask `memory_events` who wrote it before reading any code.
+
+### A trace a minute old is not missing
+
+A Stop trace absent from Langfuse was reported as a regression. It arrived about a minute later. Ingestion is not immediate.
+
+**Rule:** before calling a trace missing, wait, and query for one you know exists through the same filter.
 
 ### Shipping a feature with nothing configured to call it
 

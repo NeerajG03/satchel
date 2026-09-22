@@ -21,8 +21,8 @@ If the reason is generic instead, the failure is not from the embedder or the ro
 Work down this list; it has been every one of them at least once.
 
 1. **Is the plugin version bumped?** `claude plugin update` compares versions and no-ops on equal. A fix nobody can install is not a fix.
-2. **Is the matcher right?** An `mcp_tool` hook runs only once the session's MCP servers are available to hooks. `SessionStart` at launch fires before that and is skipped with `mcp_tool hooks are not available for the 'SessionStart' hook event (no MCP client context)`. `--continue` and `--resume` count as launch. After `/clear` or a compaction the same hook runs normally. So the matcher is `clear|compact` only, and launch is covered by the bootstrap command hook.
-3. **Is the MCP server connected?** In print or headless mode the lazy dedup suppresses the plugin server *and* the connector, so neither connects and every `mcp_tool` hook is skipped. Interactive mode resolves it the other way.
+2. **Is it an old `mcp_tool` hook?** Every hook has been a `command` script since 0.3.0. An `mcp_tool` hook runs only once the session's MCP servers are up, `SessionStart` at launch fires before that, and the host skips it with `mcp_tool hooks are not available for the 'SessionStart' hook event (no MCP client context)`. If you see that line, the installed plugin is older than 0.3.0.
+3. **Does the hook have a credential?** `~/.satchel/credentials.json` must exist. Without it `session-start.mjs` offers the sign-in in a line and every hook answers not connected.
 4. **Is the grant alive, for this client?** See `agent_connections` in `references/database.md`.
 5. **Is the workspace trusted?** An untrusted folder logs `Skipping ... hook execution - workspace trust not accepted` and runs nothing at all.
 
@@ -38,9 +38,25 @@ The constants live in `server/identity.mjs` now, which imports nothing. Cold sta
 
 ## Nothing is ever captured
 
-Check `router_runs` first. `kept=0` with no error is the normal answer and not a failure: most turns contain nothing durable, and the eval measured the router staying quiet on 16 of 16 turns that held nothing.
+First check which writer is live: `select capture, capture_mode from memory_settings`. With `session`, the default, **nothing is written at the end of a turn by design**. Memory appears only after the consolidation pass runs, and nothing runs it for a product user yet. Press "Consolidate now" or check the cron, then look at `consolidation_runs`. A session is not ready until it has been quiet for 30 minutes.
 
-If it is not even running, the Stop hook is the thing to check. The router, the rolling window, `capture_memory`, `router_runs` and the entire Stop branch all shipped once with nothing configured to call them.
+If the pass ran and changed nothing, that is usually right. Read the trace before deciding it is wrong.
+
+If documents are empty or missing a role, the hooks are the thing to check. The router, the rolling window, `capture_memory`, `router_runs` and the entire Stop branch shipped once with nothing configured to call them.
+
+In `turn` mode, check `router_runs`. `kept=0` with no error is the normal answer: the eval measured the router staying quiet on 16 of 16 turns that held nothing.
+
+## Memories appeared that nobody expected
+
+Not a leak until `memory_events` says so. Ask who wrote them (the query is in `references/database.md`). On 22 September this was the per-turn router, still on because `capture_mode` defaulted to `turn` and had no write grant. Two writers over the same turns save the same claim twice in two wordings.
+
+## Every hook fails at once, right after a push
+
+Suspect the schema before the code. Vercel deploys `main` on push, migrations are applied by hand, and code that selects a column production does not have throws on every request. That took every hook down for about two hours on 22 September. Compare `schema_migrations` with `ls supabase/migrations` first.
+
+## The consolidation model answers 503 or 429 locally
+
+Read the 429 body for its `quotaId` before blaming the model. A free key allows **20 requests a day per model** on the newest Gemini models, and a full consolidation eval is 26. The deployed endpoint uses a different, paid key, so a local failure is not a production one. The fallback to `gemini-3.5-flash` exists for exactly this and shows up as that model name on the generation.
 
 ## A generation with no model and no cost
 
