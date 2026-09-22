@@ -138,7 +138,7 @@
 - H1: Settings.
 - Account: {handle} · {email} / Sign out / GitHub is used only to sign you in.
 - Take it with you: Export everything as a portable manifest plus your verified task files. No credentials are included. Identifiers, sources and revision history are kept. / Export all · Export one project…
-- Developer mode: Adds an Activity page showing every request that came in, every conversation Satchel kept, and every change to a memory. Read-only. It is a view, not a permission: nothing about what is stored or who may read it changes. / Show Activity in the rail · this browser only / Open Activity
+- Developer mode: Adds an Activity page showing every request that came in, every conversation Satchel kept, and every change to a memory, and lets you run the consolidation pass by hand. It is a view and one button, not a permission: nothing about what is stored or who may read it changes. / Show Activity in the rail · this browser only / Open Activity
 - Forgetting: Forget removes a record from active retrieval right away. Satchel cannot delete copies from earlier chats, exports, or an app's own memory. / Read how retention works
 - Footer: Exported {file} + {n} files — No credentials included
 
@@ -157,10 +157,16 @@
 
 - Eyebrow: Developer
 - H1: What Satchel did.
-- Lede: Every request that came in, every conversation kept, and every change to a memory, in the order it happened. Read-only, and yours alone.
+- Lede: Every request that came in, every conversation kept, and every change to a memory, in the order it happened. Yours alone.
 - Filters: All · Requests · Documents · Memory
 - Row kinds: Session start · Prompt · Capture · Consolidation · Document · Memory
-- Row actions: Look / Hide · Reload
+- Row actions: Look / Hide · Reload · Consolidate now
+- Consolidating: Reading…
+- Ran, nothing ready: Consolidation ran. Nothing was ready. A session counts as finished after 30 quiet minutes.
+- Ran, nothing changed: Consolidation ran. Read {n} conversations and changed nothing, which is the usual answer.
+- Ran, changed something: Consolidation ran. Read {n} conversations · {n} added, {n} extended, {n} retired
+- Failed: Consolidation did not run. {reason}
+- No model configured: No consolidation model is configured for this deployment.
 - Detail headings: What was typed · Sent · Returned · Before · After · The conversation
 - Empty (All): Nothing here yet. Open a session in a connected agent and this fills up: the session start, every prompt, the conversation as it is kept, and anything the memory set gains or loses.
 - Empty (one filter): Nothing of this kind in the last few records. Try All.

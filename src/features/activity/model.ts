@@ -36,6 +36,34 @@ export type DocumentRow = {
   truncated_at: string | null; expires_at: string;
 };
 export type DocumentTurn = { id: number; role: string; content: string; created_at: string };
+
+/** What one consolidation pass did to one conversation. Counted by action
+ *  rather than totalled, because "added three" and "retired three" are very
+ *  different afternoons. */
+export type ConsolidationOutcome = {
+  document?: string; skipped?: string; failed?: string;
+  added: number; extended: number; replaced: number; retired: number;
+  affirmed: number; dropped: number;
+};
+export type ConsolidationResult = { documents: number; runs: ConsolidationOutcome[] };
+
+/** One line for what a run came to. Nothing is the usual answer and it must
+ *  not read like a failure: most conversations change nothing, and a pass that
+ *  says so is working. */
+export function summarizeRun(result: ConsolidationResult): string {
+  if (!result.documents) return 'Nothing was ready. A session counts as finished after 30 quiet minutes.';
+  const totals = result.runs.reduce((sum, run) => ({
+    added: sum.added + (run.added ?? 0), extended: sum.extended + (run.extended ?? 0),
+    replaced: sum.replaced + (run.replaced ?? 0), retired: sum.retired + (run.retired ?? 0),
+    affirmed: sum.affirmed + (run.affirmed ?? 0), dropped: sum.dropped + (run.dropped ?? 0),
+  }), { added: 0, extended: 0, replaced: 0, retired: 0, affirmed: 0, dropped: 0 });
+  const changes = (['added', 'extended', 'replaced', 'retired', 'affirmed'] as const)
+    .filter(action => totals[action] > 0)
+    .map(action => `${totals[action]} ${action}`);
+  const read = count(result.documents, 'conversation');
+  if (!changes.length) return `Read ${read} and changed nothing, which is the usual answer.`;
+  return `Read ${read} · ${changes.join(', ')}`;
+}
 export type MemoryEvent = {
   id: string; memory_id: string; action: string; before: string | null; after: string | null;
   reason: string | null; actor: string; trace_id: string | null; document_id: string | null; created_at: string;

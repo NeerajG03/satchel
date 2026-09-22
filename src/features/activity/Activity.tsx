@@ -9,7 +9,7 @@ import { Empty } from '../../ui/Empty';
 import { Notice } from '../../ui/Notice';
 import { Provenance } from '../../ui/Provenance';
 import { Segments } from '../../ui/Segments';
-import { GROUP, KIND_LABEL, summarize, type Activity as Item, type ActivityKind } from './model';
+import { GROUP, KIND_LABEL, summarize, summarizeRun, type Activity as Item, type ActivityKind } from './model';
 
 type Group = 'all' | 'requests' | 'documents' | 'memory';
 
@@ -104,8 +104,30 @@ export function Activity() {
   const stores = useStores();
   const [group, setGroup] = useState<Group>('all');
   const [open, setOpen] = useState('');
+  // Nothing runs the background pass on its own for you. The hooks record the
+  // conversation; reading it back and deciding what the memory set should be
+  // is a model call, and a model call that happens without anyone asking is
+  // not something to switch on quietly. This button is the asking.
+  const [running, setRunning] = useState(false);
+  const [outcome, setOutcome] = useState<{ look: 'ok' | 'error'; text: string } | null>(null);
   const feed = useLoad(() => stores.activity.recent(40), [stores]);
   const apps = useLoad(() => stores.connections.list(), [stores]);
+
+  async function consolidate() {
+    setRunning(true);
+    setOutcome(null);
+    try {
+      const result = await stores.activity.consolidate();
+      setOutcome({ look: 'ok', text: summarizeRun(result) });
+      // Whatever it did is in this feed, so it has to be the feed you are
+      // looking at rather than the one from before you pressed the button.
+      feed.reload();
+    } catch (error) {
+      setOutcome({ look: 'error', text: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setRunning(false);
+    }
+  }
   const items = (feed.data ?? []).filter(item => group === 'all' || GROUP[item.kind] === group);
   const tally = (of: Group) => (feed.data ?? []).filter(item => of === 'all' || GROUP[item.kind] === of).length;
   useFooter(feed.data ? `${count(feed.data.length, 'record')} · newest first` : '');
@@ -116,10 +138,20 @@ export function Activity() {
         <span className="eyebrow">Developer</span>
         <h1>What Satchel did.</h1>
         <p className="muted">Every request that came in, every conversation kept, and every change to a
-          memory, in the order it happened. Read-only, and yours alone.</p>
+          memory, in the order it happened. Yours alone.</p>
       </div>
-      <Button onClick={feed.reload} disabled={feed.loading}>Reload</Button>
+      <div className="actions">
+        <Button onClick={feed.reload} disabled={feed.loading}>Reload</Button>
+        <Button look="primary" onClick={consolidate} disabled={running}>
+          {running ? 'Reading…' : 'Consolidate now'}
+        </Button>
+      </div>
     </div>
+
+    {outcome && <Notice look={outcome.look === 'ok' ? 'plain' : 'error'}
+      title={outcome.look === 'ok' ? 'Consolidation ran' : 'Consolidation did not run'}>
+      {outcome.text}
+    </Notice>}
 
     <Segments label="Filter activity" value={group} onChange={setGroup} items={[
       { key: 'all', label: 'All', count: tally('all') },

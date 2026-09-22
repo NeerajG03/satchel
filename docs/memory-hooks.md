@@ -14,7 +14,9 @@ This file was last accurate before automatic capture existed. Anything you remem
 
 There is a fourth endpoint, `POST /api/consolidate`. It reads the sessions that have gone quiet and runs the background pass over each: a model call over a whole conversation, against the memories that already exist.
 
-**No hook calls it.** There was a version where Stop spawned it detached, guarded to about twice an hour, and it was reverted: a hook that quietly spends money on a model call is the wrong default even when it is cheap and even when it is rate limited. Consolidation runs when something asks for it, and the two things that ask are the six-hourly job and a person pressing a button.
+**No hook calls it.** There was a version where Stop spawned it detached, guarded to about twice an hour, and it was reverted: a hook that quietly spends money on a model call is the wrong default even when it is cheap and even when it is rate limited. Consolidation runs when something asks for it, and the two things that ask are the six-hourly job and a person pressing **Consolidate now** on the activity page.
+
+Those two authenticate differently, which is why the endpoint takes two kinds of token. The job has no session at all and sends the refresh token from the owner's Vault. A person has a session and sends it. An agent token and a browser session are disjoint on audience, so neither check can accept the other's, and a token carrying a `client_id` is refused by the companion check even when everything else matches, because companion is defined by the absence of a grant. `/api/consolidate` is the only endpoint that accepts either; a hook that took a browser session would be a second way in for no reason.
 
 Only sessions idle for 30 minutes are touched, whoever triggers it. The one being typed in is not finished, and consolidating half a conversation reads a decision the person is still in the middle of changing their mind about.
 

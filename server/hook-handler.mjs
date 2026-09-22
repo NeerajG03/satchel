@@ -28,7 +28,7 @@
 // have made every session start pay the router's cold start.
 import {createClient} from '@supabase/supabase-js';
 import {SUPABASE_URL} from './identity.mjs';
-import {verifyAgentToken, CHALLENGE, exchangeRefreshToken} from './agent-token.mjs';
+import {verifyAgentToken, verifyCompanionToken, CHALLENGE, exchangeRefreshToken} from './agent-token.mjs';
 import {memoryService} from './memory-service.mjs';
 import {sessionStart, retrieve, capture} from './lifecycle.mjs';
 import {consolidatePending} from './consolidation.mjs';
@@ -78,7 +78,7 @@ const readRepository = value => {
  *  /api/consolidate allows it; a hook that accepted a refresh token would be
  *  a second way in for no reason. */
 async function connect(req, res, {embedder = null, router = null, allowRefresh = false,
-  exchange = exchangeRefreshToken} = {}) {
+  allowCompanion = false, exchange = exchangeRefreshToken} = {}) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Access-Control-Expose-Headers', 'WWW-Authenticate');
   if (req.method !== 'POST') { res.writeHead(405, {Allow: 'POST'}); res.end(); return null; }
@@ -101,8 +101,18 @@ async function connect(req, res, {embedder = null, router = null, allowRefresh =
     }
   }
   let claims;
+  // A person, signed in to their own web app, rather than an app they granted
+  // something to. Tried second and only where it is allowed, so a hook can
+  // never be reached with a browser session.
+  let companion = false;
   try { if (!token) throw Error('Missing token'); claims = await verifyAgentToken(token); }
-  catch { res.writeHead(401, {'WWW-Authenticate': CHALLENGE}); res.end('Authentication required'); return null; }
+  catch {
+    try {
+      if (!allowCompanion || !token) throw Error('Not allowed here');
+      claims = await verifyCompanionToken(token);
+      companion = true;
+    } catch { res.writeHead(401, {'WWW-Authenticate': CHALLENGE}); res.end('Authentication required'); return null; }
+  }
   const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (!key) { res.writeHead(503); res.end('Server configuration unavailable'); return null; }
   // The publishable key plus the caller's own token. Every query after this
@@ -113,10 +123,15 @@ async function connect(req, res, {embedder = null, router = null, allowRefresh =
     global: {headers: {Authorization: `Bearer ${token}`}},
   });
   const service = memoryService(db, embedder, router);
-  try {
-    if (!await service.status()) { res.writeHead(403); res.end('Connection revoked or unavailable'); return null; }
-  } catch { res.writeHead(503); res.end('Unable to verify connection'); return null; }
-  return {service, rotated, ownerId: typeof claims?.sub === 'string' ? claims.sub : undefined};
+  // A grant is what an app has and a person does not. agent_connection_status
+  // answers nothing for a companion session, and reading that as "revoked"
+  // would refuse the owner from their own account.
+  if (!companion) {
+    try {
+      if (!await service.status()) { res.writeHead(403); res.end('Connection revoked or unavailable'); return null; }
+    } catch { res.writeHead(503); res.end('Unable to verify connection'); return null; }
+  }
+  return {service, rotated, companion, ownerId: typeof claims?.sub === 'string' ? claims.sub : undefined};
 }
 
 const clamp = (value, fallback, low, high) => {
@@ -178,13 +193,18 @@ export async function handleHookRetrieve(req, res, {embedder = null, traced, ret
  *  of secret and RLS still decides what it can touch. It writes memory and
  *  nothing reads the reply, so the answer is a count rather than context.
  *
+ *  Two callers, and they authenticate differently. The six hourly job sends
+ *  the refresh token from the owner's Vault, because a scheduler has no
+ *  session. A person pressing the button on the activity page sends their own
+ *  browser session, because they are right there. Both end up as the same
+ *  ordinary access token, and RLS decides the rest either way.
+ *
  *  `idle_minutes` and `limit` are arguments rather than constants because the
- *  right values depend on what calls this, which is not settled. A lazy
- *  trigger from a hook wants one document and a long idle window; a six hourly
- *  job wants many and a short one. */
+ *  right values differ: the job sweeps everything that has gone quiet, and a
+ *  person pressing a button usually means the session they just finished. */
 export async function handleConsolidate(req, res, {embedder = null, consolidator = null, traced,
   exchange} = {}) {
-  const connection = await connect(req, res, {embedder, allowRefresh: true,
+  const connection = await connect(req, res, {embedder, allowRefresh: true, allowCompanion: true,
     ...(exchange ? {exchange} : {})});
   if (!connection) return;
   if (!consolidator) { res.writeHead(503); return res.end('No consolidation model is configured'); }

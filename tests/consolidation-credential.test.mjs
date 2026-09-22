@@ -104,3 +104,37 @@ test('nothing about the stored credential is reachable without being its owner',
     assert.match(endpoint, /\^https\?/, 'the endpoint it posts a token to has to be a URL');
   } finally { await db.close(); }
 });
+
+test('a browser session and an agent token cannot be mistaken for each other', async () => {
+  // Two doors into /api/consolidate: a scheduler with no session at all, and
+  // a person pressing a button in their own web app. They are disjoint on
+  // audience, so neither check can accept the other's token by accident, and
+  // a companion is defined by the absence of a grant rather than by anything
+  // it carries.
+  const {generateKeyPair, SignJWT, exportJWK} = await import('jose');
+  const {publicKey, privateKey} = await generateKeyPair('ES256');
+  const keys = async () => publicKey;
+  const {verifyAgentToken, verifyCompanionToken} = await import('../server/agent-token.mjs');
+  const {ISSUER, RESOURCE} = await import('../server/identity.mjs');
+  void exportJWK;
+
+  const sign = (claims, audience) => new SignJWT(claims)
+    .setProtectedHeader({alg: 'ES256'}).setIssuer(ISSUER).setAudience(audience)
+    .setExpirationTime('5m').sign(privateKey);
+
+  const companion = await sign({sub: 'a1b2'}, 'authenticated');
+  const agent = await sign({sub: 'a1b2', client_id: 'app-1', satchel_grant_id: 'g1'}, RESOURCE);
+
+  assert.equal((await verifyCompanionToken(companion, keys)).sub, 'a1b2');
+  assert.equal((await verifyAgentToken(agent, keys)).client_id, 'app-1');
+
+  await assert.rejects(verifyAgentToken(companion, keys),
+    'a browser session must never reach a hook endpoint');
+  await assert.rejects(verifyCompanionToken(agent, keys),
+    'and an agent token must not be granted companion powers the database would refuse anyway');
+
+  // The audience check is what separates them, so the belt-and-braces case is
+  // an agent token that somehow carries the companion audience.
+  const confused = await sign({sub: 'a1b2', client_id: 'app-1'}, 'authenticated');
+  await assert.rejects(verifyCompanionToken(confused, keys), /Not a companion session/);
+});

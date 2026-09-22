@@ -27,6 +27,30 @@ export async function verifyAgentToken(token, verificationKeys = keys) {
   return payload;
 }
 
+/** The person's own browser session, which is a different token and has to be
+ *  checked differently.
+ *
+ *  An agent token carries client_id, satchel_grant_id and the resource as its
+ *  audience, because it belongs to a connected app that was granted something.
+ *  A companion session carries none of those: it is the owner signed in to the
+ *  web app, and Supabase issues it with `authenticated` as the audience. The
+ *  two are disjoint on audience alone, so neither check can accept the other's
+ *  token by accident.
+ *
+ *  A token carrying a client_id is refused here even if everything else
+ *  matches. Companion is defined by the absence of a grant, and the row
+ *  policies say exactly that: `(select auth.jwt()->>'client_id') is null`.
+ *  Letting an agent token through this door would hand it companion powers the
+ *  database is about to refuse anyway, which is a confusing way to fail. */
+export async function verifyCompanionToken(token, verificationKeys = keys) {
+  const {payload} = await jwtVerify(token, verificationKeys, {
+    issuer: ISSUER, audience: 'authenticated', algorithms: ['ES256', 'RS256'],
+    requiredClaims: ['exp', 'sub'],
+  });
+  if (payload.client_id != null) throw Error('Not a companion session');
+  return payload;
+}
+
 export const CHALLENGE = `Bearer resource_metadata="https://satchel-pi.vercel.app/.well-known/oauth-protected-resource", scope="openid"`;
 
 /** A refresh token for an access token, for the one caller that cannot hold a
