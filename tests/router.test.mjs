@@ -228,7 +228,10 @@ test('a spent daily quota is reported, not slept on',async()=>{
 });
 
 test('a missing key is a configuration error, not a silent no-op',async()=>{
-  const router=createRouter({apiKey:undefined,fetchImpl:reply([])});
+  // null, not undefined. A default parameter only fires on undefined, so
+  // `apiKey: undefined` falls back to GEMINI_API_KEY and this passes or fails
+  // depending on whether whoever is running it has a key exported.
+  const router=createRouter({apiKey:null,fetchImpl:reply([])});
   await assert.rejects(router.route({projects,context:[],turn:['x']}),RouterError);
 });
 

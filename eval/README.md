@@ -1,12 +1,14 @@
 # Evaluation
 
-Two measurements that do not overlap.
+Four measurements that do not overlap. Each exists because the one before it
+could not answer the question.
 
 | Run | Measures | Corpus |
 |---|---|---|
 | `node eval/run.mjs` | retrieval: does the right memory come back, and does the system stay quiet when nothing should | the invented 473-memory corpus |
 | `node eval/router.mjs` | capture at scale: does a claim survive being replayed, and does it land in the right scope | the same corpus, replayed as turns |
 | `node eval/router-rigour.mjs` | capture rigour: does the router keep *only* claims | real turns, copied out of Langfuse |
+| `node eval/consolidation.mjs` | consolidation: does the pass change an existing memory set correctly | 26 cases, each carrying the memories it is judged against |
 
 ## Retrieval evaluation
 
@@ -112,3 +114,46 @@ The cases split into turns where the right answer is nothing (a work order, a pr
 `--prompt <version>` resolves a version from Langfuse and runs it through the real router, so two wordings can be compared on the same cases in one run. That is the only honest way to argue a prompt change: the counterfactual is a run, not a reading.
 
 Cases marked `"expect": "either"` are printed and not scored. There are turns where both answers are defensible, and forcing a verdict on them just moves the argument into the scoring.
+
+## Consolidation
+
+```bash
+GEMINI_API_KEY=... node eval/consolidation.mjs
+GEMINI_API_KEY=... node eval/consolidation.mjs --prompt local --prompt production
+GEMINI_API_KEY=... node eval/consolidation.mjs --only retire --repeat 3
+GEMINI_API_KEY=... node eval/consolidation.mjs --update-baseline
+```
+
+Neither capture eval can measure this. The router has one output, insert or nothing, so both of them ask one question with two answers. The pass asks what the memory set should look like now, which has five answers, and four of them name a memory that already exists. **Every case carries its own memory set**, because the right answer depends on it: the same sentence is a retire next to an intent, a no-op next to a fact, and an extend next to a narrower version of itself.
+
+### The three numbers
+
+| | |
+|---|---|
+| **left it alone** | cases where nothing should change. Trivially won by doing nothing |
+| **changed it right** | cases wanting a specific change, on the memory they named. Trivially won by changing everything |
+| **ended wrongly** | retires and replaces the case did not sanction. **The bar is zero** |
+
+The first two are the same trade the router's bench makes between staying quiet and keeping the claim, and neither means anything alone.
+
+The third is not an accuracy number and is deliberately not averaged into one. An add that should not exist is one row to delete. A memory that was wrongly retired stops loading until somebody goes and finds it, so one is a regression and the run exits non-zero for it. Overall accuracy is allowed to move 8 points before it gates, because a model call is not deterministic even at temperature zero and a bench people rerun until it passes is not a bench.
+
+Damage is counted on `either` cases too. "Both answers are defensible" never includes ending a third memory.
+
+### What the cases cover
+
+`retire` (an intent the conversation fulfilled) and `retire-refused` (the same completion next to a standing fact, which must not be touched). `replace` against `extend`, which is the distinction that decides whether detail is kept or thrown away. `affirm` and `already-remembered`, where the wrong answer is a duplicate row. `add`, including one that must land in personal rather than the open project and one carrying an expiry the user actually gave. `work-order`, `situation`, `question`, `continuation` and `rejected-premise`, carried over from the router's bench because they are still failures here. `assistant-source`, because the assistant's half is in the prompt and can never be a source. `wrong-target`, three memories and a conversation about none of them. `churn`, twice: a repository-moved marker the conversation settles, and one it does not, where ending the memory would delete a true claim for being old. And `temporal`, where "next Friday" has to become a date.
+
+Where a case came from a real run or a real production row it says so under `from`. Most are written from the taxonomy in `docs/memory-v2-5-scope.md` R2a, so a wording that only handles the exact sentence that failed does not score. That is weaker grounding than `router-cases.json`, which is mostly copied out of Langfuse after real failures, and it is weaker because the pass has only run a handful of times in production. It should be re-grounded as real mistakes appear.
+
+### Two rules the harness follows
+
+**The model is pinned and the fallback is off.** `createConsolidator` switches models when one is overloaded, which is right in production and ruins a measurement: half a run would be one model and half another, and the report would name neither.
+
+**The date is fixed.** Every case is read against 22 September 2026, so a run in March and a run in December score the temporal case the same way.
+
+Scoring lives in `lib/consolidation-scoring.mjs` and is pure, so `tests/consolidation-eval.test.mjs` checks the arithmetic without calling a model, including that the case file is internally consistent. A case targeting a memory it does not have can never pass and would quietly drag the number down forever.
+
+### The free tier will not run this
+
+The newest Gemini models allow **20 requests a day per model** on a free key, and a full run is 26. Local runs fall back to whatever the key will still serve, which is not the model that ships, so the baseline is only worth recording on a paid key. The baseline file records the model and the thinking level next to the numbers for exactly that reason.

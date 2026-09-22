@@ -1,0 +1,341 @@
+{
+  "note": "Does the consolidation pass change the memory set correctly, given what is already in it. eval/router-rigour.mjs cannot measure this: the router has one output, insert or nothing, and every case here turns on a memory that already exists. Where a case came from a real run or a real production row it says so under `from`; the rest are written from the taxonomy in docs/memory-v2-5-scope.md R2a so that a wording which only handles the exact sentence that failed does not score.",
+  "projects": [
+    {"slug": "satchel", "brief": "Satchel keeps your memory, projects and tasks in one place and hands them to the agent"},
+    {"slug": "ledger", "brief": "A Go payments ledger with append-only entries"},
+    {"slug": "sourdough", "brief": "Baking notes, nothing to do with work"}
+  ],
+  "cases": [
+    {
+      "id": "ret01",
+      "category": "retire",
+      "working": "ledger",
+      "memories": [
+        {"statement": "I want entries to be append only.", "kind": "intent", "scope": "ledger"},
+        {"statement": "No em dashes.", "kind": "preference", "scope": null, "mentions": 2}
+      ],
+      "turns": [
+        {"role": "user", "content": "done, entries are append only now"},
+        {"role": "assistant", "content": "Good. I will treat the ledger as append only from here."}
+      ],
+      "expect": {"action": "retire", "target": 1},
+      "why": "The only outcome nothing in the system has ever produced. An intent is spent the moment the thing it wanted exists, and the completion that spends it was previously thrown away as 'not a memory'."
+    },
+    {
+      "id": "ret02",
+      "category": "retire",
+      "working": "satchel",
+      "memories": [
+        {"statement": "I want the hooks to be scripts instead of MCP tool calls.", "kind": "intent", "scope": "satchel"}
+      ],
+      "turns": [
+        {"role": "user", "content": "the hooks are all scripts now, that migration is finished"}
+      ],
+      "expect": {"action": "retire", "target": 1},
+      "from": "production memory 3762bd55, captured 21 September as a durable claim",
+      "why": "A real captured intent that has since been fulfilled and is still live in production. This is the row the pass exists to clear."
+    },
+    {
+      "id": "ret03",
+      "category": "retire-refused",
+      "working": "ledger",
+      "memories": [
+        {"statement": "Deploys go out on Tuesday mornings.", "kind": "fact", "scope": "ledger"}
+      ],
+      "turns": [
+        {"role": "user", "content": "yep that deploy is done, went out fine this morning"}
+      ],
+      "expect": {"action": "nothing"},
+      "why": "A completion next to a standing fact. A fact is not a thing anyone finishes, and letting a 'that's done' retire one would quietly delete the most durable rows in the set. The destructive failure this whole bench exists for."
+    },
+    {
+      "id": "ret04",
+      "category": "retire-refused",
+      "working": "satchel",
+      "memories": [
+        {"statement": "Never bump the Go version until payouts ship.", "kind": "preference", "scope": "satchel"}
+      ],
+      "turns": [
+        {"role": "user", "content": "payouts shipped this morning"}
+      ],
+      "expect": "either",
+      "why": "Defensible either way. The condition the rule named has happened, so retiring it is arguable, and so is leaving a standing rule alone until someone says to drop it. Printed rather than scored, because forcing a verdict here just moves the argument into the scoring."
+    },
+    {
+      "id": "rep01",
+      "category": "replace",
+      "working": "satchel",
+      "memories": [
+        {"statement": "A repository can only be linked to one project.", "kind": "fact", "scope": "satchel"}
+      ],
+      "turns": [
+        {"role": "user", "content": "a repository can name several projects now, a monorepo holds more than one of them"}
+      ],
+      "expect": {"action": "replace", "target": 1, "want": "repository can name several projects"},
+      "why": "The existing claim is now false, not merely thinner. Replacing keeps the old wording as history and stops it being used."
+    },
+    {
+      "id": "rep02",
+      "category": "replace",
+      "working": "satchel",
+      "memories": [
+        {"statement": "Memories can be linked to a task as well as a project.", "kind": "fact", "scope": "satchel"}
+      ],
+      "turns": [
+        {"role": "user", "content": "I do not want linking memory to task btw! I only want project linkage and personal memory"}
+      ],
+      "expect": {"action": "replace", "target": 1, "want": "project"},
+      "from": "the user's own words on 22 September, which became production memory cae051f2",
+      "why": "Real, and the shape that matters: the new claim contradicts the old one rather than adding to it."
+    },
+    {
+      "id": "ext01",
+      "category": "extend",
+      "working": null,
+      "memories": [
+        {"statement": "No em dashes.", "kind": "preference", "scope": null, "mentions": 2}
+      ],
+      "turns": [
+        {"role": "user", "content": "and no em dashes in commit messages either, not just in prose"}
+      ],
+      "expect": {"action": "extend", "target": 1, "want": "commit"},
+      "why": "One claim getting more specific, and both readings stay true. Replacing here throws the detail away and adding produces two rows that say the same thing."
+    },
+    {
+      "id": "ext02",
+      "category": "extend",
+      "working": "ledger",
+      "memories": [
+        {"statement": "Corrections are made with a reversing entry.", "kind": "fact", "scope": "ledger"}
+      ],
+      "turns": [
+        {"role": "user", "content": "a reversing entry always carries the id of the entry it reverses"}
+      ],
+      "expect": {"action": "extend", "target": 1, "want": "id"},
+      "why": "Detail added to a claim that stays true. The tell is that neither sentence contradicts the other."
+    },
+    {
+      "id": "aff01",
+      "category": "affirm",
+      "working": null,
+      "memories": [
+        {"statement": "No em dashes.", "kind": "preference", "scope": null, "mentions": 1}
+      ],
+      "turns": [
+        {"role": "user", "content": "reminder, no em dashes"}
+      ],
+      "expect": {"action": "affirm", "target": 1},
+      "why": "Said again and nothing about it changed. Repetition is the strongest free signal there is and it used to produce either a duplicate row or nothing at all."
+    },
+    {
+      "id": "dup01",
+      "category": "already-remembered",
+      "working": "ledger",
+      "memories": [
+        {"statement": "Entries are append only.", "kind": "fact", "scope": "ledger"}
+      ],
+      "turns": [
+        {"role": "user", "content": "remember that an entry can never be edited once written"}
+      ],
+      "expect": "either",
+      "why": "The same claim in different words. An affirm is right and so is nothing; an add is wrong and is caught by the duplicate check in validate rather than here."
+    },
+    {
+      "id": "add01",
+      "category": "add",
+      "working": "ledger",
+      "memories": [
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
+      ],
+      "turns": [
+        {"role": "user", "content": "we settled on Postgres for the ledger rather than the event store"}
+      ],
+      "expect": {"action": "add", "want": "Postgres", "scope": "ledger"},
+      "why": "Genuinely new, and about the thing being worked on, so it takes the project rather than personal."
+    },
+    {
+      "id": "add02",
+      "category": "add",
+      "working": "ledger",
+      "memories": [],
+      "turns": [
+        {"role": "user", "content": "give me one recommendation, not three options, every time"}
+      ],
+      "expect": {"action": "add", "want": "one recommendation", "scope": null},
+      "why": "A preference about how they want to be worked with belongs everywhere, not to the project that happens to be open. Defaulting it to the project is the error that filed a deployment detail under everything."
+    },
+    {
+      "id": "add03",
+      "category": "add",
+      "working": "satchel",
+      "memories": [],
+      "turns": [
+        {"role": "user", "content": "the freeze is on until the 30th of October, nothing ships before that"}
+      ],
+      "expect": {"action": "add", "want": "freeze", "expires": true},
+      "why": "A claim with an end the user actually gave. An expiry invented because something feels temporary is worse than none, so this is the only shape that should carry one."
+    },
+    {
+      "id": "wo01",
+      "category": "work-order",
+      "working": "satchel",
+      "memories": [
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
+      ],
+      "turns": [
+        {"role": "user", "content": "fix the corner leak on the consent page"}
+      ],
+      "expect": {"action": "nothing"},
+      "why": "A job, not a claim. It will be done within the hour and then any memory of it is false. Neither 'the user wants it fixed' nor 'the page has a leak' is a correct reading."
+    },
+    {
+      "id": "wo02",
+      "category": "work-order",
+      "working": "ledger",
+      "memories": [],
+      "turns": [
+        {"role": "user", "content": "bump the ledger client to 4.2 everywhere and regenerate the fixtures"}
+      ],
+      "expect": {"action": "nothing"},
+      "why": "Names a version and a component, which is what makes a work order look durable. Specific is not the same as durable."
+    },
+    {
+      "id": "wo03",
+      "category": "work-order",
+      "working": "satchel",
+      "memories": [],
+      "turns": [
+        {"role": "user", "content": "cron opt in seems odd a product user would never do it so lets not surface it out but avaulable for dev users"}
+      ],
+      "expect": "either",
+      "from": "production memory b329db40, captured by the turn router on 22 September and judged low quality by the user",
+      "why": "The real row that started the argument. It is a decision about how the product should behave, which is arguable as durable, and it is also a packaging instruction inside one afternoon's work. Recorded without taking a side."
+    },
+    {
+      "id": "sit01",
+      "category": "situation",
+      "working": "satchel",
+      "memories": [],
+      "turns": [
+        {"role": "user", "content": "I am hitting a rate limit on the embedder right now"}
+      ],
+      "expect": {"action": "nothing"},
+      "why": "The state of things today. It will be false by tomorrow and nothing will notice."
+    },
+    {
+      "id": "q01",
+      "category": "question",
+      "working": "ledger",
+      "memories": [
+        {"statement": "Entries are append only.", "kind": "fact", "scope": "ledger"}
+      ],
+      "turns": [
+        {"role": "user", "content": "so we cannot edit an entry once it is written right?"}
+      ],
+      "expect": {"action": "nothing"},
+      "why": "A sentence ending in 'right?' is usually someone checking, not telling. It also restates an existing memory, so the tempting wrong answer is an affirm off a question."
+    },
+    {
+      "id": "rej01",
+      "category": "rejected-premise",
+      "working": "ledger",
+      "memories": [],
+      "turns": [
+        {"role": "user", "content": "entries are immutable, this is the wrong way to think about it, a correction is a new reversing entry"}
+      ],
+      "expect": {"action": "add", "want": "reversing entry"},
+      "forbid": ["entries are immutable", "immutable"],
+      "why": "People quote a thing in order to argue with it. Keeping the first clause stores a belief the user rejected, which is the failure that made the router's own bench exist."
+    },
+    {
+      "id": "asst01",
+      "category": "assistant-source",
+      "working": "ledger",
+      "memories": [],
+      "turns": [
+        {"role": "user", "content": "what do you reckon about the entry model"},
+        {"role": "assistant", "content": "I would make entries append only and handle corrections with a reversing entry."}
+      ],
+      "expect": {"action": "nothing"},
+      "why": "The assistant's half is in the prompt so the conversation reads, and it can never be a source. A change sourced from it is the model quoting itself back as evidence."
+    },
+    {
+      "id": "asst02",
+      "category": "assistant-source",
+      "working": "ledger",
+      "memories": [],
+      "turns": [
+        {"role": "user", "content": "yeah do that one"},
+        {"role": "assistant", "content": "So we will keep entries append only."}
+      ],
+      "expect": "either",
+      "why": "The case the assistant half exists for: a bare agreement that only means something next to the reply above it. Whether 'yeah do that one' is enough to source a claim is a real argument, so it is printed rather than scored."
+    },
+    {
+      "id": "tgt01",
+      "category": "wrong-target",
+      "working": "ledger",
+      "memories": [
+        {"statement": "Deploys go out on Tuesday mornings.", "kind": "fact", "scope": "ledger"},
+        {"statement": "I want entries to be append only.", "kind": "intent", "scope": "ledger"},
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
+      ],
+      "turns": [
+        {"role": "user", "content": "the sourdough starter needs feeding twice a day in summer"}
+      ],
+      "expect": {"action": "add", "want": "starter"},
+      "why": "Three memories in front of it and a conversation about none of them. Touching one is the destructive mistake that has nothing to do with what was said."
+    },
+    {
+      "id": "chn01",
+      "category": "churn",
+      "working": "satchel",
+      "memories": [
+        {"statement": "The Stop hook reads the transcript from disk.", "kind": "fact", "scope": "satchel", "commits_since": 140}
+      ],
+      "turns": [
+        {"role": "user", "content": "the Stop hook does not read the transcript, it gets last_assistant_message in the hook input"}
+      ],
+      "expect": {"action": "replace", "target": 1, "want": "last_assistant_message"},
+      "why": "A memory marked stale by repository churn, and a conversation that actually settles it. The marker is a reason to look, and here looking gives an answer."
+    },
+    {
+      "id": "chn02",
+      "category": "churn",
+      "working": "satchel",
+      "memories": [
+        {"statement": "Retrieval embeds the prompt and lets the database rank.", "kind": "fact", "scope": "satchel", "commits_since": 210}
+      ],
+      "turns": [
+        {"role": "user", "content": "lets get lunch, back in an hour"}
+      ],
+      "expect": {"action": "nothing"},
+      "why": "The same marker and nothing in the conversation about it. A repository moving is a reason to doubt a claim, never a reason to know it is false, and ending it here would delete a true memory for being old."
+    },
+    {
+      "id": "tmp01",
+      "category": "temporal",
+      "working": "satchel",
+      "memories": [],
+      "turns": [
+        {"role": "user", "content": "the review has to be in by next Friday"}
+      ],
+      "expect": {"action": "add", "resolved": true},
+      "why": "A relative reference frozen into a permanent claim is exactly how 'do not include names of people who are not in the review list this time around' became a personal memory. The date at the top of the prompt is there to be used."
+    },
+    {
+      "id": "cont01",
+      "category": "continuation",
+      "working": "ledger",
+      "memories": [
+        {"statement": "Entries are append only.", "kind": "fact", "scope": "ledger"}
+      ],
+      "turns": [
+        {"role": "user", "content": "go on"},
+        {"role": "assistant", "content": "Next I will wire the reversing entry."}
+      ],
+      "expect": {"action": "nothing"},
+      "why": "No content at all. The floor case: a pass that changes something here changes something on anything."
+    }
+  ]
+}
