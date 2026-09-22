@@ -18,13 +18,17 @@ export type Injection = {
   id: string; session_key: string; event: string; query: string | null;
   memory_ids: string[]; matched: number; in_scope: number; tokens: number; created_at: string;
 };
+// prompt and response are absent in the feed and fetched when a row is
+// opened. They are whole model prompts, capped at 40,000 and 200,000
+// characters, and selecting them to render "kept 0, dropped 0" is the mistake
+// list_memories exists to prevent.
 export type RouterRun = {
-  id: string; session_key: string; model: string; prompt: string; response: string | null;
+  id: string; session_key: string; model: string;
   kept: number; dropped: number; error: string | null; created_at: string;
 };
 export type ConsolidationRun = {
   id: string; document_id: string | null; trace_id: string | null; model: string;
-  prompt: string; response: string | null; through: number | null;
+  through: number | null;
   added: number; extended: number; replaced: number; retired: number; affirmed: number; dropped: number;
   input_tokens: number | null; output_tokens: number | null; duration_ms: number | null;
   error: string | null; created_at: string;
@@ -36,6 +40,16 @@ export type DocumentRow = {
   truncated_at: string | null; expires_at: string;
 };
 export type DocumentTurn = { id: number; role: string; content: string; created_at: string };
+/** What a model was sent and what it sent back, read only when someone opens
+ *  the row that summarises it. */
+export type RunText = { prompt: string; response: string | null };
+
+/** One page of the feed, and whether asking again would bring more.
+ *
+ *  `more` is generous on purpose: a source that returned a full page may have
+ *  nothing behind it, and offering one empty "Show more" is a far smaller
+ *  fault than hiding records because the arithmetic was clever. */
+export type ActivityPage = { items: Activity[]; more: boolean };
 
 /** What one consolidation pass did to one conversation. Counted by action
  *  rather than totalled, because "added three" and "retired three" are very

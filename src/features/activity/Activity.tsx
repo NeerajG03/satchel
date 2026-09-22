@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useStores } from '../../app/stores';
+import { errorMessage } from '../../client';
 import { useLoad } from '../../app/useLoad';
 import { useFooter } from '../../app/readout';
 import { actorLabel, count } from '../../app/format';
@@ -33,6 +34,23 @@ function Readout({ label, text }: { label: string; text: string | null }) {
   </div>;
 }
 
+/** What a model was sent and what it said, read when someone opens the row.
+ *
+ *  These are whole model prompts, capped at 40,000 and 200,000 characters. The
+ *  feed used to select them to render one line per row, which on this database
+ *  was already 939 KB across 123 router runs with another written every turn.
+ *  Nothing reads them until someone asks for one. */
+function RunText({ kind, id }: { kind: 'capture' | 'consolidation'; id: string }) {
+  const stores = useStores();
+  const text = useLoad(() => stores.activity.runText(kind, id), [stores, kind, id]);
+  if (text.loading) return <p className="muted fine">Reading…</p>;
+  if (text.error) return <Notice look="error" title="Could not read it">{text.error}</Notice>;
+  return <>
+    <Readout label="Sent" text={text.data?.prompt ?? ''} />
+    <Readout label="Returned" text={text.data?.response ?? null} />
+  </>;
+}
+
 function Conversation({ id }: { id: string }) {
   const stores = useStores();
   const turns = useLoad(() => stores.activity.turns(id), [stores, id]);
@@ -63,8 +81,7 @@ function Detail({ item, apps }: { item: Item; apps: { client_id: string; label: 
     return <>
       <Facts rows={[['session', run.session_key], ['model', run.model],
         ['kept', run.kept], ['dropped', run.dropped], ['error', run.error]]} />
-      <Readout label="Sent" text={run.prompt} />
-      <Readout label="Returned" text={run.response} />
+      <RunText kind="capture" id={run.id} />
     </>;
   }
   if (item.kind === 'consolidation') {
@@ -75,8 +92,7 @@ function Detail({ item, apps }: { item: Item; apps: { client_id: string; label: 
         ['replaced', run.replaced], ['retired', run.retired], ['affirmed', run.affirmed],
         ['rejected', run.dropped], ['tokens in', run.input_tokens], ['tokens out', run.output_tokens],
         ['took', run.duration_ms === null ? null : `${run.duration_ms} ms`], ['error', run.error]]} />
-      <Readout label="Sent" text={run.prompt} />
-      <Readout label="Returned" text={run.response} />
+      <RunText kind="consolidation" id={run.id} />
     </>;
   }
   if (item.kind === 'document') {
@@ -110,7 +126,7 @@ export function Activity() {
   // not something to switch on quietly. This button is the asking.
   const [running, setRunning] = useState(false);
   const [outcome, setOutcome] = useState<{ look: 'ok' | 'error'; text: string } | null>(null);
-  const feed = useLoad(() => stores.activity.recent(40), [stores]);
+  const feed = usePagedActivity();
   const apps = useLoad(() => stores.connections.list(), [stores]);
 
   async function consolidate() {
@@ -128,9 +144,12 @@ export function Activity() {
       setRunning(false);
     }
   }
-  const items = (feed.data ?? []).filter(item => group === 'all' || GROUP[item.kind] === group);
-  const tally = (of: Group) => (feed.data ?? []).filter(item => of === 'all' || GROUP[item.kind] === of).length;
-  useFooter(feed.data ? `${count(feed.data.length, 'record')} · newest first` : '');
+  const items = feed.items.filter(item => group === 'all' || GROUP[item.kind] === group);
+  const tally = (of: Group) => feed.items.filter(item => of === 'all' || GROUP[item.kind] === of).length;
+  // "so far", because this is a page rather than the lot. A count that reads
+  // like a total when it is the first 25 of a few thousand is the kind of
+  // number people plan around.
+  useFooter(feed.loaded ? `${count(feed.items.length, 'record')} so far · newest first` : '');
 
   return <>
     <div className="head">
@@ -162,11 +181,11 @@ export function Activity() {
 
     {feed.error && <Notice look="error" title="Could not load activity"
       actions={<Button small onClick={feed.reload}>Reload</Button>}>{feed.error}</Notice>}
-    {feed.loading && <div className="skeleton" aria-hidden="true">
+    {feed.loading && !feed.loaded && <div className="skeleton" aria-hidden="true">
       {[0, 1, 2, 3].map(n => <div key={n} className="entry"><p className="desc">&nbsp;</p></div>)}
     </div>}
 
-    {!feed.loading && !feed.error && items.length === 0 && <Empty title="Nothing here yet">
+    {feed.loaded && !feed.error && items.length === 0 && <Empty title="Nothing here yet">
       {group === 'all'
         ? 'Open a session in a connected agent and this fills up: the session start, every prompt, the conversation as it is kept, and anything the memory set gains or loses.'
         : 'Nothing of this kind in the last few records. Try All.'}
@@ -189,5 +208,63 @@ export function Activity() {
         {expanded && <div className="stack-tight detail"><Detail item={item} apps={apps.data ?? []} /></div>}
       </article>;
     })}</div>
+
+    {feed.loaded && feed.more && <div className="actions" style={{ paddingTop: 16 }}>
+      <Button onClick={feed.showMore} disabled={feed.loading}>
+        {feed.loading ? 'Reading…' : 'Show older'}
+      </Button>
+      {group !== 'all' && <span className="fine muted">
+        Older records of every kind, not just {group}.
+      </span>}
+    </div>}
   </>;
+}
+
+/** The feed, a page at a time.
+ *
+ *  The cursor is the timestamp of the last row shown, not an offset. The feed
+ *  merges six sources fetched separately, so an offset into the merge means
+ *  nothing, and rows land while someone is reading.
+ *
+ *  The cursor is inclusive and duplicates are dropped here, because two
+ *  sources can share a microsecond and excluding the boundary would silently
+ *  skip whichever one missed the previous page. A page that adds nothing new
+ *  is the end, which also stops a run of identical timestamps looping. */
+function usePagedActivity(limit = 25) {
+  const stores = useStores();
+  const [items, setItems] = useState<Item[]>([]);
+  const [more, setMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+
+  const fetchPage = useCallback(async (before: string | null) => {
+    setLoading(true);
+    setError('');
+    try {
+      const page = await stores.activity.recent({ limit, before });
+      setItems(current => {
+        const seen = new Set(before === null ? [] : current.map(item => `${item.kind}-${item.id}`));
+        const added = page.items.filter(item => !seen.has(`${item.kind}-${item.id}`));
+        setMore(page.more && (before === null || added.length > 0));
+        return before === null ? page.items : [...current, ...added];
+      });
+      setLoaded(true);
+    } catch (reason) {
+      setError(errorMessage(reason, 'load'));
+    } finally {
+      setLoading(false);
+    }
+  }, [stores, limit]);
+
+  useEffect(() => { void fetchPage(null); }, [fetchPage]);
+
+  return {
+    items, more, loading, loaded, error,
+    reload: useCallback(() => { void fetchPage(null); }, [fetchPage]),
+    showMore: useCallback(() => {
+      const last = items[items.length - 1];
+      if (last) void fetchPage(last.at);
+    }, [fetchPage, items]),
+  };
 }

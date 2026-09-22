@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
-import type { Activity, ConsolidationResult, ConsolidationRun, DocumentRow, DocumentTurn, Injection, MemoryEvent, RouterRun } from './model';
+import type { Activity, ActivityPage, ConsolidationResult, ConsolidationRun, DocumentRow, DocumentTurn, Injection, MemoryEvent, RouterRun, RunText } from './model';
 
 /** One page of everything, newest first.
  *
@@ -20,21 +20,46 @@ export function createActivityRepository(db: SupabaseClient) {
   };
 
   return {
-    async recent(limit = 40): Promise<Activity[]> {
+    /** One page, newest first, merged across the six sources.
+     *
+     *  Paged by time rather than by offset. An offset into a merged list means
+     *  nothing when each source is fetched on its own, and rows arrive while
+     *  someone is reading.
+     *
+     *  Each source is asked for `limit`, which is enough. The page shows the
+     *  newest `limit` of the merge, so anything dropped is older than the last
+     *  row shown: a source cannot be hiding a newer row, because it returned
+     *  its own newest `limit` and at most `limit` rows in the world are newer
+     *  than the cutoff.
+     *
+     *  Neither `prompt` nor `response` is selected here. They are whole model
+     *  prompts, capped at 40,000 and 200,000 characters, and this list renders
+     *  one line per row. Reading them to draw that line is the mistake
+     *  list_memories was written to prevent, and on this database it was
+     *  already 939 KB across 123 router runs with another written every turn.
+     */
+    async recent({ limit = 25, before = null }: { limit?: number; before?: string | null } = {}): Promise<ActivityPage> {
+      // Inclusive, and the caller drops what it has already seen. The cursor
+      // is a moment rather than a row, and two sources can share a
+      // microsecond; excluding the boundary would skip whichever one missed
+      // the previous page.
+      const olderThan = <T extends { lte(column: string, value: string): T }>(query: T) =>
+        before ? query.lte('created_at', before) : query;
       const [injections, captures, consolidations, documents, events] = await Promise.all([
-        rows<Injection>(signal => db.from('memory_injections')
+        rows<Injection>(signal => olderThan(db.from('memory_injections')
           .select('id,session_key,event,query,memory_ids,matched,in_scope,tokens,created_at')
-          .order('created_at', { ascending: false }).limit(limit).abortSignal(signal)),
-        rows<RouterRun>(signal => db.from('router_runs')
-          .select('id,session_key,model,prompt,response,kept,dropped,error,created_at')
-          .order('created_at', { ascending: false }).limit(limit).abortSignal(signal)),
-        rows<ConsolidationRun>(signal => db.from('consolidation_runs')
-          .select('id,document_id,trace_id,model,prompt,response,through,added,extended,replaced,retired,affirmed,dropped,input_tokens,output_tokens,duration_ms,error,created_at')
-          .order('created_at', { ascending: false }).limit(limit).abortSignal(signal)),
-        rows<DocumentRow>(signal => db.rpc('recent_documents', { p_limit: limit }).abortSignal(signal)),
-        rows<MemoryEvent>(signal => db.from('memory_events')
+          .order('created_at', { ascending: false }).limit(limit)).abortSignal(signal)),
+        rows<RouterRun>(signal => olderThan(db.from('router_runs')
+          .select('id,session_key,model,kept,dropped,error,created_at')
+          .order('created_at', { ascending: false }).limit(limit)).abortSignal(signal)),
+        rows<ConsolidationRun>(signal => olderThan(db.from('consolidation_runs')
+          .select('id,document_id,trace_id,model,through,added,extended,replaced,retired,affirmed,dropped,input_tokens,output_tokens,duration_ms,error,created_at')
+          .order('created_at', { ascending: false }).limit(limit)).abortSignal(signal)),
+        rows<DocumentRow>(signal => db.rpc('recent_documents',
+          { p_limit: limit, p_before: before }).abortSignal(signal)),
+        rows<MemoryEvent>(signal => olderThan(db.from('memory_events')
           .select('id,memory_id,action,before,after,reason,actor,trace_id,document_id,created_at')
-          .order('created_at', { ascending: false }).limit(limit).abortSignal(signal)),
+          .order('created_at', { ascending: false }).limit(limit)).abortSignal(signal)),
       ]);
       const stream: Activity[] = [
         // Session start and a prompt are the same row in the same table and
@@ -53,7 +78,18 @@ export function createActivityRepository(db: SupabaseClient) {
         ...documents.map(detail => ({ kind: 'document' as const, id: detail.id, at: detail.last_turn_at, detail })),
         ...events.map(detail => ({ kind: 'memory' as const, id: detail.id, at: detail.created_at, detail })),
       ];
-      return stream.sort((a, b) => b.at.localeCompare(a.at));
+      stream.sort((a, b) => b.at.localeCompare(a.at));
+      const full = [injections, captures, consolidations, documents, events].some(source => source.length >= limit);
+      return { items: stream.slice(0, limit), more: stream.length > limit || full };
+    },
+
+    /** What a model was sent and what it said, for one row someone opened.
+     *  This is where the long text lives now. */
+    async runText(kind: 'capture' | 'consolidation', id: string): Promise<RunText> {
+      const table = kind === 'capture' ? 'router_runs' : 'consolidation_runs';
+      const found = await rows<RunText>(signal =>
+        db.from(table).select('prompt,response').eq('id', id).limit(1).abortSignal(signal));
+      return found[0] ?? { prompt: '', response: null };
     },
 
     /** The conversation itself, oldest first, which is the order it was said
