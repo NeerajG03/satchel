@@ -56,7 +56,11 @@
 - Correcting: Correcting · will save as revision {n} / Revision {n-1} stays in history / Discard changes · Save correction
 - Entry actions: Correct · Read more info · Hide more info · {n} revisions
 - Provenance: Said on your {device} · {when} · revision {n} / Saved by {app} · {device} · {when} · revision {n}
-- Forget confirm: Forget this memory? It leaves active retrieval right away. Copies in earlier chats, exports and {app}'s own memory are not touched. Satchel can't reach those. / Keep it · Forget
+- Forget confirm: Forget this memory? It stops loading right away and waits in the archive, so you can bring it back. Copies in earlier chats, exports and {app}'s own memory are not touched. Satchel can't reach those. / Keep it · Forget
+- Forget footer: Forgotten · it is in the archive if you want it back
+- Below the list: Anything forgotten, replaced or finished waits in the archive.
+- Composer kind: What kind of thing is this · How things are (true until something makes it false) · How you like things (gets stronger each time you say it) · Something you want (ends when it is done)
+- Entry provenance: handle {name} · {kind} · said {n} times · heard, not confirmed · revision {n}
 - Empty: Ideas for a first memory / Start with something about you. / Things you end up repeating in every new chat make good first entries. Tap one to prefill the form above. / How I like answers written · Tools and languages I use · What to never do in my code · My working hours and timezone
 - Search: Searching names, descriptions and more info in this scope. Search all scopes instead / Matches {n} · In name {n} · In more info {n} / matched in name and description / Not here? Memories saved in "For me" and other projects are not searched unless you widen the scope above. / Clear
 - Footer: {n} in the book · {scope} / {n} of {total} match "{q}" / Saved to your book · revision {n} / Forgotten
@@ -134,6 +138,17 @@
 - Developer mode: Adds an Activity page showing every request that came in, every conversation Satchel kept, and every change to a memory. Read-only. It is a view, not a permission: nothing about what is stored or who may read it changes. / Show Activity in the rail · this browser only / Open Activity
 - Forgetting: Forget removes a record from active retrieval right away. Satchel cannot delete copies from earlier chats, exports, or an app's own memory. / Read how retention works
 - Footer: Exported {file} + {n} files — No credentials included
+
+## The book · archive
+
+- Eyebrow: The book · archive
+- H1: Not loading any more.
+- Lede: Memories you forgot, ones replaced by something newer, and things you wanted that are now done. Nothing here reaches an agent. Everything here can come back.
+- Why it is here: You forgot it · Replaced by a newer one · Done, so it was retired · Its date passed
+- Actions: Put it back · Delete for good · Reload
+- Delete for good: This is the only thing in Satchel that really destroys something. The memory and its whole history go, and nothing can bring them back. / Keep it · Delete for good
+- Empty: Nothing has been put aside. When you forget a memory, or Satchel replaces one with something newer, or something you wanted gets done, it waits here instead of disappearing.
+- Footer: {n} archived · Back in your book · Deleted for good — its history went with it
 
 ## Activity (developer mode)
 

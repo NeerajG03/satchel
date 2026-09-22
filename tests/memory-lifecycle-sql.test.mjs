@@ -224,3 +224,56 @@ test('a deadline the user gave is kept, and one already past is not', async () =
     assert.equal((await live(call, owner)).length, 2, 'both are readable and deletable');
   } finally { await db.close(); }
 });
+
+test('forgetting is reversible, and coming back is recorded too', async t => {
+  // The web app's Forget button used to run a DELETE while the confirmation
+  // beside it promised the memory only left active retrieval. Consolidation
+  // applies itself unwatched on the argument that nothing it does is
+  // destructive, so a person whose own Forget is the one irreversible act had
+  // that guarantee exactly backwards.
+  const {db, owner, call} = await database();
+  const id = crypto.randomUUID();
+  try {
+    await save(call, owner, id, 'A rule I stopped needing.');
+    await call(owner, 'select * from end_memory($1,$2,$3,$4,$5)',
+      [id, 1, 'forgotten', null, 'not true any more']);
+
+    await t.test('it leaves the book and keeps its words', async () => {
+      assert.deepEqual(await live(call, owner), []);
+      const [archived] = await call(owner, 'select * from archived_memories()');
+      assert.equal(archived.id, id);
+      assert.equal(archived.ended_reason, 'forgotten');
+      assert.equal(archived.ended_note, 'not true any more');
+    });
+
+    await t.test('bringing it back is an event of its own', async () => {
+      const [{revision}] = await call(owner, 'select revision from memories where id=$1', [id]);
+      await call(owner, 'select * from restore_memory($1,$2)', [id, revision]);
+      assert.deepEqual((await live(call, owner)).map(r => r.statement), ['A rule I stopped needing.']);
+      assert.deepEqual((await history(call, owner, id)).map(r => r.action),
+        ['added', 'forgotten', 'restored']);
+    });
+
+    await t.test('restoring something that is already live is a conflict', async () => {
+      const [{revision}] = await call(owner, 'select revision from memories where id=$1', [id]);
+      await assert.rejects(call(owner, 'select * from restore_memory($1,$2)', [id, revision]),
+        {code: 'PT409'});
+    });
+
+    await t.test('an expiry already past is cleared, a future one is kept', async () => {
+      const future = crypto.randomUUID();
+      await call(owner, `update memories set expires_at = now() - interval '1 day' where id=$1`, [id]);
+      const [{revision}] = await call(owner, 'select revision from memories where id=$1', [id]);
+      await call(owner, 'select * from restore_memory($1,$2)', [id, revision]);
+      assert.equal((await call(owner, 'select expires_at from memories where id=$1', [id]))[0].expires_at, null);
+
+      await save(call, owner, future, 'The freeze runs until next month.');
+      await call(owner, `update memories set ended_at = now(), ended_reason = 'forgotten',
+        expires_at = now() + interval '30 days' where id=$1`, [future]);
+      const [{revision: next}] = await call(owner, 'select revision from memories where id=$1', [future]);
+      await call(owner, 'select * from restore_memory($1,$2)', [future, next]);
+      assert.notEqual((await call(owner, 'select expires_at from memories where id=$1', [future]))[0].expires_at, null,
+        'a deadline the person gave is not dropped by bringing the memory back');
+    });
+  } finally { await db.close(); }
+});

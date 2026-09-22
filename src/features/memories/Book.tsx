@@ -15,10 +15,10 @@ import { LoadError, Skeleton } from '../../ui/Notice';
 import { Button } from '../../ui/Button';
 
 const PROMPTS: MemoryContent[] = [
-  { statement: 'Write answers in short, plain words, and show the code before explaining it.', name: '', more_info: '' },
-  { statement: 'I work in TypeScript, React and Supabase, on Node 22 and macOS.', name: '', more_info: '' },
-  { statement: 'Never use default exports, and never write a comment that repeats the code.', name: '', more_info: '' },
-  { statement: 'I am in Bengaluru on IST and usually working 10 to 7.', name: '', more_info: '' },
+  { statement: 'Write answers in short, plain words, and show the code before explaining it.', name: '', more_info: '', kind: 'preference' },
+  { statement: 'I work in TypeScript, React and Supabase, on Node 22 and macOS.', name: '', more_info: '', kind: 'fact' },
+  { statement: 'Never use default exports, and never write a comment that repeats the code.', name: '', more_info: '', kind: 'preference' },
+  { statement: 'I am in Bengaluru on IST and usually working 10 to 7.', name: '', more_info: '', kind: 'fact' },
 ];
 type Where = 'all' | 'name' | 'statement';
 
@@ -90,7 +90,7 @@ export function Book() {
     const current = await action.run(() => stores.memories.read(memory));
     if (!current) return;
     memories.replace(items => replaceSummary(items, current));
-    if (edit) { setEditing(current); setContent({ statement: current.statement, name: current.name ?? '', more_info: current.more_info }); setExpanded(null); }
+    if (edit) { setEditing(current); setContent({ statement: current.statement, name: current.name ?? '', more_info: current.more_info, kind: current.kind }); setExpanded(null); }
     else setExpanded(current);
   }
   async function save() {
@@ -103,13 +103,16 @@ export function Book() {
     announce(`Saved to your book · revision ${saved.revision}`);
   }
   async function forget(memory: MemorySummary) {
-    const done = await action.run(async () => { await stores.memories.remove(memory); return true; });
+    const done = await action.run(async () => { await stores.memories.forget(memory); return true; });
     if (!done) return;
     memories.replace(items => items.filter(item => item.id !== memory.id));
     counts.reload();
     setForgetId(null);
     if (expanded?.id === memory.id) setExpanded(null);
-    announce('Forgotten');
+    // Where it went, because it did not go anywhere final. Forgetting stops a
+    // memory loading; the archive is where it waits and where deleting for
+    // good actually lives.
+    announce('Forgotten · it is in the archive if you want it back');
   }
 
   const locked = editing ? 'Finish or discard the correction to switch scope.' : hasDraft ? 'Save or discard the draft to switch scope.' : undefined;
@@ -170,5 +173,8 @@ export function Book() {
         onAskForget={ask => setForgetId(ask ? memory.id : null)} onForget={() => void forget(memory)} />)}
     </div>
     {searchAll && query && <p className="fine muted">Results from every scope. <Link to={`/book${scopeQuery(scope)}`}>Back to {label}</Link>.</p>}
+    {!query && <p className="fine muted" style={{ paddingTop: 16 }}>
+      Anything forgotten, replaced or finished waits in <Link to="/book/archive">the archive</Link>.
+    </p>}
   </>;
 }

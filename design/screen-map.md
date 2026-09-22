@@ -13,6 +13,7 @@ Hardware frame around a paper panel. The rail sits on the hardware at the left w
 | `/` | Welcome · LeftOffEmpty · Main | Signed out: welcome and GitHub sign-in. Signed in: Where you left off. | First run shows the three-step start instead of the task list. |
 | `/book` | BookEmpty · Book | Save, read, correct, forget memories in one scope. | Scope in the query: `?scope=me` (default) or `?scope=project:<id>`. |
 | `/book?q=` | BookSearch | Search within the current scope. | `q` alongside `scope`. Clear removes `q` only. |
+| `/book/archive` | none yet | Memories that stopped loading: forgotten, replaced, retired or expired. Put it back, or delete for good. | Scope-free on purpose: what was put aside is one list, and it is short. |
 | `/book` with a draft | BookCorrect · ScopePicker | Composer open or correcting one entry. Picker open. | Draft is page state, not a route. Picker locks while a draft exists. |
 | `/tasks` | TasksEmpty · Tasks | List for one scope with filter segments and search. | Same `scope` query as the Book. Segments: Actionable, Moving, Blocked, Done, All. |
 | `/tasks/:id` | Task · TaskBlocked | Task detail: state stepper, next action, composer (comment, progress, handoff), timeline, right column. | Move-to Blocked is a sheet over this page. |
@@ -39,7 +40,7 @@ src/
     Rail.tsx  Header.tsx  Paper.tsx  Footer.tsx  ScopePicker.tsx  Sheet.tsx  Notice.tsx
   features/
     leftoff/  LeftOff.tsx  LeftOffEmpty.tsx
-    memories/ Book.tsx  Composer.tsx  MemoryEntry.tsx  BookSearch.tsx
+    memories/ Book.tsx  Archive.tsx  Composer.tsx  MemoryEntry.tsx  BookSearch.tsx
     tasks/    TaskList.tsx  TaskDetail.tsx  TaskEdit.tsx  BlockedSheet.tsx  Timeline.tsx  UpdateComposer.tsx
     projects/ ProjectList.tsx  ProjectPage.tsx  NewProjectSheet.tsx  RepositoryLinks.tsx
     connections/ Apps.tsx  Consent.tsx  Connected.tsx

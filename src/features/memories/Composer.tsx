@@ -1,7 +1,7 @@
 import { type FormEvent } from 'react';
-import { MEMORY_LIMITS, type MemoryContent } from './model';
+import { KINDS, MEMORY_LIMITS, type MemoryContent, type MemoryKind } from './model';
 import { Button } from '../../ui/Button';
-import { TextArea, TextField } from '../../ui/Field';
+import { SelectField, TextArea, TextField } from '../../ui/Field';
 import { SaveError } from '../../ui/Notice';
 
 type Props = {
@@ -33,6 +33,15 @@ export function Composer({ content, scopeLabel, open, busy, error, editing, onOp
       <TextField label="Handle" hint="optional. Most memories do not need one" limit={MEMORY_LIMITS.name} value={content.name}
         disabled={busy} onChange={event => onChange({ ...content, name: event.target.value })} />
     </div>
+    {/* Not decoration. The kind decides how long the memory lives and whether
+        anything may ever retire it: only something you wanted can be finished,
+        and a fact stays until something makes it false. The person writing it
+        is the only one who knows which it is. */}
+    <SelectField label="What kind of thing is this" hint={KINDS.find(k => k.value === content.kind)?.hint}
+      value={content.kind} disabled={busy || Boolean(editing)}
+      onChange={event => onChange({ ...content, kind: event.target.value as MemoryKind })}>
+      {KINDS.map(kind => <option key={kind.value} value={kind.value}>{kind.label}</option>)}
+    </SelectField>
     <details open={content.more_info.length > 0}>
       <summary>Add more info (optional)</summary>
       <TextArea label="More info" limit={MEMORY_LIMITS.more_info} value={content.more_info} disabled={busy} rows={6} className="serif"
@@ -40,7 +49,7 @@ export function Composer({ content, scopeLabel, open, busy, error, editing, onOp
     </details>
     {error && <SaveError message={error} />}
     <div className="actions">
-      <span className="fine muted">{editing ? `Revision ${editing.revision} stays in history` : 'Name and description form the index. More info is read on demand.'}</span>
+      <span className="fine muted">{editing ? `Revision ${editing.revision} stays in history · the kind does not change on a correction` : 'Name and description form the index. More info is read on demand.'}</span>
       <div className="row">
         <Button look="quiet" disabled={busy} onClick={onDiscard}>{editing ? 'Discard changes' : 'Discard'}</Button>
         <Button type="submit" look="primary" disabled={busy || !canSave}>{busy ? 'Saving…' : editing ? 'Save correction' : 'Save memory'}</Button>

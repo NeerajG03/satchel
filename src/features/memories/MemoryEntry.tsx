@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { Memory, MemorySummary } from './model';
+import { kindLabel, type Memory, type MemorySummary } from './model';
 import { Button } from '../../ui/Button';
 import { TornPageIcon } from '../../ui/TornPageIcon';
 import { Provenance } from '../../ui/Provenance';
@@ -21,6 +21,14 @@ export function MemoryEntry({ memory, expanded, busy, dim, fresh, confirmingForg
     {open && <p className="body">{expanded?.more_info || <span className="muted">No more info on this one.</span>}</p>}
     <div className="between wrap">
       <Provenance parts={[memory.name && `handle ${memory.name}`,
+        // What kind of claim it is, because it decides what can happen to it:
+        // only something you wanted can be finished and retired, and a fact
+        // stays until something makes it false.
+        kindLabel(memory.kind).toLowerCase(),
+        // Said again, across sessions. Repetition is the strongest evidence
+        // there is that a memory is real, and it is also what keeps a memory
+        // at the top of the block when the block is full.
+        memory.mentions > 1 && `said ${memory.mentions} times`,
         // Heard means Satchel picked it up rather than being asked, and an
         // agent has to say it out loud before relying on it. Saying so here is
         // what makes confirming it mean something.
@@ -33,7 +41,7 @@ export function MemoryEntry({ memory, expanded, busy, dim, fresh, confirmingForg
     </div>
     {confirmingForget && <div className="notice" role="group" aria-label="Forget this memory?">
       <strong>Forget this memory?</strong>
-      <p>It leaves active retrieval right away. Copies in earlier chats, exports and an app’s own memory are not touched. Satchel can’t reach those.</p>
+      <p>It stops loading right away and waits in the archive, so you can bring it back. Copies in earlier chats, exports and an app’s own memory are not touched. Satchel can’t reach those.</p>
       <div className="actions">
         <Button small disabled={busy} onClick={() => onAskForget(false)}>Keep it</Button>
         <Button look="danger" small disabled={busy} onClick={onForget}>Forget</Button>

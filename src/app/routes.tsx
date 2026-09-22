@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate, useSearchParams } from 'react-router';
 import { Shell } from '../shell/Shell';
 import { LeftOff } from '../features/leftoff/LeftOff';
 import { Book } from '../features/memories/Book';
+import { Archive } from '../features/memories/Archive';
 import { TaskList } from '../features/tasks/TaskList';
 import { TaskDetail } from '../features/tasks/TaskDetail';
 import { TaskEdit } from '../features/tasks/TaskEdit';
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, Component: LeftOff },
       { path: 'book', Component: Book },
+      { path: 'book/archive', Component: Archive },
       { path: 'tasks', Component: TaskList },
       { path: 'tasks/:id', Component: TaskDetail },
       { path: 'tasks/:id/edit', Component: TaskEdit },
