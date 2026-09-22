@@ -17,6 +17,7 @@
 //   extend  #n   an existing memory gets more specific, both readings true
 //   replace #n   an existing memory is false now
 //   retire  #n   an intent has been fulfilled
+//   affirm  #n   they said it again, unchanged
 //   nothing
 //
 // `retire` is the one nothing has ever done, and it is what makes "I want
@@ -37,11 +38,11 @@ export const KINDS = ['fact', 'preference', 'intent'];
 
 export const CONSOLIDATION_SCHEMA = z.object({
   changes: z.array(z.object({
-    action: z.enum(['add', 'extend', 'replace', 'retire'])
-      .describe('add a new memory, extend or replace an existing one, or retire a fulfilled intent.'),
+    action: z.enum(['add', 'extend', 'replace', 'retire', 'affirm'])
+      .describe('add a new memory, extend or replace an existing one, retire a fulfilled intent, or affirm one said again unchanged.'),
     target: z.number().int().nullable()
       .describe('The number of the existing memory this changes. Null for add.'),
-    statement: z.string().describe('The claim, written so it still makes sense in six weeks. Empty for retire.'),
+    statement: z.string().describe('The claim, written so it still makes sense in six weeks. Empty for retire and affirm.'),
     source: z.string().describe('The words the user actually typed that this came from.'),
     kind: z.enum(['fact', 'preference', 'intent']),
     project: z.string().nullable().describe('A project slug, or null for personal.'),
@@ -59,8 +60,18 @@ export const INSTRUCTIONS = localTextFor(CONSOLIDATE_PROMPT);
  *  "yes, do that one" readable at all. Only the user's half may supply a
  *  source, and validate() is where that is enforced rather than here. */
 export function buildConsolidationPrompt({project = null, projects = [],
-  memories = [], turns = [], instructions = INSTRUCTIONS} = {}) {
+  memories = [], turns = [], instructions = INSTRUCTIONS, now = new Date()} = {}) {
   const lines = [];
+  // R7. Nothing had a temporal anchor of any kind, which is how "do not
+  // include names of people who are not in the review list this time around"
+  // became a permanent personal memory. A model cannot resolve "last week"
+  // without being told what week it is, and it cannot doubt a claim without
+  // being told how old it is. Both dates are stated, mem0's distinction: when
+  // this was said, and when you are reading it.
+  const day = value => new Date(value).toISOString().slice(0, 10);
+  const spoken = turns.length ? day(turns[0].created_at ?? now) : day(now);
+  lines.push(`today is ${day(now)}. this conversation happened on ${spoken}`);
+  lines.push('');
   if (project) {
     lines.push('this conversation');
     lines.push(`  project  ${project.slug}  ${(project.brief ?? '').slice(0, 80)}`.trimEnd());
@@ -83,7 +94,9 @@ export function buildConsolidationPrompt({project = null, projects = [],
     memories.forEach((memory, index) => {
       const scope = memory.project_slug ?? 'personal';
       const seen = memory.mentions > 1 ? `, said ${memory.mentions} times` : '';
-      lines.push(`  #${index + 1}  [${memory.kind}, ${scope}${seen}]  ${String(memory.statement).slice(0, 300)}`);
+      const last = memory.affirmed_at ?? memory.updated_at;
+      const when = last ? `, last on ${day(last)}` : '';
+      lines.push(`  #${index + 1}  [${memory.kind}, ${scope}${seen}${when}]  ${String(memory.statement).slice(0, 300)}`);
     });
     lines.push('');
   } else {
@@ -133,7 +146,8 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
     // finished.
     if (!source) { drop('no source'); continue; }
     if (!haystack.includes(source.toLowerCase().slice(0, 60))) { drop('source is not in the conversation'); continue; }
-    if (action !== 'retire') {
+    // A retire and an affirm change no wording, so neither carries one.
+    if (action !== 'retire' && action !== 'affirm') {
       if (!statement || statement.length > 500) { drop('statement missing or too long'); continue; }
     }
     if (action === 'add') {
@@ -152,7 +166,7 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
     if (action === 'retire' && target.kind !== 'intent') { drop('only an intent can be retired'); continue; }
     touched.add(target.id);
     changes.push({action, target: target.id, revision: target.revision,
-      statement: action === 'retire' ? '' : statement, source, kind: change.kind,
+      statement: action === 'retire' || action === 'affirm' ? '' : statement, source, kind: change.kind,
       why: String(change.why ?? '').slice(0, 500),
       project: slugs.has(change?.project) ? change.project : null});
   }

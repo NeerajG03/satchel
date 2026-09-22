@@ -25,6 +25,19 @@ const context = {turns, memories, project: {slug: 'ledger', brief: 'Go payments 
 const change = over => ({action: 'add', target: null, statement: 'A claim.', source: 'done, entries are append only',
   kind: 'fact', project: null, why: 'because', ...over});
 
+test('the model is told what day it is, and how old each memory is', () => {
+  // R7. Nothing had a temporal anchor, which is how "not in the review list
+  // this time around" became a permanent memory. A relative reference cannot
+  // be resolved by a model that does not know the date, and a claim cannot be
+  // doubted by one that does not know its age.
+  const {prompt} = buildConsolidationPrompt({...context,
+    now: new Date('2026-09-22T09:00:00Z'),
+    turns: [{...turns[0], created_at: '2026-09-20T11:00:00Z'}],
+    memories: [{...memories[0], affirmed_at: '2026-09-14T08:00:00Z'}]});
+  assert.match(prompt, /today is 2026-09-22\. this conversation happened on 2026-09-20/);
+  assert.match(prompt, /last on 2026-09-14/);
+});
+
 test('the model is shown numbers, never ids', () => {
   const {system, prompt} = buildConsolidationPrompt(context);
   assert.match(system, /You are given one conversation/);
@@ -44,6 +57,16 @@ test('both halves of the conversation are shown, in the order they happened', ()
 test('an empty memory set says so rather than showing an empty list', () => {
   const {prompt} = buildConsolidationPrompt({...context, memories: []});
   assert.match(prompt, /nothing is remembered for this conversation yet/);
+});
+
+test('a memory said again unchanged is affirmed rather than written over', () => {
+  // Repetition is a precision signal and it was being thrown away. A claim
+  // restated across sessions is stronger than one said once.
+  const out = validateConsolidation({changes: [
+    change({action: 'affirm', target: 1, statement: '', source: 'no em dashes in commit messages'})]}, context);
+  assert.equal(out.changes.length, 1);
+  assert.equal(out.changes[0].target, 'm1');
+  assert.equal(out.changes[0].statement, '', 'an affirm carries no wording, because none changed');
 });
 
 test('a fulfilled intent can be retired and a standing fact cannot', () => {
@@ -165,7 +188,7 @@ test('the run says what it was looking at before it says what it did', async () 
   assert.equal(seen[0].metadata.promptName, 'satchel-consolidate');
 });
 
-test('the schema the provider enforces is the four decisions and nothing else', async () => {
+test('the schema the provider enforces is the five decisions and nothing else', async () => {
   let sent;
   const consolidator = createConsolidator({apiKey: 'x', fetchImpl: async (_url, init) => {
     sent = JSON.parse(init.body);
@@ -176,7 +199,7 @@ test('the schema the provider enforces is the four decisions and nothing else', 
   assert.deepEqual(Object.keys(schema.properties.changes.items.properties).sort(),
     ['action', 'kind', 'project', 'source', 'statement', 'target', 'why']);
   assert.deepEqual(CONSOLIDATION_SCHEMA.shape.changes.element.shape.action.options,
-    ['add', 'extend', 'replace', 'retire']);
+    ['add', 'extend', 'replace', 'retire', 'affirm']);
 });
 
 test('nothing to change is a real answer', async () => {

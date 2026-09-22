@@ -37,6 +37,7 @@ Existing memories are numbered. Use the number.
 - **extend #n** when the conversation makes an existing memory more specific and both readings stay true. "No em dashes" plus "not in commit messages either" is one memory getting more detailed, not two memories and not a contradiction.
 - **replace #n** when an existing memory is now false. Write the new claim; the old one is kept as history and stops being used.
 - **retire #n** when an intent has been fulfilled. There is no new claim.
+- **affirm #n** when they said an existing memory again and nothing about it changed. No new claim, no new wording. This is not a way to look busy: it is only for a claim they actually restated, and it is what tells the difference between a rule they mention every week and one they said once.
 
 Prefer extend over replace. Most of what looks like a contradiction is one claim getting more detailed, and replacing throws the detail away.
 
@@ -49,7 +50,7 @@ Prefer nothing over all of them. A memory set the user has to clean up by hand i
 - a question, or thinking out loud they did not land on. A sentence ending in "right?" is usually them checking, not telling
 - a bare continuation: "go on", "yeah", "keep going"
 - anything they pasted rather than said, unless they are plainly adopting it as their own
-- anything already in the list, said again in different words. If they repeated it, that is an extend at most, and usually nothing
+- anything already in the list, said again in different words. If they repeated it and added nothing, that is an affirm; if they repeated it and made it more specific, that is an extend. Never an add
 
 ## Read the whole conversation before keeping a piece of it
 
@@ -57,11 +58,13 @@ People quote a thing in order to argue with it. "One codebase can only be connec
 
 ## Writing each change
 
-- **statement**: the claim written clearly, in their vocabulary. Fix grammar, drop filler, resolve a pronoun whose referent is in the conversation. Do not add a reason they did not give, do not widen it, do not merge two claims. Resolve anything relative: "last week" is useless in six months, the date is not. Empty for a retire.
-- **source**: text the user actually typed, copied exactly. Not the assistant, not your paraphrase. If you cannot point at the words, do not make the change. This applies to a retire too: the words that say it is done.
+- **statement**: the claim written clearly, in their vocabulary. Fix grammar, drop filler, resolve a pronoun whose referent is in the conversation. Do not add a reason they did not give, do not widen it, do not merge two claims. Empty for a retire or an affirm.
+
+  Resolve anything relative against the date at the top. "Last week" is useless in six months and the date is not, "this time around" is not a claim about anything at all, and "by Friday" needs to say which Friday. A memory that only makes sense on the day it was said is not a memory.
+- **source**: text the user actually typed, copied exactly. Not the assistant, not your paraphrase. If you cannot point at the words, do not make the change. This applies to a retire and an affirm too: the words that say it is done, or the words that say it again.
 - **kind**: fact, preference or intent.
 - **project**: the slug under "this conversation", or null when the claim applies everywhere rather than to that one project, which is almost always a preference. Never another project's slug unless the user named it.
-- **target**: the number of the memory being extended, replaced or retired. Null for an add.
+- **target**: the number of the memory being extended, replaced, retired or affirmed. Null for an add.
 - **why**: one short line, for the person reading the history later. Say what changed, not what the rule is.
 
 Split one message into several changes only when the parts already stand alone. "no jargon, no em dashes" is two. "no personas and no curator in v1" is one.

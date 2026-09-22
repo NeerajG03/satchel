@@ -34,6 +34,13 @@ async function apply(service, change, {projects, trace, document}) {
       statement: change.statement, trace, document});
     return 'extended';
   }
+  if (change.action === 'affirm') {
+    // Not an edit and not an event: the wording did not change, the evidence
+    // for it did. A claim restated across sessions is stronger than one said
+    // once, and that signal was free and being thrown away.
+    await service.affirmMemory(change.target);
+    return 'affirmed';
+  }
   if (change.action === 'retire') {
     await service.endMemory({id: change.target, revision: change.revision,
       reason: 'retired', note: change.why, trace, document});
@@ -68,7 +75,7 @@ export async function consolidateDocument(service, consolidator, document,
     async (setOutput, setInput, traceId) => {
       const runId = crypto.randomUUID();
       const started = Date.now();
-      const counts = {added: 0, extended: 0, replaced: 0, retired: 0, dropped: 0};
+      const counts = {added: 0, extended: 0, replaced: 0, retired: 0, affirmed: 0, dropped: 0};
       // Only what has not been read. A session that carried on after a pass is
       // pending again, and re-reading what the last run already decided about
       // is a model call spent on nothing and a second chance to save the same

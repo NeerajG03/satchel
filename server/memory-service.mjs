@@ -244,7 +244,7 @@ export function memoryService(db, embedder = null, router = null) {
           model:entry.model, prompt:String(entry.prompt ?? '').slice(0,200000),
           response:entry.response?.slice(0,40000) ?? null, through:entry.through ?? null,
           added:entry.added ?? 0, extended:entry.extended ?? 0, replaced:entry.replaced ?? 0,
-          retired:entry.retired ?? 0, dropped:entry.dropped ?? 0,
+          retired:entry.retired ?? 0, affirmed:entry.affirmed ?? 0, dropped:entry.dropped ?? 0,
           input_tokens:entry.input_tokens ?? null, output_tokens:entry.output_tokens ?? null,
           duration_ms:entry.duration_ms ?? null, error:entry.error ?? null,
         }));
