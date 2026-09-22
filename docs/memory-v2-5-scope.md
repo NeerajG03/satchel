@@ -1,6 +1,17 @@
 # Memory v2.5: scope
 
-Status: draft for review. No work has started beyond one bug fix, noted below.
+Status: agreed, and most of it is built. Where a requirement says **built**, the
+commit is named. Three things are not built and each is blocked on a decision
+that is not mine, listed at the end.
+
+| | |
+| --- | --- |
+| built | R1 documents, R2 consolidation, R2a the taxonomy, R4 ending and history, R5 extends, R6 apart from decay, R7 temporal grounding, R9a one scope, R10 local, R11 observability |
+| not built | R3 the bounded block, R8 repository churn, R6's decay curve |
+| not switched on | consolidation runs only when `memory_settings.capture_mode` is `session`, and nothing calls `/api/consolidate` on a schedule yet |
+
+The last row is the one to read twice. Everything works and nothing has
+changed for anyone, because the default is still the turn-by-turn router.
 
 ## What this is
 
@@ -90,6 +101,7 @@ which must not regress).
 | supermemory | documents and memories are separate nouns; documents are kept and re-dreamed |
 | today | `session_messages`, trimmed to 10 rows and deleted after 24 hours |
 | decision | **match** |
+| status | **built**, `2ceceb5`. `documents` and `document_turns`, both hooks writing through one `record_turn`, the user's half awaited, 30 days and `expire_documents()` with a row count |
 
 A document is the durable record of what was said. Memories are derived from it and
 can be derived again. Re-running extraction over stored documents after a prompt
@@ -142,6 +154,7 @@ Codex extraction can get.
 | mem0 | one call that is given the top 10 existing memories, relabelled as integers to stop id hallucination |
 | today | one model call per Stop, blind to everything already stored, output is always an INSERT |
 | decision | **match, with mem0's relabelling** |
+| status | **built**, `fd5337c` and `61cf35f`. `server/consolidator.mjs` asks, `server/consolidation.mjs` applies, `/api/consolidate` runs it. A fifth outcome, `affirm`, was added in `28aeff2` |
 
 The pass is given the document and the current memory set for that scope. Per
 candidate it returns one of:
@@ -216,6 +229,7 @@ instruction, so this one has to go when the prompt is revised.
 | Letta | small character capped blocks that live in context and get rewritten |
 | our own eval | on the slice that matters most, loading scores nDCG 0.772 against retrieval's 0.174 |
 | decision | **exceed supermemory, follow Letta** |
+| status | **not built.** Blocked on decision 8, the cap. `memories_in_scope` has a bound of 60 so a prompt cannot run away, which is a safety limit and not the cap |
 
 At eight memories, and at a realistic steady state of tens per scope, a memory set
 fits in context whole. A cap is not a limitation here, it is the mechanism:
@@ -237,6 +251,7 @@ Archive holds what is evicted. It is searchable on request and never auto inject
 | mem0 | history table records every add, update and delete with old and new text |
 | today | `correct_memory` overwrites in place; the previous wording is gone |
 | decision | **match** |
+| status | **built**, `cf7f99e`. One `ended_at`/`ended_reason` with `replaced`, `retired` and `forgotten`, and `memory_events` written by a trigger so no writer can skip it |
 
 Nothing is destroyed. Every change is an event with a before and an after. The user
 chose auto apply for consolidation, and auto apply without an undo is not
@@ -248,6 +263,7 @@ acceptable, so this requirement is load bearing for R2 rather than optional.
 | --- | --- |
 | supermemory | three edges: `updates` replaces, `extends` enriches and both stay valid, `derives` infers |
 | decision | **match updates and extends. Skip derives.** |
+| status | **built**, `cf7f99e`. `extend_memory` re-embeds, and the event says `extended` rather than `corrected` so the history tells them apart |
 
 Most of what looks like a contradiction is enrichment. Treating it as replacement
 loses information.
@@ -265,6 +281,7 @@ itself treats it.
 | supermemory | facts persist until updated; preferences strengthen with repetition; episodes decay unless significant; `expiration_date` hides expired rows; inferred memories are down weighted until reviewed |
 | today | one lifetime for everything, which is forever, and `heard` loads at full strength |
 | decision | **match** |
+| status | **mostly built**. Unconfirmed memories stopped loading in `da41ee7`, repetition counts in `28aeff2`, a user-stated expiry lands in `577a88c`. The decay curve is not built and needs a number |
 
 Three separate pieces:
 
@@ -285,6 +302,7 @@ worth shipping ahead of the rest of R6.
 | mem0 | separates observation date from current date, and requires relative references to be resolved: "went to Paris last week" is useless six months later, "the week of 15 May" is not |
 | today | no temporal anchor at all |
 | decision | **match** |
+| status | **built**, `28aeff2`. Both dates are in the prompt and every existing memory is shown with its age |
 
 Without this nothing can judge a memory stale later. The live example is the personal
 memory reading "do not include names of people who are not in the review list **this
@@ -297,6 +315,7 @@ time around**", which is a relative reference frozen into a permanent claim.
 | supermemory | contradiction from conversation |
 | mem0 | contradiction from conversation |
 | decision | **exceed. Nobody we looked at does this.** |
+| status | **not built.** It needs the hook to send something it does not send: there is no commit count or head anywhere in the system, so there is no churn signal to read. That means a change to `integrations/shared/`, a `plugins:build` and a version bump, which ships to every install |
 
 Both stale rows in production were made false by a migration and a commit. Nothing
 anyone *said* contradicted them, so no amount of conversational contradiction
@@ -315,6 +334,7 @@ is offered to consolidation as a candidate to re-check.
 | --- | --- |
 | today | `memories.task_id`, set by the model, with a scope agreement check |
 | decision | **remove it** |
+| status | **built**, `4ac8841`. The column, the index, the foreign key, the router field, the `validate()` overwrite, the scope check, the MCP argument, the retrieval hint and the web app's type |
 
 A memory belongs to exactly one project, or to personal. Nothing else. The task link
 goes, and it takes several things with it:
@@ -339,6 +359,7 @@ section.
 | --- | --- |
 | today | Stop is traced. Session start deliberately is not. Two tracing bugs were found and fixed on 21 September: the system prompt was never on the trace, and the router's metadata went nowhere |
 | decision | **required, and it gates everything else** |
+| status | **built**, `cf7f99e` and `61cf35f`. `traced()` hands back the trace id, every `memory_events` row carries it, `consolidation_runs` holds the prompt, the reply, the counts, the tokens and the duration, and the trace output is the list of actions including the rejected ones |
 
 Consolidation runs in the background on a schedule. Nobody watches it. If it is not
 legible in Langfuse then a bad memory has no explanation and this whole design is
@@ -384,6 +405,7 @@ what makes Satchel safe to give to someone else.
 | goal | the whole system starts on one machine with one command, and deploys anywhere |
 | today | Vercel functions plus hosted Supabase. `npm run dev` runs Vite only. There is no `supabase/config.toml`, so the local Supabase stack has never been stood up. The `api/*.mjs` handlers have no local runner |
 | decision | **required, and it gates the benchmark** |
+| status | **built and partly unverified**, `1e5842c`. `npm run serve` is run and tested. The Dockerfile, the compose file and `supabase/config.toml` were written without a Docker daemon or the Supabase CLI and have not been brought up. See `docs/running-locally.md` |
 
 Scope of the work, in order of certainty:
 
@@ -475,18 +497,31 @@ These change the work and are not mine to make.
    synchronous.
 5. **Memory scope is project or personal only.** See R9a.
 
-**Still open.**
+**Still open.** These are what is left. Everything else in this document is
+built.
 
-6. **What actually runs the six hourly schedule.** Vercel Hobby caps crons at once
+6. **What actually runs the six hourly schedule.** `/api/consolidate` exists and
+   takes the credential the hook scripts already hold, so any of the three can
+   call it without a new kind of secret. Nothing calls it yet. Vercel Hobby caps crons at once
    per day and rejects a more frequent expression at deploy time; Pro allows per
    minute at $20/mo per user. Free alternatives, in the order I would try them:
    Supabase `pg_cron` with `pg_net` calling the endpoint, since the database is
    already there; a GitHub Actions schedule doing an authenticated `curl`; or lazy
    processing on the next hook, which needs nothing new but puts model work inside a
-   hook timeout. The idle threshold is also unset.
+   hook timeout. The idle threshold is an argument to the endpoint and defaults to
+   30 minutes, which is a placeholder rather than a measurement.
+
+   Until this is answered `capture_mode` stays `turn`, because switching it
+   without something calling the endpoint would mean no capture at all.
 7. **Does a work order become a task, or nothing?** R9a removes the memory-to-task
    link, which is settled. Separately, the classifier could file a directive as a
    task instead of discarding it. That creates no memory and no link, so R9a does not
    forbid it, but it is a new behaviour and it has not been agreed.
 8. **The block cap.** A number, per scope. At eight memories it does not bind yet,
    which is an argument for shipping the shape before the pressure arrives.
+
+9. **Whether R8 is worth a plugin release.** The churn check needs the hook to
+   send a commit count, which nothing sends today. That is a change to
+   `integrations/shared/`, a rebuild of the generated packages and a version
+   bump, and installs read those from `main`, so it reaches everyone on the
+   next session rather than when we are ready.
