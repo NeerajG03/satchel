@@ -136,9 +136,15 @@ function redact(value) {
 
 /** Wraps one lifecycle event in a trace. Returns the callback's value
  *  untouched, and swallows any tracing failure rather than turning it into a
- *  request failure. */
+ *  request failure.
+ *
+ *  The third argument is the trace id, and it is why this signature grew. A
+ *  background pass writes memory while nobody is watching, so the row it
+ *  writes has to name the run that decided it: `memory_events.trace_id` and
+ *  `consolidation_runs.trace_id` both come from here. Without tracing
+ *  configured it is null, and every write still happens, just unexplained. */
 export async function traced(name, {sessionId, userId, metadata, tags, input} = {}, run) {
-  if (!processor) return run(() => {}, () => {});
+  if (!processor) return run(() => {}, () => {}, null);
   try {
     // sessionId groups every turn of one conversation, which is the view that
     // makes a memory decision explicable: what was already in context when this
@@ -161,9 +167,9 @@ export async function traced(name, {sessionId, userId, metadata, tags, input} = 
           current = replacement;
           span.update({input: current});
           setActiveTraceIO({input: current});
-        });
+        }, span.traceId ?? null);
       }));
-  } catch { return run(() => {}, () => {}); }
+  } catch { return run(() => {}, () => {}, null); }
 }
 
 /** Adds detail to the observation that is currently active. */

@@ -16,7 +16,7 @@
 // it is the thing that actually has to stay true.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync, existsSync} from 'node:fs';
+import {readFileSync, existsSync, readdirSync} from 'node:fs';
 import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -44,6 +44,22 @@ function packagesReachableFrom(entry) {
   };
   walk(resolve(root, entry));
   return packages;
+}
+
+/** Every repository file an entry point reaches, following relative imports.
+ *  Resolves the extension the way the imports are written, which is always
+ *  explicit in this codebase. */
+function filesReachableFrom(entry) {
+  const seen = new Set();
+  const walk = file => {
+    if (seen.has(file) || !existsSync(file)) return;
+    seen.add(file);
+    const source = readFileSync(file, 'utf8');
+    for (const match of source.matchAll(/(?:^|\n)\s*(?:import|export)[^'"\n]*?from\s*['"](\.[^'"]+)['"]/g))
+      walk(resolve(dirname(file), match[1]));
+  };
+  walk(resolve(root, entry));
+  return seen;
 }
 
 // Nothing here is in these two endpoints' jobs. The model packages are the
@@ -116,6 +132,17 @@ test('the capture endpoint is allowed the model stack, because it runs the route
     assert.ok(packages.has(needed), `api/hook-capture.mjs should reach ${needed}`);
 });
 
+test('the consolidation endpoint is allowed the model stack and not the MCP server', () => {
+  // Nothing waits on this one at all: it runs after a conversation has gone
+  // quiet, so a cold start costs nobody anything. It still has no business
+  // building an MCP server.
+  const packages = packagesReachableFrom('api/consolidate.mjs');
+  assert.ok(!packages.has('@modelcontextprotocol/sdk'),
+    'api/consolidate.mjs reaches the MCP server, which it never uses');
+  for (const needed of ['ai', '@supabase/supabase-js', 'jose'])
+    assert.ok(packages.has(needed), `api/consolidate.mjs should reach ${needed}`);
+});
+
 test('the MCP endpoint is allowed everything, because it uses it', () => {
   // The contrast is the point: this one genuinely builds the server, verifies a
   // token, embeds and routes, so its cold start is the price of the feature
@@ -123,4 +150,21 @@ test('the MCP endpoint is allowed everything, because it uses it', () => {
   const packages = packagesReachableFrom('api/mcp.mjs');
   for (const needed of ['ai', '@modelcontextprotocol/sdk', 'jose', '@supabase/supabase-js'])
     assert.ok(packages.has(needed), `api/mcp.mjs should reach ${needed}`);
+});
+
+test('every endpoint that reads a prompt from disk has it bundled', () => {
+  // server/prompts/*.md is read with readFileSync at import, so a function
+  // that is not listed under includeFiles does not fail at deploy. It fails on
+  // the first request, which is the kind of failure that hides.
+  const vercel = JSON.parse(readFileSync(resolve(root, 'vercel.json'), 'utf8'));
+  const bundled = new Set(Object.entries(vercel.functions ?? {})
+    .filter(([, config]) => String(config.includeFiles ?? '').includes('server/prompts'))
+    .map(([file]) => file));
+  const needs = readdirSync(resolve(root, 'api'))
+    .map(name => `api/${name}`)
+    .filter(entry => filesReachableFrom(entry).has(resolve(root, 'server/prompt-store.mjs')));
+  assert.ok(needs.length, 'this test is meaningless if it found no prompt readers');
+  for (const entry of needs)
+    assert.ok(bundled.has(entry),
+      `${entry} reaches prompt-store.mjs, so vercel.json must include server/prompts/** for it`);
 });

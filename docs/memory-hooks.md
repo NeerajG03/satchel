@@ -12,6 +12,8 @@ This file was last accurate before automatic capture existed. Anything you remem
 | `UserPromptSubmit` | `retrieve.mjs` | 5s | Searches by similarity, injects the matches, and records the message |
 | `Stop` | `capture.mjs` | 25s | Sends the reply so the turn can be classified |
 
+There is a fourth endpoint, `POST /api/consolidate`, and no hook calls it. It reads the sessions that have gone quiet and runs the background pass over each. It takes the same credential the hook scripts hold, so whatever ends up scheduling it needs no new secret and RLS still decides what it can touch. What schedules it is not decided: Vercel Hobby caps crons at once a day, and the candidates are Supabase `pg_cron` with `pg_net`, a GitHub Actions schedule, or a lazy trigger from a hook.
+
 There is no `PreToolUse` or `PostToolUse` hook, and no `PostCompact` hook: Codex cannot emit `additionalContext` from `PostCompact`, so compaction is handled through `SessionStart`'s compact source on both hosts.
 
 The 5 second budget on retrieval is deliberate. A hook that delays the prompt is worse than a hook that misses one.

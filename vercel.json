@@ -11,6 +11,10 @@
     },
     "api/hook-capture.mjs": {
       "includeFiles": "server/prompts/**"
+    },
+    "api/consolidate.mjs": {
+      "includeFiles": "server/prompts/**",
+      "maxDuration": 60
     }
   },
   "rewrites": [

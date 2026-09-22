@@ -20,6 +20,7 @@
 //   POST /api/hook-index      session start, clear, compact, resume
 //   POST /api/hook-retrieve   every prompt
 //   POST /api/hook-capture    end of a turn
+//   POST /api/consolidate     the background pass, on whatever schedule
 //
 // Split into two functions rather than one with a `kind` because they have very
 // different weights. The index needs jose and supabase-js. Capture needs the
@@ -30,6 +31,7 @@ import {SUPABASE_URL} from './identity.mjs';
 import {verifyAgentToken, CHALLENGE} from './agent-token.mjs';
 import {memoryService} from './memory-service.mjs';
 import {sessionStart, retrieve, capture} from './lifecycle.mjs';
+import {consolidatePending} from './consolidation.mjs';
 
 const MAX_BYTES = 256 * 1024;
 const sessionPattern = /^[A-Za-z0-9_-]{1,200}$/;
@@ -93,6 +95,11 @@ async function connect(req, res, {embedder = null, router = null} = {}) {
   return {service, ownerId: typeof claims?.sub === 'string' ? claims.sub : undefined};
 }
 
+const clamp = (value, fallback, low, high) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(Math.max(Math.trunc(number), low), high) : fallback;
+};
+
 const send = (res, payload) => {
   res.writeHead(200, {'content-type': 'application/json'});
   res.end(JSON.stringify(payload));
@@ -137,6 +144,34 @@ export async function handleHookRetrieve(req, res, {embedder = null, traced, ret
     sessionKey, prompt, repository: readRepository(input.repository), exclude,
     ownerId: connection.ownerId, ...(traced ? {traced} : {}), ...(retrieval ? {retrieval} : {})});
   send(res, {context: result.context, notice: result.notice});
+}
+
+/** The background pass over conversations that have gone quiet.
+ *
+ *  Authenticated exactly like the hooks, with the credential the plugin
+ *  already holds, so whatever ends up running the schedule needs no new kind
+ *  of secret and RLS still decides what it can touch. It writes memory and
+ *  nothing reads the reply, so the answer is a count rather than context.
+ *
+ *  `idle_minutes` and `limit` are arguments rather than constants because the
+ *  right values depend on what calls this, which is not settled. A lazy
+ *  trigger from a hook wants one document and a long idle window; a six hourly
+ *  job wants many and a short one. */
+export async function handleConsolidate(req, res, {embedder = null, consolidator = null, traced} = {}) {
+  const connection = await connect(req, res, {embedder});
+  if (!connection) return;
+  if (!consolidator) { res.writeHead(503); return res.end('No consolidation model is configured'); }
+  let input;
+  // A POST with no body at all is the ordinary call, and it is what a cron
+  // makes. An empty body is not a malformed one.
+  const body = req.body == null || String(req.body).trim() === '' ? {} : req.body;
+  try { input = parseHookBody(body, new Set(['idle_minutes', 'limit'])); }
+  catch { res.writeHead(400); return res.end(); }
+  const idleMinutes = clamp(input.idle_minutes, 30, 0, 10080);
+  const limit = clamp(input.limit, 10, 1, 50);
+  const result = await consolidatePending(connection.service, consolidator, {
+    idleMinutes, limit, ownerId: connection.ownerId, ...(traced ? {traced} : {})});
+  send(res, result);
 }
 
 /** The end of a turn. `assistant` is the host's own last_assistant_message.

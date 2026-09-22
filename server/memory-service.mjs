@@ -202,6 +202,54 @@ export function memoryService(db, embedder = null, router = null) {
     },
     clearSessionWindow: sessionKey =>
       result(db.rpc('clear_session_window', {p_session_key:sessionKey})),
+    // The document side. Everything the consolidation pass reads, and the two
+    // writes it makes that are not memories.
+    sessionDocument: async sessionKey => {
+      const rows = await result(db.rpc('session_document', {p_session_key:sessionKey}));
+      return rows?.[0] ?? null;
+    },
+    pendingDocuments: (idleMinutes = 30, limit = 20) =>
+      result(db.rpc('pending_documents', {p_idle_minutes:idleMinutes, p_limit:limit})),
+    documentTurns: (documentId, after = null) =>
+      result(db.rpc('document_content', {p_document_id:documentId, p_after:after})),
+    markDocumentConsolidated: (documentId, through) =>
+      result(db.rpc('mark_document_consolidated',
+        {p_document_id:documentId, p_through:through})),
+    // The project's memories and the personal ones together, because a
+    // conversation inside a project still produces preferences that belong
+    // everywhere, and the pass cannot judge "is this already remembered"
+    // against half the set.
+    memoriesInScope: (projectId = null, limit = 60) =>
+      result(db.rpc('memories_in_scope', {p_project_id:projectId, p_limit:limit})),
+    // Ending and extending carry the revision, so a pass working from a list
+    // it read a minute ago cannot overwrite something the person changed since.
+    endMemory: args => result(db.rpc('end_memory', {
+      p_id:args.id, p_revision:args.revision, p_reason:args.reason,
+      p_ended_by:args.ended_by ?? null, p_note:args.note ?? null,
+      p_trace:args.trace ?? null, p_document:args.document ?? null})),
+    async extendMemory(args) {
+      const row = await result(db.rpc('extend_memory', {
+        p_id:args.id, p_revision:args.revision, p_statement:args.statement,
+        p_trace:args.trace ?? null, p_document:args.document ?? null}));
+      // The statement changed, so the vector has to. Without this an extended
+      // memory keeps matching the words it used to have.
+      await embedRow(row);
+      return row;
+    },
+    affirmMemory: id => result(db.rpc('affirm_memory', {p_id:id})),
+    async logConsolidationRun(entry) {
+      try {
+        await result(db.from('consolidation_runs').insert({
+          id:entry.id, document_id:entry.document_id ?? null, trace_id:entry.trace_id ?? null,
+          model:entry.model, prompt:String(entry.prompt ?? '').slice(0,200000),
+          response:entry.response?.slice(0,40000) ?? null, through:entry.through ?? null,
+          added:entry.added ?? 0, extended:entry.extended ?? 0, replaced:entry.replaced ?? 0,
+          retired:entry.retired ?? 0, dropped:entry.dropped ?? 0,
+          input_tokens:entry.input_tokens ?? null, output_tokens:entry.output_tokens ?? null,
+          duration_ms:entry.duration_ms ?? null, error:entry.error ?? null,
+        }));
+      } catch { /* Losing the note is worse than nothing and still not worth failing the run. */ }
+    },
     // Slug to UUID happens in the database, so the model never handles an id.
     // One slug, because a memory has one scope and it is a project or
     // personal. There is no task to resolve and nothing that can move the
@@ -216,7 +264,11 @@ export function memoryService(db, embedder = null, router = null) {
     async captureMemory(args) {
       const row = await result(db.rpc('capture_memory', {
         p_id:args.id, p_statement:args.statement, p_source:args.source,
-        p_project_slug:args.project ?? null,
+        p_project_slug:args.project ?? null, p_kind:args.kind ?? 'fact',
+        // Which run wrote this, and which conversation it came out of. Set
+        // inside the same transaction as the write, so the event the trigger
+        // raises carries them.
+        p_trace:args.trace ?? null, p_document:args.document ?? null,
       }));
       // embedRow swallows its own failures, so a slow or rate-limited embedder
       // still leaves the memory written and the turn counted.
@@ -240,9 +292,9 @@ export function memoryService(db, embedder = null, router = null) {
     // behaviour changes depending on whether a settings row exists.
     async settings() {
       const rows=await result(db.from('memory_settings')
-        .select('per_prompt_matches,gate,scope_boost,session_budget_tokens,capture,capture_window').limit(1));
+        .select('per_prompt_matches,gate,scope_boost,session_budget_tokens,capture,capture_window,capture_mode').limit(1));
       return rows?.[0]??{per_prompt_matches:5,gate:0.67,scope_boost:1.1,
-        session_budget_tokens:15000,capture:true,capture_window:5};
+        session_budget_tokens:15000,capture:true,capture_window:5,capture_mode:'turn'};
     },
     // The log is what turns "why did it not know that" into a query, and it is
     // the trigger for every deferred decision in the design. A failure to log

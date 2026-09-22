@@ -17,6 +17,7 @@ Almost everything is `security invoker`, so RLS stays authoritative. The service
 | `20260922090000` | `documents`: the durable record of a conversation, and its retention |
 | `20260922100000` | `one_scope_per_memory`: the task link is removed, everywhere |
 | `20260922110000` | `memory_lifecycle`: kind, ending, expiry, repetition, and `memory_events` |
+| `20260922120000` | `consolidation_runs`: `capture_mode`, `memories_in_scope`, the run log |
 
 ## `memories`
 
@@ -101,7 +102,10 @@ scope_boost            1.1    1..2
 session_budget_tokens  15000
 capture                true
 capture_window         5      1..20
+capture_mode           'turn' 'turn' | 'session'
 ```
+
+`capture_mode` picks which writer runs. `turn` is one model call at the end of every Stop, blind to what is stored, output always an insert. `session` records the conversation and leaves it to the background pass, which reads the whole thing against what already exists. They are not meant to run together: two writers over the same turns save the same claim in two wordings, which production has already done once. It defaults to `turn` because what schedules the pass is still open, and switching before something calls the endpoint would mean no capture at all.
 
 An agent connection may **read** settings and not change them. Every column the lifecycle path reads must be in `memoryService.settings()`'s select and in its no-row fallback, with matching values.
 
@@ -134,6 +138,14 @@ No table grants at all, exactly like `session_messages`. An agent connection is 
 `record_turn`, `record_document_turn`, `expire_documents`, `session_document`, `document_content`, `pending_documents`, `mark_document_consolidated`.
 
 `consolidated_through` is the document's equivalent of `classified_at`: the last turn a consolidation pass has read. A session that carries on afterwards is pending again and only the new turns are new. It only ever moves forward.
+
+## `memories_in_scope`
+
+The project's live memories and the personal ones together, newest first inside each scope, with the project slug joined on. This is what the consolidation pass is shown, because a conversation inside a project still produces preferences that belong everywhere and "is this already remembered" cannot be judged against half the set. `p_limit` is a bound that stops one enormous scope producing a prompt nobody can pay for; it is not R3's block cap, which is still an open decision. The ordering is deterministic because the model is handed integer labels over it.
+
+## `consolidation_runs`
+
+One row per background pass, including the ones that changed nothing and the ones that failed. `memory_events` already carries the trace id on every write, so this is the half with nowhere else to live: the quiet runs. Prompt up to 200,000 characters because it holds a whole conversation, plus the raw reply, the counts by action, the tokens, the duration and the trace id.
 
 ## `capture_memory`
 

@@ -31,7 +31,7 @@ const PROVIDER = 'github';
 //
 // So capture is traced, because that is where the model call, the cost and the
 // mistakes are, and session start is not.
-const untraced = (_name, _options, run) => run(() => {}, () => {});
+const untraced = (_name, _options, run) => run(() => {}, () => {}, null);
 
 /** The scope this conversation is in.
  *
@@ -257,7 +257,16 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // Without a router there is nothing to classify. The document is still
         // written above, because raw material is worth keeping whether or not
         // anything reads it today.
-        if (!service.captureTurn) return {captured: 0, notice: ''};
+        //
+        // `session` mode is the same answer for a different reason: the
+        // conversation is read later, whole, against what is already
+        // remembered, and classifying it a turn at a time as well would mean
+        // two writers saving the same claim in two wordings. Which one runs is
+        // a setting rather than a deploy, because what schedules the pass is
+        // still an open decision and switching before something calls it would
+        // mean no capture at all.
+        if (!service.captureTurn || settings.capture_mode === 'session')
+          return {captured: 0, notice: ''};
         const window = await service.sessionWindow(sessionKey, settings.capture_window * 2);
         const ordered = [...window].reverse();
         const start = ordered.findIndex(m => m.classified_at == null && m.role === 'user');
