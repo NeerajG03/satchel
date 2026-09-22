@@ -127,7 +127,13 @@ Typos, Hinglish and identifier lookups are handled far better than expected from
 
 One small model call at the end of a turn. It is not an agent: no tools, no memory of its own, and no access to what is already stored. It sees a rolling window and returns a list, and an empty list is the answer on most turns.
 
-`gemini-3.5-flash-lite`, pinned and not `-latest`, because the instructions were tuned against this version and a floating alias would move the thing the measurement describes.
+**The model moved to `gemini-3.8-flash` with `thinkingLevel: 'medium'`, and the numbers below are the old model's.** They are left here as the thing to beat, not as a description of what ships. Nothing has re-measured the new one.
+
+The reason for the move is the pattern, not the model: one costly call instead of n cheap ones. Capture used to run at the end of every turn, so the model had to be the cheapest thing that worked and a session cost a dozen calls. A session is now one call, so the budget per call went up by roughly the length of the session. Both the router and the consolidation pass moved together, through `SATCHEL_ROUTER_MODEL` and `SATCHEL_THINKING_LEVEL`.
+
+Medium rather than high or off, because the failure these calls exist to prevent is a reasoning failure. A work order stored as a durable claim is not a gap in what the model knows, and neither is retiring a standing fact that a completion did not finish.
+
+Pinned and not `-latest`, because a floating alias would move the thing a measurement describes, silently, between two runs of it. `gemini-3.5-flash-lite` was the previous pin.
 
 Measured over 24 real turns replayed from the corpus plus 16 that contain nothing durable:
 

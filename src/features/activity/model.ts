@@ -59,7 +59,7 @@ export type ConsolidationOutcome = {
   added: number; extended: number; replaced: number; retired: number;
   affirmed: number; dropped: number;
 };
-export type ConsolidationResult = { documents: number; runs: ConsolidationOutcome[] };
+export type ConsolidationResult = { documents: number; remaining?: number; runs: ConsolidationOutcome[] };
 
 /** One line for what a run came to. Nothing is the usual answer and it must
  *  not read like a failure: most conversations change nothing, and a pass that
@@ -75,8 +75,12 @@ export function summarizeRun(result: ConsolidationResult): string {
     .filter(action => totals[action] > 0)
     .map(action => `${totals[action]} ${action}`);
   const read = count(result.documents, 'conversation');
-  if (!changes.length) return `Read ${read} and changed nothing, which is the usual answer.`;
-  return `Read ${read} · ${changes.join(', ')}`;
+  // A batch stops on the clock rather than running past what the request has,
+  // so "there is more" is an ordinary answer and the person needs to be told
+  // rather than left thinking it finished.
+  const left = result.remaining ? ` · ${result.remaining} still waiting, press again` : '';
+  if (!changes.length) return `Read ${read} and changed nothing, which is the usual answer.${left}`;
+  return `Read ${read} · ${changes.join(', ')}${left}`;
 }
 export type MemoryEvent = {
   id: string; memory_id: string; action: string; before: string | null; after: string | null;

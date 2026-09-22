@@ -133,7 +133,7 @@ SPAN        satchel.UserPromptSubmit
 RETRIEVER     retrieve-memory
 EMBEDDING       embed                model=gemini-embedding-001
 SPAN        satchel.Stop
-GENERATION    router                 model=gemini-3.5-flash-lite  usage={input,output,total}
+GENERATION    router                 model=gemini-3.8-flash  usage={input,output,total}
 ```
 
 The router's full prompt is the input on purpose. A capture is only explicable if you can see what the router was looking at, including which projects and open tasks it had to choose from. Kept **and** dropped items are both recorded, because a router being silently filtered looks identical to one being conservative.

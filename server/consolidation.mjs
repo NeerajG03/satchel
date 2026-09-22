@@ -68,7 +68,7 @@ async function apply(service, change, {projects, trace, document}) {
  *  Returns what it did rather than throwing, because the caller is a loop over
  *  documents and one failure must not end the others. */
 export async function consolidateDocument(service, consolidator, document,
-  {projects = [], cap = 30, churn = 25, traced = untraced, ownerId} = {}) {
+  {projects = [], cap = 30, churn = 25, deadline = null, traced = untraced, ownerId} = {}) {
   return traced('satchel.consolidate',
     {sessionId: document.session_key, userId: ownerId,
      metadata: {event: 'consolidate', document: document.id,
@@ -95,7 +95,7 @@ export async function consolidateDocument(service, consolidator, document,
           project: project ? {slug: project.slug, brief: project.brief} : null,
           projects: projects.filter(p => p.id !== document.project_id).map(p => ({slug: p.slug, brief: p.brief})),
           memories, turns, cap, churn,
-        });
+        }, {deadline});
       } catch (error) {
         // The document is left pending. A run that never reached the model has
         // decided nothing, and the next pass should ask again.
@@ -134,19 +134,35 @@ export async function consolidateDocument(service, consolidator, document,
     });
 }
 
-/** Every session that has gone quiet and has something nobody has read. */
+/** Every session that has gone quiet and has something nobody has read, for
+ *  as long as the caller has.
+ *
+ *  `budgetMs` is the wall, and it is the serverless function's rather than the
+ *  model's. One document is now a thinking model reading a whole session, so a
+ *  backlog no longer reliably fits in one request. Running out of time is
+ *  fine and expected: what is read is marked, what is not stays pending, and
+ *  the answer says how much is left so the caller can say so out loud instead
+ *  of looking finished. Being killed partway is the thing to avoid, because a
+ *  document can then be half applied and unmarked. */
 export async function consolidatePending(service, consolidator,
-  {idleMinutes = 30, limit = 10, traced = untraced, ownerId} = {}) {
+  {idleMinutes = 30, limit = 10, budgetMs = 45000, traced = untraced, ownerId} = {}) {
+  const deadline = Date.now() + budgetMs;
   const documents = await service.pendingDocuments(idleMinutes, limit);
-  if (!documents.length) return {documents: 0, runs: []};
+  if (!documents.length) return {documents: 0, remaining: 0, runs: []};
   // Read once for the whole batch rather than per document. Scope resolution
   // is by id here, not by repository: the workspace is long gone. The cap
   // comes from settings so the pass judges against the same number the
   // session start injects under.
   const [projects, settings] = await Promise.all([service.projects(), service.settings()]);
   const runs = [];
-  for (const document of documents)
+  for (const document of documents) {
+    // Not "is there time for this one", which needs a guess at how long it
+    // takes. The call itself is bounded by whatever is left, so the worst
+    // case is a document that gives up rather than one that is cut in half.
+    if (Date.now() >= deadline) break;
     runs.push(await consolidateDocument(service, consolidator, document,
-      {projects, cap: settings.block_size, churn: settings.staleness_commits, traced, ownerId}));
-  return {documents: documents.length, runs};
+      {projects, cap: settings.block_size, churn: settings.staleness_commits,
+       deadline, traced, ownerId}));
+  }
+  return {documents: runs.length, remaining: documents.length - runs.length, runs};
 }

@@ -164,20 +164,37 @@ const normalizeStatement = text =>
   String(text ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 export function createRouter({
-  // Measured, not guessed. Over 24 real turns replayed from the corpus and 16
-  // that contain nothing durable, gemini-3.5-flash-lite extracted 22 of 24 and
-  // stayed quiet on all 16, at about 1.6 seconds. See eval/router.mjs.
+  // One capable call rather than a dozen cheap ones. Capture used to run at
+  // the end of every turn, so the model had to be the cheapest thing that
+  // worked, and gemini-3.5-flash-lite was measured at 22 of 24 extracted and
+  // quiet on all 16 negatives, at about 1.6 seconds. See eval/router.mjs.
   //
-  // Pinned rather than -latest on purpose: the instructions above were tuned
-  // against this version, and a floating alias would move the thing the
-  // measurement describes.
-  model = process.env.SATCHEL_ROUTER_MODEL ?? 'gemini-3.5-flash-lite',
+  // That measurement described a design where n calls happened per session.
+  // A session is now one call, so the budget per call went up by roughly the
+  // length of the session and the model moves with it.
+  //
+  // The eval has not been re-run against this model. The numbers above are
+  // the old model's and they are left in place as the thing to beat rather
+  // than as a description of what ships.
+  //
+  // Pinned rather than -latest on purpose: a floating alias would move the
+  // thing a measurement describes, silently, between two runs of it.
+  model = process.env.SATCHEL_ROUTER_MODEL ?? 'gemini-3.8-flash',
+  // Medium. This is a judgement over a list with a rule about what not to
+  // keep, which is exactly the shape thinking helps with, and the failure it
+  // is meant to prevent, a work order stored as a durable claim, is a
+  // reasoning failure rather than a knowledge one.
+  thinking = process.env.SATCHEL_THINKING_LEVEL ?? 'medium',
   // Google natively, so the provider enforces the schema instead of being
   // asked to follow one. Any OpenAI-shaped host is `openai` plus a url.
   provider = process.env.SATCHEL_ROUTER_PROVIDER ?? 'google',
   baseURL = asBaseUrl(process.env.SATCHEL_ROUTER_URL),
   apiKey = process.env.SATCHEL_ROUTER_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY,
-  timeoutMs = Number(process.env.SATCHEL_ROUTER_TIMEOUT_MS ?? 8000),
+  // Longer than the 8 seconds a non-thinking model needed. A budget tuned for
+  // a model that answers immediately turns a slower, better one into a
+  // timeout, which reads as "capture is broken" rather than "capture is
+  // thinking".
+  timeoutMs = Number(process.env.SATCHEL_ROUTER_TIMEOUT_MS ?? 20000),
   // Where the instructions come from. Injected so the eval can hold one
   // wording against another through this exact code path, rather than
   // measuring a copy of the prompt that has drifted from the one shipped.
@@ -224,6 +241,7 @@ export function createRouter({
       // makes the whole exercise unmeasurable after the fact.
       annotate({metadata: {
         codebase: input.codebase ?? 'none',
+        thinking: thinking || 'off',
         promptName: CAPTURE_PROMPT,
         promptSource: instructions.source,
         promptVersion: instructions.version ?? 'file',
@@ -244,6 +262,10 @@ export function createRouter({
           prompt,
           temperature: 0,
           abortSignal: signal,
+          // Ignored by every host that is not Google, which is the point of
+          // putting it under a provider key: an OpenAI-shaped endpoint stays
+          // a change of two environment variables rather than of code.
+          ...(thinking ? {providerOptions: {google: {thinkingConfig: {thinkingLevel: thinking}}}} : {}),
           // One attempt. Capture missing a turn is the behaviour Satchel had
           // before capture existed; the SDK's default of two retries with
           // backoff would hold the turn open to learn what the 429 body

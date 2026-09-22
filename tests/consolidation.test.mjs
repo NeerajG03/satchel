@@ -39,8 +39,8 @@ function fake({changes = [], dropped = [], fail = null, writes = {}} = {}) {
   };
   const consolidator = {
     model: 'test-model',
-    consolidate: async input => {
-      calls.push({call: 'consolidate', input});
+    consolidate: async (input, options = {}) => {
+      calls.push({call: 'consolidate', input, options});
       if (fail) throw fail;
       return {changes, dropped, prompt: 'the prompt', raw: '{}', usage: {inputTokens: 900, outputTokens: 20}};
     },
@@ -168,7 +168,7 @@ test('nothing pending costs nothing at all', async () => {
   const {service, consolidator} = fake();
   service.pendingDocuments = async () => [];
   const result = await consolidatePending(service, consolidator);
-  assert.deepEqual(result, {documents: 0, runs: []});
+  assert.deepEqual(result, {documents: 0, remaining: 0, runs: []});
 });
 
 test('the block cap the session injects under is the one the pass judges against', async () => {
@@ -186,4 +186,38 @@ test('the projects are read once for the batch, not once per document', async ()
   const result = await consolidatePending(service, consolidator, {limit: 5});
   assert.equal(result.documents, 2);
   assert.equal(reads, 1);
+});
+
+test('a batch stops on the clock rather than being killed partway', async () => {
+  // One document is now a thinking model reading a whole session, so a
+  // backlog no longer reliably fits in one serverless request. Running out of
+  // time has to be an answer, not a 504: what was read is marked, what was
+  // not stays pending, and the caller is told how much is left.
+  const {service, consolidator, of} = fake();
+  service.pendingDocuments = async () => [document, {...document, id: 'd2', session_key: 's2'},
+    {...document, id: 'd3', session_key: 's3'}];
+  let slept = 0;
+  consolidator.consolidate = async () => {
+    slept += 40;
+    await new Promise(done => setTimeout(done, 40));
+    return {changes: [], dropped: [], prompt: 'p', raw: '{}', usage: null};
+  };
+  const result = await consolidatePending(service, consolidator, {budgetMs: 60});
+  assert.ok(result.documents >= 1 && result.documents < 3,
+    `read what it had time for, not all three (read ${result.documents})`);
+  assert.equal(result.remaining, 3 - result.documents, 'and says how much is left');
+  assert.equal(of('marked').length, result.documents, 'only what was read is marked');
+  void slept;
+});
+
+test('the call is bounded by the caller’s deadline, not only its own timeout', async () => {
+  // The model timeout is 40 seconds and the function has 60 for everything.
+  // Without this the last document of a batch starts at second 55 and the
+  // request is killed mid-write, which is the one failure that can leave a
+  // document half applied and unmarked.
+  const {service, consolidator, of} = fake();
+  const deadline = Date.now() + 5000;
+  await consolidateDocument(service, consolidator, document, {projects, deadline});
+  assert.equal(of('consolidate')[0].options.deadline, deadline,
+    'the model call has to know the wall, or it happily runs past it');
 });

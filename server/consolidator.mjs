@@ -209,32 +209,52 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
 }
 
 export function createConsolidator({
-  // The same small model the router runs on, for the same reason: this is a
-  // comparative judgement over a list, not a hard one, and the measurement
-  // that picked it is in eval/router.mjs.
-  model = process.env.SATCHEL_ROUTER_MODEL ?? 'gemini-3.5-flash-lite',
+  // One capable call rather than a dozen cheap ones, and this is the call
+  // that pattern was for. The turn router made one cheap call per turn and
+  // could only ever ask "is this durable"; this makes one call per session
+  // and asks what the memory set should be, against everything already in
+  // it. A session's worth of budget in a single call buys a better model.
+  //
+  // Not measured yet. eval/router.mjs covers the router prompt and there is
+  // no eval for this one, which is the honest gap in the whole rebuild.
+  model = process.env.SATCHEL_ROUTER_MODEL ?? 'gemini-3.8-flash',
+  // Medium. Deciding between add, extend, replace, retire and nothing, over
+  // a numbered list, with rules about which kinds may be retired, is a
+  // reasoning problem. It is also the call whose mistakes are destructive,
+  // which is the other reason to pay for thought here.
+  thinking = process.env.SATCHEL_THINKING_LEVEL ?? 'medium',
   provider = process.env.SATCHEL_ROUTER_PROVIDER ?? 'google',
   baseURL = asBaseUrl(process.env.SATCHEL_ROUTER_URL),
   apiKey = process.env.SATCHEL_ROUTER_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY,
-  // Longer than the router's 8 seconds. This reads a whole session rather than
-  // a five row window, and nothing is waiting on it: it runs in the
-  // background, after the conversation has ended.
-  timeoutMs = Number(process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS ?? 30000),
+  // A whole session read by a thinking model, and nothing waiting on it: this
+  // runs after the conversation has ended. The ceiling that matters is not
+  // this one but the function's, which is why consolidatePending keeps its
+  // own clock and stops starting documents it cannot finish.
+  timeoutMs = Number(process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS ?? 40000),
   promptResolver = consolidatePrompt,
   annotate = () => {},
   fetchImpl = fetch,
 } = {}) {
   return {
     model,
-    async consolidate(input) {
+    timeoutMs,
+    /** `deadline` is the wall the caller has to finish behind, which is the
+     *  serverless function's own limit rather than anything about the model.
+     *  Bounding the call by whichever comes first is what keeps a batch from
+     *  being killed mid-write: a run that gives up has decided nothing and
+     *  leaves the document pending, and a run that is killed may have written
+     *  half of what it decided. */
+    async consolidate(input, {deadline = null} = {}) {
       if (!apiKey) throw new Error('No router key configured');
       const instructions = await promptResolver();
       const {system, prompt} = buildConsolidationPrompt({...input, instructions: instructions.text});
-      const signal = AbortSignal.timeout(timeoutMs);
+      const left = deadline ? Math.max(1000, deadline - Date.now()) : timeoutMs;
+      const signal = AbortSignal.timeout(Math.min(timeoutMs, left));
       // R11. A run nobody watches is only auditable if the trace says what it
       // was looking at before it says what it did.
       annotate({metadata: {
         promptName: CONSOLIDATE_PROMPT,
+        thinking: thinking || 'off',
         promptSource: instructions.source,
         promptVersion: instructions.version ?? 'file',
         scope: input.project?.slug ?? 'personal',
@@ -248,6 +268,9 @@ export function createConsolidator({
           model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(model),
           schema: CONSOLIDATION_SCHEMA,
           system, prompt, temperature: 0, abortSignal: signal,
+          // Under a provider key, so an OpenAI-shaped host ignores it rather
+          // than rejecting the request.
+          ...(thinking ? {providerOptions: {google: {thinkingConfig: {thinkingLevel: thinking}}}} : {}),
           // One attempt. A document that was not consolidated this run stays
           // pending and is picked up by the next one, which is a better answer
           // than holding a background job open on a spent quota.
