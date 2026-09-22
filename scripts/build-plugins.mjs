@@ -15,7 +15,7 @@ const description='Personal and project memory, tasks and projects across your a
 //
 // 0.3.2 puts per-prompt retrieval back and stops reading the transcript. Both
 // came from one wrong belief: that a command hook is not handed the prompt.
-const versions={claude:'0.4.1',codex:'0.4.1'};
+const versions={claude:'0.4.2',codex:'0.4.2'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
@@ -25,7 +25,7 @@ for(const host of ['codex','claude']) {
   // than bundled because the plugin is read by people deciding whether to trust
   // it, and one readable file per job is the point.
   for(const script of ['session-start.mjs','retrieve.mjs','capture.mjs','connect.mjs',
-    'consolidate.mjs','auth.mjs','workspace.mjs','background.mjs'])
+    'auth.mjs','workspace.mjs','background.mjs'])
     await cp(join(root,'integrations/shared',script),join(target,'scripts',script));
   const common={name,version:versions[host],description,author:{name:'Satchel'},repository:'https://github.com/NeerajG03/satchel'};
   const manifest=host==='codex'?{...common,skills:'./skills/',mcpServers:'./.mcp.json',interface:{

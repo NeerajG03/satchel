@@ -49,11 +49,11 @@ The image builds the app and runs the same server. Local Supabase stays the CLI'
 Satchel's auth and isolation are Supabase specific on purpose. GoTrue issues the JWT, a custom access token hook puts the grant claims in it, and RLS reads them. Replacing that is not in scope. Running it locally is, and the container exists so deploying somewhere other than Vercel stays possible rather than becoming a rewrite.
 
 
-## The background pass, and the developer-only schedule
+## The background pass, and its developer-only schedule
 
-The pass normally runs from the Stop hook, which spawns it detached using the credential the plugin already holds. Nobody sets that up and there is nothing to enable. What follows is the extra path, and it is for developers.
+Nothing runs the pass on its own. No hook spawns it, because a hook that quietly spends money on a model call is the wrong default. It runs when the six-hourly job fires or when someone presses a button.
 
-The six-hourly `pg_cron` job is the only way to process conversations while you never open a session. It is not surfaced in the product, because it costs a second sign-in and a second long-lived token, and asking a new user for that to gain something they will not notice is a bad trade. What it needs is not a schedule, it is a credential. `/api/consolidate` runs under RLS as a real person, which is what keeps one account's memory out of another's, and a job inside the database is nobody. Handing a background writer a blanket key would be the service role key wearing a different hat.
+The job is not surfaced in the product, because it costs a second sign-in and a second long-lived token. What it needs is not a schedule, it is a credential. `/api/consolidate` runs under RLS as a real person, which is what keeps one account's memory out of another's, and a job inside the database is nobody. Handing a background writer a blanket key would be the service role key wearing a different hat.
 
 So you grant the job its own connection, once:
 

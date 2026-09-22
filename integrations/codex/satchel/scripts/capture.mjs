@@ -15,29 +15,6 @@
 // is what Satchel always claimed and is true again.
 import {call} from './auth.mjs';
 import {repositoryFrom, commitsFrom, readHookInput, sessionIdOf, cwdOf, emit} from './workspace.mjs';
-import {consolidateState} from './consolidate.mjs';
-import {recordAttempt} from './background.mjs';
-import {spawn} from 'node:child_process';
-import {fileURLToPath} from 'node:url';
-import {dirname, join} from 'node:path';
-
-/** The background pass, detached, so the turn ends now.
- *
- *  Same shape as session start spawning connect.mjs: a hook cannot hold a
- *  session open for a model call over a whole conversation, and this one has
- *  nobody waiting on it at all. Roughly twice an hour per machine rather than
- *  once a turn, which is the cost the whole design exists to avoid. */
-function drainBacklog() {
-  if (consolidateState() !== 'due') return;
-  try {
-    const script = join(dirname(fileURLToPath(import.meta.url)), 'consolidate.mjs');
-    const child = spawn(process.execPath, [script], {stdio: 'ignore', detached: true});
-    child.unref();
-    // Recorded here rather than in the child, so the next Stop a second later
-    // sees an attempt even if the child has not started yet.
-    recordAttempt('consolidate', child.pid);
-  } catch { /* A turn is not worth failing over a background pass. */ }
-}
 
 const event = await readHookInput();
 const sessionKey = sessionIdOf(event);
@@ -73,8 +50,6 @@ try {
     process.exit(0);
   }
   emit({notice: response.data.notice ?? ''});
-  // After the reply, so nothing about the turn waits on it.
-  drainBacklog();
 } catch (error) {
   // A turn that could not be sent is not lost: the user's message is already
   // in the window from retrieve.mjs and classified_at has not moved, so the

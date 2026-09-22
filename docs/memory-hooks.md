@@ -14,13 +14,11 @@ This file was last accurate before automatic capture existed. Anything you remem
 
 There is a fourth endpoint, `POST /api/consolidate`. It reads the sessions that have gone quiet and runs the background pass over each: a model call over a whole conversation, against the memories that already exist.
 
-**Stop spawns it, detached.** The same shape session start uses for `connect.mjs`. A hook cannot hold a session open for a call that takes seconds and has nobody waiting on it, so `capture.mjs` fires `consolidate.mjs` with `detached: true` and returns immediately. The child uses the credential the plugin already holds, so a person installing Satchel does nothing at all to turn this on.
+**No hook calls it.** There was a version where Stop spawned it detached, guarded to about twice an hour, and it was reverted: a hook that quietly spends money on a model call is the wrong default even when it is cheap and even when it is rate limited. Consolidation runs when something asks for it, and the two things that ask are the six-hourly job and a person pressing a button.
 
-`consolidateState()` is the whole of what stops it being a model call per turn: roughly twice an hour per machine, never while another run is in flight, and never at all on a machine with no credential. The attempt file carries the pid and the last result, because nothing is watching a detached process and otherwise a run that died would be indistinguishable from one still going.
+Only sessions idle for 30 minutes are touched, whoever triggers it. The one being typed in is not finished, and consolidating half a conversation reads a decision the person is still in the middle of changing their mind about.
 
-Only sessions idle for 30 minutes are touched. The one being typed in is not finished, and consolidating half a conversation reads a decision the person is still in the middle of changing their mind about.
-
-**There is also a six-hourly `pg_cron` job, and it is a developer path.** It is the only way to process conversations while you never open a session, and it costs a second sign-in and a second long-lived token in the Vault, so it is deliberately not surfaced in the product. `npm run consolidation:enable` is how a developer turns it on. With nobody enrolled the job loops over zero rows and does nothing, which is its resting state.
+**The six-hourly `pg_cron` job is a developer path.** It costs a second sign-in and a second long-lived token in the Vault, so it is deliberately not surfaced in the product. `npm run consolidation:enable` turns it on. With nobody enrolled the job loops over zero rows and does nothing, which is its resting state.
 
 There is no `PreToolUse` or `PostToolUse` hook, and no `PostCompact` hook: Codex cannot emit `additionalContext` from `PostCompact`, so compaction is handled through `SessionStart`'s compact source on both hosts.
 

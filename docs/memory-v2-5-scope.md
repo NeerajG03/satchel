@@ -8,7 +8,7 @@ that is not mine, listed at the end.
 | --- | --- |
 | built | R1 through R11, apart from R6's decay curve |
 | not built | R6's decay curve, which needs a number nobody has measured yet |
-| how it runs | the Stop hook spawns the pass detached, with the credential the plugin already holds. No setup, no second sign-in. The `pg_cron` job stays as a developer path for processing while you are away |
+| how it runs | nothing runs it automatically for a product user yet. The `pg_cron` job is a developer path, and a manual trigger from the activity page is the other |
 | not switched on | `memory_settings.capture_mode` is still `turn`, so the old turn-by-turn router is still the writer |
 
 The last row is the one to read twice. Everything works and nothing has
@@ -505,14 +505,13 @@ built.
    Supabase `pg_cron` with `pg_net`, where the credential turned out to be the
    hard half rather than the schedule: `/api/consolidate` runs under RLS as a
    real person and a job inside the database is nobody, so the owner has to
-   grant it its own OAuth client. Then, once it was clear that meant every new
-   user signing in twice, the default moved to the Stop hook spawning the pass
-   detached with the credential the plugin already holds. That removes the
-   second sign-in rather than automating it, and it takes the whole stored
-   credential path off the critical path, which matters because it is the one
-   piece of this that has never been run. The cron stays for developers,
-   because processing conversations while you are away is the one thing the
-   hook cannot do, and it is not worth a second sign-in for a product user.
+   grant it its own OAuth client. Then the Stop hook was made to spawn the
+   pass detached, using the credential the plugin already holds, which removed
+   the second sign-in rather than automating it. That was reverted: a hook that
+   quietly spends money on a model call is the wrong default, however cheap and
+   however rate limited. So the pass runs when something asks, and the two
+   things that ask are the developer-only cron and a button. What runs it for a
+   product user is still open.
 
    The idle threshold is 30 minutes, which is a placeholder rather than a
    measurement, and `capture_mode` stays `turn` until the pass has written
