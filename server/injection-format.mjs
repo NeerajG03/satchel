@@ -103,10 +103,14 @@ export function sessionStartBlock({projects = [], personal = [], linked = []} = 
  *  something actually happened. Retrieval finding nothing is the common case
  *  and stays silent, because a line on every prompt is noise people learn to
  *  ignore, and Codex renders this as a warning. */
-export function noticeFor(event, {error, withheld, projects = 0, personal = 0,
+export function noticeFor(event, {error, withheld, unrecorded, projects = 0, personal = 0,
   shown = 0, matched = 0, captured = 0} = {}) {
   if (error) return `Satchel memory unavailable · ${error}`;
   if (withheld) return `Satchel memory not loaded · ${withheld}`;
+  // Not the same as memory being unavailable: the prompt was still answered
+  // and anything relevant still loaded. What was lost is the record of what
+  // was said, which nothing later can reconstruct.
+  if (unrecorded) return `Satchel did not record this turn · ${unrecorded}`;
   if (event === 'SessionStart') {
     return projects || personal
       ? `Satchel loaded · ${plural(projects, 'project')}, ${plural(personal, 'personal memory', 'personal memories')}`

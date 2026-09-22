@@ -61,7 +61,7 @@ The repository is read from `git config --get remote.origin.url` and normalized.
 
 Worth stating plainly, because for one afternoon it was not true.
 
-Both halves of a turn arrive in the hook input. The host passes `prompt` to `UserPromptSubmit` and `last_assistant_message` to `Stop`, on command hooks exactly as it did on `mcp_tool` ones. `retrieve.mjs` records the user's message when the prompt comes in, `capture.mjs` sends the reply at the end, and the rolling window in `session_messages` has the whole turn without any file being opened.
+Both halves of a turn arrive in the hook input. The host passes `prompt` to `UserPromptSubmit` and `last_assistant_message` to `Stop`, on command hooks exactly as it did on `mcp_tool` ones. `retrieve.mjs` records the user's message when the prompt comes in, `capture.mjs` sends the reply at the end, and both the rolling window in `session_messages` and the document in `documents` have the whole turn without any file being opened.
 
 Version 0.3.0 shipped a `capture.mjs` that read `transcript_path`, on the belief that a command hook is not given the prompt and so could not record the user's side. That came from a docs summary which hedged and was wrong. The binary settles it:
 

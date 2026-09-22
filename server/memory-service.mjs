@@ -158,12 +158,23 @@ export function memoryService(db, embedder = null, router = null) {
       }));
     },
     personal: () => result(db.rpc('personal_memories')),
-    // The rolling window lives here, not on the user's machine. The per-prompt
+    // The conversation lives here, not on the user's machine. The per-prompt
     // hook already sends the prompt as a tool argument, so nothing extra is
     // read from disk and no transcript is parsed on either host.
-    recordSessionMessage: (sessionKey, role, content, keep = 12) =>
-      result(db.rpc('record_session_message',
-        {p_session_key:sessionKey, p_role:role, p_content:content, p_keep:keep})),
+    //
+    // One call, two writes, two lifetimes: the 24 hour rolling window the Stop
+    // router reads in a few seconds, and the document a consolidation pass
+    // reads hours later. They are separate tables on purpose and a single
+    // round trip on purpose: the per-prompt hook waits for this one now, and
+    // it must not delay the prompt.
+    //
+    // An empty `content` is not a no-op. It still notes the scope, which is
+    // the only thing the end of a turn has to offer on a host that hands us no
+    // assistant message.
+    recordTurn: (sessionKey, role, content, keep = 12, projectId = null) =>
+      result(db.rpc('record_turn',
+        {p_session_key:sessionKey, p_role:role, p_content:content,
+         p_keep:keep, p_project_id:projectId})),
     sessionWindow: (sessionKey, limit = 12) =>
       result(db.rpc('session_window', {p_session_key:sessionKey, p_limit:limit})),
     // Called only after the router has answered. A run that failed on a rate

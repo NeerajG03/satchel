@@ -149,37 +149,58 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
       let context = '';
       let notice = '';
       let logged = null;
+      let unrecorded = '';
       try {
         const status = await service.status();
         if (!status) throw {code: '42501'};
         const settings = await service.settings();
+        // Awaited now, where it used to be fired and forgotten.
+        //
+        // A serverless function can freeze the moment it responds, so `void`
+        // here meant the write could be killed mid flight. Against a 24 hour
+        // rolling window that was a fair trade for the five second budget on a
+        // hook that must not delay the prompt. Against a durable document it
+        // is not, and it fails in the worst direction: the user's half is the
+        // only half that may supply a memory's source, so losing it does not
+        // degrade a document, it voids it.
+        //
+        // Its failure is held separately from retrieval's. Recording the turn
+        // and answering the prompt are two jobs and neither should take the
+        // other down.
         if (settings.capture)
-          void service.recordSessionMessage(sessionKey, 'user', prompt, settings.capture_window * 2);
-        if (!settings.per_prompt_matches) return {context: '', notice: ''};
-        const scope = project !== undefined ? {project} : await resolveScope(service, {sessionKey, repository});
-        const lookup = retrieval?.('retrieve-memory', {input: prompt,
-          metadata: {gate: settings.gate, limit: settings.per_prompt_matches,
-            inScope: scope.project ?? 'personal', excluded: exclude.length}});
-        let rows;
-        try {
-          rows = await service.search({query: prompt, in_scope: scope.project ?? null,
-            limit: settings.per_prompt_matches, gate: settings.gate,
-            boost: settings.scope_boost, exclude});
-        } catch (error) { lookup?.fail(error); throw error; }
-        lookup?.end(rows.map(r => ({id: r.id, statement: r.statement, score: r.score})),
-          {metadata: {shown: rows.length, matched: rows[0]?.matched ?? 0, inScope: rows[0]?.in_scope ?? 0}});
-        // Nothing relevant is a real answer, and the common one. It costs
-        // nothing and says nothing.
-        if (!rows.length) return {context: '', notice: ''};
-        notice = noticeFor('UserPromptSubmit', {shown: rows.length, matched: rows[0].matched});
-        const tasks = await service.tasksByIds?.(rows.map(r => r.task_id).filter(Boolean)) ?? new Map();
-        context = promptBlock({rows, matched: rows[0].matched, inScope: rows[0].in_scope, tasks});
-        logged = {query: prompt, memory_ids: rows.map(r => r.id),
-          matched: rows[0].matched, in_scope: rows[0].in_scope, tokens: estimateTokens(context)};
+          try { await service.recordTurn(sessionKey, 'user', prompt, settings.capture_window * 2); }
+          catch (error) { unrecorded = errorText(error); }
+        if (settings.per_prompt_matches) {
+          const scope = project !== undefined ? {project} : await resolveScope(service, {sessionKey, repository});
+          const lookup = retrieval?.('retrieve-memory', {input: prompt,
+            metadata: {gate: settings.gate, limit: settings.per_prompt_matches,
+              inScope: scope.project ?? 'personal', excluded: exclude.length}});
+          let rows;
+          try {
+            rows = await service.search({query: prompt, in_scope: scope.project ?? null,
+              limit: settings.per_prompt_matches, gate: settings.gate,
+              boost: settings.scope_boost, exclude});
+          } catch (error) { lookup?.fail(error); throw error; }
+          lookup?.end(rows.map(r => ({id: r.id, statement: r.statement, score: r.score})),
+            {metadata: {shown: rows.length, matched: rows[0]?.matched ?? 0, inScope: rows[0]?.in_scope ?? 0}});
+          // Nothing relevant is a real answer, and the common one. It costs
+          // nothing and says nothing.
+          if (rows.length) {
+            notice = noticeFor('UserPromptSubmit', {shown: rows.length, matched: rows[0].matched});
+            const tasks = await service.tasksByIds?.(rows.map(r => r.task_id).filter(Boolean)) ?? new Map();
+            context = promptBlock({rows, matched: rows[0].matched, inScope: rows[0].in_scope, tasks});
+            logged = {query: prompt, memory_ids: rows.map(r => r.id),
+              matched: rows[0].matched, in_scope: rows[0].in_scope, tokens: estimateTokens(context)};
+          }
+        }
       } catch (error) {
         context = '';
         notice = noticeFor('UserPromptSubmit', {error: errorText(error)});
       }
+      // Said last because it outranks the rest. "recalled 2 of 9" is
+      // information; a turn that was not kept is something the person can act
+      // on, and the next capture will be missing it.
+      if (unrecorded) notice = noticeFor('UserPromptSubmit', {unrecorded});
       if (logged) void service.logInjection({id: crypto.randomUUID(), session_key: sessionKey,
         event: 'UserPromptSubmit', ...logged});
       setOutput(context);
@@ -213,10 +234,25 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // kept at all, so a turn must not reach session_messages either; the
         // mcp_tool version recorded the reply before looking and that was
         // wrong, quietly, for every user who had capture switched off.
-        if (!settings.capture || !service.captureTurn) return {captured: 0, notice: ''};
+        if (!settings.capture) return {captured: 0, notice: ''};
+        // Resolved before the write rather than after it, because the scope is
+        // part of what gets recorded. A cron job reading this document hours
+        // later has no workspace and no git remote to resolve it from, so if
+        // the end of the turn does not say which project this was, nothing
+        // ever will.
+        const scope = project !== undefined ? {project} : await resolveScope(service, {sessionKey, repository});
         // The reply lands before the window is read, so the router sees the
         // turn it is classifying rather than the one before it.
-        if (assistant) await service.recordSessionMessage(sessionKey, 'assistant', assistant, settings.capture_window * 2);
+        //
+        // Called even when there is no reply. Codex hands us no
+        // last_assistant_message, so on that host this writes no turn at all
+        // and exists only to note the scope, which is the one thing the end of
+        // a turn always knows.
+        await service.recordTurn(sessionKey, 'assistant', assistant, settings.capture_window * 2, scope.project ?? null);
+        // Without a router there is nothing to classify. The document is still
+        // written above, because raw material is worth keeping whether or not
+        // anything reads it today.
+        if (!service.captureTurn) return {captured: 0, notice: ''};
         const window = await service.sessionWindow(sessionKey, settings.capture_window * 2);
         const ordered = [...window].reverse();
         const start = ordered.findIndex(m => m.classified_at == null && m.role === 'user');
@@ -227,7 +263,6 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // Everything before it is there to understand it.
         const earlier = ordered.slice(0, start);
         setInput({turn, contextMessages: earlier.length});
-        const scope = project !== undefined ? {project} : await resolveScope(service, {sessionKey, repository});
         const [projects, tasks, saved] = await Promise.all([
           service.projects(), service.openTasks(),
           service.capturedThisSession?.(sessionKey) ?? []]);

@@ -94,6 +94,24 @@ The rolling window, server side. Trimmed on write to `p_keep`, expired after 24 
 
 `record_session_message`, `session_window`, `clear_session_window`.
 
+## `documents` and `document_turns`
+
+The durable record of a conversation, kept apart from the memories derived from it. One document per `(owner_id, session_key)`; the turns hang off it in the order they were said, both roles. Memories are derived from a document and can be derived again, which is the thing capture never had: before this, a better prompt could not improve a past conversation, because the source was gone within 24 hours.
+
+Not the same thing as `session_messages` and not a replacement for it. Different lifetimes: the window is trimmed to `p_keep` and expires in a day, a document lives 30 days. Both are written by one call, `record_turn`, because the per-prompt hook waits for it now and must not delay the prompt.
+
+`project_id` is the scope, null meaning personal, and there is no task link. It is set by whichever turn first knows it and never cleared, because a cron reading the document hours later has no workspace and no git remote to resolve it from. A project id the caller does not own is dropped rather than borrowed.
+
+An empty `content` is not a no-op: it creates and scopes the document without appending a turn. Codex hands over no `last_assistant_message`, so on that host the end of a turn has nothing to append but is still the moment the project is known.
+
+Retention is a deletion, not a policy sentence: `expire_documents()` returns a row count and is called on every `record_turn`. A document stops accepting turns past 400,000 characters and sets `truncated_at`, so a reader can tell a short session from a capped one.
+
+No table grants at all, exactly like `session_messages`. An agent connection is `authenticated` too, so a select grant would let any granted connection read every session regardless of which projects it was given.
+
+`record_turn`, `record_document_turn`, `expire_documents`, `session_document`, `document_content`, `pending_documents`, `mark_document_consolidated`.
+
+`consolidated_through` is the document's equivalent of `classified_at`: the last turn a consolidation pass has read. A session that carries on afterwards is pending again and only the new turns are new. It only ever moves forward.
+
 ## `capture_memory`
 
 Takes **slugs**, not ids, so the model never handles a UUID. Resolves the slug to a UUID inside the database. A task drags its own project. Always writes band `heard`.

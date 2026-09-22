@@ -118,7 +118,7 @@ test('the turn is what has not been classified, and the scope is resolved not gu
     ...scopeStubs,
     status: async () => connected,
     settings: async () => ({...baseSettings}),
-    recordSessionMessage: async (_key, role, content) => { recorded.push({role, content}); },
+    recordTurn: async (_key, role, content) => { recorded.push({role, content}); },
     sessionWindow: async () => window,
     // Nothing selected the project, so the workspace's repository is what
     // resolves it. One candidate, so it is chosen with no model involved.
@@ -174,7 +174,7 @@ test('a run that never reached the model leaves the turn for next time', async (
     ...scopeStubs,
     status: async () => connected,
     settings: async () => ({...baseSettings}),
-    recordSessionMessage: async () => {},
+    recordTurn: async () => {},
     sessionWindow: async () => [{id: 9, role: 'user', content: 'never bump Go', classified_at: null}],
     projects: async () => [],
     openTasks: async () => [],
@@ -190,7 +190,7 @@ test('a turn with nothing unclassified in it is not sent at all', async () => {
     ...scopeStubs,
     status: async () => connected,
     settings: async () => ({...baseSettings}),
-    recordSessionMessage: async () => {},
+    recordTurn: async () => {},
     sessionWindow: async () => [
       {id: 2, role: 'assistant', content: 'Noted.', classified_at: null},
       {id: 1, role: 'user', content: 'never bump Go', classified_at: '2026-09-21T06:00:00Z'},
@@ -209,7 +209,7 @@ test('retrieval records the prompt whether or not it finds anything', async () =
     ...scopeStubs,
     status: async () => connected,
     settings: async () => baseSettings,
-    recordSessionMessage: async (_k, role, content) => { recorded.push({role, content}); },
+    recordTurn: async (_k, role, content) => { recorded.push({role, content}); },
     search: async () => [],
     projects: async () => [],
   };
@@ -234,7 +234,7 @@ test('retrieval passes the prompt as the query and nothing else', async () => {
     ...scopeStubs,
     status: async () => connected,
     settings: async () => baseSettings,
-    recordSessionMessage: async () => {},
+    recordTurn: async () => {},
     search: async args => { searched.push(args); return []; },
     resolveRepository: async () => [{project_id: 'p1', slug: 'a', name: 'A', brief: '', selected: true}],
   }, {sessionKey: 's', prompt: 'the release order', repository: 'acme/ledger'});
@@ -252,7 +252,7 @@ test('a failed search tells the person and injects nothing', async () => {
     ...scopeStubs,
     status: async () => connected,
     settings: async () => baseSettings,
-    recordSessionMessage: async () => {},
+    recordTurn: async () => {},
     search: async () => { throw spent; },
   }, {sessionKey: 's', prompt: 'anything'});
   assert.equal(result.context, '', 'a broken search must not inject an error into the prompt');
@@ -267,7 +267,7 @@ test('capture switched off records nothing at all', async () => {
     ...scopeStubs,
     status: async () => connected,
     settings: async () => ({...baseSettings, capture: false}),
-    recordSessionMessage: async () => { called = true; },
+    recordTurn: async () => { called = true; },
     sessionWindow: async () => { called = true; return []; },
     captureTurn: async () => { called = true; },
   }, {sessionKey: 's', assistant: 'Hello back.'});
@@ -292,7 +292,7 @@ test('a capture is announced and a quiet turn stays quiet, and neither injects',
     ...scopeStubs,
     status: async () => connected,
     settings: async () => ({...baseSettings, capture_window: 1}),
-    recordSessionMessage: async () => {},
+    recordTurn: async () => {},
     sessionWindow: async () => [{id: 1, role: 'user', content: 'never bump Go until payouts ship', classified_at: null}],
     projects: async () => [],
     openTasks: async () => [],
@@ -399,7 +399,7 @@ test('a rate limit tells the person what actually happened', async () => {
     ...scopeStubs,
     status: async () => connected,
     settings: async () => baseSettings,
-    recordSessionMessage: async () => {},
+    recordTurn: async () => {},
     sessionWindow: async () => [{id: 1, role: 'user', content: 'what did we decide', classified_at: null}],
     projects: async () => [],
     openTasks: async () => [],
@@ -472,4 +472,78 @@ test('a capture whose embedding fails is still written and still counted', async
   const row = await service.captureMemory({id: 'm1', statement: writerRow.statement,
     source: writerRow.source, project: 'ledger'});
   assert.equal(row.id, 'm1', 'the caller still gets the row, so the turn counts it as kept');
+});
+
+test('the user’s half is waited for, and its loss is reported without taking the prompt down', async () => {
+  // It used to be `void service.recordSessionMessage(...)`. A serverless
+  // function can freeze the moment it responds, so the write could be killed
+  // mid flight. Against a 24 hour window that was a fair trade for the five
+  // second budget. Against a document it is not: the user's half is the only
+  // half that may supply a memory's source, so losing it voids the record
+  // rather than thinning it.
+  let settled = false;
+  const service = {
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    recordTurn: async () => { await new Promise(r => setTimeout(r, 5)); settled = true; },
+    search: async () => [],
+    projects: async () => [],
+  };
+  await retrieve(service, {sessionKey: 's', prompt: 'never bump Go until payouts ship'});
+  assert.equal(settled, true, 'retrieve must not return before the turn is on disk');
+
+  service.recordTurn = async () => { throw {code: 'PT503', reason: 'the document store is unavailable'}; };
+  service.search = async () => [{id: crypto.randomUUID(), statement: 'Do not bump Go until payouts ship.',
+    band: 'said', task_id: null, score: 0.9, matched: 1, in_scope: 1}];
+  const result = await retrieve(service, {sessionKey: 's', prompt: 'can we bump Go'});
+  assert.match(result.context, /Do not bump Go until payouts ship\./,
+    'a lost record must not cost the person the memory they already had');
+  assert.match(result.notice, /did not record this turn/,
+    'and they have to be told, because nothing later can reconstruct it');
+});
+
+test('the end of a turn tells the document which project it was', async () => {
+  // A consolidation pass runs hours later from a cron with no workspace and no
+  // git remote. If the end of the turn does not record the scope, nothing ever
+  // can, and every document would consolidate into personal memory.
+  const recorded = [];
+  const service = {
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => ({...baseSettings, capture_window: 1}),
+    recordTurn: async (_key, role, content, _keep, projectId) => { recorded.push({role, content, projectId}); },
+    sessionWindow: async () => [{id: 1, role: 'user', content: 'keep the client on 4.1', classified_at: null}],
+    resolveRepository: async (_session, _provider, repository) =>
+      repository === 'acme/ledger' ? [{project_id: 'p1', slug: 'ledger', selected: true}] : [],
+    projects: async () => [{id: 'p1', slug: 'ledger', brief: '', project_repositories: []}],
+    openTasks: async () => [],
+    captureTurn: async () => ({memories: [], dropped: 0, failed: false}),
+  };
+  await capture(service, {sessionKey: 's', repository: 'acme/ledger', assistant: 'Understood.'});
+  assert.deepEqual(recorded, [{role: 'assistant', content: 'Understood.', projectId: 'p1'}]);
+
+  // Codex hands over no last_assistant_message. There is no turn to append, so
+  // the call exists only to say which project this was.
+  recorded.length = 0;
+  await capture(service, {sessionKey: 's', repository: 'acme/ledger', assistant: ''});
+  assert.deepEqual(recorded, [{role: 'assistant', content: '', projectId: 'p1'}]);
+});
+
+test('with no router the conversation is still kept', async () => {
+  // Capture used to return before recording anything when no router was
+  // configured. Documents are raw material and the pass that reads them does
+  // not have to be the one running in this process, so the record is worth
+  // keeping whether or not anything classifies it today.
+  const recorded = [];
+  const result = await capture({
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    recordTurn: async (_key, role, content) => { recorded.push({role, content}); },
+    projects: async () => [],
+  }, {sessionKey: 's', assistant: 'Understood.'});
+  assert.deepEqual(recorded, [{role: 'assistant', content: 'Understood.'}]);
+  assert.equal(result.captured, 0);
+  assert.equal(result.notice, '', 'nothing was classified, so there is nothing to announce');
 });
