@@ -154,6 +154,12 @@ Where a case came from a real run or a real production row it says so under `fro
 
 Scoring lives in `lib/consolidation-scoring.mjs` and is pure, so `tests/consolidation-eval.test.mjs` checks the arithmetic without calling a model, including that the case file is internally consistent. A case targeting a memory it does not have can never pass and would quietly drag the number down forever.
 
+### What the first run found
+
+Recorded in `.claude/skills/satchel-memory/references/decisions.md`. The short version, on the weakest model that would answer: 19 of 22, and **nothing ended that should not have been**. A completion affirmed a standing fact, which is the near miss of the failure the kinds exist to prevent. The rejected premise was kept, even though the prompt has a section about exactly that, because its worked example is about repositories and the case is about ledger entries. And a relative date produced no change at all rather than a resolved one.
+
+All three are prompt problems with a measurement attached, which is the whole point of having this.
+
 ### The free tier will not run this
 
 The newest Gemini models allow **20 requests a day per model** on a free key, and a full run is 26. Local runs fall back to whatever the key will still serve, which is not the model that ships, so the baseline is only worth recording on a paid key. The baseline file records the model and the thinking level next to the numbers for exactly that reason.

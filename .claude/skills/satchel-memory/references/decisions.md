@@ -123,6 +123,32 @@ At 768 it returns an un-normalised vector. Everything is L2 normalised in `embed
 
 Typos, Hinglish and identifier lookups are handled far better than expected from an embedding model. Paraphrase, the case vectors exist for, sits mid-table. Two leaks remain and are honest failures: 2 of 12 lexical traps and 3 of 8 uncovered prompts get an answer they should not.
 
+## The consolidation pass
+
+`eval/consolidation.mjs`, 26 cases, each carrying the memory set it is judged against. See `eval/README.md` for why neither capture eval can measure this.
+
+**First run, 22 September.** Not on the shipped configuration: the free key would not serve `gemini-3.8-flash` or `gemini-3.5-flash` for a request this size, so this is `gemini-3.5-flash-lite` with thinking off, which is the weakest thing that would answer. Read it as a floor rather than as a baseline, and it is deliberately not committed as one.
+
+```
+left it alone      7/8    88%   (cases where nothing should change)
+changed it right  12/14   86%   (and hit the memory it named)
+both              19/22   86%
+ended wrongly      0            <- the number that has to stay here
+dropped by validate 1
+```
+
+Nothing was retired or replaced that should not have been, on the weakest model available, which is the result that matters most: the destructive outcome is the one with no undo from the user's side.
+
+Three failures, and each is worth more than the score.
+
+**A completion affirmed a standing fact.** "yep that deploy is done" against "Deploys go out on Tuesday mornings" produced an affirm. Not damage, since an affirm only moves a counter, but it is a change where none should happen, and it is the near miss of the failure the kinds exist to prevent. One step further and it is a retire.
+
+**The rejected premise was kept.** "entries are immutable, this is the wrong way to think about it, a correction is a new reversing entry" stored the clause the user was arguing against. The prompt has a section about exactly this with a worked example, and the example is about repositories and projects while the case is about ledger entries. A wording that only handles the sentence it was written for has not fixed anything.
+
+**A relative date was dropped rather than resolved.** "the review has to be in by next Friday" produced no change at all. The prompt says to resolve relative references against the date at the top; the model appears to have read "cannot be resolved" as "not a memory".
+
+The four `either` cases all came back with a defensible answer, which is what they are for.
+
 ## The router
 
 One small model call at the end of a turn. It is not an agent: no tools, no memory of its own, and no access to what is already stored. It sees a rolling window and returns a list, and an empty list is the answer on most turns.
