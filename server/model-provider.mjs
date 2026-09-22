@@ -64,6 +64,31 @@ export function providerFor({provider = 'google', apiKey, baseURL, fetchImpl = f
  *   and only an abort is really a timeout, which has to be read from the
  *   signal, because the SDK surfaces it as an ordinary error.
  */
+/** The model to fall back to when the chosen one is unavailable.
+ *
+ *  Not a nicety. The newest Gemini flash models answer 503 "experiencing high
+ *  demand" under load, and on 22 September gemini-3.8-flash and
+ *  gemini-3.7-flash did so on every single attempt while gemini-3.5-flash
+ *  answered in four seconds. Pinning the newest model without this means
+ *  consolidation is simply broken on the days it is busy, and the person
+ *  pressing the button has no way to tell that from a bug.
+ *
+ *  One older model, not a chain. A chain is a way to never find out that your
+ *  first choice does not work. */
+export const fallbackModel = model => {
+  const chosen = process.env.SATCHEL_MODEL_FALLBACK ?? 'gemini-3.5-flash';
+  return chosen && chosen !== model ? chosen : null;
+};
+
+/** Whether trying a different model is worth doing.
+ *
+ *  Only for the host being unable to answer at all. A 4xx is the request and
+ *  another model would refuse it the same way; a timeout has already spent
+ *  the budget; a bad shape is the prompt. Overload is the one failure where
+ *  the same question asked elsewhere gets an answer. */
+export const worthFallingBackFrom = failure =>
+  failure?.kind === 'host' && typeof failure.status === 'number' && failure.status >= 500;
+
 export function describeFailure(error, signal) {
   if (signal?.aborted || error?.name === 'AbortError' || error?.name === 'TimeoutError')
     return {kind: 'timeout'};

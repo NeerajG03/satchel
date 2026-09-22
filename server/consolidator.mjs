@@ -30,7 +30,7 @@
 // See docs/memory-v2-5-scope.md, R2, R2a and R5.
 import {z} from 'zod';
 import {generateObject, NoObjectGeneratedError} from 'ai';
-import {providerFor, asBaseUrl} from './model-provider.mjs';
+import {providerFor, asBaseUrl, describeFailure, fallbackModel, worthFallingBackFrom} from './model-provider.mjs';
 import {salvage, asModelError} from './router.mjs';
 import {consolidatePrompt, localTextFor, CONSOLIDATE_PROMPT} from './prompt-store.mjs';
 
@@ -223,6 +223,10 @@ export function createConsolidator({
   // reasoning problem. It is also the call whose mistakes are destructive,
   // which is the other reason to pay for thought here.
   thinking = process.env.SATCHEL_THINKING_LEVEL ?? 'medium',
+  // Tried when the chosen model cannot answer at all. The newest flash models
+  // are the ones most likely to be overloaded, which is exactly when a
+  // background pass should quietly use an older one rather than fail.
+  fallback = fallbackModel(process.env.SATCHEL_ROUTER_MODEL ?? 'gemini-3.8-flash'),
   provider = process.env.SATCHEL_ROUTER_PROVIDER ?? 'google',
   baseURL = asBaseUrl(process.env.SATCHEL_ROUTER_URL),
   apiKey = process.env.SATCHEL_ROUTER_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY,
@@ -233,8 +237,17 @@ export function createConsolidator({
   timeoutMs = Number(process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS ?? 40000),
   promptResolver = consolidatePrompt,
   annotate = () => {},
+  // How long to stop asking the first choice after it says it cannot answer.
+  // An overloaded model takes its time saying so, twelve seconds in the case
+  // that prompted this, and a batch of ten documents would spend its entire
+  // budget learning the same thing ten times. Short enough that a model which
+  // recovers is tried again on the next run.
+  avoidForMs = Number(process.env.SATCHEL_MODEL_AVOID_MS ?? 5 * 60_000),
   fetchImpl = fetch,
 } = {}) {
+  // Per instance, which is per warm serverless process, which is the same
+  // scope as the batch this is trying not to waste.
+  let avoidUntil = 0;
   return {
     model,
     timeoutMs,
@@ -263,9 +276,38 @@ export function createConsolidator({
         characters: (input.turns ?? []).reduce((sum, t) => sum + String(t.content ?? '').length, 0),
       }});
       let result;
+      // Straight to the fallback while the first choice is known to be down,
+      // rather than paying for the same refusal on every document.
+      let used = fallback && Date.now() < avoidUntil ? fallback : model;
+      try {
+        result = await ask(used);
+      } catch (error) {
+        // One other model, once. If the first choice cannot answer at all,
+        // the same question asked of an older one usually lands, and a pass
+        // that silently did not run is worse than one that ran on second
+        // best. The trace says which, so this cannot hide.
+        //
+        // Classified on the raw error, before asModelError turns it into
+        // something a person can read: the wrapper keeps the reason and drops
+        // the status, and the status is the whole decision here.
+        if (used === fallback || !fallback || !worthFallingBackFrom(describeFailure(error, signal)))
+          throw asModelError(error, signal, 'consolidation');
+        avoidUntil = Date.now() + avoidForMs;
+        used = fallback;
+        try { result = await ask(fallback); }
+        catch (second) { throw asModelError(second, signal, 'consolidation'); }
+      }
+      annotate({metadata: {modelUsed: used, fellBack: used !== model}});
+      const checked = validateConsolidation(result.object, input);
+      return {...checked, model: used, prompt: `${system}\n\n${prompt}`,
+        promptVersion: instructions.version, promptSource: instructions.source,
+        raw: JSON.stringify(result.object), usage: result.usage ?? null};
+
+      async function ask(which) {
+      let result;
       try {
         result = await generateObject({
-          model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(model),
+          model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(which),
           schema: CONSOLIDATION_SCHEMA,
           system, prompt, temperature: 0, abortSignal: signal,
           // Under a provider key, so an OpenAI-shaped host ignores it rather
@@ -278,14 +320,18 @@ export function createConsolidator({
           telemetry: {functionId: 'consolidate'},
         });
       } catch (error) {
+        // A host that ignores the schema request still answers in prose, and
+        // a model told to return JSON sometimes wraps it in a fence. Leniency
+        // about the wrapper only: whatever comes out is parsed against the
+        // same schema and still has to survive validation.
         const salvaged = NoObjectGeneratedError.isInstance(error) && salvage(CONSOLIDATION_SCHEMA, error.text);
-        if (!salvaged) throw asModelError(error, signal, 'consolidation');
+        // Raw, so the caller can tell an overloaded host from a bad request.
+        // Every path out of consolidate() wraps it before it reaches anyone.
+        if (!salvaged) throw error;
         result = {object: salvaged, usage: error.usage ?? null};
       }
-      const checked = validateConsolidation(result.object, input);
-      return {...checked, prompt: `${system}\n\n${prompt}`,
-        promptVersion: instructions.version, promptSource: instructions.source,
-        raw: JSON.stringify(result.object), usage: result.usage ?? null};
+      return result;
+      }
     },
   };
 }

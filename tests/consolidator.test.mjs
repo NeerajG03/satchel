@@ -181,8 +181,8 @@ test('the run says what it was looking at before it says what it did', async () 
   const consolidator = createConsolidator({apiKey: 'x', fetchImpl: answers([]),
     annotate: entry => seen.push(entry)});
   await consolidator.consolidate(context);
-  assert.equal(seen.length, 1);
   assert.equal(seen[0].metadata.scope, 'ledger');
+  assert.equal(seen[0].metadata.thinking, 'medium');
   assert.equal(seen[0].metadata.knownMemories, 3);
   assert.equal(seen[0].metadata.turns, 3);
   assert.equal(seen[0].metadata.promptName, 'satchel-consolidate');
@@ -235,4 +235,72 @@ test('a full block turns the question from absolute into comparative', () => {
 
   const roomy = buildConsolidationPrompt({...context, memories: many.slice(0, 5), cap: 30}).prompt;
   assert.doesNotMatch(roomy, /the block holds/, 'no pressure is invented when there is room');
+});
+
+test('an overloaded model is answered by an older one rather than by nothing', async () => {
+  // The newest flash models answer 503 under load. On 22 September
+  // gemini-3.8-flash and gemini-3.7-flash did so on every attempt while
+  // gemini-3.5-flash answered in four seconds. Without this, consolidation is
+  // simply broken on a busy day and the person pressing the button cannot
+  // tell that from a bug.
+  const asked = [];
+  const overloaded = () => new Response(JSON.stringify({error: {code: 503, status: 'UNAVAILABLE'}}),
+    {status: 503, headers: {'content-type': 'application/json'}});
+  const consolidator = createConsolidator({apiKey: 'x', model: 'busy-model', fallback: 'older-model',
+    annotate: () => {},
+    fetchImpl: async url => {
+      asked.push(String(url).match(/models\/([^:]+):/)?.[1]);
+      return asked.length === 1 ? overloaded()
+        : json({candidates: [{content: {parts: [{text: '{"changes":[]}'}]}, finishReason: 'STOP'}]});
+    }});
+  const out = await consolidator.consolidate(context);
+  assert.deepEqual(asked, ['busy-model', 'older-model']);
+  assert.equal(out.model, 'older-model', 'and the answer says which model produced it');
+});
+
+test('a refusal is not retried on a different model', async () => {
+  // Only the host being unable to answer at all is worth asking elsewhere. A
+  // 400 is the request, and another model refuses it the same way, so trying
+  // twice just doubles the bill and the wait.
+  const asked = [];
+  const consolidator = createConsolidator({apiKey: 'x', model: 'a', fallback: 'b',
+    fetchImpl: async url => {
+      asked.push(String(url).match(/models\/([^:]+):/)?.[1]);
+      return new Response(JSON.stringify({error: {code: 400, status: 'INVALID_ARGUMENT'}}),
+        {status: 400, headers: {'content-type': 'application/json'}});
+    }});
+  await assert.rejects(consolidator.consolidate(context));
+  assert.deepEqual(asked, ['a']);
+});
+
+test('no fallback is configured away rather than looping on itself', () => {
+  const same = createConsolidator({apiKey: 'x', model: 'one', fallback: null});
+  assert.equal(same.model, 'one');
+});
+
+test('a model known to be down is not asked again for every document in the batch', async () => {
+  // An overloaded model takes its time saying no, twelve seconds in the case
+  // that prompted this. Ten documents would spend the whole request learning
+  // the same thing ten times and read nothing.
+  const asked = [];
+  const consolidator = createConsolidator({apiKey: 'x', model: 'busy', fallback: 'older',
+    fetchImpl: async url => {
+      const which = String(url).match(/models\/([^:]+):/)?.[1];
+      asked.push(which);
+      return which === 'busy'
+        ? new Response(JSON.stringify({error: {code: 503}}), {status: 503, headers: {'content-type': 'application/json'}})
+        : json({candidates: [{content: {parts: [{text: '{"changes":[]}'}]}, finishReason: 'STOP'}]});
+    }});
+  await consolidator.consolidate(context);
+  await consolidator.consolidate(context);
+  await consolidator.consolidate(context);
+  assert.deepEqual(asked, ['busy', 'older', 'older', 'older'],
+    'the first document pays for the discovery and the rest do not');
+});
+
+test('a fallback that also fails is reported rather than looped', async () => {
+  const consolidator = createConsolidator({apiKey: 'x', model: 'busy', fallback: 'also-busy',
+    fetchImpl: async () => new Response(JSON.stringify({error: {code: 503}}),
+      {status: 503, headers: {'content-type': 'application/json'}})});
+  await assert.rejects(consolidator.consolidate(context), /503/);
 });

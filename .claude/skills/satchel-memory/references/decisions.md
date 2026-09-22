@@ -135,6 +135,22 @@ Medium rather than high or off, because the failure these calls exist to prevent
 
 Pinned and not `-latest`, because a floating alias would move the thing a measurement describes, silently, between two runs of it. `gemini-3.5-flash-lite` was the previous pin.
 
+**There is a fallback, and it is not a nicety.** Measured on 22 September against the real API:
+
+```
+gemini-3.8-flash       thinking=medium   503 on every attempt
+gemini-3.8-flash       thinking=off      503 on every attempt
+gemini-3.7-flash       thinking=medium   503 on every attempt
+gemini-3.5-flash       thinking=medium   ok   3.9s   1797 in / 571 out
+gemini-3.5-flash-lite  thinking=off      ok  14.2s   1797 in /  93 out
+```
+
+The newest flash models answer 503 "experiencing high demand" under load, and pinning one without a fallback means consolidation is broken on the days it is busy with no way for the person pressing the button to tell that from a bug. `SATCHEL_MODEL_FALLBACK` defaults to `gemini-3.5-flash`. One older model, not a chain: a chain is a way never to find out that your first choice does not work.
+
+Two details that matter more than they look. The decision is made on the raw error rather than the readable one, because the wrapper keeps the reason and drops the status, and only a 5xx is worth asking elsewhere: a 4xx is the request and another model refuses it identically. And a model that has just said it cannot answer is not asked again for `SATCHEL_MODEL_AVOID_MS`, five minutes by default, because it took twelve seconds to say so and a batch of ten documents would otherwise spend its entire budget learning the same thing ten times.
+
+Worth noting from that table: thinking made the call **faster**, not slower. 3.5-flash at medium answered in 3.9s against flash-lite's 14.2s, with 571 output tokens against 93.
+
 Measured over 24 real turns replayed from the corpus plus 16 that contain nothing durable:
 
 ```
