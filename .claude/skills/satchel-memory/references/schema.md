@@ -14,11 +14,13 @@ Almost everything is `security invoker`, so RLS stays authoritative. The service
 | `20260920110000` | `router`: session window, `capture_memory`, `router_runs`, capture settings |
 | `20260920120000` | `embedding_is_not_an_edit`: the revision trigger stops firing on bookkeeping |
 | `20260920130000` | `retrieval_and_slug_fixes`: null-safe gate, slug length, hyphen, rename uniqueness |
+| `20260922090000` | `documents`: the durable record of a conversation, and its retention |
+| `20260922100000` | `one_scope_per_memory`: the task link is removed, everywhere |
 
 ## `memories`
 
 ```
-id, owner_id, project_id, task_id
+id, owner_id, project_id
 statement        text not null   1..500 characters after trimming
 source           text not null   default '', <= 4000, provenance only, never injected
 band             text not null   'said' | 'heard'
@@ -34,13 +36,13 @@ revision, created_at, updated_at
 
 **Name uniqueness is partial.** `where name is not null`, on both the scoped and the personal index. Without the predicate the second unnamed memory collides with the first on NULL.
 
-**The task foreign key is `(owner_id, task_id) references tasks(owner_id, id) on delete set null`.** It asks a question, it never deletes: a memory whose task closes announces a doubt before being used, and a memory whose task is deleted just loses the link. It references `(owner_id, id)` rather than the scope-qualified key because Postgres refuses `ON DELETE SET NULL` on a foreign key containing a generated column, and `tasks.scope_key` is generated. Scope agreement is therefore enforced inside `save_memory`, where it can raise something a person can read.
+**A memory has one scope: a project, or personal.** There is no task link and there is no column for one. It was removed in `20260922100000` because it produced exactly one thing, a `[task closed, may be fixed]` hint, and cost three ways to get the scope wrong: `save_memory` silently moved a memory into the task's project, so a wrong guess by a small model relocated a rule; the router made four decisions per item instead of three; and the foreign key could not be scope-qualified at all, because Postgres refuses `ON DELETE SET NULL` against a generated column and `tasks.scope_key` is generated, so a function had to enforce what the database could not. The doubt the link was for comes back in v2.5 R8, raised by the repository moving, which is what actually made the stale rows in production false. See `docs/memory-v2-5-scope.md`, R9a.
 
 **Column privileges are per column.** A new column is not writable until it appears in a `grant insert(...)` / `grant update(...)`.
 
 ## `stamp_memory_revision`
 
-Bumps `revision` and moves `updated_at` **only** when the statement, source, more_info, name, band, project or task changes.
+Bumps `revision` and moves `updated_at` **only** when the statement, source, more_info, name, band or project changes.
 
 Embedding a row is bookkeeping, not an edit. The revision is the optimistic concurrency token, so bumping it for an embedding hands every client holding the old one a conflict it cannot explain, and re-embedding after a model change does that to the whole corpus at once.
 
@@ -54,7 +56,7 @@ search_memories(
   p_gate    real     default 0.67,
   p_boost   real     default 1.1,
   p_exclude uuid[]   default '{}')
-returns (id, project_id, statement, band, task_id, score, matched, in_scope)
+returns (id, project_id, statement, band, score, matched, in_scope)
 ```
 
 Every optional argument is `coalesce`d inside the function, because "not supplied" and "supplied as nothing" have to mean the same thing to every caller. A NULL gate once silenced retrieval completely.
@@ -114,7 +116,7 @@ No table grants at all, exactly like `session_messages`. An agent connection is 
 
 ## `capture_memory`
 
-Takes **slugs**, not ids, so the model never handles a UUID. Resolves the slug to a UUID inside the database. A task drags its own project. Always writes band `heard`.
+Takes a **slug**, not an id, so the model never handles a UUID, and one slug because a memory has one scope. Resolves it to a UUID inside the database. Always writes band `heard`.
 
 ## `router_runs`
 

@@ -181,17 +181,20 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
     assert.equal(Number(owner[0].gate).toFixed(2),'0.80','the owner still can');
   });
 
-  await t.test('a memory cannot hang off a task in another scope', async () => {
+  await t.test('a memory has one scope and no task to hang off', async () => {
+    // The link is gone, and with it the only way a wrong task guess could move
+    // a memory into a project nobody mentioned. A memory is scoped by the
+    // project it is saved in and by nothing else.
     const taskId='40000000-0000-4000-8000-000000000001';
     await as(alice,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',
       ['50000000-0000-4000-8000-000000000001',taskId,projectA,'Fix the consent page','','',[],'','medium']);
-    await assert.rejects(
-      as(alice,'select * from save_memory($1,$2,$3,$4,$5,$6)',
-        ['30000000-0000-4000-8000-0000000000bb',projectB,'Wrong scope.','','said',taskId]),
-      /Task is not in this memory scope/);
-    const ok=await as(alice,'select * from save_memory($1,$2,$3,$4,$5,$6)',
-      ['30000000-0000-4000-8000-0000000000cc',projectA,'Right scope.','','heard',taskId]);
-    assert.equal(ok[0].task_id,taskId);
+    const columns=await as(alice,
+      `select column_name from information_schema.columns
+       where table_schema='public' and table_name='memories' and column_name='task_id'`);
+    assert.deepEqual(columns,[],'memories.task_id is gone, so nothing can quietly re-derive scope from it');
+    const ok=await as(alice,'select * from save_memory($1,$2,$3,$4,$5)',
+      ['30000000-0000-4000-8000-0000000000cc',projectA,'Right scope.','','heard']);
+    assert.equal(ok[0].project_id,projectA);
     assert.equal(ok[0].band,'heard');
   });
 

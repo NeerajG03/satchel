@@ -130,7 +130,6 @@ test('the turn is what has not been classified, and the scope is resolved not gu
         project_repositories: [{provider: 'github', repository: 'acme/ledger'}]},
       {id: 'p2', slug: 'sourdough', brief: 'Baking', project_repositories: []},
     ],
-    openTasks: async () => [{slug: 'payouts', title: 'Ship payouts', project_id: 'p1'}],
     capturedThisSession: async () => ['Deploys go out on Tuesday mornings.'],
     markSessionClassified: async (key, through) => { marked.push({key, through}); return 1; },
     captureTurn: async (sessionKey, input) => { captured.push({sessionKey, input}); return {memories: [], failed: false}; },
@@ -157,7 +156,8 @@ test('the turn is what has not been classified, and the scope is resolved not gu
   assert.equal(input.codebase, 'acme/ledger');
   assert.deepEqual(input.projects, [{slug: 'sourdough', brief: 'Baking'}],
     'the active project is named on its own and not repeated among the others');
-  assert.deepEqual(input.tasks, [{slug: 'payouts', title: 'Ship payouts', project: 'ledger'}]);
+  assert.equal('tasks' in input, false,
+    'a memory has one scope, so a list of open work is not the router\u2019s business');
   assert.deepEqual(input.saved, ['Deploys go out on Tuesday mornings.']);
 
   // And the boundary moves, through the newest row in the window, so the
@@ -177,7 +177,6 @@ test('a run that never reached the model leaves the turn for next time', async (
     recordTurn: async () => {},
     sessionWindow: async () => [{id: 9, role: 'user', content: 'never bump Go', classified_at: null}],
     projects: async () => [],
-    openTasks: async () => [],
     markSessionClassified: async (key, through) => { marked.push({key, through}); return 1; },
     captureTurn: async () => ({memories: [], dropped: 0, failed: true}),
   }, {sessionKey: 's', assistant: 'Understood.'});
@@ -295,7 +294,6 @@ test('a capture is announced and a quiet turn stays quiet, and neither injects',
     recordTurn: async () => {},
     sessionWindow: async () => [{id: 1, role: 'user', content: 'never bump Go until payouts ship', classified_at: null}],
     projects: async () => [],
-    openTasks: async () => [],
     captureTurn: async () => ({memories: captured, dropped: 0, failed: false}),
   };
   const run = () => capture(service, {sessionKey: 's', assistant: 'Noted.'});
@@ -402,7 +400,6 @@ test('a rate limit tells the person what actually happened', async () => {
     recordTurn: async () => {},
     sessionWindow: async () => [{id: 1, role: 'user', content: 'what did we decide', classified_at: null}],
     projects: async () => [],
-    openTasks: async () => [],
     captureTurn: async () => { throw spent; },
   }, {sessionKey: 's', assistant: 'Here is what we decided.'});
 
@@ -517,7 +514,6 @@ test('the end of a turn tells the document which project it was', async () => {
     resolveRepository: async (_session, _provider, repository) =>
       repository === 'acme/ledger' ? [{project_id: 'p1', slug: 'ledger', selected: true}] : [],
     projects: async () => [{id: 'p1', slug: 'ledger', brief: '', project_repositories: []}],
-    openTasks: async () => [],
     captureTurn: async () => ({memories: [], dropped: 0, failed: false}),
   };
   await capture(service, {sessionKey: 's', repository: 'acme/ledger', assistant: 'Understood.'});

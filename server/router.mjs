@@ -40,7 +40,6 @@ export const ROUTER_SCHEMA = z.object({
     statement: z.string().describe('The claim, written so it still makes sense in six weeks.'),
     source: z.string().describe('The words the user actually typed that this came from.'),
     project: z.string().nullable().describe('A project slug from the list, or null for personal.'),
-    task: z.string().nullable().describe('An open task slug from the list, or null.'),
   })),
 });
 
@@ -56,8 +55,8 @@ export const INSTRUCTIONS = localText;
 /** Two messages, not one.
  *
  *  Everything was a single user message: the instructions, the project list,
- *  the tasks, the earlier context and the user's own words, separated from the
- *  rules only by a <turn> tag. The stable half is identical on every call and
+ *  the earlier context and the user's own words, separated from the rules only
+ *  by a <turn> tag. The stable half is identical on every call and
  *  the rest is different every time, so splitting them makes the boundary
  *  between "rules" and "text a person typed" structural rather than a tag,
  *  which is the right shape for something whose entire input is untrusted.
@@ -65,7 +64,7 @@ export const INSTRUCTIONS = localText;
  *  Context is for understanding only; only the turn being classified can supply
  *  a source. */
 export function buildPrompt({codebase = null, project = null, projects = [],
-  tasks = [], context = [], turn = [], saved = [],
+  context = [], turn = [], saved = [],
   // The wording Langfuse is serving, when there is one. Defaulting to the
   // committed copy keeps this function synchronous and keeps every test
   // measuring the text in the repository.
@@ -96,11 +95,10 @@ export function buildPrompt({codebase = null, project = null, projects = [],
     table(others.map(p => ({slug: p.slug, detail: (p.brief ?? '').slice(0, 80)})), 'slug');
     lines.push('');
   }
-  if (tasks.length) {
-    lines.push('open tasks, most recently active first');
-    table(tasks.map(t => ({slug: t.slug, detail: (t.title ?? '').slice(0, 80)})), 'slug');
-    lines.push('');
-  }
+  // The open task list used to go here, because the model picked a task slug
+  // for each item. A memory has one scope now and it is a project or personal,
+  // so there is nothing to pick, and a list of work in progress in front of a
+  // model deciding what is durable pulls in exactly the wrong direction.
   // A second guard behind the turn boundary. The boundary stops the same
   // message being classified twice; this stops the same claim being saved twice
   // when the user says it again in their own different words.
@@ -125,14 +123,13 @@ export function buildPrompt({codebase = null, project = null, projects = [],
 /** Everything the model returned that does not hold up is dropped here rather
  *  than reaching the database. A router that occasionally says nothing is the
  *  behaviour we already have; one that invents is a new failure. */
-export function validate(payload, {turn = [], project = null, projects = [], tasks = [], saved = []}) {
+export function validate(payload, {turn = [], project = null, projects = [], saved = []}) {
   const haystack = turn.join('\n').toLowerCase();
   // The active project is nameable too. It is not in `projects` when the caller
   // passes the others separately, and a model told to default to it would have
   // every item dropped back to personal by this check, which is the bug being
   // fixed wearing a different hat.
   const projectSlugs = new Set([...projects.map(p => p.slug), ...(project ? [project.slug] : [])]);
-  const taskBySlug = new Map(tasks.map(t => [t.slug, t]));
   const already = new Set(saved.map(normalizeStatement));
   const kept = [];
   const dropped = [];
@@ -153,16 +150,10 @@ export function validate(payload, {turn = [], project = null, projects = [], tas
       dropped.push({item, why: 'source is not in the turn'});
       continue;
     }
-    const project = projectSlugs.has(item?.project) ? item.project : null;
-    // A task only survives with its project, because a memory may not hang off
-    // a task in another scope.
-    const task = taskBySlug.get(item?.task);
-    const taskProject = task?.project ?? null;
-    kept.push({
-      statement, source,
-      project: task ? taskProject : project,
-      task: task ? item.task : null,
-    });
+    // One scope, and only one the caller already named. The line this
+    // replaced was `project: task ? taskProject : project`, so a wrong task
+    // guess silently moved a memory into another project.
+    kept.push({statement, source, project: projectSlugs.has(item?.project) ? item.project : null});
   }
   return {memories: kept, dropped};
 }
@@ -240,7 +231,6 @@ export function createRouter({
         // when something files itself in the wrong place.
         workingOn: input.project?.slug ?? 'personal',
         projects: input.projects?.length ?? 0,
-        openTasks: input.tasks?.length ?? 0,
         alreadySaved: input.saved?.length ?? 0,
         contextMessages: input.context?.length ?? 0,
         turnMessages: input.turn?.length ?? 0,

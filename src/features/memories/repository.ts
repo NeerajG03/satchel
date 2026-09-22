@@ -35,7 +35,7 @@ export function createMemoryRepository(db: SupabaseClient) {
       const { data, error } = await requestWithTimeout(signal => db.rpc('save_memory', {
         p_id: id, p_project_id: scopeProjectId(scope), p_statement: content.statement.trim(),
         // Written here, so the source is the user's own typing.
-        p_source: content.statement.trim(), p_band: 'said', p_task_id: null,
+        p_source: content.statement.trim(), p_band: 'said',
         p_name: content.name.trim() || null, p_more_info: content.more_info,
       }).abortSignal(signal).single<Memory>());
       if (error) throw error;

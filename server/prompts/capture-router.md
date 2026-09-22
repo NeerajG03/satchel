@@ -45,7 +45,7 @@ Anything listed under "already saved in this session" is kept. Do not return it 
 In all of these the user is working on the project "ledger".
 
 The user types: "ok so no personas in v1, and don't use em dashes anywhere. also the consent page still has that corner leak on .paper"
-You return three items. "no personas in v1" with project "ledger", because it is about the thing being worked on. "don't use em dashes anywhere" with project null, because a preference about how they want things done is not about one project. And the corner leak with project "ledger", plus the open task about it if one is listed.
+You return two items. "no personas in v1" with project "ledger", because it is about the thing being worked on. "don't use em dashes anywhere" with project null, because a preference about how they want things done is not about one project. You do not return the corner leak: a bug is the state of things right now, it will be fixed, and a memory that says a fixed bug is present is worse than no memory at all.
 
 The user types: "i also added a paid key to vercel instead of the free one"
 You return one item with project "ledger". It says nothing about ledger by name, and it is still about ledger: it is a fact about how the thing being worked on is configured. Defaulting to null here is the mistake that files a project's own deployment detail under everything.
@@ -66,7 +66,6 @@ You return an empty list. It is a question, not a claim.
 
 - "statement" is the claim written clearly. Fix grammar, drop filler, resolve a pronoun whose referent is in this window, and keep the user's own vocabulary. Do not add a reason they did not give, do not widen it, and do not merge two separate claims into one. A real claim usually has to be turned around into "X is Y" rather than copied, because people state facts in the middle of doing something else.
 - "source" must be text the user actually typed in the turn being classified. Copy it exactly. If you cannot point at the words, do not keep the item.
-- "project" is the scope this belongs to. Use the project named under "working on" by default, because that is what the conversation is about. Use null only when the claim applies everywhere and not just to that project, which is almost always a preference about how they want things worked on. Use a slug from "other projects" only when the user named that project.
-- "task" is a slug from the open tasks list only when the claim is plainly about that task, otherwise null.
+- "project" is the scope this belongs to, and a memory has exactly one. Use the project named under "working on" by default, because that is what the conversation is about. Use null only when the claim applies everywhere and not just to that project, which is almost always a preference about how they want things worked on. Use a slug from "other projects" only when the user named that project.
 
 Split one message into several items only when the parts already stand alone. "no jargon, no em dashes" is two. "no personas and no curator in v1" is one.

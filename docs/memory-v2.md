@@ -396,6 +396,8 @@ An earlier draft also argued that `Stop` probably could not inject at all. That 
 
 ## 7. Going stale
 
+**Superseded by v2.5 R9a: the task link is gone.** It produced one hint, never shown, and cost three ways to get the scope wrong. The doubt it was for returns in R8, raised by the repository moving rather than by a task closing. The rest of this section is kept as the record of what was decided and why it did not hold.
+
 **User decision.** The task link asks a question. It never deletes.
 
 ```

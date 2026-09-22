@@ -22,8 +22,8 @@ test('personal and project memories share operations without mixing scopes or ow
     } catch (error) { await db.exec('rollback'); throw error; }
   }
   const save = (owner, id, scope, name, statement, details = '') =>
-    asUser(owner, 'select * from save_memory($1,$2,$3,$4,$5,$6,$7,$8)',
-      [id, scope, statement, '', 'said', null, name, details]);
+    asUser(owner, 'select * from save_memory($1,$2,$3,$4,$5,$6,$7)',
+      [id, scope, statement, '', 'said', name, details]);
   // v2 reads by id, because a name is now an optional handle rather than the
   // record's key. Scope still has to be supplied and is still enforced.
   const read = (owner, scope, id, clientId) =>

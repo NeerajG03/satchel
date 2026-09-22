@@ -138,9 +138,11 @@ export function createMemoryServer(service, {ownerId} = {}) {
     a=>service.search(a));
   register('read_memory','Read the rare memory that carries more_info, by scope and id. The index already contains every statement, so this is only for a row whose has_more_info is true.',
     {project_id:scope,id:z.uuid()},a=>service.read(a.project_id,a.id));
+  // A memory has one scope: a project, or personal. There is no task_id any
+  // more, so this takes three decisions instead of four and none of them can
+  // move the scope after it was chosen.
   register('save_memory','Save memory only when the user explicitly asks. Choose personal/project scope explicitly. Supply a new UUID and reuse that UUID and payload when retrying the same save. An explicit save is confirmed by definition, so it is stored as said.',
-    {project_id:scope,id:z.uuid(),task_id:z.uuid().nullable().default(null)
-      .describe('Only when the user tied this to a task that is already in the same scope.'),...content},
+    {project_id:scope,id:z.uuid(),...content},
     a=>service.save({...a,band:'said'}),writeAnnotations);
   register('correct_memory','Correct memory only on an explicit user request. Read first and provide the current revision; conflicts require re-reading. Correcting a memory also confirms it.',
     {...identity,...content},a=>service.correct(a),{readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:false});

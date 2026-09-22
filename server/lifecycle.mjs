@@ -193,8 +193,7 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
           // nothing and says nothing.
           if (rows.length) {
             notice = noticeFor('UserPromptSubmit', {shown: rows.length, matched: rows[0].matched});
-            const tasks = await service.tasksByIds?.(rows.map(r => r.task_id).filter(Boolean)) ?? new Map();
-            context = promptBlock({rows, matched: rows[0].matched, inScope: rows[0].in_scope, tasks});
+            context = promptBlock({rows, matched: rows[0].matched, inScope: rows[0].in_scope});
             logged = {query: prompt, memory_ids: rows.map(r => r.id),
               matched: rows[0].matched, in_scope: rows[0].in_scope, tokens: estimateTokens(context)};
           }
@@ -269,9 +268,8 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // Everything before it is there to understand it.
         const earlier = ordered.slice(0, start);
         setInput({turn, contextMessages: earlier.length});
-        const [projects, tasks, saved] = await Promise.all([
-          service.projects(), service.openTasks(),
-          service.capturedThisSession?.(sessionKey) ?? []]);
+        const [projects, saved] = await Promise.all([
+          service.projects(), service.capturedThisSession?.(sessionKey) ?? []]);
         const active = projects.find(p => p.id === scope.project) ?? null;
         // Named only when it is unambiguous. A project may link to several
         // repositories, and naming an arbitrary one of them would be worse
@@ -281,7 +279,6 @@ export async function capture(service, {sessionKey, repository = null, assistant
           codebase: links.length === 1 ? links[0].repository : null,
           project: active ? {slug: active.slug, brief: active.brief} : null,
           projects: projects.filter(p => p.id !== scope.project).map(p => ({slug: p.slug, brief: p.brief})),
-          tasks: tasks.map(t => ({slug: t.slug, title: t.title, project: projects.find(p => p.id === t.project_id)?.slug ?? null})),
           context: earlier, turn, saved});
         // The boundary moves only when the model actually answered. A run that
         // died on a rate limit leaves its messages for the next turn.

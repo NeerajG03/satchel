@@ -41,8 +41,6 @@ const NEGATIVES = 16;
 
 const projects = corpus.projects.map(p => ({slug: p.slug, brief: p.brief}));
 const bySlug = new Map(projects.map(p => [p.slug, p]));
-const openTasks = corpus.tasks.filter(t => t.status !== 'done')
-  .slice(0, 12).map(t => ({slug: t.slug, title: t.title, project: t.project}));
 
 // A deterministic spread rather than a random one, so two runs compare.
 const pick = (list, n) => list.filter((_, i) => i % Math.max(1, Math.floor(list.length / n)) === 0).slice(0, n);
@@ -104,12 +102,12 @@ for (const model of MODELS) {
   // on a different corpus, but they can be compared against this.
   const blind = process.env.ROUTER_EVAL_NO_SCOPE === '1';
   const asked = working => blind
-    ? {codebase: null, project: null, projects, tasks: openTasks, context: [], saved: []}
+    ? {codebase: null, project: null, projects, context: [], saved: []}
     : {
       codebase: working ? `acme/${working.slug}` : null,
       project: working,
       projects: projects.filter(p => p.slug !== working?.slug),
-      tasks: openTasks, context: [], saved: [],
+      context: [], saved: [],
     };
 
   for (const {memory, working, want} of positives) {

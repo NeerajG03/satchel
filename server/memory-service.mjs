@@ -28,11 +28,11 @@ export function memoryService(db, embedder = null, router = null) {
   // One turn's worth of capture. Everything the router returns has already
   // been checked against what the user actually typed; this only resolves
   // scope and writes.
-  async function captureTurn(sessionKey, {codebase, project, projects, tasks, context, turn, saved}) {
+  async function captureTurn(sessionKey, {codebase, project, projects, context, turn, saved}) {
     const runId = crypto.randomUUID();
     let outcome;
     try {
-      outcome = await router.route({codebase, project, projects, tasks, context, turn, saved});
+      outcome = await router.route({codebase, project, projects, context, turn, saved});
     } catch (error) {
       await api.logRouterRun({id:runId, session_key:sessionKey, model:router.model,
         prompt:'(not sent)', response:null, kept:0, dropped:0, error:String(error.message ?? error)});
@@ -117,7 +117,7 @@ export function memoryService(db, embedder = null, router = null) {
       await requireScope(args.project_id,true);
       const row=await result(db.rpc('save_memory',{p_id:args.id,p_project_id:args.project_id,
         p_statement:args.statement,p_source:args.source??'',p_band:args.band??'said',
-        p_task_id:args.task_id??null,p_name:args.name??null,p_more_info:args.more_info??''}));
+        p_name:args.name??null,p_more_info:args.more_info??''}));
       await embedRow(row);
       return row;
     },
@@ -202,12 +202,10 @@ export function memoryService(db, embedder = null, router = null) {
     },
     clearSessionWindow: sessionKey =>
       result(db.rpc('clear_session_window', {p_session_key:sessionKey})),
-    async openTasks() {
-      const rows = await result(db.from('task_planning').select('slug,title,project_id')
-        .neq('status','done').order('last_activity_at',{ascending:false}).limit(12));
-      return rows ?? [];
-    },
     // Slug to UUID happens in the database, so the model never handles an id.
+    // One slug, because a memory has one scope and it is a project or
+    // personal. There is no task to resolve and nothing that can move the
+    // scope after the caller chose it.
     //
     // Embedded here for the same reason save() embeds: a row without a vector
     // is saved and invisible to retrieval. This call did not, and capture is
@@ -218,7 +216,7 @@ export function memoryService(db, embedder = null, router = null) {
     async captureMemory(args) {
       const row = await result(db.rpc('capture_memory', {
         p_id:args.id, p_statement:args.statement, p_source:args.source,
-        p_project_slug:args.project ?? null, p_task_slug:args.task ?? null,
+        p_project_slug:args.project ?? null,
       }));
       // embedRow swallows its own failures, so a slow or rate-limited embedder
       // still leaves the memory written and the turn counted.

@@ -32,7 +32,7 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
     await applyMigrations(db);
     for(const id of [a,b]) await call(user,'select create_project($1,$2,$3)',[id,id,'']);
     await call(user,'select link_project_repository($1,$2,$3)',[a,'github','neerajg03/satchel']);
-    for(const id of [null,a,b]) await call(user,'select save_memory($1,$2,$3,$4,$5,$6,$7,$8)',[crypto.randomUUID(),id,'Summary','','said',null,'same-name','PRIVATE DETAILS']);
+    for(const id of [null,a,b]) await call(user,'select save_memory($1,$2,$3,$4,$5,$6,$7)',[crypto.randomUUID(),id,'Summary','','said','same-name','PRIVATE DETAILS']);
     await authorize(ca,true,[a],false);await authorize(cb,false,[b],true);
     codex=await claims(ca);claude=await claims(cb);
     await call(user,'select authorize_agent_v2($1,$1,false,$2,false,false,$3,true,false)',[taskClient,[],[a]]);
