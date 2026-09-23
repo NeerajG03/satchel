@@ -27,7 +27,7 @@ Every row also has a six-character handle, the start of its id. That is what the
 
 You are given memories two ways and should not ask for them a third.
 
-1. **At the start of a conversation**, and after compaction, you receive the confirmed personal memories and the list of projects. Personal memories apply whatever you are working on, so they are not searched for, they are simply present. The block is capped, and unconfirmed ones are counted rather than shown, so a personal memory can exist without being in it: search when the user refers to one you were not given.
+1. **At the start of a conversation**, and after compaction, you receive the confirmed personal memories and the list of projects. Personal memories apply whatever you are working on, so they are not searched for, they are simply present. An unconfirmed preference the user has said more than once is included under its own header; follow it unless they tell you otherwise. The block is capped, and other unconfirmed ones are counted rather than shown, so a personal memory can exist without being in it: search when the user refers to one you were not given.
 2. **On each message**, anything relevant to what the user just said is retrieved and handed to you, with counts: `2 shown · 5 matched · 130 in scope`. Those counts are the point. `0 matched` means there is no such memory, which is different from one existing and not being shown.
 
 Call `retrieve_memory` yourself only when you need something the turn did not surface, for example a topic the user has not named yet in this conversation. Pass `exclude` with ids already in the conversation so nothing arrives twice. Do not read a whole scope with `memory_index` to go looking; search instead.

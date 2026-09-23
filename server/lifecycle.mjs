@@ -18,7 +18,7 @@
 // `{…, hook_event_name:"UserPromptSubmit", prompt, session_title}`, which the
 // binary settles and no amount of reading the docs did. Nothing about this
 // needs the transcript, which is why capture does not read one.
-import {sessionStartBlock, promptBlock, estimateTokens, noticeFor} from './injection-format.mjs';
+import {sessionStartBlock, personalLoad, promptBlock, estimateTokens, noticeFor} from './injection-format.mjs';
 import {errorText} from './error-text.mjs';
 
 const PROVIDER = 'github';
@@ -103,12 +103,13 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
           cap: settings.block_size});
         const tokens = estimateTokens(block);
         // What the block actually injects, which is no longer all of it: an
-        // unconfirmed memory is counted and withheld. The log has to say what
-        // reached the model, not what was fetched, or "why did it not know
-        // that" stops being answerable from the log.
-        const loaded = personal.filter(m => m.band !== 'heard').slice(0, settings.block_size);
+        // unconfirmed memory is counted and withheld until it is said again.
+        // The log has to say what reached the model, not what was fetched, or
+        // "why did it not know that" stops being answerable from the log.
+        const load = personalLoad(personal, settings.block_size);
+        const loaded = [...load.said, ...load.heard];
         notice = noticeFor('SessionStart', {projects: projects.length, personal: loaded.length,
-          unconfirmed: personal.length - loaded.length});
+          unconfirmed: load.held});
         if (!block) {
           context = 'Satchel is connected and has nothing saved yet. Do not invent memory.';
         } else if (tokens > settings.session_budget_tokens) {

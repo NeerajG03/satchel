@@ -1,8 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {sessionStartBlock, promptBlock, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
+import {sessionStartBlock, personalLoad, earned, promptBlock, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
 
 const memory = (id, statement, band = 'said', task_id = null) => ({id, statement, band, task_id});
+const picked = (id, statement, {kind = 'preference', mentions = 1} = {}) =>
+  ({id, statement, band: 'heard', kind, mentions});
 
 test('a handle is six stable characters of the id, with no dashes', () => {
   assert.equal(handleOf('0c28d1a4-0000-4000-8000-000000000001'), '0c28d1');
@@ -33,6 +35,48 @@ test('a band header only appears when that band has rows', () => {
   assert.ok(!onlyHeard.includes('use freely'), 'no confirmed header when nothing is confirmed');
   assert.ok(!onlyHeard.includes('Two.'), 'and still nothing unconfirmed in the text');
   assert.match(onlyHeard, /1 unconfirmed memory not loaded/);
+});
+
+test('a picked-up preference said again loads, in its own group', () => {
+  // Preferences are about how to work with the person, and no prompt like "fix
+  // this bug" searches for one. So a captured "keep comments rare" was stored
+  // and never used until it loaded here. Said twice is the evidence; asking the
+  // person to confirm it would be the approval queue memory avoids.
+  const block = sessionStartBlock({personal: [
+    memory('aaaaaa11-0000-4000-8000-000000000001', 'No em dashes.'),
+    picked('cccccc33-0000-4000-8000-000000000003', 'Comments only when needed.', {mentions: 3}),
+    picked('dddddd44-0000-4000-8000-000000000004', 'Pros and cons for options.'),
+  ]});
+  assert.match(block, /personal, confirmed, use freely\n {2}aaaaaa {2}No em dashes\./);
+  assert.match(block, /personal, picked up and said again, use unless told otherwise\n {2}cccccc {2}Comments only when needed\./);
+  assert.ok(!block.includes('Pros and cons'), 'said once is still held back');
+  assert.match(block, /1 unconfirmed memory not loaded/);
+  // Confirmed first, so what the person asked for is never pushed out by what
+  // was picked up.
+  assert.ok(block.indexOf('aaaaaa') < block.indexOf('cccccc'));
+});
+
+test('only a preference earns a place, and only once it is said twice', () => {
+  const id = 'eeeeee55-0000-4000-8000-000000000005';
+  assert.equal(earned(picked(id, 'x', {mentions: 2})), true);
+  assert.equal(earned(picked(id, 'x', {mentions: 1})), false, 'said once');
+  // A fact or an intent can wait to be found by a prompt about it.
+  assert.equal(earned(picked(id, 'x', {kind: 'fact', mentions: 5})), false);
+  assert.equal(earned(picked(id, 'x', {kind: 'intent', mentions: 5})), false);
+  assert.equal(earned({...memory(id, 'x'), kind: 'preference', mentions: 5}), false, 'confirmed rows load as confirmed');
+});
+
+test('the cap covers both groups, and confirmed ones fill it first', () => {
+  const said = [1, 2].map(n => memory(`a${n}000000-0000-4000-8000-00000000000${n}`, `Said ${n}.`));
+  const heard = [3, 4].map(n => picked(`b${n}000000-0000-4000-8000-00000000000${n}`, `Heard ${n}.`, {mentions: 2}));
+  const load = personalLoad([...said, ...heard, picked('c5000000-0000-4000-8000-000000000005', 'Once.')], 3);
+  assert.deepEqual(load.said.map(m => m.statement), ['Said 1.', 'Said 2.']);
+  assert.deepEqual(load.heard.map(m => m.statement), ['Heard 3.']);
+  assert.equal(load.past, 1, 'an earned one past the cap is past the block, not unconfirmed');
+  assert.equal(load.held, 1);
+  const block = sessionStartBlock({personal: [...said, ...heard], cap: 3});
+  assert.match(block, /1 older memory past the block/);
+  assert.ok(!block.includes('unconfirmed'));
 });
 
 test('the person is told how many memories are being held back', () => {

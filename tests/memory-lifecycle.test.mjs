@@ -384,6 +384,29 @@ test('with no scope chosen yet, resolving the repository is allowed to select', 
   assert.match(result.context, /1 other project not linked/);
 });
 
+test('a preference said again loads, and the log and the notice say so', async () => {
+  // The block, the injection log and the terminal line all have to agree on
+  // what reached the model, or "why did it not know that" is unanswerable.
+  const logged = [];
+  const result = await sessionStart({
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => ({...baseSettings, block_size: 30}),
+    projects: async () => [],
+    personal: async () => [
+      {id: 'aaaaaa11-0000-4000-8000-000000000001', statement: 'No em dashes.', band: 'said', kind: 'preference', mentions: 1},
+      {id: 'cccccc33-0000-4000-8000-000000000003', statement: 'Comments only when needed.', band: 'heard', kind: 'preference', mentions: 3},
+      {id: 'dddddd44-0000-4000-8000-000000000004', statement: 'Pros and cons.', band: 'heard', kind: 'preference', mentions: 1},
+    ],
+    logInjection: async entry => { logged.push(entry); },
+  }, {sessionKey: 's', project: null});
+  assert.match(result.context, /cccccc {2}Comments only when needed\./);
+  assert.ok(!result.context.includes('Pros and cons'));
+  assert.deepEqual(logged[0].memory_ids,
+    ['aaaaaa11-0000-4000-8000-000000000001', 'cccccc33-0000-4000-8000-000000000003']);
+  assert.equal(result.notice, 'Satchel loaded · 0 projects, 2 personal memories · 1 unconfirmed not loaded');
+});
+
 test('a rate limit tells the person what actually happened', async () => {
   // Capture failing on a spent embedding quota showed "Satchel memory
   // unavailable · Satchel request failed. Reload before retrying a write: it

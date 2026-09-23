@@ -98,6 +98,28 @@ style-only prompts (n=6), where the only relevant memories are standing writing 
 
 4.4x. Similarity measures topic overlap, and a standing preference is relevant by category of activity. The rules a user cares about most are the ones retrieval is worst at.
 
+## A picked-up preference said twice loads (23 September)
+
+Since the 21 September cleanup, a `heard` memory was counted at session start and never injected. That held the line on context pollution, but once consolidation became the only writer it also meant nothing Satchel learned on its own ever loaded. The job on 23 September wrote four personal preferences ("comments only when needed", "pros and cons for options", "plan docs simple with visuals", "explain terms simply") and none of them reached a session. They could only arrive through retrieval, and the table above is why that fails: a standing rule is relevant by kind of activity, not by topic, and "fix this bug" never searches for "keep comments rare".
+
+Confirming a memory to load it was not the answer either: a confirm button is the approval queue memory is meant to avoid.
+
+So a heard memory loads once it has earned it, in its own group under confirmed ones:
+
+```
+personal, confirmed, use freely
+  7c3a1e  ...
+personal, picked up and said again, use unless told otherwise
+  4fa6dd  Code comments only when needed ...
+3 unconfirmed memories not loaded · ...
+```
+
+Earned means `kind = 'preference'` and `mentions >= 2` (`earned` in `server/injection-format.mjs`). `mentions` only rises when a pass affirms or extends the memory, a pass only reads turns it has not read, and it must copy the words that say it again. So two means the person said it a second time without being asked. On the day this shipped, one row of four qualified.
+
+Preferences only. A fact or an intent is about a topic, so a prompt about that topic finds it; and a wrong fact loading everywhere is the exact 21 September failure. The cap is shared, confirmed rows fill it first, and `personalLoad` is the one function the block and the injection log both use, so the log cannot claim a different set from the one the model saw.
+
+What would make this wrong: a pass affirming things nobody restated. The prompt forbids it and requires a copied source, and the eval's `ended wrongly` bar does not catch a bad affirm, so that is the thing to watch in the job reports.
+
 ## Gemini over everything local, measured
 
 Gemini was the first hosted model to beat the local baseline: **+0.052 utility [0.012, 0.092]**.
