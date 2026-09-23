@@ -47,7 +47,7 @@ Everything else still applies: it is per connection, revocation still rotates `g
 
 **Writes are safe to retry and safe against races.** Creates take a caller-supplied `id` and `request_id`. The same pair with the same payload returns the existing record. A different payload is a conflict. Updates take the expected `revision` and fail with a conflict on mismatch instead of overwriting. Deletes check the revision too.
 
-**Agents cannot delete tasks or projects.** Only a person can. Agents can forget a memory only within a scope they were granted write on. Keep destructive tool annotations honest. The system itself never deletes a memory: consolidation and the web app's Forget end it with a reason, and `restore_memory` brings it back. The MCP `delete_memory` tool still runs a real `DELETE`, which is the one place that is not true yet.
+**Agents cannot delete tasks or projects.** Only a person can. Agents can forget a memory only within a scope they were granted write on. Keep destructive tool annotations honest. The system itself never deletes a memory: consolidation and the web app's Forget end it with a reason, and `restore_memory` brings it back. So does an agent's `forget_memory`: nothing an agent can call destroys a memory.
 
 **Inputs are bounded.** Every MCP tool argument has a zod schema with lengths and enums, see the top of `server/mcp-server.mjs`. Lists are capped and return a `complete` flag. URLs attached to tasks must be HTTPS and are stored, never fetched. Repository names are normalized `owner/repo` and are only accepted from the bootstrap, never guessed from a folder name.
 

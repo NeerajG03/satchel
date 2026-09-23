@@ -148,8 +148,11 @@ export function createMemoryServer(service, {ownerId} = {}) {
     {...identity,...content},a=>service.correct(a),{readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:false});
   register('confirm_memory','Promote an unconfirmed memory to confirmed, after the user has agreed it is right. Only ever call this when they actually said so.',
     identity,a=>service.confirm(a),writeAnnotations);
-  register('delete_memory','Delete only a memory the user explicitly requested to forget; provide its scope, ID and current revision.',
-    identity,a=>service.remove(a),{readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:false});
+  // Named for what it does. It ends the memory as forgotten and keeps the row
+  // and its history, so the person can restore it from the archive; nothing an
+  // agent can call destroys a memory.
+  register('forget_memory','Forget only a memory the user explicitly asked to forget; provide its scope, ID and current revision. It stops loading and matching right away and moves to the archive in the Satchel app, where the user can restore it. On a conflict, re-read.',
+    identity,a=>service.forget(a),{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false});
 
   if(service.tasks) {
     register('list_tasks','List bounded task summaries in one explicit task scope. Use project_id=null for personal tasks; otherwise use an authorized project UUID. Filter by state when useful and check complete before claiming the list is exhaustive.',

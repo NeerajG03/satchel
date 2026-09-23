@@ -15,7 +15,7 @@ const description='Personal and project memory, tasks and projects across your a
 //
 // 0.3.2 puts per-prompt retrieval back and stops reading the transcript. Both
 // came from one wrong belief: that a command hook is not handed the prompt.
-const versions={claude:'0.4.3',codex:'0.4.3'};
+const versions={claude:'0.4.4',codex:'0.4.4'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});

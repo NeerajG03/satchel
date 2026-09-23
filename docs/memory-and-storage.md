@@ -69,6 +69,8 @@ Identify the record and expected revision. Write a replacement and supersede the
 
 Remove the record from active retrieval and invalidate affected caches/index entries. Explain whether the underlying record, revision history, backups, and exports remain. Satchel cannot erase earlier text from an external chat or a vendor's native memory through a local delete button.
 
+As built, forgetting ends a memory rather than deleting it, from the web app's Forget and from an agent's `forget_memory` alike: `ended_reason` becomes `forgotten`, the row and its `memory_events` history stay, and the archive can restore it. The only real delete is a person's, from the archive, and it takes the history with it.
+
 Git-backed deletion would normally retain old content in commit history. A service-backed design needs a documented deletion and backup policy. The product must describe the selected implementation accurately; “forget” is not automatically “erase every copy.”
 
 ## Hosting and data storage are different decisions

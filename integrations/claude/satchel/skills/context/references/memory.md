@@ -50,4 +50,4 @@ A memory that is about a task is still saved to the task's project, or to person
 
 `confirm_memory` takes `id` and `revision`, and does nothing else. Use it when the user agrees with a heard memory but changes nothing.
 
-`delete_memory` takes scope, id and revision. Delete only the memory the user asked to forget, and tell them copies already printed in earlier chats are unaffected. It removes the row for good. If the user only wants it out of the way, point them to Forget in the Satchel app, which archives it and can be undone.
+`forget_memory` takes scope, id and revision. Forget only the memory the user asked to forget, and tell them copies already printed in earlier chats are unaffected. It stops loading and matching right away and moves to the archive in the Satchel app, where the user can restore it. On `PT409`, re-read: it changed, or it is already forgotten. There is no tool to delete a memory for good. If the user wants that, point them to the archive in the Satchel app.

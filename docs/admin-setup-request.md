@@ -62,7 +62,7 @@ If hosted ChatGPT use is also in scope, request authorization to register/enable
 | `select_project` | Changes this conversation's active project, addressed either by project ID or through a user-created repository link; it does not expand access or write memory content |
 | `save_memory` | Explicitly saves a memory |
 | `correct_memory` | Explicitly revises a memory using its current revision |
-| `delete_memory` | Explicitly deletes a requested memory using its current revision |
+| `forget_memory` | Explicitly forgets a requested memory using its current revision; it moves to the archive and can be restored |
 
 Allowing only tools marked read-only will block `select_project` as well as memory writes. Approve these existing actions explicitly where a custom tool policy is used; keep review for future newly introduced actions.
 

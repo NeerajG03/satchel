@@ -325,13 +325,17 @@ export function memoryService(db, embedder = null, router = null) {
         }));
       } catch { /* Losing a log row is not worth losing the context it describes. */ }
     },
-    async remove(args) {
+    // An agent's forget ends the memory, the same as the web app's Forget: the
+    // row and its history stay, and the archive can bring it back. The one real
+    // delete is a person's. end_memory takes an id alone, so the select keeps
+    // the scope the agent named authoritative rather than any scope it can write.
+    async forget(args) {
       await requireScope(args.project_id,true);
-      let query=db.from('memories').delete().eq('id',args.id).eq('revision',args.revision);
+      let query=db.from('memories').select('id').eq('id',args.id);
       query=args.project_id===null?query.is('project_id',null):query.eq('project_id',args.project_id);
-      const rows=await result(query.select('id'));
-      if (!rows.length) throw {code:'PT409'};
-      return {deleted_id:args.id};
+      if (!(await result(query)).length) throw {code:'PT409'};
+      const row=await api.endMemory({id:args.id,revision:args.revision,reason:'forgotten'});
+      return {forgotten_id:row.id,revision:row.revision};
     },
     captureTurn: router ? captureTurn : null,
   };
