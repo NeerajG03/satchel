@@ -30,7 +30,7 @@
 // See docs/memory-v2-5-scope.md, R2, R2a and R5.
 import {z} from 'zod';
 import {generateObject, NoObjectGeneratedError} from 'ai';
-import {providerFor, asBaseUrl, fallbackModel, worthAnotherModel} from './model-provider.mjs';
+import {providerFor, asBaseUrl, worthWaiting} from './model-provider.mjs';
 import {salvage, asModelError} from './router.mjs';
 import {consolidatePrompt, localTextFor, CONSOLIDATE_PROMPT} from './prompt-store.mjs';
 
@@ -225,10 +225,6 @@ export function createConsolidator({
   // reasoning problem. It is also the call whose mistakes are destructive,
   // which is the other reason to pay for thought here.
   thinking = process.env.SATCHEL_THINKING_LEVEL ?? 'medium',
-  // Tried when the chosen model cannot answer at all. The newest flash models
-  // are the ones most likely to be overloaded, which is exactly when a
-  // background pass should quietly use an older one rather than fail.
-  fallback = fallbackModel(process.env.SATCHEL_ROUTER_MODEL ?? 'gemini-3.8-flash'),
   provider = process.env.SATCHEL_ROUTER_PROVIDER ?? 'google',
   baseURL = asBaseUrl(process.env.SATCHEL_ROUTER_URL),
   apiKey = process.env.SATCHEL_ROUTER_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY,
@@ -239,20 +235,18 @@ export function createConsolidator({
   timeoutMs = Number(process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS ?? 40000),
   promptResolver = consolidatePrompt,
   annotate = () => {},
-  // How long to stop asking the first choice after it says it cannot answer.
-  // An overloaded model takes its time saying so, twelve seconds in the case
-  // that prompted this, and a batch of ten documents would spend its entire
-  // budget learning the same thing ten times. Short enough that a model which
-  // recovers is tried again on the next run.
-  avoidForMs = Number(process.env.SATCHEL_MODEL_AVOID_MS ?? 5 * 60_000),
+  // How long to wait before asking the same model again, once, after it
+  // could not answer. Two minutes, because the 503s this is for cleared in
+  // seconds and a wait that long outlasts most of them, and because a longer
+  // one would not fit in a job step with a call after it.
+  retryAfterMs = Number(process.env.SATCHEL_CONSOLIDATE_RETRY_MS ?? 120_000),
+  sleep = ms => new Promise(resolve => setTimeout(resolve, ms)),
   fetchImpl = fetch,
 } = {}) {
-  // Per instance, which is per warm serverless process, which is the same
-  // scope as the batch this is trying not to waste.
-  let avoidUntil = 0;
   return {
     model,
     timeoutMs,
+    retryAfterMs,
     /** `deadline` is the wall the caller has to finish behind, which is the
      *  serverless function's own limit rather than anything about the model.
      *  Bounding the call by whichever comes first is what keeps a batch from
@@ -263,8 +257,10 @@ export function createConsolidator({
       if (!apiKey) throw new Error('No router key configured');
       const instructions = await promptResolver();
       const {system, prompt} = buildConsolidationPrompt({...input, instructions: instructions.text});
-      const left = deadline ? Math.max(1000, deadline - Date.now()) : timeoutMs;
-      const signal = AbortSignal.timeout(Math.min(timeoutMs, left));
+      // A fresh clock for each attempt, bounded by whatever the caller has
+      // left: the second one starts two minutes after the first.
+      const attempt = () => AbortSignal.timeout(
+        Math.min(timeoutMs, deadline ? Math.max(1000, deadline - Date.now()) : timeoutMs));
       // R11. A run nobody watches is only auditable if the trace says what it
       // was looking at before it says what it did.
       annotate({metadata: {
@@ -278,36 +274,33 @@ export function createConsolidator({
         characters: (input.turns ?? []).reduce((sum, t) => sum + String(t.content ?? '').length, 0),
       }});
       let result;
-      // Straight to the fallback while the first choice is known to be down,
-      // rather than paying for the same refusal on every document.
-      let used = fallback && Date.now() < avoidUntil ? fallback : model;
+      let signal = attempt();
+      let waited = false;
       try {
-        result = await ask(used);
+        result = await ask(model, signal);
       } catch (error) {
-        // One other model, once. If the first choice cannot answer at all,
-        // the same question asked of an older one usually lands, and a pass
-        // that silently did not run is worse than one that ran on second
-        // best. The trace says which, so this cannot hide.
-        //
-        // asModelError is what knows the difference between a burst limit,
-        // which comes back on its own, and a daily quota that is gone until
-        // midnight. That difference is the whole decision: the free tier caps
-        // requests per day per model, so a spent quota on one model is
-        // answered immediately by another.
+        // The same model, once more, after a wait. Never a different one: a
+        // session a weaker model read is marked as read and not looked at
+        // again, and one left pending is read properly by the next pass.
         const failure = asModelError(error, signal, 'consolidation');
-        if (used === fallback || !fallback || !worthAnotherModel(failure)) throw failure;
-        avoidUntil = Date.now() + avoidForMs;
-        used = fallback;
-        try { result = await ask(fallback); }
+        if (!worthWaiting(failure)) throw failure;
+        // Only when there is room for the wait and a whole call after it.
+        // Otherwise the caller hears `later`, and a job hands the session to
+        // its next step, which starts with a full clock.
+        if (deadline && deadline - Date.now() < retryAfterMs + timeoutMs) throw Object.assign(failure, {later: true});
+        await sleep(retryAfterMs);
+        waited = true;
+        signal = attempt();
+        try { result = await ask(model, signal); }
         catch (second) { throw asModelError(second, signal, 'consolidation'); }
       }
-      annotate({metadata: {modelUsed: used, fellBack: used !== model}});
+      annotate({metadata: {modelUsed: model, waited}});
       const checked = validateConsolidation(result.object, input);
-      return {...checked, model: used, prompt: `${system}\n\n${prompt}`,
+      return {...checked, model, prompt: `${system}\n\n${prompt}`,
         promptVersion: instructions.version, promptSource: instructions.source,
         raw: JSON.stringify(result.object), usage: result.usage ?? null};
 
-      async function ask(which) {
+      async function ask(which, signal) {
       let result;
       try {
         result = await generateObject({

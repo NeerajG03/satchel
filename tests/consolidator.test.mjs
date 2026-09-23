@@ -8,7 +8,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {buildConsolidationPrompt, validateConsolidation, createConsolidator,
   CONSOLIDATION_SCHEMA} from '../server/consolidator.mjs';
-import {worthAnotherModel} from '../server/model-provider.mjs';
+import {worthWaiting} from '../server/model-provider.mjs';
 
 const projects = [{slug: 'ledger', brief: 'Go payments ledger'}, {slug: 'sourdough', brief: 'Baking'}];
 const memories = [
@@ -238,87 +238,66 @@ test('a full block turns the question from absolute into comparative', () => {
   assert.doesNotMatch(roomy, /the block holds/, 'no pressure is invented when there is room');
 });
 
-test('an overloaded model is answered by an older one rather than by nothing', async () => {
-  // The newest flash models answer 503 under load. On 22 September
-  // gemini-3.8-flash and gemini-3.7-flash did so on every attempt while
-  // gemini-3.5-flash answered in four seconds. Without this, consolidation is
-  // simply broken on a busy day and the person pressing the button cannot
-  // tell that from a bug.
-  const asked = [];
-  const overloaded = () => new Response(JSON.stringify({error: {code: 503, status: 'UNAVAILABLE'}}),
-    {status: 503, headers: {'content-type': 'application/json'}});
-  const consolidator = createConsolidator({apiKey: 'x', model: 'busy-model', fallback: 'older-model',
-    annotate: () => {},
-    fetchImpl: async url => {
-      asked.push(String(url).match(/models\/([^:]+):/)?.[1]);
-      return asked.length === 1 ? overloaded()
-        : json({candidates: [{content: {parts: [{text: '{"changes":[]}'}]}, finishReason: 'STOP'}]});
-    }});
+const overloaded = () => new Response(JSON.stringify({error: {code: 503, status: 'UNAVAILABLE'}}),
+  {status: 503, headers: {'content-type': 'application/json'}});
+const answered = () => json({candidates: [{content: {parts: [{text: '{"changes":[]}'}]}, finishReason: 'STOP'}]});
+const modelOf = url => String(url).match(/models\/([^:]+):/)?.[1];
+
+test('an overloaded model is waited for and asked again, never swapped for another', async () => {
+  // On 23 September one 503 from gemini-3.8-flash sent the last eight
+  // sessions of a pass to gemini-3.5-flash, and they were the ones it read
+  // worst. The 503s themselves cleared on the second or third try.
+  const asked = [], slept = [];
+  const consolidator = createConsolidator({apiKey: 'x', model: 'busy-model', annotate: () => {},
+    sleep: async ms => { slept.push(ms); },
+    fetchImpl: async url => { asked.push(modelOf(url)); return asked.length === 1 ? overloaded() : answered(); }});
   const out = await consolidator.consolidate(context);
-  assert.deepEqual(asked, ['busy-model', 'older-model']);
-  assert.equal(out.model, 'older-model', 'and the answer says which model produced it');
+  assert.deepEqual(asked, ['busy-model', 'busy-model']);
+  assert.deepEqual(slept, [120000], 'two minutes, once');
+  assert.equal(out.model, 'busy-model');
 });
 
-test('a refusal is not retried on a different model', async () => {
-  // Only the host being unable to answer at all is worth asking elsewhere. A
-  // 400 is the request, and another model refuses it the same way, so trying
-  // twice just doubles the bill and the wait.
+test('a model still down after the wait is reported, and the session is left for later', async () => {
   const asked = [];
-  const consolidator = createConsolidator({apiKey: 'x', model: 'a', fallback: 'b',
+  const consolidator = createConsolidator({apiKey: 'x', model: 'busy', sleep: async () => {},
+    fetchImpl: async url => { asked.push(modelOf(url)); return overloaded(); }});
+  await assert.rejects(consolidator.consolidate(context), /503|unavailable|could not answer/i);
+  assert.deepEqual(asked, ['busy', 'busy'], 'twice, and never a third time or another model');
+});
+
+test('with no room left to wait, the caller hears later instead of a wait that cannot finish', async () => {
+  const slept = [];
+  const consolidator = createConsolidator({apiKey: 'x', model: 'busy', sleep: async ms => { slept.push(ms); },
+    fetchImpl: async () => overloaded()});
+  await assert.rejects(consolidator.consolidate(context, {deadline: Date.now() + 60000}),
+    error => error.later === true);
+  assert.deepEqual(slept, []);
+});
+
+test('a refusal is not waited for', async () => {
+  // A 400 is the request, and the same request is refused the same way two
+  // minutes later.
+  const asked = [], slept = [];
+  const consolidator = createConsolidator({apiKey: 'x', model: 'a', sleep: async ms => { slept.push(ms); },
     fetchImpl: async url => {
-      asked.push(String(url).match(/models\/([^:]+):/)?.[1]);
+      asked.push(modelOf(url));
       return new Response(JSON.stringify({error: {code: 400, status: 'INVALID_ARGUMENT'}}),
         {status: 400, headers: {'content-type': 'application/json'}});
     }});
   await assert.rejects(consolidator.consolidate(context));
   assert.deepEqual(asked, ['a']);
+  assert.deepEqual(slept, []);
 });
 
-test('no fallback is configured away rather than looping on itself', () => {
-  const same = createConsolidator({apiKey: 'x', model: 'one', fallback: null});
-  assert.equal(same.model, 'one');
-});
-
-test('a model known to be down is not asked again for every document in the batch', async () => {
-  // An overloaded model takes its time saying no, twelve seconds in the case
-  // that prompted this. Ten documents would spend the whole request learning
-  // the same thing ten times and read nothing.
-  const asked = [];
-  const consolidator = createConsolidator({apiKey: 'x', model: 'busy', fallback: 'older',
-    fetchImpl: async url => {
-      const which = String(url).match(/models\/([^:]+):/)?.[1];
-      asked.push(which);
-      return which === 'busy'
-        ? new Response(JSON.stringify({error: {code: 503}}), {status: 503, headers: {'content-type': 'application/json'}})
-        : json({candidates: [{content: {parts: [{text: '{"changes":[]}'}]}, finishReason: 'STOP'}]});
-    }});
-  await consolidator.consolidate(context);
-  await consolidator.consolidate(context);
-  await consolidator.consolidate(context);
-  assert.deepEqual(asked, ['busy', 'older', 'older', 'older'],
-    'the first document pays for the discovery and the rest do not');
-});
-
-test('a fallback that also fails is reported rather than looped', async () => {
-  const consolidator = createConsolidator({apiKey: 'x', model: 'busy', fallback: 'also-busy',
-    fetchImpl: async () => new Response(JSON.stringify({error: {code: 503}}),
-      {status: 503, headers: {'content-type': 'application/json'}})});
-  await assert.rejects(consolidator.consolidate(context), /503/);
-});
-
-test('a spent daily quota is answered by another model, a burst limit is not', () => {
-  // The free tier caps requests per day per model: gemini-3.8-flash allows 20
-  // and then answers 429 until midnight. That is per model, so another one
-  // answers immediately, and without this a free key gets 20 consolidations
-  // and then silence. A burst limit is the opposite: it comes back on its own
-  // and switching models for it just spreads the load around.
-  assert.equal(worthAnotherModel({code: 'ROUTER_LIMIT', spent: true}), true);
-  assert.equal(worthAnotherModel({code: 'ROUTER_LIMIT', spent: false}), false);
-  assert.equal(worthAnotherModel({code: 'ROUTER_HOST', status: 503}), true);
-  assert.equal(worthAnotherModel({code: 'ROUTER_HOST', status: 400}), false,
-    'a bad request is refused identically everywhere');
-  assert.equal(worthAnotherModel({code: 'ROUTER_TIMEOUT'}), false, 'the budget is already spent');
-  assert.equal(worthAnotherModel({code: 'ROUTER_SHAPE'}), false, 'that is the prompt, not the host');
+test('what is worth waiting for: an overloaded host and a burst limit, not a spent quota', () => {
+  // The day's quota is gone until midnight Pacific, so the job stops on it.
+  // A burst limit and a 503 come back on their own.
+  assert.equal(worthWaiting({code: 'ROUTER_HOST', status: 503}), true);
+  assert.equal(worthWaiting({code: 'ROUTER_LIMIT', spent: false}), true);
+  assert.equal(worthWaiting({code: 'ROUTER_LIMIT', spent: true}), false);
+  assert.equal(worthWaiting({code: 'ROUTER_HOST', status: 400}), false, 'a bad request is refused identically');
+  assert.equal(worthWaiting({code: 'ROUTER_TIMEOUT'}), false, 'the budget is already spent');
+  assert.equal(worthWaiting({code: 'ROUTER_SHAPE'}), false, 'that is the prompt, not the host');
 });
 
 test('a source quoting a long paste is cut to what memories.source holds, not refused', () => {

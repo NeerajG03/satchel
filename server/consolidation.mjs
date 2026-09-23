@@ -108,11 +108,14 @@ export async function consolidateDocument(service, consolidator, document,
         await service.logConsolidationRun({id: runId, document_id: document.id, trace_id: traceId,
           model: consolidator.model, prompt: '(not sent)', response: null,
           duration_ms: Date.now() - started, error: errorText(error)});
-        // `spent` is the one failure worth stopping a whole job for. The
-        // consolidator has already tried its fallback model, so a daily quota
-        // that is still gone will be gone for every session after this one.
+        // `spent` is the one failure worth stopping a whole job for: a daily
+        // quota that is gone is gone for every session after this one, and
+        // there is no other model to ask. `later` is a model that could not
+        // answer and a call with no room left to wait for it, which a job
+        // hands to its next step instead of counting as a failure.
         return {...counts, document: document.id, session_key: document.session_key,
-          failed: errorText(error), spent: error?.code === 'ROUTER_LIMIT' && error?.spent === true};
+          failed: errorText(error), spent: error?.code === 'ROUTER_LIMIT' && error?.spent === true,
+          later: error?.later === true};
       }
       counts.dropped = outcome.dropped.length;
       // R11. Every action taken and why, each naming the memory it touched,
@@ -136,10 +139,6 @@ export async function consolidateDocument(service, consolidator, document,
       // loses the conversation's only chance to be read.
       if (through != null) await service.markDocumentConsolidated(document.id, through);
       await service.logConsolidationRun({id: runId, document_id: document.id, trace_id: traceId,
-        // The model that answered, which is not always the one configured: a
-        // spent quota or an overloaded host sends the call to the fallback.
-        // Logging the configured one would make the log agree with the
-        // settings and disagree with what happened.
         model: outcome.model ?? consolidator.model, prompt: outcome.prompt, response: outcome.raw, through,
         ...counts, input_tokens: outcome.usage?.inputTokens ?? null,
         output_tokens: outcome.usage?.outputTokens ?? null,
@@ -228,6 +227,13 @@ export async function consolidateStep(service, consolidator, job,
     const run = await consolidateDocument(service, consolidator, waiting[index],
       {projects, cap: settings.block_size, churn: settings.staleness_commits,
        deadline, traced, ownerId});
+    // The model could not answer and this call had no room to wait for it.
+    // The next step starts with a full clock, and this session is the first
+    // one it will reach, because nothing about it was written to the row.
+    // Only while the job itself has room for the wait; after that it is an
+    // ordinary failure, and the session stays pending for the next pass.
+    if (run.later && wall - now() >= (consolidator.retryAfterMs ?? 0) + (consolidator.timeoutMs ?? 0))
+      return {job: current, more: true};
     const patch = {read: current.read + 1, runs: [...(current.runs ?? []), run],
       failed: current.failed + (run.failed ? 1 : 0)};
     for (const key of TOTALS) patch[key] = (current[key] ?? 0) + (run[key] ?? 0);

@@ -91,9 +91,9 @@ SATCHEL_GITHUB_APP_*
 
 `SUPABASE_URL` is a constant in `server/http-handler.mjs`. `SUPABASE_SERVICE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are used only by local maintenance scripts and are deliberately **not** on Vercel. `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` are only for `verify-pgvector.mjs`.
 
-Overridable without a code change: `SATCHEL_EMBEDDING_PROVIDER|MODEL|URL|KEY|DIMENSIONS|TIMEOUT_MS|BUDGET_MS|TASK_TYPE|FALLBACK_KEY|FALLBACK_URL`, `SATCHEL_ROUTER_PROVIDER|MODEL|URL|KEY|TIMEOUT_MS`, `SATCHEL_THINKING_LEVEL`, `SATCHEL_MODEL_FALLBACK`, `SATCHEL_MODEL_AVOID_MS`, `SATCHEL_CONSOLIDATE_TIMEOUT_MS`, `SATCHEL_PROMPT_LABEL|TIMEOUT_MS|TTL_MS`.
+Overridable without a code change: `SATCHEL_EMBEDDING_PROVIDER|MODEL|URL|KEY|DIMENSIONS|TIMEOUT_MS|BUDGET_MS|TASK_TYPE|FALLBACK_KEY|FALLBACK_URL`, `SATCHEL_ROUTER_PROVIDER|MODEL|URL|KEY|TIMEOUT_MS`, `SATCHEL_THINKING_LEVEL`, `SATCHEL_CONSOLIDATE_RETRY_MS`, `SATCHEL_CONSOLIDATE_TIMEOUT_MS`, `SATCHEL_PROMPT_LABEL|TIMEOUT_MS|TTL_MS`.
 
-The router and the pass share `SATCHEL_ROUTER_MODEL` (default `gemini-3.8-flash`) and `SATCHEL_THINKING_LEVEL` (default `medium`). `SATCHEL_MODEL_FALLBACK` defaults to `gemini-3.5-flash`; set it to the same model, or to an empty string, to switch the fallback off.
+The router and the pass share `SATCHEL_ROUTER_MODEL` (default `gemini-3.8-flash`) and `SATCHEL_THINKING_LEVEL` (default `medium`). There is no fallback model. `SATCHEL_CONSOLIDATE_RETRY_MS` (default 120000) is how long a pass waits before asking the same model again after a 5xx or a burst limit.
 
 **Production's Gemini key is not the local one.** Production is on a paid key; a local free key allows 20 requests a day per model on the newest models. A local 429 or 503 is not evidence about production, and was once misread as exactly that.
 

@@ -124,7 +124,7 @@ The row is moved after every session, so the page shows progress and a call that
 
 It accepts three credentials, all under RLS as the owner: the hook scripts' agent bearer, a **companion session** (the button, checked by `verifyCompanionToken`, which refuses any token carrying a `client_id`), and `x-satchel-refresh` (the cron, a refresh token the endpoint exchanges and rotates). It is the only endpoint that accepts the last two.
 
-**Model choice.** One costly call per session instead of one cheap call per turn, so `gemini-3.8-flash` with `thinkingLevel: 'medium'` through `SATCHEL_ROUTER_MODEL` and `SATCHEL_THINKING_LEVEL`. If the host answers 5xx or the daily quota for that model is spent, it falls back once to `SATCHEL_MODEL_FALLBACK` (`gemini-3.5-flash`) and avoids the first model for five minutes on that instance. `decisions.md` has the measurements.
+**Model choice.** One costly call per session instead of one cheap call per turn, so `gemini-3.8-flash` with `thinkingLevel: 'medium'` through `SATCHEL_ROUTER_MODEL` and `SATCHEL_THINKING_LEVEL`. There is no fallback model. If the host answers 5xx or a burst 429, the pass waits two minutes (`SATCHEL_CONSOLIDATE_RETRY_MS`) and asks the same model once more; if that fails too, the session stays pending for the next pass. A spent daily quota stops the job instead. `decisions.md` has why.
 
 ## The layers, and what each one owns
 
@@ -148,7 +148,7 @@ Tools: `list_projects`, `upsert_project`, `select_project`, `memory_index`, `ret
 
 **`server/secrets.mjs`** takes keys, passwords and tokens out of text before it is kept. `hook-handler.mjs` scrubs the prompt and the reply as they arrive, so the document, the window, the embedder, the injection log and the trace only ever see the redacted copy, and the pass scrubs the turns it reads again for anything stored before. Known shapes are always taken out; a value next to a secret-sounding name only when it looks random. It is a pattern scanner rather than a model, because asking a hosted model whether something is a secret means sending it the secret.
 
-**`server/model-provider.mjs`** picks the SDK provider for a model id, and holds `fallbackModel` and `worthAnotherModel`.
+**`server/model-provider.mjs`** picks the SDK provider for a model id, and holds `worthWaiting`, which says which failures are worth a wait and a second ask.
 
 **`server/prompt-store.mjs`** resolves both prompts. Langfuse holds `satchel-capture-router` and `satchel-consolidate`, labelled `production`; `server/prompts/capture-router.md` and `server/prompts/consolidate.md` are the copies you edit and the fallback when Langfuse is slow, down or unconfigured. One fetch per warm instance, an hour of cache, and a failure is cached too. Whichever was used is named on the trace.
 

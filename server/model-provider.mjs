@@ -64,41 +64,27 @@ export function providerFor({provider = 'google', apiKey, baseURL, fetchImpl = f
  *   and only an abort is really a timeout, which has to be read from the
  *   signal, because the SDK surfaces it as an ordinary error.
  */
-/** The model to fall back to when the chosen one is unavailable.
+/** Whether a failed consolidation call is worth asking again, of the same
+ *  model, after a wait.
  *
- *  Not a nicety. The newest Gemini flash models answer 503 "experiencing high
- *  demand" under load, and on 22 September gemini-3.8-flash and
- *  gemini-3.7-flash did so on every single attempt while gemini-3.5-flash
- *  answered in four seconds. Pinning the newest model without this means
- *  consolidation is simply broken on the days it is busy, and the person
- *  pressing the button has no way to tell that from a bug.
+ *  There is no second model any more. On 23 September one 503 from
+ *  gemini-3.8-flash sent the last eight sessions of a pass to gemini-3.5-flash
+ *  for five minutes, and they were the sessions it read worst. A session read
+ *  by a weaker model is marked as read and never gets a second look; a session
+ *  left pending is read properly by the next pass. So a failure waits once and
+ *  then leaves the session for later, rather than settling for less.
  *
- *  One older model, not a chain. A chain is a way to never find out that your
- *  first choice does not work. */
-export const fallbackModel = model => {
-  const chosen = process.env.SATCHEL_MODEL_FALLBACK ?? 'gemini-3.5-flash';
-  return chosen && chosen !== model ? chosen : null;
-};
-
-/** Whether trying a different model is worth doing.
+ *  Two failures come back on their own and are worth the wait. The host
+ *  cannot answer, which is a 5xx: the 503s on 23 September cleared on the
+ *  second or third try. Or a burst limit, a 429 that is not the day's quota.
  *
- *  Two failures, and they look nothing alike. The host cannot answer at all,
- *  which is a 5xx. Or this model's quota is gone for the day, which on the
- *  free tier is a per-model daily cap: gemini-3.8-flash allows 20 requests a
- *  day and then answers 429 until midnight.
- *
- *  The second one is the reason this predicate is not just "5xx". A spent
- *  daily quota is per model, so the same question asked of another one is
- *  answered immediately, and without this a free key gets 20 consolidations
- *  and then silence.
- *
- *  Nothing else. A 4xx that is not a quota is the request, and another model
- *  refuses it identically. A burst limit comes back on its own and is worth
- *  waiting out rather than switching for. A timeout has already spent the
- *  budget, and a bad shape is the prompt. */
-export const worthAnotherModel = failure =>
+ *  Nothing else. A spent daily quota is gone until midnight Pacific, so the
+ *  job stops on it instead. A 4xx that is not a quota is the request and is
+ *  refused identically every time. A timeout has already spent the budget,
+ *  and a bad shape is the prompt. */
+export const worthWaiting = failure =>
   (failure?.code === 'ROUTER_HOST' && Number(failure.status) >= 500)
-  || (failure?.code === 'ROUTER_LIMIT' && failure?.spent === true);
+  || (failure?.code === 'ROUTER_LIMIT' && failure?.spent !== true);
 
 export function describeFailure(error, signal) {
   if (signal?.aborted || error?.name === 'AbortError' || error?.name === 'TimeoutError')

@@ -136,10 +136,12 @@ function fakeService({documents = [], failWith = {}} = {}) {
     rotateConsolidationCredential: async () => {},
   };
   const consolidator = {
-    model: 'test-model',
+    model: 'test-model', retryAfterMs: 120000, timeoutMs: 40000,
     consolidate: async ({turns}) => {
       const which = turns[0].content.split(' ').pop();
-      if (failWith[which]) throw failWith[which];
+      // A function fails only when it returns an error, so a case can fail once.
+      const failure = typeof failWith[which] === 'function' ? failWith[which]() : failWith[which];
+      if (failure) throw failure;
       return {changes: [{action: 'add', statement: `A claim from ${which}.`, source: `said in ${which}`,
         kind: 'fact', project: null, why: 'new'}], dropped: [], prompt: 'p', raw: '{}'};
     },
@@ -197,6 +199,40 @@ test('a spent quota stops the job instead of failing every session after it', as
   assert.equal(out.job.failed, 1);
   // The one that failed is still waiting for tomorrow.
   assert.deepEqual([...marked], ['d1']);
+});
+
+test('a model with no room to wait is handed to the next step, not counted as a failure', async () => {
+  // The next step starts with a full clock, so it has room for the two minute
+  // wait. The session is the first one it reaches because nothing about it
+  // was written to the row.
+  let calls = 0;
+  const later = () => (calls++ === 0
+    ? Object.assign(new Error('busy'), {code: 'ROUTER_HOST', status: 503, later: true}) : null);
+  const {service, consolidator, marked} = fakeService({documents: docs(3), failWith: {d2: later}});
+  const {job} = await service.startConsolidationJob({idleMinutes: 30, waiting: 3});
+  const first = await consolidateStep(service, consolidator, await service.moveConsolidationJob(job.id, 0, {step: 1}));
+  assert.equal(first.more, true);
+  assert.deepEqual(first.job.runs.map(r => r.document), ['d1']);
+  assert.equal(first.job.failed, 0);
+  const second = await consolidateStep(service, consolidator,
+    await service.moveConsolidationJob(job.id, first.job.step, {step: first.job.step + 1}));
+  assert.deepEqual(second.job.runs.map(r => r.document), ['d1', 'd2', 'd3']);
+  assert.equal(second.job.failed, 0);
+  assert.equal(second.job.status, 'finished');
+  assert.deepEqual([...marked].sort(), ['d1', 'd2', 'd3']);
+});
+
+test('near the 30 minutes, a model with no room to wait is an ordinary failure left for the next pass', async () => {
+  const busy = Object.assign(new Error('busy'), {code: 'ROUTER_HOST', status: 503, later: true,
+    reason: 'the model could not answer'});
+  const {service, consolidator, marked} = fakeService({documents: docs(2), failWith: {d1: busy}});
+  const {job} = await service.startConsolidationJob({idleMinutes: 30, waiting: 2});
+  const held = await service.moveConsolidationJob(job.id, 0, {step: 1});
+  const out = await consolidateStep(service, consolidator,
+    {...held, deadline_at: new Date(Date.now() + 90000).toISOString()});
+  assert.equal(out.job.failed, 1);
+  assert.deepEqual(out.job.runs.map(r => r.document), ['d1', 'd2']);
+  assert.deepEqual([...marked], ['d2'], 'the one that failed is still waiting');
 });
 
 test('a session that failed once is not asked about again in the same job', async () => {

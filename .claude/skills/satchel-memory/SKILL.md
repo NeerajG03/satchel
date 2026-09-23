@@ -73,7 +73,7 @@ server/
   router.mjs            the per-turn capture model, only used when capture_mode = 'turn'
   consolidator.mjs      the consolidation model call: prompt, schema, validation, fallback
   consolidation.mjs     applies what it decided, one document at a time, inside a time budget
-  model-provider.mjs    which SDK a model id goes through, fallbackModel, worthAnotherModel
+  model-provider.mjs    which SDK a model id goes through, worthWaiting
   prompt-store.mjs      resolves both prompts from Langfuse, falls back to the file
   prompts/              capture-router.md and consolidate.md, the things you edit
   injection-format.mjs  the exact bytes that reach the model, kept pure
