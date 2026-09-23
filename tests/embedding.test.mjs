@@ -219,8 +219,14 @@ test('every failure carries a plain-words reason, not only a status', async () =
 test('a host that never answers is a timeout, and gives up inside the budget', async () => {
   const started = Date.now();
   await assert.rejects(
+    // The held timer stands in for the socket a real request keeps open.
+    // AbortSignal.timeout does not keep the process alive, so without it Node
+    // sees nothing pending, exits mid-test and cancels the rest of the file.
     embedder({timeoutMs: 200, budgetMs: 700, fetchImpl: (_url, init) =>
-      new Promise((_, reject) => init.signal?.addEventListener('abort', () => reject(init.signal.reason)))})
+      new Promise((_, reject) => {
+        const socket = setTimeout(() => {}, 5000);
+        init.signal?.addEventListener('abort', () => { clearTimeout(socket); reject(init.signal.reason); });
+      })})
       .embed(['anything']),
     error => {
       assert.equal(error.code, 'EMB_TIMEOUT');
