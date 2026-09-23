@@ -31,6 +31,7 @@ Almost everything is `security invoker`, so RLS stays authoritative. The service
 | `20260923090000` | `every_waiting_session`: `pending_documents` returns every waiting session when no count is given, and the cron stops asking for ten |
 | `20260923095000` | `the_endpoint_check_compiles`: the credential's endpoint check used `{1,300}`, which Postgres cannot compile, so `enable_consolidation` had never once succeeded |
 | `20260923100000` | `consolidation_jobs`: a pass you start and come back to. One running per owner, a 30 minute `deadline_at` nobody can move, `step` as the lease, `runs` as the report |
+| `20260923111000` | `the_logs_are_the_persons`: `consolidation_runs` and `memory_injections` are read by the browser only; `router_runs` gains `client_id` and an app reads back only the runs it wrote |
 
 ## `memories`
 
@@ -136,6 +137,8 @@ An agent connection may **read** settings and not change them. Every column the 
 
 What was injected, when, for which query, and how many tokens. This is what turns "why did it not know that" into a query, and it is the trigger for every deferred decision in the design. A failure to log never fails the injection it was recording.
 
+`query` is the prompt the person typed, so only the browser reads this: the select policy refuses any token with a `client_id`. Any connection can still write, because the hook logs as itself.
+
 ## `session_messages`
 
 The rolling window, server side. Trimmed on write to `p_keep`, expired after 24 hours. It exists so no transcript is ever read from disk on either host: `retrieve.mjs` writes the user's message when the prompt arrives and `capture.mjs` writes the reply at the end of the turn, so the router reads the conversation in the order it happened.
@@ -184,6 +187,8 @@ The project's live memories and the personal ones together, newest first inside 
 
 One row per background pass, including the ones that changed nothing and the ones that failed. `memory_events` already carries the trace id on every write, so this is the half with nowhere else to live: the quiet runs. Prompt up to 200,000 characters because it holds a whole conversation, plus the raw reply, the counts by action, the tokens, the duration and the trace id.
 
+Browser only to read, like `memory_injections`. The prompt is a whole session plus memories from every scope, so an app granted one project reading it would learn about all the others. The cron still writes it as its own connection.
+
 ## The consolidation schedule
 
 The hard part is not the schedule, it is the credential. `/api/consolidate` runs under RLS as a real person, which is R9's "isolation is enforced by the database for every caller", and pg_cron runs inside the database and is nobody. Handing a background job a blanket key is the service role key wearing a different hat, so the owner grants the job its own connection instead.
@@ -210,6 +215,8 @@ Takes a **slug**, not an id, so the model never handles a UUID, and one slug bec
 ## `router_runs`
 
 The full prompt, the raw reply, kept and dropped counts, and the error if there was one. Prompt and response are capped at 40,000 characters. A capture you cannot explain is bad, so this is recorded even when the router fails, and losing the note never fails the turn.
+
+The browser reads every row. A connection reads back only the rows it wrote, matched on `client_id`, which the database fills in from the token and which is not in the insert grant, so it cannot be claimed. It is not browser only because `capturedThisSession` reads this table under the hook's token to tell the router what it already said this session; browser only would make that read come back empty without an error, and capture would save the same thing twice. Rows from before `20260923111000` have no `client_id` and are the browser's alone.
 
 ## Slugs
 
