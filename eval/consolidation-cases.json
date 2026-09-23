@@ -336,6 +336,65 @@
       ],
       "expect": {"action": "nothing"},
       "why": "No content at all. The floor case: a pass that changes something here changes something on anything."
+    },
+    {
+      "id": "jr01",
+      "category": "job-with-rule",
+      "working": null,
+      "memories": [
+        {"statement": "Neeraj works at Different (different.ai), a startup, in an engineering-adjacent role spanning product, growth, and marketing operations.", "kind": "fact", "scope": null}
+      ],
+      "turns": [
+        {"role": "user", "content": "The 2 comment i left do a check across the Pr and then fix it, ideally no comment should be in the Pr's code unless it is absolutely needed, no ticket number in the code's comment as well\n\n\nAlso the backcompat analysis to remove older flows, rather  add a TODO with my name and then we will address it later on when the frontend change has gone through"}
+      ],
+      "expect": {"action": "add", "want": "comments code", "scope": null, "most": 2},
+      "from": "document 44545cbe, turn 102, 22 September. Never read: the pass takes ten documents and this one was eleventh",
+      "why": "A review job with a standing code rule inside it. The job is done within the hour; the rule applies to every pull request after it. Dropping the whole message as a work order loses the one line in the day most worth keeping."
+    },
+    {
+      "id": "jr02",
+      "category": "job-with-rule",
+      "working": null,
+      "memories": [
+        {"statement": "Neeraj works at Different (different.ai), a startup, in an engineering-adjacent role spanning product, growth, and marketing operations.", "kind": "fact", "scope": null}
+      ],
+      "turns": [
+        {"role": "user", "content": "Can you deliver me a simple readable low level plan doc so i can read the same https://raw.githubusercontent.com/ayghri/i-have-adhd/refs/heads/main/skills/i-have-adhd/SKILL.md\nRefer to this and add visual elements in the markdown so i can easily understand it and can sign off on the same"}
+      ],
+      "expect": {"action": "add", "want": "visual", "scope": null},
+      "from": "document 44545cbe, turn 53, 22 September. The 12:31 pass on gemini-3.8-flash returned no changes",
+      "why": "How they want plans written, attached to a request for one plan. \"So I can easily understand it\" is about them, not about this doc."
+    },
+    {
+      "id": "jr03",
+      "category": "job-with-rule",
+      "working": null,
+      "memories": [
+        {"statement": "Neeraj works at Different (different.ai), a startup, in an engineering-adjacent role spanning product, growth, and marketing operations.", "kind": "fact", "scope": null}
+      ],
+      "turns": [
+        {"role": "assistant", "content": "Tell me one of these and I will go:\n\n1. Those edits are yours, keep them. I will commit or stash them under your name first, then revert on top.\n2. Those edits are junk, throw them away.\n3. Another session owns them. I will leave the tree alone and hand you the exact commands instead."},
+        {"role": "user", "content": "1,just work on the same branch on top should be fine"}
+      ],
+      "expect": {"action": "nothing"},
+      "from": "document 4ac2e5fd, turn 120, 22 September",
+      "why": "A choice inside one job. The restraint side of the same category, so a wording that keeps every clause of an instruction cannot score."
+    },
+    {
+      "id": "jr04",
+      "category": "job-with-rule",
+      "working": "satchel",
+      "memories": [
+        {"statement": "The capture mode must be set to session, so memory is not captured via the turn router by default.", "kind": "preference", "scope": "satchel"},
+        {"statement": "Cron opt-in should not be surfaced to product users, but remain available for dev users", "kind": "fact", "scope": "satchel"}
+      ],
+      "turns": [
+        {"role": "user", "content": "Did you add these buttons, regardless of what the user says a memory is a memory please do not do this ui change. Memory is hands off the user should not worry about it and this button seems like user has to say yes for it to become memory"},
+        {"role": "assistant", "content": "Removed and pushed. You are right, I built an approval gate into the one thing that is supposed to look after itself."}
+      ],
+      "expect": {"action": "add", "want": "hands off", "scope": "satchel"},
+      "from": "document 70d53087, turn 83, 22 September. The 19:23 pass added it as memory 228e41, and this case keeps it that way",
+      "why": "A question, an undo request and a product rule in one message. The rule is the only part still true next week."
     }
   ]
 }

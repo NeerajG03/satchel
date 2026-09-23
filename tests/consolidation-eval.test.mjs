@@ -44,8 +44,11 @@ test('which half a case counts towards is read off the case, not a list', () => 
   for (const item of suite.cases.filter(c => c.expect !== 'either'))
     sides.set(item.category, (sides.get(item.category) ?? new Set()).add(isRestraint(item.expect)));
   const straddling = [...sides].filter(([, s]) => s.size > 1).map(([c]) => c);
-  assert.deepEqual(straddling, ['churn'],
-    'churn is the honest one that sits on both sides; a new straddling category is worth a second look');
+  // job-with-rule straddles on purpose: one message holds a job to drop and
+  // sometimes a rule to keep, and a case of each keeps "keep every clause"
+  // from scoring.
+  assert.deepEqual(straddling, ['churn', 'job-with-rule'],
+    'churn and job-with-rule are the honest ones that sit on both sides; a new straddling category is worth a second look');
 
   // And both halves have to exist, or the headline is one number wearing two.
   const cases = suite.cases.filter(c => c.expect !== 'either');
@@ -73,6 +76,15 @@ test('doing the right thing and three other things is not doing the right thing'
   const out = score(item, [change({action: 'retire', target: 1}), change({statement: 'Something else.'})]);
   assert.equal(out.ok, false);
   assert.match(out.note, /plus 1 more/);
+});
+
+test('a case may allow a split, and only into the action it wants', () => {
+  const item = {expect: {action: 'add', want: 'ticket numbers', most: 2}};
+  const two = [change({statement: 'No comments in the code unless needed.'}),
+    change({statement: 'No ticket numbers in code comments.'})];
+  assert.equal(score(item, two).ok, true);
+  assert.equal(score(item, [...two, change({statement: 'A third thing.'})]).ok, false);
+  assert.equal(score(item, [two[1], change({action: 'retire', target: 1})]).ok, false);
 });
 
 test('ending a memory the case did not sanction is damage, counted on its own', () => {

@@ -21,6 +21,8 @@ Two of those are the ones everything gets wrong.
 
 A tell: if the statement you are about to write is the user's own sentence with the grammar tidied, and it starts with a verb, you are about to keep a work order. Drop it.
 
+**But a job can carry a rule.** "Rename the helper, and never put ticket numbers in branch names" is a job and a preference in one message. Drop the job and keep the rule. The test is the next piece of work: would they want this there too, without saying it again? "Write it up as a table, I read those faster" passes. "Go with option 1" and "stay on this branch" do not, they are choices inside this one job. When the user gives a reason about themselves ("so I can easily understand it", "I read those faster"), that is how they want work handed to them, and it holds for the next plan or doc too: keep it as a preference, worded without the one document it came with.
+
 **A completion is not a memory either, but it is not nothing.** When the user says a thing they wanted is now done, the right change is to retire the intent that wanted it. That is the only way an intent ever ends, and leaving it live means the memory set keeps asking for something that already exists.
 
 ## Kinds, and what each one can have done to it

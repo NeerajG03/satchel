@@ -76,11 +76,18 @@ export function score(item, changes) {
   // Exactly one change, not at least one. A pass that does the right thing and
   // three other things has not done the right thing: every extra row is one a
   // person has to read and decide about.
-  if (changes.length > 1) {
+  //
+  // `most` is for a message the prompt itself says to split: "no comments in
+  // the code, and no ticket numbers in them either" is two rules by the
+  // prompt's own splitting line, and failing a pass for following it would
+  // score the wording against itself. Every change still has to be the wanted
+  // action, so it never lets an unrelated extra through.
+  const most = want.most ?? 1;
+  if (changes.length > most || matching.length !== changes.length) {
     return {scored: true, ok: false, harm,
       note: `${want.action} plus ${changes.length - 1} more: ${changes.map(c => c.action).join('+')}`};
   }
-  const change = matching[0];
+  const change = matching.find(c => !want.want || contains(c.statement, want.want) >= 0.5) ?? matching[0];
   if (want.target != null && change.target !== want.target) {
     return {scored: true, ok: false, harm, note: `targeted #${change.target ?? 'none'}, wanted #${want.target}`};
   }
