@@ -147,11 +147,16 @@ export async function consolidateDocument(service, consolidator, document,
  *  fine and expected: what is read is marked, what is not stays pending, and
  *  the answer says how much is left so the caller can say so out loud instead
  *  of looking finished. Being killed partway is the thing to avoid, because a
- *  document can then be half applied and unmarked. */
+ *  document can then be half applied and unmarked.
+ *
+ *  There is no count. It took ten at a time, and on 22 September that left
+ *  the three most recent sessions unread with 19 of its 45 seconds unused,
+ *  one of them holding the clearest standing rule of the day. How many
+ *  sessions are waiting is not a reason to stop reading them. */
 export async function consolidatePending(service, consolidator,
-  {idleMinutes = 30, limit = 10, budgetMs = 45000, traced = untraced, ownerId} = {}) {
+  {idleMinutes = 30, budgetMs = 45000, traced = untraced, ownerId} = {}) {
   const deadline = Date.now() + budgetMs;
-  const documents = await service.pendingDocuments(idleMinutes, limit);
+  const documents = await service.pendingDocuments(idleMinutes);
   if (!documents.length) return {documents: 0, remaining: 0, runs: []};
   // Read once for the whole batch rather than per document. Scope resolution
   // is by id here, not by repository: the workspace is long gone. The cap

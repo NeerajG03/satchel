@@ -183,9 +183,23 @@ test('the projects are read once for the batch, not once per document', async ()
   let reads = 0;
   service.projects = async () => { reads += 1; return projects; };
   service.pendingDocuments = async () => [document, {...document, id: 'd2', session_key: 's2'}];
-  const result = await consolidatePending(service, consolidator, {limit: 5});
+  const result = await consolidatePending(service, consolidator);
   assert.equal(result.documents, 2);
   assert.equal(reads, 1);
+});
+
+test('every waiting session is read, not the first ten', async () => {
+  // The cap of ten left three sessions unread on 22 September with time to
+  // spare. The service is asked for no count, and all of them are read.
+  const {service, consolidator, of} = fake();
+  const asked = [];
+  const many = Array.from({length: 25}, (_, i) => ({...document, id: `d${i}`, session_key: `s${i}`}));
+  service.pendingDocuments = async (...args) => { asked.push(args); return many; };
+  const result = await consolidatePending(service, consolidator);
+  assert.deepEqual(asked, [[30]], 'no limit is passed down');
+  assert.equal(result.documents, 25);
+  assert.equal(result.remaining, 0);
+  assert.equal(of('marked').length, 25);
 });
 
 test('a batch stops on the clock rather than being killed partway', async () => {

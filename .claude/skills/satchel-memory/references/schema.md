@@ -28,6 +28,7 @@ Almost everything is `security invoker`, so RLS stays authoritative. The service
 | `20260922200000` | `settings_you_can_actually_set`: write grants on every settings column |
 | `20260922210000` | `consolidation_is_the_writer`: `capture_mode` defaults to `session`, and every row moves |
 | `20260922220000` | `activity_pages`: `recent_documents` pages by time for the developer feed |
+| `20260923090000` | `every_waiting_session`: `pending_documents` returns every waiting session when no count is given, and the cron stops asking for ten |
 
 ## `memories`
 

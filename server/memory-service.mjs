@@ -212,8 +212,10 @@ export function memoryService(db, embedder = null, router = null) {
       const rows = await result(db.rpc('session_document', {p_session_key:sessionKey}));
       return rows?.[0] ?? null;
     },
-    pendingDocuments: (idleMinutes = 30, limit = 20) =>
-      result(db.rpc('pending_documents', {p_idle_minutes:idleMinutes, p_limit:limit})),
+    // No limit is sent. Every waiting session is read, and the clock is the
+    // only thing that stops a batch early.
+    pendingDocuments: (idleMinutes = 30) =>
+      result(db.rpc('pending_documents', {p_idle_minutes:idleMinutes})),
     documentTurns: (documentId, after = null) =>
       result(db.rpc('document_content', {p_document_id:documentId, p_after:after})),
     markDocumentConsolidated: (documentId, through) =>

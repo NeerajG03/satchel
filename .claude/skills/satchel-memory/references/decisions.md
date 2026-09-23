@@ -280,5 +280,5 @@ Recorded as judgement, not as evidence:
 - One session is one document, because a whole conversation is the unit the pass can judge.
 - A session counts as finished after 30 quiet minutes. A placeholder, not a measurement.
 - `block_size` 30 and `staleness_commits` 25. Chosen so neither binds at today's size; both are settings, not constants, so a measurement can move them without a deploy.
-- The pass gets 45 seconds per request and ten documents per batch, and a model that refused is avoided for five minutes. Sized to a Vercel function's budget, not to anything measured about quality.
+- The pass gets 45 seconds per request, and a model that refused is avoided for five minutes. Sized to a Vercel function's budget, not to anything measured about quality. It used to take ten documents per batch as well; that was removed on 23 September (`20260923090000`) after it left the three newest sessions unread with 19 seconds to spare. The clock is now the only thing that stops a batch.
 - No fixed instruction preamble in injected context. The headers carry the instructions instead, because a fixed paragraph was measured at 58% of a competitor's per-prompt cost, and a header sits beside the rows it governs and cannot be skipped.

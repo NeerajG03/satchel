@@ -112,14 +112,14 @@ export function createActivityRepository(db: SupabaseClient) {
      *  Two minutes, not fifteen. A pass is a model call per conversation and
      *  the default timeout would give up partway through a backlog, leaving
      *  the person looking at an error for work that actually happened. */
-    async consolidate(idleMinutes = 30, limit = 10): Promise<ConsolidationResult> {
+    async consolidate(idleMinutes = 30): Promise<ConsolidationResult> {
       const { data, error: authError } = await db.auth.getSession();
       if (authError || !data.session) throw new Error('Sign in again to run this.');
       const response = await requestWithTimeout(signal => fetch('/api/consolidate', {
         method: 'POST', signal,
         headers: { 'content-type': 'application/json',
           authorization: `Bearer ${data.session!.access_token}` },
-        body: JSON.stringify({ idle_minutes: idleMinutes, limit }),
+        body: JSON.stringify({ idle_minutes: idleMinutes }),
       }), 120000);
       if (!response.ok) {
         // 503 is the honest one to name: it means no model key is configured,

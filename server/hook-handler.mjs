@@ -212,17 +212,18 @@ export async function handleConsolidate(req, res, {embedder = null, consolidator
   // A POST with no body at all is the ordinary call, and it is what a cron
   // makes. An empty body is not a malformed one.
   const body = req.body == null || String(req.body).trim() === '' ? {} : req.body;
+  // `limit` is still accepted and ignored. The cron and any open browser
+  // tab still send it, and refusing it would turn a removed cap into a 400.
   try { input = parseHookBody(body, new Set(['idle_minutes', 'limit'])); }
   catch { res.writeHead(400); return res.end(); }
   const idleMinutes = clamp(input.idle_minutes, 30, 0, 10080);
-  const limit = clamp(input.limit, 10, 1, 50);
   // Stored before the work, not after. Supabase rotated the token the moment
   // it was exchanged, so the copy in the Vault is already dead; a run that
   // crashed before writing the new one back would leave the job unable to
   // authenticate ever again.
   if (connection.rotated) await connection.service.rotateConsolidationCredential(connection.rotated);
   const result = await consolidatePending(connection.service, consolidator, {
-    idleMinutes, limit, ownerId: connection.ownerId, ...(traced ? {traced} : {})});
+    idleMinutes, ownerId: connection.ownerId, ...(traced ? {traced} : {})});
   send(res, result);
 }
 

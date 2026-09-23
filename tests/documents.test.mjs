@@ -176,6 +176,21 @@ test('retention is a deletion, not a policy sentence', async t => {
   } finally { await db.close(); }
 });
 
+test('asked for no count, every waiting session comes back', async () => {
+  // The pass used to ask for ten, and the default was twenty. Neither was a
+  // measure of anything, and on 22 September the cap left the three newest
+  // sessions unread with time to spare.
+  const {db, owner, call} = await database();
+  try {
+    for (let i = 0; i < 25; i++)
+      await call(owner, 'select record_turn($1,$2,$3,$4,$5)', [`s${i}`, 'user', `session ${i}`, 10, null]);
+    await db.exec(`update public.documents set last_turn_at = now() - interval '2 hours'`);
+    assert.equal((await call(owner, 'select * from pending_documents($1)', [30])).length, 25);
+    assert.equal((await call(owner, 'select * from pending_documents($1,$2)', [30, 5])).length, 5,
+      'a caller that does name a count still gets it');
+  } finally { await db.close(); }
+});
+
 test('a document stops growing rather than growing without a limit', async () => {
   const {db, owner, call} = await database();
   try {

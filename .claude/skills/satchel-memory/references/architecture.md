@@ -99,7 +99,7 @@ Nothing is injected.
 `POST /api/consolidate`. Nothing in a hook calls it. Two things do: the developer-only `pg_cron` job, and the "Consolidate now" button on the activity page. A Stop hook that spawned it detached was built and reverted on 22 September, because a hook that quietly spends a model call is the wrong default.
 
 ```
-pending_documents(idle 30 min, limit 10)      sessions that have gone quiet
+pending_documents(idle 30 min, no count)     every session that has gone quiet
   for each, while inside a 45s budget:
     document_content(after consolidated_through)   only turns not yet read
     memories_in_scope(project)                     project + personal, integer labels

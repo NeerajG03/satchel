@@ -33,7 +33,7 @@ The application itself only ever holds the publishable key. RLS does the rest. I
 | Who wrote or changed this memory, and from which trace? | `memory_events` |
 | Did the consolidation pass run, and what did it decide? | `consolidation_runs` |
 | What was said in a session, both halves? | `documents`, `document_turns` |
-| Which sessions are waiting for the pass? | `pending_documents(30, 10)` |
+| Which sessions are waiting for the pass? | `pending_documents(30)` (no count means all) |
 | Did per-turn capture run (turn mode only)? | `router_runs` |
 | What did the short window hold? | `session_messages` |
 | Where is a repository, in commits? | `repository_heads` |
