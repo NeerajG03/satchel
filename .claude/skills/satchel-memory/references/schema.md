@@ -70,7 +70,7 @@ Every change to a memory, with a before and an after: added, corrected, confirme
 
 Reading an event requires being able to read its memory, expressed as a policy that checks exactly that rather than as a second copy of the grant rules. `memory_history(id)` is the ordered read.
 
-Deleting a memory cascades its history. The system never deletes, it ends; a person's explicit delete, offered from the archive rather than the book, is meant to be the one destructive act, and taking the record of a thing they asked to be gone is right rather than a gap. The MCP `delete_memory` tool is the exception that has not caught up: it still deletes, so an agent can take the history too.
+Deleting a memory cascades its history. The system never deletes, it ends; a person's explicit delete, offered from the archive rather than the book, is meant to be the one destructive act, and taking the record of a thing they asked to be gone is right rather than a gap. An agent's `forget_memory` ends the row, so no agent can take the history.
 
 ## `stamp_memory_revision`
 

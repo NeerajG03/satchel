@@ -121,9 +121,9 @@ It accepts three credentials, all under RLS as the owner: the hook scripts' agen
 
 **`server/mcp-server.mjs`** owns the tool surface. It does not format hook JSON any more; the hook endpoints do, through `hook-handler.mjs`.
 
-Tools: `list_projects`, `upsert_project`, `select_project`, `memory_index`, `retrieve_memory`, `read_memory`, `save_memory`, `correct_memory`, `confirm_memory`, `delete_memory`, plus the task tools when the grant allows. `select_project` with an `event` is the recovery path for a session whose hook could not run, and returns what the hook would have injected.
+Tools: `list_projects`, `upsert_project`, `select_project`, `memory_index`, `retrieve_memory`, `read_memory`, `save_memory`, `correct_memory`, `confirm_memory`, `forget_memory`, plus the task tools when the grant allows. `select_project` with an `event` is the recovery path for a session whose hook could not run, and returns what the hook would have injected.
 
-`delete_memory` still runs a real `DELETE`, which is out of step with "a memory ends, it is not deleted". The web app's Forget ends the row instead. Treat that as a known gap, not as the design.
+`forget_memory` ends the row as `forgotten` through `end_memory`, the same call the web app's Forget makes, after checking the memory is in the scope the agent named. No tool deletes a memory. It used to be `delete_memory` and ran a real `DELETE`.
 
 **`server/hook-handler.mjs`** owns the four endpoints and `connect()`, which verifies the caller and builds the request-scoped service. `allowRefresh` and `allowCompanion` are off everywhere except `/api/consolidate`.
 

@@ -41,7 +41,7 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     // instead of asking the host to make a tool call. Its description was about
     // 244 tokens in every session's tool list, spent on a tool no model was
     // ever supposed to choose.
-    assert.deepEqual(tools.map(t=>t.name).sort(),['confirm_memory','correct_memory','delete_memory','list_projects',
+    assert.deepEqual(tools.map(t=>t.name).sort(),['confirm_memory','correct_memory','forget_memory','list_projects',
       'memory_index','read_memory','retrieve_memory','save_memory','select_project','upsert_project']);
     assert.equal(tools.find(t=>t.name==='retrieve_memory').annotations.readOnlyHint,true);
     // The lifecycle path, reached through select_project's event argument.
