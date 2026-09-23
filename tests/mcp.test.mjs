@@ -135,7 +135,7 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     personal=false;
     result=await call('select_project',{session_key:'one',project_id:null});
     assert.ok(result.isError);
-    assert.match(result.content[0].text,/Access denied/);
+    assert.match(result.content[0].text,/no grant for personal memory/,'and it says which grant is missing');
     personal=true;
     // read_memory now takes an id. A name was never a stable key, and with the
     // whole statement in the index it is only reached for the rare detail row.
@@ -152,7 +152,7 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     // A revoked connection fails at the tool guard, before the lifecycle runs.
     revoked=true;result=await call('select_project',{session_key:'one',event:'SessionStart',project_id:null});
     assert.ok(result.isError);
-    assert.match(result.content[0].text,/Access denied/);
+    assert.match(result.content[0].text,/no longer authorized. Ask the user to reconnect/);
     assert.ok((await call('read_memory',{project_id:null,id})).isError);
   }finally{await client.close();await server.close();}
 });
@@ -235,9 +235,86 @@ test('task service requires an explicit personal-task grant for project_id null'
   const db={rpc:()=>{calls++;return {single:()=>({abortSignal:async()=>({data:{id:'ok'},error:null})})};}};
   const args={project_id:null,request_id:crypto.randomUUID(),id:crypto.randomUUID(),title:'Personal',outcome:'',why:'',done_when:[],next_action:'',priority:'medium'};
   const denied=taskService(db,async()=>({task_personal:false,task_project_ids:[],task_can_write:true}));
-  await assert.rejects(denied.create(args),{code:'42501'});
+  await assert.rejects(denied.create(args),{code:'42501',message:'Personal tasks unavailable'});
   assert.equal(calls,0);
   const allowed=taskService(db,async()=>({task_personal:true,task_project_ids:[],task_can_write:true}));
   assert.equal((await allowed.create(args)).id,'ok');
   assert.equal(calls,1);
+});
+
+test('a refused tool call names the field or rule to change, never the whole row',async()=>{
+  let refusal=null;
+  const service={status:async()=>({personal:true,task_personal:true,task_can_write:true,project_ids:[]}),
+    tasks:{create:async()=>{throw refusal;},transition:async()=>({}),setParent:async()=>({}),addDependency:async()=>({})}};
+  const server=createMemoryServer(service);const client=new Client({name:'test',version:'1'});
+  const [left,right]=InMemoryTransport.createLinkedPair();await server.connect(right);await client.connect(left);
+  const call=async(name,args)=>{const r=await client.callTool({name,arguments:args});return {error:r.isError,text:r.content[0].text};};
+  const ids=()=>({request_id:crypto.randomUUID(),id:crypto.randomUUID()});
+  try {
+    // Checked before any database call: the schema says what a slug is.
+    let r=await call('create_task',{...ids(),slug:'Bad Slug!',project_id:null,title:'Fixture'});
+    assert.ok(r.error);assert.match(r.text,/lowercase letters and digits.*at slug/);
+
+    // Cross-field rules the database also holds are caught first.
+    r=await call('edit_task',{...ids(),project_id:null,revision:1,change:{kind:'state',status:'blocked'}});
+    assert.ok(r.error);assert.match(r.text,/blocked_reason/);
+    const same=ids();
+    r=await call('edit_task',{...same,project_id:null,revision:1,change:{kind:'add_dependency',depends_on_task_id:same.id}});
+    assert.match(r.text,/cannot depend on itself/);
+    r=await call('edit_task',{...same,project_id:null,revision:1,change:{kind:'parent',parent_id:same.id}});
+    assert.match(r.text,/cannot be its own parent/);
+    const resource=crypto.randomUUID();
+    r=await call('record_task_update',{...ids(),project_id:null,
+      entry:{kind:'comment',entry_id:crypto.randomUUID(),body:'x',resource_ids:[resource,resource]}});
+    assert.match(r.text,/same id twice/);
+
+    // A database refusal names the rule, says nothing landed, and never
+    // repeats `details`, which for a check violation is the whole row.
+    refusal={code:'23514',message:'new row for relation "tasks" violates check constraint "tasks_slug_check"',
+      details:'Failing row contains (private title)'};
+    r=await call('create_task',{...ids(),slug:'ok-slug',project_id:null,title:'Fixture'});
+    assert.match(JSON.parse(r.text).error,/^A task slug is .*Nothing was written\.$/);
+    assert.doesNotMatch(r.text,/private title/);
+    refusal={code:'23514',message:'Blocked tasks require a reason'};
+    r=await call('create_task',{...ids(),slug:'ok-slug',project_id:null,title:'Fixture'});
+    assert.equal(JSON.parse(r.text).error,'A blocked status needs a blocked_reason saying what it is waiting on. Nothing was written.');
+    // A progress list the table would refuse for its joined length.
+    r=await call('record_task_update',{...ids(),project_id:null,entry:{kind:'progress',entry_id:crypto.randomUUID(),
+      revision:1,summary:'s',completed:Array.from({length:25},()=>'x'.repeat(1000))}});
+    assert.ok(r.error);assert.match(r.text,/20000 characters in total.*at entry\.completed/);
+    r=await call('add_task_resource',{...ids(),resource_id:crypto.randomUUID(),project_id:null,revision:1,label:'Doc',url:'http://example.com'});
+    assert.match(r.text,/https URL/);
+
+    // The two conflicts that shared one line now say which one it was.
+    refusal={code:'PT409',message:'Task request conflict'};
+    r=await call('create_task',{...ids(),slug:'ok-slug',project_id:null,title:'Fixture'});
+    assert.match(JSON.parse(r.text).error,/request_id or id was already used/);
+    refusal={code:'PT409',message:'Task changed or unavailable'};
+    r=await call('create_task',{...ids(),slug:'ok-slug',project_id:null,title:'Fixture'});
+    assert.match(JSON.parse(r.text).error,/read_task and retry with the current revision/);
+
+    refusal={code:'23514',message:'new row for relation "task_updates" violates check constraint "task_updates_body_check"'};
+    r=await call('create_task',{...ids(),slug:'ok-slug',project_id:null,title:'Fixture'});
+    assert.equal(JSON.parse(r.text).error,'A comment body is 1 to 4000 characters. Nothing was written.');
+    // A constraint nobody listed still names its field. The coverage test is
+    // what keeps a real one from getting this far.
+    refusal={code:'23514',message:'new row for relation "task_updates" violates check constraint "task_updates_mood_check"'};
+    r=await call('create_task',{...ids(),slug:'ok-slug',project_id:null,title:'Fixture'});
+    assert.match(JSON.parse(r.text).error,/^The mood value breaks the rule task_updates_mood_check/);
+  }finally{await client.close();await server.close();}
+});
+
+test('a new project with an unlink is refused before the write, saying why',async()=>{
+  let writes=0;
+  const service={status:async()=>({personal:true,project_ids:[]}),upsertProject:async()=>{writes++;return {};}};
+  const server=createMemoryServer(service);const client=new Client({name:'test',version:'1'});
+  const [left,right]=InMemoryTransport.createLinkedPair();await server.connect(right);await client.connect(left);
+  try {
+    const r=await client.callTool({name:'upsert_project',arguments:{request_id:crypto.randomUUID(),project_id:crypto.randomUUID(),
+      slug:'new-thing',name:'New thing',repository_change:{kind:'unlink',repository:'acme/web'}}});
+    assert.ok(r.isError);assert.match(r.content[0].text,/nothing to unlink/);assert.equal(writes,0);
+    const bad=await client.callTool({name:'upsert_project',arguments:{request_id:crypto.randomUUID(),project_id:crypto.randomUUID(),
+      slug:'new-thing',name:'New thing',repository_change:{kind:'link',repository:'not a repo'}}});
+    assert.match(bad.content[0].text,/lowercase owner\/repository/);
+  }finally{await client.close();await server.close();}
 });

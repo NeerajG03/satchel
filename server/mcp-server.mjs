@@ -21,20 +21,29 @@ const writeAnnotations={readOnlyHint:false,destructiveHint:false,idempotentHint:
 const lifecycle=z.enum(['SessionStart','PostCompact']);
 // Only the server-side link table maps a repository to a project, so the provider stays implicit.
 const PROVIDER='github';
-const repositoryName=z.string().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/).max(201).nullable()
+const REPOSITORY_RULE='A repository is a lowercase owner/repository, like acme/web, up to 201 characters';
+const repositoryName=z.string().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/,REPOSITORY_RULE).max(201,REPOSITORY_RULE).nullable()
   .describe('Normalized lowercase owner/repository detected by the Satchel bootstrap, never a guessed folder name.');
 const projectRepositoryChange=z.discriminatedUnion('kind',[
   z.object({kind:z.literal('unchanged')}),
-  z.object({kind:z.literal('link'),repository:z.string().trim().toLowerCase().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/).max(201)}),
-  z.object({kind:z.literal('unlink'),repository:z.string().trim().toLowerCase().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/).max(201)}),
+  z.object({kind:z.literal('link'),repository:z.string().trim().toLowerCase().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/,REPOSITORY_RULE).max(201,REPOSITORY_RULE)}),
+  z.object({kind:z.literal('unlink'),repository:z.string().trim().toLowerCase().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/,REPOSITORY_RULE).max(201,REPOSITORY_RULE)}),
 ]);
 // Supplied, never derived. A model copies an identifier and rewrites a title,
 // so the exact match has to be on something that looks like an identifier.
-const slug=z.string().trim().toLowerCase().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).min(1).max(40)
+const slug=z.string().trim().toLowerCase()
+  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/,'A slug is lowercase letters and digits in words joined by single hyphens, like fix-consent-layout')
+  .min(1).max(40,'A slug is at most 40 characters')
   .describe('A short handle the user would actually say, like fix-consent-layout. Lowercase words joined by hyphens, unique across all of this user\'s projects and tasks. Do not derive it from the title; choose something sayable. On 23505 pick another and retry.');
 const taskStatus=z.enum(['inbox','ready','in_progress','blocked','done']);
 const taskPriority=z.enum(['low','medium','high','urgent']);
 const taskProject=z.uuid().nullable().describe('null means personal tasks; otherwise an explicitly task-authorized Satchel project UUID.');
+// Rules the database enforces across fields, checked here first so the agent
+// hears which field to change instead of a refusal from inside a routine.
+const blockedNeedsReason=[entry=>entry.status!=='blocked'||entry.blocked_reason.trim().length>0,
+  {message:'A blocked status needs a blocked_reason saying what it is waiting on',path:['blocked_reason']}];
+const distinct=label=>[ids=>new Set(ids).size===ids.length,{message:`${label} lists the same id twice`}];
+const resourceIds=z.array(z.uuid()).max(50).default([]).refine(...distinct('resource_ids'));
 const taskIdentity={project_id:taskProject,id:z.uuid(),revision:z.number().int().positive()};
 const taskContent={
   title:z.string().trim().min(1).max(200),outcome:z.string().max(1000).default(''),
@@ -43,26 +52,32 @@ const taskContent={
 };
 const taskEdit=z.discriminatedUnion('kind',[
   z.object({kind:z.literal('content'),...taskContent}),
-  z.object({kind:z.literal('state'),status:taskStatus,blocked_reason:z.string().max(2000).default('')}),
+  z.object({kind:z.literal('state'),status:taskStatus,blocked_reason:z.string().max(2000).default('')}).refine(...blockedNeedsReason),
   z.object({kind:z.literal('parent'),parent_id:z.uuid().nullable()}),
   z.object({kind:z.literal('add_dependency'),depends_on_task_id:z.uuid()}),
   z.object({kind:z.literal('remove_dependency'),depends_on_task_id:z.uuid()}),
 ]);
+// task_updates also caps each list at 20000 characters joined, which 50 items
+// of 1000 can pass by 30000. Handoffs have no joined cap, so only progress uses it.
 const updateList=z.array(z.string().trim().min(1).max(1000)).max(50).default([]);
+const progressList=updateList.refine(items=>items.join('').length<=20000,
+  {message:'This list is at most 20000 characters in total. Shorten or merge items'});
 const taskUpdate=z.discriminatedUnion('kind',[
   z.object({kind:z.literal('comment'),entry_id:z.uuid(),body:z.string().trim().min(1).max(4000),
-    resource_ids:z.array(z.uuid()).max(50).default([])}),
+    resource_ids:resourceIds}),
   z.object({kind:z.literal('progress'),entry_id:z.uuid(),revision:z.number().int().positive(),
-    summary:z.string().trim().min(1).max(4000),completed:updateList,decisions:updateList,
-    remaining:updateList,blockers:updateList,next_action:z.string().max(1000).nullable().default(null),
+    summary:z.string().trim().min(1).max(4000),completed:progressList,decisions:progressList,
+    remaining:progressList,blockers:progressList,next_action:z.string().max(1000).nullable().default(null),
     status:taskStatus.nullable().default(null),blocked_reason:z.string().max(2000).default(''),
-    resource_ids:z.array(z.uuid()).max(50).default([])}),
+    resource_ids:resourceIds}).refine(...blockedNeedsReason),
   z.object({kind:z.literal('handoff'),entry_id:z.uuid(),revision:z.number().int().positive(),
-    supersedes_ids:z.array(z.uuid()).max(20).default([]),completed:updateList,decisions:updateList,
+    supersedes_ids:z.array(z.uuid()).max(20).default([]).refine(...distinct('supersedes_ids')),completed:updateList,decisions:updateList,
     validation:z.array(z.record(z.string(),z.unknown())).max(50).default([]),remaining:updateList,
     blockers:updateList,next_action:z.string().trim().min(1).max(1000),summary:z.string().max(4000).default(''),
     status:taskStatus.nullable().default(null),blocked_reason:z.string().max(2000).default(''),
-    resource_ids:z.array(z.uuid()).max(50).default([])}),
+    resource_ids:resourceIds}).refine(...blockedNeedsReason)
+    .refine(entry=>!entry.supersedes_ids.includes(entry.entry_id),
+      {message:'A handoff cannot supersede itself',path:['supersedes_ids']}),
 ]);
 const textResult=data=>({content:[{type:'text',text:JSON.stringify(data)}]});
 // ownerId attributes a trace to the person and nothing more: never an email,
@@ -86,7 +101,7 @@ export function createMemoryServer(service, {ownerId} = {}) {
     server.registerTool(name,{description,inputSchema,annotations},async args=>{
       try {
         const status=await service.status();
-        if (!status) throw {code:'42501'};
+        if (!status) throw {code:'42501',message:'Connection unavailable'};
         return textResult(await operation(args,status));
       } catch(error) { return {...textResult({error:errorText(error)}),isError:true}; }
     });
@@ -101,14 +116,18 @@ export function createMemoryServer(service, {ownerId} = {}) {
     {request_id:z.uuid(),project_id:z.uuid(),slug,expected_revision:z.number().int().positive().optional(),
       name:z.string().trim().min(1).max(100),brief:z.string().trim().max(1000).default(''),
       repository_change:projectRepositoryChange.default({kind:'unchanged'})},
-    a=>service.upsertProject(a),writeAnnotations);
+    a=>{
+      if(a.expected_revision===undefined&&a.repository_change.kind==='unlink')
+        throw {reason:'a new project has nothing to unlink. Pass expected_revision to unlink from an existing project'};
+      return service.upsertProject(a);
+    },writeAnnotations);
   register('select_project','Select the active project for this conversation only, by project_id (null selects personal scope) or by the linked GitHub repository identity supplied by the Satchel bootstrap. Provide exactly one; a repository resolves only to a link whose project is already in this connection\'s grant, and only while it names one project: a repository shared by several projects is refused, so pass project_id for those. Returns the resulting personal plus project memory index: check complete before claiming all memories loaded. Pass event only when the Satchel bootstrap asks for it on a new conversation or after compaction. Does not grant permissions and does not change another conversation.',
     {session_key:session,project_id:scope.optional(),repository:repositoryName.optional(),event:lifecycle.optional()},
     async (a,status)=>{
       const byRepository=a.repository!=null,byProject=a.project_id!==undefined;
       if (byProject===byRepository) throw {code:'PT400'};
       // Personal scope on a connection without a personal grant is a denial, not an empty index.
-      if (byProject&&a.project_id===null&&!status.personal) throw {code:'42501'};
+      if (byProject&&a.project_id===null&&!status.personal) throw {code:'42501',message:'Personal memory unavailable'};
       const {project_id}=byRepository
         ? await selectRepositoryScope(a.session_key,a.repository)
         : await service.selectProject(a.session_key,a.project_id);
@@ -164,6 +183,8 @@ export function createMemoryServer(service, {ownerId} = {}) {
     register('edit_task','Apply one explicit revision-safe task edit: replace content, transition state, set/clear the parent, or add/remove one dependency. Relationship edits are same-scope and cycle-safe. Re-read after a conflict.',
       {request_id:z.uuid(),...taskIdentity,change:taskEdit},a=>{
         const base={request_id:a.request_id,project_id:a.project_id,id:a.id,revision:a.revision};
+        if(a.change.kind==='parent'&&a.change.parent_id===a.id)throw {reason:'a task cannot be its own parent'};
+        if(a.change.kind==='add_dependency'&&a.change.depends_on_task_id===a.id)throw {reason:'a task cannot depend on itself'};
         if(a.change.kind==='content')return service.tasks.update({...base,...a.change});
         if(a.change.kind==='state')return service.tasks.transition({...base,...a.change});
         if(a.change.kind==='parent')return service.tasks.setParent({...base,...a.change});
@@ -179,7 +200,7 @@ export function createMemoryServer(service, {ownerId} = {}) {
       },writeAnnotations);
     register('add_task_resource','Attach a typed HTTPS reference to a task. This stores the link only and never fetches its contents.',
       {request_id:z.uuid(),resource_id:z.uuid(),...taskIdentity,label:z.string().trim().min(1).max(200),
-        url:z.url({protocol:/^https$/}),resource_type:z.enum(['reference','document','image','artifact','repository','pull_request']).default('reference'),
+        url:z.url({protocol:/^https$/,error:'url is an https URL, like https://example.com/doc'}),resource_type:z.enum(['reference','document','image','artifact','repository','pull_request']).default('reference'),
         provider:z.string().trim().max(80).nullable().default(null)},a=>service.tasks.addResource(a),writeAnnotations);
   }
 

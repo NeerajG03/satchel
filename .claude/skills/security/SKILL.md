@@ -80,7 +80,7 @@ Everything else still applies: it is per connection, revocation still rotates `g
 
 - [ ] New table: RLS on, `revoke all`, owner policy, agent policy if agents may reach it, indexes for the policy predicates. If it holds conversation text, no grants at all and a definer read.
 - [ ] New function: `security definer set search_path = ''`, fully qualified names, revoke from `public, anon`, grant to `authenticated`, every branch checks ownership or grant.
-- [ ] New MCP tool: zod schema with bounds, correct `readOnlyHint` and `destructiveHint`, scope argument explicit, grant checked in the service before the query, error mapped in `errorText`.
+- [ ] New MCP tool: zod schema with bounds, correct `readOnlyHint` and `destructiveHint`, scope argument explicit, grant checked in the service before the query, every refusal it can reach listed in `server/error-text.mjs` and the tool added to `TOOL_ROUTINES` in `tests/error-text-coverage.test.mjs`. A new constraint or raised sentence needs its line there too, or that test fails. Never show `error.details`: a check violation puts the whole failing row in it.
 - [ ] Tests in `tests/*.test.mjs` that run the migration in PGlite and prove: another owner cannot read or write, an agent without the grant is denied, a revoked grant is denied, a retry is idempotent, a stale revision conflicts, anonymous gets nothing.
 - [ ] A migration the new code depends on is applied to production before the code is pushed.
 - [ ] `npm test` and `npm run build` pass.

@@ -59,7 +59,7 @@ export function memoryService(db, embedder = null, router = null) {
   }
   async function requireScope(projectId, write=false) {
     if (!await result(db.rpc('agent_can_access',{p_project_id:projectId,p_write:write})))
-      throw {code:'42501'};
+      throw {code:'42501',message:write?'Memory write unavailable':'Memory read unavailable'};
   }
   const api = {
     status: () => result(db.rpc('agent_connection_status')),
@@ -114,7 +114,7 @@ export function memoryService(db, embedder = null, router = null) {
     async read(projectId,id) {
       await requireScope(projectId);
       const row=await result(db.rpc('read_memory',{p_project_id:projectId,p_id:id}));
-      if (!row) throw {code:'P0002'};
+      if (!row) throw {code:'P0002',message:'Memory not found or unavailable'};
       return row;
     },
     async save(args) {
@@ -128,7 +128,7 @@ export function memoryService(db, embedder = null, router = null) {
     async correct(args) {
       await requireScope(args.project_id,true);
       const row=await result(db.from('memories').select('id,project_id').eq('id',args.id).maybeSingle());
-      if (!row || row.project_id!==args.project_id) throw {code:'P0002'};
+      if (!row || row.project_id!==args.project_id) throw {code:'P0002',message:'Memory not found or unavailable'};
       const updated=await result(db.rpc('correct_memory',{p_id:args.id,p_revision:args.revision,
         p_statement:args.statement,p_name:args.name??null,p_more_info:args.more_info??''}));
       await embedRow(updated);
@@ -356,7 +356,7 @@ export function memoryService(db, embedder = null, router = null) {
       await requireScope(args.project_id,true);
       let query=db.from('memories').select('id').eq('id',args.id);
       query=args.project_id===null?query.is('project_id',null):query.eq('project_id',args.project_id);
-      if (!(await result(query)).length) throw {code:'PT409'};
+      if (!(await result(query)).length) throw {code:'PT409',message:'Memory changed or unavailable'};
       const row=await api.endMemory({id:args.id,revision:args.revision,reason:'forgotten'});
       return {forgotten_id:row.id,revision:row.revision};
     },

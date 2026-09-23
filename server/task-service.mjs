@@ -7,15 +7,15 @@ export function taskService(db, connectionStatus) {
   }
   async function requireScope(projectId, capability='read') {
     const status=await connectionStatus();
-    if(!status)throw {code:'42501'};
+    if(!status)throw {code:'42501',message:'Connection unavailable'};
     // A blanket task grant covers every project, including ones made after the
     // grant, so it is checked before the list. The database enforces the same
     // rule in private.agent_can_access_tasks; this is the early, readable no.
     const projects=Array.isArray(status.task_project_ids)?status.task_project_ids:[];
     const inScope=projectId===null?status.task_personal:(status.task_all_projects||projects.includes(projectId));
-    if(!inScope)throw {code:'42501'};
-    if(capability==='write'&&!status.task_can_write)throw {code:'42501'};
-    if(capability==='upload'&&!status.task_can_upload)throw {code:'42501'};
+    if(!inScope)throw {code:'42501',message:projectId===null?'Personal tasks unavailable':'Project tasks unavailable'};
+    if(capability==='write'&&!status.task_can_write)throw {code:'42501',message:'Task write unavailable'};
+    if(capability==='upload'&&!status.task_can_upload)throw {code:'42501',message:'Task upload unavailable'};
   }
   return {
     async list(projectId,statuses) {
@@ -35,7 +35,7 @@ export function taskService(db, connectionStatus) {
       await requireScope(projectId);
       const taskBase=db.from('task_planning').select('*').eq('id',id);
       const task=await result((projectId===null?taskBase.is('project_id',null):taskBase.eq('project_id',projectId)).maybeSingle());
-      if(!task)throw {code:'P0002'};
+      if(!task)throw {code:'P0002',message:'Task unavailable'};
       const planningBase=db.from('task_planning').select('id,slug,title,status,parent_id,dependency_ids,blocked_by_ids,child_count,actionable');
       const [scopeTasks,handoffs,updates,resources,updateResourceRefs,events]=await Promise.all([
         result((projectId===null?planningBase.is('project_id',null):planningBase.eq('project_id',projectId)).order('last_activity_at',{ascending:false}).limit(201)),
