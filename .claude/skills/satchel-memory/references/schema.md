@@ -31,6 +31,7 @@ Almost everything is `security invoker`, so RLS stays authoritative. The service
 | `20260923090000` | `every_waiting_session`: `pending_documents` returns every waiting session when no count is given, and the cron stops asking for ten |
 | `20260923095000` | `the_endpoint_check_compiles`: the credential's endpoint check used `{1,300}`, which Postgres cannot compile, so `enable_consolidation` had never once succeeded |
 | `20260923100000` | `consolidation_jobs`: a pass you start and come back to. One running per owner, a 30 minute `deadline_at` nobody can move, `step` as the lease, `runs` as the report |
+| `20260923110000` | `slugify_cuts_before_trimming`: `slugify` strips leading hyphens, cuts to 40, then trims, so a title with a hyphen at character 40 no longer fails `tasks_slug_check` before the supplied slug is applied |
 | `20260923111000` | `the_logs_are_the_persons`: `consolidation_runs` and `memory_injections` are read by the browser only; `router_runs` gains `client_id` and an app reads back only the runs it wrote |
 
 ## `memories`

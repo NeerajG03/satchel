@@ -133,5 +133,21 @@ test('slugs are supplied, unique per user, and never silently derived away',asyn
     assert.equal(row.slug,'fix-consent-layout');
   });
 
+  await t.test('a title with a hyphen at the cut still creates, keeping the supplied slug',async()=>{
+    // Refused on the live database before the fix: the title-derived slug
+    // ended in a hyphen and failed the check before the supplied one applied.
+    const id='40000000-0000-4000-8000-0000000000c1';
+    const [task]=await newTask(alice,'org-skills-sync',id,null,'Design org-level skills with user skill sync');
+    assert.equal(task.slug,'org-skills-sync');
+    const rows=await as(alice,`select public.slugify(t) as s from unnest($1::text[]) t`,
+      [['Design org-level skills with user skill sync','--Leading dashes and a hyphen at forty-x-y','!!!','x'.repeat(60)]]);
+    for (const {s} of rows) {
+      assert.match(s,/^[a-z0-9]+(-[a-z0-9]+)*$/);
+      assert.ok(s.length<=40,s);
+    }
+    assert.equal(rows[0].s,'design-org-level-skills-with-user-skill');
+    assert.equal(rows[2].s,'item');
+  });
+
   await db.close();
 });
