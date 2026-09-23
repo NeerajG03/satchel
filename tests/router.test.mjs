@@ -282,3 +282,13 @@ test('a router built without tracing still runs',async()=>{
   const router=createRouter({apiKey:'k',fetchImpl:reply([])});
   assert.deepEqual((await router.route({turn:['a thing']})).memories,[]);
 });
+
+test('a source quoting a long paste is cut to what memories.source holds, not refused',()=>{
+  // memories.source is capped at 4000 in the table. An uncut quote of a long
+  // paste failed the insert, and the memory was lost with a check violation.
+  const paste='we deploy from main on fridays '.repeat(300);
+  const out=validate({memories:[{statement:'Deploys go out on Fridays.',source:paste,project:null}]},
+    {turn:[paste],projects:[]});
+  assert.equal(out.memories.length,1);
+  assert.equal(out.memories[0].source.length,4000);
+});

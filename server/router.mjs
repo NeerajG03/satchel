@@ -135,7 +135,9 @@ export function validate(payload, {turn = [], project = null, projects = [], sav
   const dropped = [];
   for (const item of payload?.memories ?? []) {
     const statement = String(item?.statement ?? '').trim();
-    const source = String(item?.source ?? '').trim();
+    // memories.source holds 4000 characters, and a model quoting a long paste
+    // will quote all of it. Cut, not dropped: only the start has to match.
+    const source = String(item?.source ?? '').trim().slice(0, 4000);
     if (!statement || statement.length > 500) { dropped.push({item, why: 'statement missing or too long'}); continue; }
     if (!source) { dropped.push({item, why: 'no source'}); continue; }
     // The prompt asks for these to be left out and mostly they are. This is the

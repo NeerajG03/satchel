@@ -172,7 +172,9 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
   for (const change of payload?.changes ?? []) {
     const action = change?.action;
     const statement = String(change?.statement ?? '').trim();
-    const source = String(change?.source ?? '').trim();
+    // memories.source holds 4000 characters, and a model quoting a long paste
+    // will quote all of it. Cut, not dropped: only the start has to match.
+    const source = String(change?.source ?? '').trim().slice(0, 4000);
     const drop = why => dropped.push({change, why});
     if (!KINDS.includes(change?.kind)) { drop('unknown kind'); continue; }
     // A source is required for every action, retires included. "It is done" is

@@ -320,3 +320,12 @@ test('a spent daily quota is answered by another model, a burst limit is not', (
   assert.equal(worthAnotherModel({code: 'ROUTER_TIMEOUT'}), false, 'the budget is already spent');
   assert.equal(worthAnotherModel({code: 'ROUTER_SHAPE'}), false, 'that is the prompt, not the host');
 });
+
+test('a source quoting a long paste is cut to what memories.source holds, not refused', () => {
+  const paste = 'we deploy from main on fridays '.repeat(300);
+  const out = validateConsolidation({changes: [{action: 'add', statement: 'Deploys go out on Fridays.',
+    source: paste, kind: 'fact', why: 'said so', project: null}]},
+    {turns: [{role: 'user', content: paste}], memories: [], projects: []});
+  assert.equal(out.changes.length, 1, JSON.stringify(out.dropped));
+  assert.equal(out.changes[0].source.length, 4000);
+});
