@@ -14,6 +14,7 @@
 // What schedules it is not decided yet. This takes a service and runs; the
 // endpoint and whatever calls it are somebody else's problem on purpose.
 import {errorText} from './error-text.mjs';
+import {scrub} from './secrets.mjs';
 
 const untraced = (_name, _options, run) => run(() => {}, () => {}, null);
 
@@ -82,9 +83,14 @@ export async function consolidateDocument(service, consolidator, document,
       // pending again, and re-reading what the last run already decided about
       // is a model call spent on nothing and a second chance to save the same
       // claim twice.
-      const turns = await service.documentTurns(document.id, document.consolidated_through ?? null);
+      // Scrubbed again on the way out. The hooks scrub what comes in now, and
+      // this is for what was kept before they did: a model that has not seen
+      // a password cannot write one into a memory.
+      const turns = (await service.documentTurns(document.id, document.consolidated_through ?? null))
+        .map(turn => ({...turn, content: scrub(turn.content)}));
       const through = turns.at(-1)?.id ?? document.consolidated_through ?? null;
-      if (!turns.length) return {...counts, skipped: 'nothing new'};
+      if (!turns.length) return {...counts, document: document.id, session_key: document.session_key,
+        skipped: 'nothing new'};
       const memories = await service.memoriesInScope(document.project_id ?? null);
       const project = projects.find(p => p.id === document.project_id) ?? null;
       setInput({turns: turns.length, memories: memories.length,
@@ -102,7 +108,11 @@ export async function consolidateDocument(service, consolidator, document,
         await service.logConsolidationRun({id: runId, document_id: document.id, trace_id: traceId,
           model: consolidator.model, prompt: '(not sent)', response: null,
           duration_ms: Date.now() - started, error: errorText(error)});
-        return {...counts, failed: errorText(error)};
+        // `spent` is the one failure worth stopping a whole job for. The
+        // consolidator has already tried its fallback model, so a daily quota
+        // that is still gone will be gone for every session after this one.
+        return {...counts, document: document.id, session_key: document.session_key,
+          failed: errorText(error), spent: error?.code === 'ROUTER_LIMIT' && error?.spent === true};
       }
       counts.dropped = outcome.dropped.length;
       // R11. Every action taken and why, each naming the memory it touched,
@@ -134,7 +144,8 @@ export async function consolidateDocument(service, consolidator, document,
         ...counts, input_tokens: outcome.usage?.inputTokens ?? null,
         output_tokens: outcome.usage?.outputTokens ?? null,
         duration_ms: Date.now() - started, error: null});
-      return {...counts, document: document.id};
+      return {...counts, document: document.id, session_key: document.session_key,
+        scope: project?.slug ?? 'personal', actions};
     });
 }
 
@@ -174,4 +185,68 @@ export async function consolidatePending(service, consolidator,
        deadline, traced, ownerId}));
   }
   return {documents: runs.length, remaining: documents.length - runs.length, runs};
+}
+
+const TOTALS = ['added', 'extended', 'replaced', 'retired', 'affirmed', 'dropped'];
+
+/** One call's share of a job: read sessions until this call's time is up, then
+ *  say whether the chain should carry on.
+ *
+ *  A job is a chain because one call cannot run for 30 minutes. Vercel stops a
+ *  function at 300 seconds on Hobby and 800 on Pro, whatever framework it is
+ *  written in, so a long pass has to be cut into pieces somewhere. Here each
+ *  piece is a few minutes, and the job row carries everything between them.
+ *
+ *  The row is moved after every session rather than at the end, for two
+ *  reasons. The page shows progress while it runs. And a call that dies
+ *  partway loses one session's worth at most: everything before it is already
+ *  on the row, and the session itself was either marked or it was not.
+ *
+ *  Three ways to stop, and each one says why on the row, because a job that
+ *  ended without saying so looks exactly like one that is still going:
+ *  nothing left, the 30 minutes are up, or the model cannot answer. */
+export async function consolidateStep(service, consolidator, job,
+  {budgetMs = 240000, traced = untraced, ownerId, now = Date.now} = {}) {
+  const wall = Date.parse(job.deadline_at);
+  const deadline = Math.min(now() + budgetMs, wall);
+  // A session already tried in this job is not tried again, even though a
+  // failed one is still pending. Asking the same question of a model that
+  // just refused it is how a chain spends its 30 minutes on one session.
+  const tried = new Set((job.runs ?? []).map(run => run.document));
+  const waiting = (await service.pendingDocuments(job.idle_minutes)).filter(d => !tried.has(d.id));
+  let current = job;
+  const stop = async (reason, patch = {}) => {
+    current = await service.moveConsolidationJob(current.id, current.step, {
+      status: 'finished', ...patch, stop_reason: reason, finished_at: new Date(now()).toISOString()}) ?? current;
+    return {job: current, more: false};
+  };
+  if (!waiting.length) return stop(tried.size ? 'Every waiting session was read.' : 'Nothing was waiting.');
+  const [projects, settings] = await Promise.all([service.projects(), service.settings()]);
+  let failures = 0;
+  let index = 0;
+  for (; index < waiting.length && now() < deadline; index++) {
+    const run = await consolidateDocument(service, consolidator, waiting[index],
+      {projects, cap: settings.block_size, churn: settings.staleness_commits,
+       deadline, traced, ownerId});
+    const patch = {read: current.read + 1, runs: [...(current.runs ?? []), run],
+      failed: current.failed + (run.failed ? 1 : 0)};
+    for (const key of TOTALS) patch[key] = (current[key] ?? 0) + (run[key] ?? 0);
+    const moved = await service.moveConsolidationJob(current.id, current.step, patch);
+    // Another call holds the job now. Whatever it is doing, it is not this
+    // call's to finish, and writing over it would lose its sessions.
+    if (!moved) return {job: current, more: false, lost: true};
+    current = moved;
+    if (run.spent)
+      return stop(`The model's quota is used up for today. ${waiting.length - index - 1} sessions were left waiting.`,
+        {status: 'stopped'});
+    failures = run.failed ? failures + 1 : 0;
+    if (failures >= 3)
+      return stop(`Three sessions in a row failed, the last with: ${run.failed}`, {status: 'stopped'});
+  }
+  const left = waiting.length - index;
+  if (!left) return stop('Every waiting session was read.');
+  if (now() >= wall)
+    return stop(`The 30 minutes ran out with ${left} ${left === 1 ? 'session' : 'sessions'} still waiting.`,
+      {status: 'stopped'});
+  return {job: current, more: true};
 }

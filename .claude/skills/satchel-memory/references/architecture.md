@@ -98,9 +98,14 @@ Nothing is injected.
 
 `POST /api/consolidate`. Nothing in a hook calls it. Two things do: the developer-only `pg_cron` job, and the "Consolidate now" button on the activity page. A Stop hook that spawned it detached was built and reverted on 22 September, because a hook that quietly spends a model call is the wrong default.
 
+Pressing the button starts a **job** and returns at once. The job is a row in `consolidation_jobs` and a chain of calls to the same endpoint, each one about four minutes (`SATCHEL_CONSOLIDATE_STEP_MS`, 240000), for up to 30 minutes in all. One call cannot do it alone: Vercel stops a function at 300 seconds on Hobby, whatever framework it is in.
+
 ```
-pending_documents(idle 30 min, no count)     every session that has gone quiet
-  for each, while inside a 45s budget:
+POST {idle_minutes}   start_consolidation_job, or show the one already running
+  answer 202 {job} now, then under waitUntil:
+  consolidateStep(job)
+    pending_documents(idle, no count), minus the sessions this job already tried
+    for each, while inside this call's four minutes and the job's 30:
     document_content(after consolidated_through)   only turns not yet read
     memories_in_scope(project)                     project + personal, integer labels
     consolidator.consolidate()                     one call, gemini-3.8-flash, thinking medium
@@ -109,9 +114,13 @@ pending_documents(idle 30 min, no count)     every session that has gone quiet
            each under private.attribute(trace, document, reason)
     mark_document_consolidated(through)
     log to consolidation_runs, including runs that changed nothing or failed
+      move the job row: read, counts, and this session's run with every action and why
+  more left?  POST {job, step} to publicOrigin(), with the same access token
 ```
 
-The batch stops on the clock rather than running past what the request has, and returns `remaining` so the caller can say "press again". A document whose call failed stays pending, since a run that never reached the model decided nothing.
+The row is moved after every session, so the page shows progress and a call that dies loses one session at most. `step` is a lease: a call claims `step + 1` only if the row is still at the step it was handed, so a "carry on" pressed while the chain is alive gets a 409 instead of reading a session twice. A running job whose `heartbeat_at` is over six minutes old has lost its chain, and anyone who owns it may take it over. A job stops and says why on the row: nothing left, the 30 minutes ran out, the model's quota is spent (the consolidator already tried its fallback), or three sessions failed in a row. A session that failed stays pending for the next job but is not asked about again in this one.
+
+`publicOrigin()` is where the chain sends itself: `SATCHEL_PUBLIC_URL`, then `VERCEL_PROJECT_PRODUCTION_URL` in production, then `VERCEL_URL`. Never the request's Host header, because the chain carries the caller's token. The cron gets a real 202 inside pg_net's five seconds now, where it used to time out on a pass that was working.
 
 It accepts three credentials, all under RLS as the owner: the hook scripts' agent bearer, a **companion session** (the button, checked by `verifyCompanionToken`, which refuses any token carrying a `client_id`), and `x-satchel-refresh` (the cron, a refresh token the endpoint exchanges and rotates). It is the only endpoint that accepts the last two.
 
@@ -135,7 +144,9 @@ Tools: `list_projects`, `upsert_project`, `select_project`, `memory_index`, `ret
 
 **`server/consolidator.mjs`** is the pass's model call: it relabels memories as integers, builds the prompt with both the observation date and today's date, calls the model with a structured schema, and `validate()` maps labels back and drops anything whose source is not in the user's words, whose label does not exist, which touches a memory a second time in one run, or which retires something that is not an `intent`. A validator that refuses to let a completion retire a fact is the guard the prompt cannot be trusted to be.
 
-**`server/consolidation.mjs`** applies it. `consolidateDocument` for one document, `consolidatePending` for the batch. It returns what it did rather than throwing, because one document failing must not end the others.
+**`server/consolidation.mjs`** applies it. `consolidateDocument` for one document, `consolidateStep` for one call's share of a job, `consolidatePending` for a plain batch with a clock, which nothing in production calls any more. It returns what it did rather than throwing, because one document failing must not end the others.
+
+**`server/secrets.mjs`** takes keys, passwords and tokens out of text before it is kept. `hook-handler.mjs` scrubs the prompt and the reply as they arrive, so the document, the window, the embedder, the injection log and the trace only ever see the redacted copy, and the pass scrubs the turns it reads again for anything stored before. Known shapes are always taken out; a value next to a secret-sounding name only when it looks random. It is a pattern scanner rather than a model, because asking a hosted model whether something is a secret means sending it the secret.
 
 **`server/model-provider.mjs`** picks the SDK provider for a model id, and holds `fallbackModel` and `worthAnotherModel`.
 

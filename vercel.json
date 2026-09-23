@@ -14,7 +14,7 @@
     },
     "api/consolidate.mjs": {
       "includeFiles": "server/prompts/**",
-      "maxDuration": 60
+      "maxDuration": 300
     }
   },
   "rewrites": [

@@ -31,6 +31,7 @@
     "@opentelemetry/sdk-node": "^0.222.0",
     "@opentelemetry/sdk-trace-node": "^2.11.0",
     "@supabase/supabase-js": "^2.116.0",
+    "@vercel/functions": "^3.9.9",
     "ai": "^7.0.107",
     "jose": "^6.2.12",
     "react": "^19.3.0",

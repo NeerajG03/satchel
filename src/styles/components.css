@@ -223,3 +223,10 @@ a.entry:hover { text-decoration: none; background: linear-gradient(to right, var
   border-left: 2px solid var(--line); padding: 4px 0 4px 14px; margin: 4px 0;
   display: flex; flex-direction: column; gap: 6px; color: var(--muted);
 }
+
+/* The consolidation job. A plain bar while it runs, and the report as a
+   numbered list: one session per item, each change under it. */
+.job-progress { width: 100%; height: 6px; accent-color: var(--amber); }
+.job-report { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 10px; }
+.job-report > li { display: flex; flex-direction: column; gap: 4px; }
+.error-text { color: var(--red); }

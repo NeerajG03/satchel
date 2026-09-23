@@ -62,6 +62,8 @@ Everything else still applies: it is per connection, revocation still rotates `g
 - Retention is a real delete: `expire_documents()` runs on every write and returns a row count, so it can be tested rather than trusted.
 - `capture = false` stops both the document and the window. The setting is about whether the conversation is kept at all.
 
+**What people paste is scrubbed before it is kept.** `server/secrets.mjs` runs on the prompt and the reply in `hook-handler.mjs`, before the document, the window, the embedder, the injection log or the trace sees them. A new place that takes conversation text from a hook has to go through it too. Its tests build every fake credential at run time, so no literal key shape ever lands in the repo.
+
 **A background job gets its own client, never a blanket key.** The developer cron runs as the person through a separate OAuth client whose refresh token sits in Supabase Vault. `consolidation_credentials` has no grants and holds the secret's id, not the secret. The token rotates on every use. Only a definer routine can read it. A job with a key that reads everyone would be the service role key under another name.
 
 **No anonymous routine may change someone's state.** The first design for reporting a refused cron credential was a routine anon could call, which would have let anyone switch off anyone's job. `tests/security-audit.test.mjs` fails on an anon-executable routine, and it caught that one. The refusal is read from pg_net's own response log instead.

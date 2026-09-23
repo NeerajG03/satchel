@@ -29,6 +29,8 @@ Almost everything is `security invoker`, so RLS stays authoritative. The service
 | `20260922210000` | `consolidation_is_the_writer`: `capture_mode` defaults to `session`, and every row moves |
 | `20260922220000` | `activity_pages`: `recent_documents` pages by time for the developer feed |
 | `20260923090000` | `every_waiting_session`: `pending_documents` returns every waiting session when no count is given, and the cron stops asking for ten |
+| `20260923095000` | `the_endpoint_check_compiles`: the credential's endpoint check used `{1,300}`, which Postgres cannot compile, so `enable_consolidation` had never once succeeded |
+| `20260923100000` | `consolidation_jobs`: a pass you start and come back to. One running per owner, a 30 minute `deadline_at` nobody can move, `step` as the lease, `runs` as the report |
 
 ## `memories`
 

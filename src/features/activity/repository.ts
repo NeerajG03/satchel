@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
-import type { Activity, ActivityPage, ConsolidationResult, ConsolidationRun, DocumentRow, DocumentTurn, Injection, MemoryEvent, RouterRun, RunText } from './model';
+import type { Activity, ActivityPage, ConsolidationJob, ConsolidationRun, DocumentRow, DocumentTurn, Injection, MemoryEvent, RouterRun, RunText } from './model';
 
 /** One page of everything, newest first.
  *
@@ -101,41 +101,56 @@ export function createActivityRepository(db: SupabaseClient) {
         db.rpc('document_content', { p_document_id: documentId }).abortSignal(signal));
     },
 
-    /** Run the background pass now, over whatever has gone quiet.
+    /** The newest job, running or not. The page reads it on load, which is
+     *  what makes the report something you come back to rather than something
+     *  you had to be watching for. */
+    async latestJob(): Promise<ConsolidationJob | null> {
+      const found = await rows<ConsolidationJob>(signal => db.from('consolidation_jobs').select('*')
+        .order('started_at', { ascending: false }).limit(1).abortSignal(signal));
+      return found[0] ?? null;
+    },
+
+    /** Start the background pass, or carry on one that stopped moving.
      *
      *  The only call in the app that does not go through PostgREST, because
-     *  the work is a model call and Postgres cannot make one. It sends this
-     *  browser session's own token, which `/api/consolidate` accepts
-     *  alongside the scheduler's; everything it then does runs under the same
-     *  row policies as the rest of this page.
+     *  the work is a model call and Postgres cannot make one. It answers at
+     *  once with the job; the reading happens after, as a chain of calls on
+     *  the server that each hand on this session's token to the next.
      *
-     *  Two minutes, not fifteen. A pass is a model call per conversation and
-     *  the default timeout would give up partway through a backlog, leaving
-     *  the person looking at an error for work that actually happened. */
-    async consolidate(idleMinutes = 30): Promise<ConsolidationResult> {
-      const { data, error: authError } = await db.auth.getSession();
+     *  So the token has to last the job. A session is refreshed here when it
+     *  has less than 35 minutes left, because a chain that outlives its token
+     *  stops halfway and says it stalled, which is true and unhelpful. */
+    async consolidate({ job, idleMinutes = 30 }: { job?: string; idleMinutes?: number } = {}): Promise<ConsolidationJob> {
+      let { data, error: authError } = await db.auth.getSession();
       if (authError || !data.session) throw new Error('Sign in again to run this.');
+      if ((data.session.expires_at ?? 0) * 1000 - Date.now() < 35 * 60 * 1000) {
+        const refreshed = await db.auth.refreshSession();
+        if (refreshed.error || !refreshed.data.session) throw new Error('Sign in again to run this.');
+        data = { session: refreshed.data.session };
+      }
       const response = await requestWithTimeout(signal => fetch('/api/consolidate', {
         method: 'POST', signal,
         headers: { 'content-type': 'application/json',
           authorization: `Bearer ${data.session!.access_token}` },
-        body: JSON.stringify({ idle_minutes: idleMinutes }),
-      }), 120000);
-      if (!response.ok) {
+        body: JSON.stringify(job ? { job } : { idle_minutes: idleMinutes }),
+      }), 30000);
+      // `npm run dev` serves the app and not the endpoints, so this path
+      // answers with index.html and a 200. Parsing that produces "Unexpected
+      // token <", which is a confusing way to learn you are on the wrong
+      // server.
+      if (response.ok && !response.headers.get('content-type')?.includes('json')) {
+        throw new Error('This server does not run the endpoints. Use npm run serve, or the deployed app.');
+      }
+      // 409 is a carry on that lost a race with the chain it meant to
+      // replace. The job it names is still the one to show.
+      if (!response.ok && response.status !== 409) {
         // 503 is the honest one to name: it means no model key is configured,
         // which is a deployment fact rather than anything the person did.
         throw new Error(response.status === 503
           ? 'No consolidation model is configured for this deployment.'
           : `Satchel answered ${response.status}.`);
       }
-      // `npm run dev` serves the app and not the endpoints, so this path
-      // answers with index.html and a 200. Parsing that produces "Unexpected
-      // token <", which is a confusing way to learn you are on the wrong
-      // server.
-      if (!response.headers.get('content-type')?.includes('json')) {
-        throw new Error('This server does not run the endpoints. Use npm run serve, or the deployed app.');
-      }
-      return await response.json() as ConsolidationResult;
+      return (await response.json() as { job: ConsolidationJob }).job;
     },
   };
 }

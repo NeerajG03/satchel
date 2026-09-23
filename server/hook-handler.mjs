@@ -31,7 +31,8 @@ import {SUPABASE_URL} from './identity.mjs';
 import {verifyAgentToken, verifyCompanionToken, CHALLENGE, exchangeRefreshToken} from './agent-token.mjs';
 import {memoryService} from './memory-service.mjs';
 import {sessionStart, retrieve, capture} from './lifecycle.mjs';
-import {consolidatePending} from './consolidation.mjs';
+import {consolidateStep} from './consolidation.mjs';
+import {scrub} from './secrets.mjs';
 
 const MAX_BYTES = 256 * 1024;
 const sessionPattern = /^[A-Za-z0-9_-]{1,200}$/;
@@ -131,7 +132,9 @@ async function connect(req, res, {embedder = null, router = null, allowRefresh =
       if (!await service.status()) { res.writeHead(403); res.end('Connection revoked or unavailable'); return null; }
     } catch { res.writeHead(503); res.end('Unable to verify connection'); return null; }
   }
-  return {service, rotated, companion, ownerId: typeof claims?.sub === 'string' ? claims.sub : undefined};
+  // The token goes back out only to hand a consolidation job on to its next
+  // call, which runs as the same person. It is never stored.
+  return {service, rotated, companion, token, ownerId: typeof claims?.sub === 'string' ? claims.sub : undefined};
 }
 
 const clamp = (value, fallback, low, high) => {
@@ -175,7 +178,10 @@ export async function handleHookRetrieve(req, res, {embedder = null, traced, ret
   let sessionKey;
   try { sessionKey = readSession(input.session_key); }
   catch { res.writeHead(400); return res.end(); }
-  const prompt = typeof input.prompt === 'string' ? input.prompt.trim().slice(0, 4000) : '';
+  // Scrubbed here, before anything else sees it. The prompt goes on to the
+  // document, the rolling window, the embedder, the injection log and the
+  // trace, and one pasted connection string reached all five on 22 September.
+  const prompt = typeof input.prompt === 'string' ? scrub(input.prompt.trim().slice(0, 4000)) : '';
   // An empty prompt is not an error, it is a turn with nothing to search for.
   if (!prompt) return send(res, {context: '', notice: ''});
   const exclude = (Array.isArray(input.exclude) ? input.exclude : [])
@@ -186,45 +192,127 @@ export async function handleHookRetrieve(req, res, {embedder = null, traced, ret
   send(res, {context: result.context, notice: result.notice});
 }
 
-/** The background pass over conversations that have gone quiet.
+/** Where the next call in a consolidation chain is sent.
  *
- *  Authenticated exactly like the hooks, with the credential the plugin
- *  already holds, so whatever ends up running the schedule needs no new kind
- *  of secret and RLS still decides what it can touch. It writes memory and
- *  nothing reads the reply, so the answer is a count rather than context.
+ *  Never the request's own Host header. The chain carries the caller's access
+ *  token, and a Host a caller chose is a place a caller chose to have it sent.
+ *  So it is configuration first, then what Vercel says this deployment is, and
+ *  the request only on a machine that is not Vercel at all, which is the local
+ *  server. */
+export function publicOrigin(req, env = process.env) {
+  if (env.SATCHEL_PUBLIC_URL) return env.SATCHEL_PUBLIC_URL.replace(/\/+$/, '');
+  if (env.VERCEL_ENV === 'production' && env.VERCEL_PROJECT_PRODUCTION_URL)
+    return `https://${env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  if (env.VERCEL_URL) return `https://${env.VERCEL_URL}`;
+  return `http://${req.headers.host ?? '127.0.0.1:3000'}`;
+}
+
+// A running job whose row has not moved for this long has lost its chain. One
+// session is at most a couple of model calls, so a live chain moves the row
+// well inside this.
+const STALE_MS = 6 * 60 * 1000;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const stale = (job, now = Date.now()) => now - Date.parse(job.heartbeat_at) > STALE_MS;
+
+/** The background pass, as a job you start and come back to.
  *
- *  Two callers, and they authenticate differently. The six hourly job sends
- *  the refresh token from the owner's Vault, because a scheduler has no
- *  session. A person pressing the button on the activity page sends their own
- *  browser session, because they are right there. Both end up as the same
- *  ordinary access token, and RLS decides the rest either way.
+ *  Three ways in, one endpoint:
  *
- *  `idle_minutes` and `limit` are arguments rather than constants because the
- *  right values differ: the job sweeps everything that has gone quiet, and a
- *  person pressing a button usually means the session they just finished. */
+ *    {idle_minutes}   start a job, or show the one already running
+ *    {job}            carry on a job whose chain was lost
+ *    {job, step}      the chain itself, one call handing on to the next
+ *
+ *  Every one of them answers at once with the job row and does the reading
+ *  after the answer. So the button returns in a second, and the cron gets a
+ *  real status inside pg_net's five seconds instead of timing out on a pass
+ *  that was working fine.
+ *
+ *  Authenticated exactly like the hooks. The six hourly schedule sends the
+ *  refresh token from the owner's Vault; a person pressing the button sends
+ *  their browser session; the chain sends whichever access token started it.
+ *  RLS decides the rest either way.
+ *
+ *  `background` is where the work goes once the answer is sent. On Vercel it
+ *  is waitUntil, which keeps the function alive after the response; in a
+ *  test it is a list to await. */
 export async function handleConsolidate(req, res, {embedder = null, consolidator = null, traced,
-  exchange} = {}) {
+  exchange, background = work => { void work; }, fetchImpl = fetch,
+  stepMs = Number(process.env.SATCHEL_CONSOLIDATE_STEP_MS ?? 240000)} = {}) {
   const connection = await connect(req, res, {embedder, allowRefresh: true, allowCompanion: true,
     ...(exchange ? {exchange} : {})});
   if (!connection) return;
   if (!consolidator) { res.writeHead(503); return res.end('No consolidation model is configured'); }
+  return handleConsolidateWith(connection, req, res, {consolidator, traced, background, fetchImpl, stepMs});
+}
+
+/** Everything after the caller is known. Its own function so the job logic can
+ *  be driven without minting a real token; connect() has its own tests. */
+export async function handleConsolidateWith(connection, req, res, {consolidator, traced,
+  background = work => { void work; }, fetchImpl = fetch,
+  stepMs = Number(process.env.SATCHEL_CONSOLIDATE_STEP_MS ?? 240000)} = {}) {
   let input;
   // A POST with no body at all is the ordinary call, and it is what a cron
   // makes. An empty body is not a malformed one.
   const body = req.body == null || String(req.body).trim() === '' ? {} : req.body;
   // `limit` is still accepted and ignored. The cron and any open browser
   // tab still send it, and refusing it would turn a removed cap into a 400.
-  try { input = parseHookBody(body, new Set(['idle_minutes', 'limit'])); }
+  try { input = parseHookBody(body, new Set(['idle_minutes', 'limit', 'job', 'step'])); }
   catch { res.writeHead(400); return res.end(); }
+  if (input.job != null && (typeof input.job !== 'string' || !uuidPattern.test(input.job))) {
+    res.writeHead(400); return res.end();
+  }
   const idleMinutes = clamp(input.idle_minutes, 30, 0, 10080);
+  const {service} = connection;
   // Stored before the work, not after. Supabase rotated the token the moment
   // it was exchanged, so the copy in the Vault is already dead; a run that
   // crashed before writing the new one back would leave the job unable to
   // authenticate ever again.
-  if (connection.rotated) await connection.service.rotateConsolidationCredential(connection.rotated);
-  const result = await consolidatePending(connection.service, consolidator, {
-    idleMinutes, ownerId: connection.ownerId, ...(traced ? {traced} : {})});
-  send(res, result);
+  if (connection.rotated) await service.rotateConsolidationCredential(connection.rotated);
+
+  let job;
+  if (input.job) {
+    job = await service.consolidationJob(input.job);
+    if (!job) { res.writeHead(404); return res.end(); }
+  } else {
+    const waiting = (await service.pendingDocuments(idleMinutes)).length;
+    ({job} = await service.startConsolidationJob({idleMinutes, waiting}));
+    if (!job) { res.writeHead(503); return res.end('Could not start the job'); }
+  }
+  const answer = (status, payload) => {
+    res.writeHead(status, {'content-type': 'application/json'});
+    res.end(JSON.stringify(payload));
+  };
+  if (job.status !== 'running') return answer(200, {job});
+  // The chain names the step it was handed. Anyone else may only take over a
+  // job that has gone quiet, which is what makes a second press, or a carry
+  // on pressed while the chain is fine, harmless.
+  const handed = input.job && input.step != null ? clamp(input.step, -1, 0, 100000) : null;
+  const fresh = job.step > 0 && !stale(job);
+  if (handed === null && fresh) return answer(202, {job, running: true});
+  const from = handed ?? job.step;
+  const claimed = await service.moveConsolidationJob(job.id, from, {step: from + 1});
+  if (!claimed) return answer(409, {job});
+  answer(202, {job: claimed});
+
+  const origin = publicOrigin(req);
+  background((async () => {
+    const out = await consolidateStep(service, consolidator, claimed,
+      {budgetMs: stepMs, ownerId: connection.ownerId, ...(traced ? {traced} : {})});
+    if (!out.more) return;
+    // Handed on and not awaited past the answer, which is immediate. Tried
+    // twice, then left: a job that stops moving shows as stalled on the page
+    // with a way to carry on, and nothing is lost by it.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const response = await fetchImpl(`${origin}/api/consolidate`, {
+          method: 'POST', signal: AbortSignal.timeout(15000),
+          headers: {'content-type': 'application/json', authorization: `Bearer ${connection.token}`},
+          body: JSON.stringify({job: out.job.id, step: out.job.step}),
+        });
+        if (response.status < 500) return;
+      } catch { /* tried again below, then left for the page to offer */ }
+    }
+  })().catch(() => { /* the row says how far it got; there is nobody to throw to */ }));
 }
 
 /** The end of a turn. `assistant` is the host's own last_assistant_message.
@@ -239,7 +327,9 @@ export async function handleHookCapture(req, res, {embedder = null, router = nul
   let sessionKey;
   try { sessionKey = readSession(input.session_key); }
   catch { res.writeHead(400); return res.end(); }
-  const assistant = typeof input.assistant === 'string' ? input.assistant.slice(0, 8000) : '';
+  // The reply too. An agent repeats back what it was pasted, and it is the
+  // half of the document nobody reads closely.
+  const assistant = typeof input.assistant === 'string' ? scrub(input.assistant.slice(0, 8000)) : '';
   // How many commits the workspace's repository has. Absent, out of range or
   // not a number all mean the same thing: no observation this turn, which is
   // the ordinary case on a non-Git workspace.

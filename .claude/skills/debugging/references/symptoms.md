@@ -38,7 +38,7 @@ The constants live in `server/identity.mjs` now, which imports nothing. Cold sta
 
 ## Nothing is ever captured
 
-First check which writer is live: `select capture, capture_mode from memory_settings`. With `session`, the default, **nothing is written at the end of a turn by design**. Memory appears only after the consolidation pass runs, and nothing runs it for a product user yet. Press "Consolidate now" or check the cron, then look at `consolidation_runs`. A session is not ready until it has been quiet for 30 minutes.
+First check which writer is live: `select capture, capture_mode from memory_settings`. With `session`, the default, **nothing is written at the end of a turn by design**. Memory appears only after the consolidation pass runs, and nothing runs it for a product user yet. Press "Consolidate now" or check the cron, then look at `consolidation_jobs` for the job and `consolidation_runs` for each session. A session is not ready until it has been quiet for 30 minutes.
 
 If the pass ran and changed nothing, that is usually right. Read the trace before deciding it is wrong.
 

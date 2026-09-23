@@ -158,7 +158,7 @@ Spans are flushed in a `finally` before the handler returns, because a serverles
 
 Three ways, all through `/api/consolidate`, all under RLS as the owner:
 
-- **The button.** "Consolidate now" on the activity page in dev mode, with the person's browser session.
+- **The button.** "Consolidate now" on the activity page in dev mode, with the person's browser session. It starts a job and returns. The card under it reads the newest `consolidation_jobs` row every five seconds while it runs and shows the report when it stops, so the page can be left and come back to. A job that stopped moving shows "Carry on".
 - **The developer cron.** `npm run consolidation:enable -- --enable` runs one OAuth flow for a separate client, stores the refresh token in Vault, and schedules `private.run_consolidation` through `pg_cron` and `pg_net`. Needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `.env`. `consolidation_status()` says whether the job installed. Not surfaced to product users on purpose.
 - **By hand**, with a hook credential as the bearer, for a test.
 

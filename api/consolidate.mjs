@@ -4,15 +4,16 @@
 // runs one model call over each, and applies what it decided, so it is allowed
 // to be slow and it must never be on a path anyone is waiting on.
 //
-// What calls it on a schedule is still open, and deliberately not decided
-// here. Vercel Hobby caps crons at once a day; the candidates are Supabase
-// pg_cron with pg_net, a GitHub Actions schedule, or a lazy trigger from a
-// hook. All three can POST to this with the credential the hook scripts
-// already hold, and RLS stays authoritative for every one of them.
+// Two things call it: the button on the activity page, and pg_cron through
+// pg_net for anyone who enabled the schedule. Either one starts a job that
+// runs as a chain of these calls, each a few minutes long, for up to 30
+// minutes. waitUntil is what lets a call keep working after it has answered,
+// and it is a plain Vercel function feature: nothing here needs Next.js.
 import {handleConsolidate} from '../server/hook-handler.mjs';
 import {createConsolidator} from '../server/consolidator.mjs';
 import {createEmbedder} from '../server/embedding.mjs';
 import {traced, annotate, flush} from '../server/tracing.mjs';
+import {waitUntil} from '@vercel/functions';
 
 let consolidator = null;
 try {
@@ -25,7 +26,11 @@ let embedder = null;
 try { embedder = createEmbedder(); }
 catch { /* The memory is still written; the backfill embeds it instead. */ }
 
+// The reading happens after the answer is sent, so the traces have to be
+// flushed after the reading too, not when the handler returns.
+const background = work => waitUntil(work.finally(flush));
+
 export default async function (req, res) {
-  try { await handleConsolidate(req, res, {embedder, consolidator, traced}); }
+  try { await handleConsolidate(req, res, {embedder, consolidator, traced, background}); }
   finally { await flush(); }
 }

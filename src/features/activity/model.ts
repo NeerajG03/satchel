@@ -59,29 +59,59 @@ export type ConsolidationOutcome = {
   added: number; extended: number; replaced: number; retired: number;
   affirmed: number; dropped: number;
 };
-export type ConsolidationResult = { documents: number; remaining?: number; runs: ConsolidationOutcome[] };
+/** One change the pass made, or tried to, with the model's reason. */
+export type JobAction = { did: string; on: string | null; statement?: string | null; why?: string | null };
+/** What one session came to inside a job. */
+export type JobRun = ConsolidationOutcome & { session_key?: string; scope?: string; actions?: JobAction[]; spent?: boolean };
 
-/** One line for what a run came to. Nothing is the usual answer and it must
- *  not read like a failure: most conversations change nothing, and a pass that
- *  says so is working. */
-export function summarizeRun(result: ConsolidationResult): string {
-  if (!result.documents) return 'Nothing was ready. A session counts as finished after 30 quiet minutes.';
-  const totals = result.runs.reduce((sum, run) => ({
-    added: sum.added + (run.added ?? 0), extended: sum.extended + (run.extended ?? 0),
-    replaced: sum.replaced + (run.replaced ?? 0), retired: sum.retired + (run.retired ?? 0),
-    affirmed: sum.affirmed + (run.affirmed ?? 0), dropped: sum.dropped + (run.dropped ?? 0),
-  }), { added: 0, extended: 0, replaced: 0, retired: 0, affirmed: 0, dropped: 0 });
-  const changes = (['added', 'extended', 'replaced', 'retired', 'affirmed'] as const)
-    .filter(action => totals[action] > 0)
-    .map(action => `${totals[action]} ${action}`);
-  const read = count(result.documents, 'conversation');
-  // A batch stops on the clock rather than running past what the request has,
-  // so "there is more" is an ordinary answer and the person needs to be told
-  // rather than left thinking it finished.
-  const left = result.remaining ? ` · ${result.remaining} still waiting, press again` : '';
-  if (!changes.length) return `Read ${read} and changed nothing, which is the usual answer.${left}`;
-  return `Read ${read} · ${changes.join(', ')}${left}`;
+/** A consolidation you start and come back to. The row is the progress while
+ *  it runs and the report once it stops. */
+export type ConsolidationJob = {
+  id: string; status: 'running' | 'finished' | 'stopped'; stop_reason: string | null;
+  idle_minutes: number; started_at: string; deadline_at: string; heartbeat_at: string;
+  finished_at: string | null; step: number; waiting: number; read: number;
+  added: number; extended: number; replaced: number; retired: number; affirmed: number;
+  dropped: number; failed: number; runs: JobRun[];
+};
+
+/** A running job whose row has not moved for this long has lost its chain.
+ *  The same six minutes the server uses before it lets anyone take over. */
+export const STALLED_MS = 6 * 60 * 1000;
+export type JobState = 'running' | 'stalled' | 'finished' | 'stopped';
+export function jobState(job: ConsolidationJob, now = Date.now()): JobState {
+  if (job.status !== 'running') return job.status;
+  return now - Date.parse(job.heartbeat_at) > STALLED_MS ? 'stalled' : 'running';
 }
+
+const minutes = (from: string, to: number) => Math.max(0, Math.round((to - Date.parse(from)) / 60000));
+
+/** The one line under the title. Counts by action, like a single run, and
+ *  "changed nothing" said as the ordinary answer it is. */
+export function summarizeJob(job: ConsolidationJob, now = Date.now()): string {
+  const changes = (['added', 'extended', 'replaced', 'retired', 'affirmed'] as const)
+    .filter(action => job[action] > 0).map(action => `${job[action]} ${action}`);
+  const read = `${job.read} of ${count(job.waiting, 'session')}`;
+  const state = jobState(job, now);
+  if (state === 'running' || state === 'stalled') {
+    const took = minutes(job.started_at, now);
+    return `Read ${read} so far · ${took} ${took === 1 ? 'minute' : 'minutes'} in${changes.length ? ` · ${changes.join(', ')}` : ''}`;
+  }
+  const took = minutes(job.started_at, Date.parse(job.finished_at ?? job.heartbeat_at));
+  const failed = job.failed ? ` · ${job.failed} failed` : '';
+  const done = changes.length ? changes.join(', ') : 'changed nothing, which is the usual answer';
+  return `Read ${read} in ${took < 1 ? 'under a minute' : `${took} ${took === 1 ? 'minute' : 'minutes'}`} · ${done}${failed}`;
+}
+
+/** One session's line in the report. */
+export function summarizeJobRun(run: JobRun): string {
+  if (run.failed) return run.failed;
+  if (run.skipped) return 'nothing new since the last read';
+  const said = ([['added', run.added], ['extended', run.extended], ['replaced', run.replaced],
+    ['retired', run.retired], ['affirmed', run.affirmed], ['rejected', run.dropped]] as const)
+    .filter(([, n]) => n > 0).map(([word, n]) => `${n} ${word}`);
+  return said.length ? said.join(', ') : 'nothing to change';
+}
+
 export type MemoryEvent = {
   id: string; memory_id: string; action: string; before: string | null; after: string | null;
   reason: string | null; actor: string; trace_id: string | null; document_id: string | null; created_at: string;

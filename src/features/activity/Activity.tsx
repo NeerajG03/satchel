@@ -10,7 +10,8 @@ import { Empty } from '../../ui/Empty';
 import { Notice } from '../../ui/Notice';
 import { Provenance } from '../../ui/Provenance';
 import { Segments } from '../../ui/Segments';
-import { GROUP, KIND_LABEL, summarize, summarizeRun, type Activity as Item, type ActivityKind } from './model';
+import { GROUP, KIND_LABEL, jobState, summarize, summarizeJob, summarizeJobRun,
+  type Activity as Item, type ActivityKind, type ConsolidationJob } from './model';
 
 type Group = 'all' | 'requests' | 'documents' | 'memory';
 
@@ -116,6 +117,67 @@ function Detail({ item, apps }: { item: Item; apps: { client_id: string; label: 
   </>;
 }
 
+const JOB_TITLE = {
+  running: 'Consolidating',
+  stalled: 'Consolidation stopped moving',
+  finished: 'Consolidation finished',
+  stopped: 'Consolidation stopped early',
+} as const;
+
+/** The newest job: how far it has got while it runs, and the report once it
+ *  stops. Every change is listed with the model's own reason, because a pass
+ *  nobody watched is only worth trusting if it can be read afterwards. */
+function JobCard({ job, onCarryOn, busy }: { job: ConsolidationJob; onCarryOn: () => void; busy: boolean }) {
+  const [open, setOpen] = useState(false);
+  const state = jobState(job);
+  const runs = job.runs ?? [];
+  return <Notice look={state === 'stalled' || state === 'stopped' ? 'amber' : 'plain'} title={JOB_TITLE[state]}
+    actions={<>
+      {state === 'stalled' && <Button small onClick={onCarryOn} disabled={busy}>Carry on</Button>}
+      {runs.length > 0 && <Button look="quiet" small aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open ? 'Hide the report' : `Show the report (${runs.length})`}
+      </Button>}
+    </>}>
+    <p className="fine">{summarizeJob(job)}</p>
+    {state === 'running' && <progress className="job-progress" max={Math.max(job.waiting, 1)} value={job.read}
+      aria-label={`${job.read} of ${job.waiting} sessions read`} />}
+    {state === 'stalled' && <p className="fine muted">Nothing has moved for a few minutes, so its chain of calls was
+      probably lost. Carrying on picks up where it stopped and does not read anything twice.</p>}
+    {job.stop_reason && state !== 'running' && <p className="fine muted">{job.stop_reason}</p>}
+    {open && <ol className="job-report">{runs.map(run => <li key={run.document}>
+      <div className="between">
+        <span className="eyebrow">{run.scope ?? 'session'} · {(run.session_key ?? run.document ?? '').slice(0, 8)}</span>
+        <span className={`fine ${run.failed ? 'error-text' : 'muted'}`}>{summarizeJobRun(run)}</span>
+      </div>
+      {(run.actions ?? []).length > 0 && <ul className="plain-list">{run.actions!.map((action, i) =>
+        <li key={i} className="fine">
+          <strong>{action.did}</strong>{action.on ? ` ${handleOf(action.on)}` : ''}
+          {action.statement ? `: ${action.statement}` : ''}
+          {action.why && <span className="muted"> ({action.why})</span>}
+        </li>)}</ul>}
+    </li>)}</ol>}
+  </Notice>;
+}
+
+/** The newest job, read on load and every few seconds while one runs. */
+function useLatestJob() {
+  const stores = useStores();
+  const [job, setJob] = useState<ConsolidationJob | null>(null);
+  const [error, setError] = useState('');
+  const refresh = useCallback(async () => {
+    try { setJob(await stores.activity.latestJob()); setError(''); }
+    catch (reason) { setError(errorMessage(reason, 'load')); }
+  }, [stores]);
+  useEffect(() => { void refresh(); }, [refresh]);
+  const running = job?.status === 'running';
+  useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(() => { void refresh(); }, 5000);
+    return () => clearInterval(timer);
+  }, [running, refresh]);
+  return { job, setJob, error, refresh };
+}
+
 export function Activity() {
   const stores = useStores();
   const [group, setGroup] = useState<Group>('all');
@@ -124,24 +186,37 @@ export function Activity() {
   // conversation; reading it back and deciding what the memory set should be
   // is a model call, and a model call that happens without anyone asking is
   // not something to switch on quietly. This button is the asking.
-  const [running, setRunning] = useState(false);
-  const [outcome, setOutcome] = useState<{ look: 'ok' | 'error'; text: string } | null>(null);
+  //
+  // It starts a job and returns. The job runs on the server for up to 30
+  // minutes, and the card below reads its row, so leaving the page and coming
+  // back later shows the same report.
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState('');
   const feed = usePagedActivity();
   const apps = useLoad(() => stores.connections.list(), [stores]);
+  const latest = useLatestJob();
+  const state = latest.job ? jobState(latest.job) : null;
+  // The feed is reloaded once when a job stops, because whatever it did is in
+  // the feed, and the feed on screen is from before it ran.
+  const [seenStop, setSeenStop] = useState<string | null>(null);
+  const { reload } = feed;
+  useEffect(() => {
+    if (latest.job && latest.job.status !== 'running' && seenStop !== latest.job.id) {
+      if (seenStop !== null) reload();
+      setSeenStop(latest.job.id);
+    }
+  }, [latest.job, seenStop, reload]);
 
-  async function consolidate() {
-    setRunning(true);
-    setOutcome(null);
+  async function consolidate(job?: string) {
+    setStarting(true);
+    setStartError('');
     try {
-      const result = await stores.activity.consolidate();
-      setOutcome({ look: 'ok', text: summarizeRun(result) });
-      // Whatever it did is in this feed, so it has to be the feed you are
-      // looking at rather than the one from before you pressed the button.
-      feed.reload();
+      latest.setJob(await stores.activity.consolidate(job ? { job } : {}));
+      setSeenStop('');
     } catch (error) {
-      setOutcome({ look: 'error', text: error instanceof Error ? error.message : String(error) });
+      setStartError(error instanceof Error ? error.message : String(error));
     } finally {
-      setRunning(false);
+      setStarting(false);
     }
   }
   const items = feed.items.filter(item => group === 'all' || GROUP[item.kind] === group);
@@ -161,16 +236,15 @@ export function Activity() {
       </div>
       <div className="actions">
         <Button onClick={feed.reload} disabled={feed.loading}>Reload</Button>
-        <Button look="primary" onClick={consolidate} disabled={running}>
-          {running ? 'Reading…' : 'Consolidate now'}
+        <Button look="primary" onClick={() => consolidate()} disabled={starting || state === 'running'}>
+          {state === 'running' ? 'Running…' : starting ? 'Starting…' : 'Consolidate now'}
         </Button>
       </div>
     </div>
 
-    {outcome && <Notice look={outcome.look === 'ok' ? 'plain' : 'error'}
-      title={outcome.look === 'ok' ? 'Consolidation ran' : 'Consolidation did not run'}>
-      {outcome.text}
-    </Notice>}
+    {startError && <Notice look="error" title="Consolidation did not start">{startError}</Notice>}
+    {latest.error && <Notice look="error" title="Could not read the last consolidation">{latest.error}</Notice>}
+    {latest.job && <JobCard job={latest.job} busy={starting} onCarryOn={() => consolidate(latest.job!.id)} />}
 
     <Segments label="Filter activity" value={group} onChange={setGroup} items={[
       { key: 'all', label: 'All', count: tally('all') },

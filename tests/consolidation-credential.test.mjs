@@ -102,6 +102,17 @@ test('nothing about the stored credential is reachable without being its owner',
        where conrelid = 'public.consolidation_credentials'::regclass
          and pg_get_constraintdef(oid) like '%https%'`)).rows;
     assert.match(endpoint, /\^https\?/, 'the endpoint it posts a token to has to be a URL');
+
+    // And a row has to get through it. Reading the definition is what this
+    // test did until 23 September, while the regex in it could not compile
+    // and every enable_consolidation in production failed.
+    const put = endpoint => db.query(`insert into public.consolidation_credentials(owner_id, client_id, secret_id, endpoint)
+      values ($1, 'c', $2, $3) on conflict (owner_id) do update set endpoint = excluded.endpoint`,
+      [owner, crypto.randomUUID(), endpoint]);
+    await put('https://satchel-pi.vercel.app/api/consolidate');
+    await assert.rejects(put('ftp://satchel.example/api/consolidate'), {code: '23514'});
+    await assert.rejects(put('https://satchel.example/a b'), {code: '23514'});
+    await assert.rejects(put(`https://${'a'.repeat(310)}`), {code: '23514'});
   } finally { await db.close(); }
 });
 

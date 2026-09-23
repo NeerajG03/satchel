@@ -254,6 +254,27 @@ export function memoryService(db, embedder = null, router = null) {
     recordRepositoryHead: (repository, commits, provider = 'github') =>
       result(db.rpc('record_repository_head',
         {p_provider:provider, p_repository:repository, p_commits:commits})),
+    // The job a person or the schedule started. A second start while one is
+    // running is refused by the unique index, which is the answer rather than
+    // an error: the caller is shown the job that is already going.
+    async startConsolidationJob({idleMinutes, waiting}) {
+      const {data, error} = await db.from('consolidation_jobs')
+        .insert({idle_minutes:idleMinutes, waiting}).select('*').abortSignal(AbortSignal.timeout(8000));
+      if (error?.code === '23505') return {job:await api.runningConsolidationJob(), started:false};
+      if (error) throw error;
+      return {job:data[0], started:true};
+    },
+    runningConsolidationJob: async () => (await result(db.from('consolidation_jobs').select('*')
+      .eq('status', 'running').limit(1)))[0] ?? null,
+    consolidationJob: async id => (await result(db.from('consolidation_jobs').select('*')
+      .eq('id', id).limit(1)))[0] ?? null,
+    latestConsolidationJob: async () => (await result(db.from('consolidation_jobs').select('*')
+      .order('started_at', {ascending:false}).limit(1)))[0] ?? null,
+    // Moves the job only if it is still at the step the caller holds. Null
+    // means another call took it over, and the caller must stop.
+    moveConsolidationJob: async (id, step, patch) => (await result(db.from('consolidation_jobs')
+      .update({...patch, heartbeat_at:new Date().toISOString()})
+      .eq('id', id).eq('step', step).eq('status', 'running').select('*')))[0] ?? null,
     async logConsolidationRun(entry) {
       try {
         await result(db.from('consolidation_runs').insert({
