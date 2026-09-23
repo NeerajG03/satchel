@@ -230,3 +230,13 @@ a.entry:hover { text-decoration: none; background: linear-gradient(to right, var
 .job-report { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 10px; }
 .job-report > li { display: flex; flex-direction: column; gap: 4px; }
 .error-text { color: var(--red); }
+
+/* The overview on the Activity page. Four panels, two across, one across on a
+   narrow window. Each list row is a label over one line of detail. */
+.glance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0 0 20px; }
+.glance.skeleton .panel { min-height: 140px; }
+.glance .panel h2.eyebrow { margin: 0; }
+.glance-line { margin: 0; font-size: 15px; }
+.glance-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.glance-list > li { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 900px) { .glance { grid-template-columns: 1fr; } }

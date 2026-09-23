@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
 import type { Activity, ActivityPage, ConsolidationJob, ConsolidationRun, DocumentRow, DocumentTurn, Injection, MemoryEvent, RouterRun, RunText } from './model';
+import { quotaDayStart, type LiveMemory, type ModelCall, type Overview, type ScheduleStatus, type WaitingDoc } from './overview';
 
 /** One page of everything, newest first.
  *
@@ -108,6 +109,54 @@ export function createActivityRepository(db: SupabaseClient) {
       const found = await rows<ConsolidationJob>(signal => db.from('consolidation_jobs').select('*')
         .order('started_at', { ascending: false }).limit(1).abortSignal(signal));
       return found[0] ?? null;
+    },
+
+    /** The last few jobs, for the list under the newest one. A report you
+     *  read yesterday should still be one click away today. */
+    async recentJobs(limit = 6): Promise<ConsolidationJob[]> {
+      return rows<ConsolidationJob>(signal => db.from('consolidation_jobs').select('*')
+        .order('started_at', { ascending: false }).limit(limit).abortSignal(signal));
+    },
+
+    /** The four panels at the top of the page, read together.
+     *
+     *  Waiting sessions are asked for with no idle time at all, so the panel
+     *  can say which ones the button would read now and which it will leave
+     *  because someone is still typing in them.
+     *
+     *  Model calls are counted from the last quota reset, because that is the
+     *  only window in which "is Gemini answering" means anything. Only the
+     *  columns that say which model and whether it failed are read: the
+     *  prompts in these tables are the heavy part and none of that is needed
+     *  to draw a light. */
+    async overview(): Promise<Overview> {
+      const since = quotaDayStart();
+      const from = new Date(since).toISOString();
+      const newest = (table: string) => rows<Omit<ModelCall, 'source'>>(signal => db.from(table)
+        .select('model,error,created_at').order('created_at', { ascending: false }).limit(1).abortSignal(signal));
+      const [waiting, schedule, captures, consolidations, memories, projects, lastCapture, lastConsolidation] = await Promise.all([
+        rows<WaitingDoc>(signal => db.rpc('pending_documents', { p_idle_minutes: 0 }).abortSignal(signal)),
+        rows<ScheduleStatus>(signal => db.rpc('consolidation_status').abortSignal(signal)),
+        rows<Omit<ModelCall, 'source'>>(signal => db.from('router_runs').select('model,error,created_at')
+          .gte('created_at', from).order('created_at', { ascending: false }).limit(500).abortSignal(signal)),
+        rows<Omit<ModelCall, 'source'>>(signal => db.from('consolidation_runs').select('model,error,created_at')
+          .gte('created_at', from).order('created_at', { ascending: false }).limit(500).abortSignal(signal)),
+        rows<LiveMemory>(signal => db.rpc('all_memories').abortSignal(signal)),
+        rows<{ id: string; slug: string }>(signal => db.from('projects').select('id,slug').abortSignal(signal)),
+        newest('router_runs'), newest('consolidation_runs'),
+      ]);
+      const last = [
+        ...lastCapture.map(call => ({ ...call, source: 'capture' as const })),
+        ...lastConsolidation.map(call => ({ ...call, source: 'consolidation' as const })),
+      ].sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
+      return {
+        waiting, schedule: schedule[0] ?? null, since, memories, lastCall: last,
+        calls: [
+          ...captures.map(call => ({ ...call, source: 'capture' as const })),
+          ...consolidations.map(call => ({ ...call, source: 'consolidation' as const })),
+        ],
+        slugs: new Map(projects.map(project => [project.id, project.slug])),
+      };
     },
 
     /** Start the background pass, or carry on one that stopped moving.

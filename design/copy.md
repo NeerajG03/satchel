@@ -171,6 +171,21 @@
 - Empty (All): Nothing here yet. Open a session in a connected agent and this fills up: the session start, every prompt, the conversation as it is kept, and anything the memory set gains or loses.
 - Empty (one filter): Nothing of this kind in the last few records. Try All.
 - Footer: {n} records · newest first
+- Overview panels: Waiting to be read · Models since the quota reset · Schedule · Memory set
+- Waiting: {n} sessions ready · {n} still going / {slug} · {session} · {n} turns · never read (or: read before, has more) · quiet since {when} / And {n} older.
+- Waiting note: The button reads a session once it has been quiet for 30 minutes. The rest wait for the next press.
+- Waiting, empty: Nothing is waiting. Every kept conversation has been read.
+- Waiting lights: {n} ready · nothing ready
+- Models: {n} answered · {n} refused · last call {when} / No model calls since {time}. The last one was {model}, {when}, for a {capture/consolidation}(, and it failed).
+- Model lights: answering · quota used · failing
+- Models note: Counts what this deployment logged since {time}, when Gemini's free quota resets. Evals on the same key use the quota too and are not in here.
+- Schedule, never set up: Nothing runs on its own. The button is the only way a pass starts.
+- Schedule: Every six hours, for sessions quiet for {n} minutes. · Switched off. Only the button runs a pass. · Switched off after three refusals in a row. · Switched on, but the timer that runs it is not installed on this database.
+- Schedule lights: off · switched off · not installed · {n} refused · working · not run yet
+- Memory set: {n} live · {n} picked up by Satchel / {n} preferences · {n} facts · {n} intents / No live memories yet.
+- Overview failed: Could not load the overview / Reload
+- Earlier passes: Earlier passes / Report · Hide / Could not read earlier passes.
+- Feed heading: Everything, newest first
 
 ## Errors
 

@@ -10,8 +10,10 @@ import { Empty } from '../../ui/Empty';
 import { Notice } from '../../ui/Notice';
 import { Provenance } from '../../ui/Provenance';
 import { Segments } from '../../ui/Segments';
-import { GROUP, KIND_LABEL, jobState, summarize, summarizeJob, summarizeJobRun,
+import { GROUP, KIND_LABEL, jobState, summarize, summarizeJob,
   type Activity as Item, type ActivityKind, type ConsolidationJob } from './model';
+import { EarlierJobs, Glance } from './Glance';
+import { JobReport } from './JobReport';
 
 type Group = 'all' | 'requests' | 'documents' | 'memory';
 
@@ -144,18 +146,7 @@ function JobCard({ job, onCarryOn, busy }: { job: ConsolidationJob; onCarryOn: (
     {state === 'stalled' && <p className="fine muted">Nothing has moved for a few minutes, so its chain of calls was
       probably lost. Carrying on picks up where it stopped and does not read anything twice.</p>}
     {job.stop_reason && state !== 'running' && <p className="fine muted">{job.stop_reason}</p>}
-    {open && <ol className="job-report">{runs.map(run => <li key={run.document}>
-      <div className="between">
-        <span className="eyebrow">{run.scope ?? 'session'} · {(run.session_key ?? run.document ?? '').slice(0, 8)}</span>
-        <span className={`fine ${run.failed ? 'error-text' : 'muted'}`}>{summarizeJobRun(run)}</span>
-      </div>
-      {(run.actions ?? []).length > 0 && <ul className="plain-list">{run.actions!.map((action, i) =>
-        <li key={i} className="fine">
-          <strong>{action.did}</strong>{action.on ? ` ${handleOf(action.on)}` : ''}
-          {action.statement ? `: ${action.statement}` : ''}
-          {action.why && <span className="muted"> ({action.why})</span>}
-        </li>)}</ul>}
-    </li>)}</ol>}
+    {open && <JobReport job={job} />}
   </Notice>;
 }
 
@@ -198,8 +189,11 @@ export function Activity() {
   const state = latest.job ? jobState(latest.job) : null;
   // The feed is reloaded once when a job stops, because whatever it did is in
   // the feed, and the feed on screen is from before it ran.
+  // The overview above it is read again at the same moments, and on Reload.
   const [seenStop, setSeenStop] = useState<string | null>(null);
-  const { reload } = feed;
+  const [version, setVersion] = useState(0);
+  const { reload: reloadFeed } = feed;
+  const reload = useCallback(() => { reloadFeed(); setVersion(v => v + 1); }, [reloadFeed]);
   useEffect(() => {
     if (latest.job && latest.job.status !== 'running' && seenStop !== latest.job.id) {
       if (seenStop !== null) reload();
@@ -235,7 +229,7 @@ export function Activity() {
           memory, in the order it happened. Yours alone.</p>
       </div>
       <div className="actions">
-        <Button onClick={feed.reload} disabled={feed.loading}>Reload</Button>
+        <Button onClick={reload} disabled={feed.loading}>Reload</Button>
         <Button look="primary" onClick={() => consolidate()} disabled={starting || state === 'running'}>
           {state === 'running' ? 'Running…' : starting ? 'Starting…' : 'Consolidate now'}
         </Button>
@@ -244,7 +238,12 @@ export function Activity() {
 
     {startError && <Notice look="error" title="Consolidation did not start">{startError}</Notice>}
     {latest.error && <Notice look="error" title="Could not read the last consolidation">{latest.error}</Notice>}
+    <Glance version={version} />
+
     {latest.job && <JobCard job={latest.job} busy={starting} onCarryOn={() => consolidate(latest.job!.id)} />}
+    <EarlierJobs version={version} latest={latest.job?.id ?? null} />
+
+    <h2 className="eyebrow">Everything, newest first</h2>
 
     <Segments label="Filter activity" value={group} onChange={setGroup} items={[
       { key: 'all', label: 'All', count: tally('all') },
