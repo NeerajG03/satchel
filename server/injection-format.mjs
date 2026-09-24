@@ -51,25 +51,6 @@ export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25} = 
   return lines.join('\n');
 }
 
-/** How many times a heard preference has to be said before it loads.
- *
- *  `mentions` only goes up when a consolidation pass affirms or extends the
- *  memory, and a pass only reads turns it has not read before, with the words
- *  that say it again copied into the source. So two means the person said it a
- *  second time, unprompted, in another conversation or later in the same one.
- *  That is the evidence a confirm button was going to ask for, collected
- *  without asking. */
-export const EARNED_MENTIONS = 2;
-
-/** A heard memory that loads anyway.
- *
- *  Preferences only. A preference is about how to work with the person ("keep
- *  comments rare", "give me pros and cons"), and no prompt like "fix this bug"
- *  will ever search for one, so retrieval alone meant the best captures were
- *  stored and never used. A fact or an intent can still wait to be found. */
-export const earned = memory => memory.band === 'heard' && memory.kind === 'preference'
-  && Number(memory.mentions) >= EARNED_MENTIONS;
-
 /** Which personal memories the session block injects. One function, used by
  *  the block and by the log, so the two cannot disagree about what the model
  *  saw.
@@ -81,16 +62,14 @@ export const earned = memory => memory.band === 'heard' && memory.kind === 'pref
 export function personalLoad(personal = [], cap = 30) {
   const room = Math.max(1, cap);
   const confirmed = personal.filter(m => m.band !== 'heard');
-  const repeated = personal.filter(earned);
+  const picked = personal.filter(m => m.band === 'heard');
   const said = confirmed.slice(0, room);
-  const heard = repeated.slice(0, Math.max(0, room - said.length));
-  return {said, heard,
-    past: confirmed.length - said.length + repeated.length - heard.length,
-    held: personal.filter(m => m.band === 'heard' && !earned(m)).length};
+  const heard = picked.slice(0, Math.max(0, room - said.length));
+  return {said, heard, past: personal.length - said.length - heard.length};
 }
 
 /** Session start. Only what applies no matter what you do today: the projects
- *  that exist, and the personal memories that have earned a place. Nothing scoped to a project or a task
+ *  that exist, and every personal memory, up to the cap. Nothing scoped to a project or a task
  *  is injected here, because loading it assumes you will touch it.
  *
  *  `linked` is the projects this workspace's repository belongs to. When it is
@@ -117,39 +96,29 @@ export function sessionStartBlock({projects = [], personal = [], linked = [], ca
   // Inside the group, because that is where the reader is looking when the
   // question "is this all of them" occurs to them.
   if (elsewhere) lines.push(`  ${plural(elsewhere, 'other project')} not linked to this codebase, by name from list_projects`);
-  const {said, heard, past, held} = personalLoad(personal, cap);
+  const {said, heard, past} = personalLoad(personal, cap);
   if (said.length) {
     if (lines.length) lines.push('');
     lines.push('personal, confirmed, use freely');
     for (const memory of said) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
   }
-  // Picked up, not asked for, and then said again. Its own
-  // group so the agent and the person reading a trace can tell it from what
-  // was confirmed, and so the handle is right there if it needs correcting.
+  // Picked up from what the person said, and not yet said again. Loaded,
+  // because memory is hands off: nobody is asked to approve a row, and a
+  // preference nobody loads is a preference nobody follows, since "fix this
+  // bug" never searches for "keep comments rare". Its own group so a trace
+  // shows which rows were picked up, and so the handle is there if one needs
+  // correcting. A pass that hears it again confirms it and it moves up.
+  //
+  // This reverses the 21 September rule that counted these and loaded none.
+  // That rule was right for the captures of the day, which were wrong; the
+  // consolidation pass that writes them now reads whole conversations, and
+  // on 23 September its picks held up against a blind read of the same ones.
   if (heard.length) {
     if (lines.length) lines.push('');
-    lines.push('personal, picked up and said again, use unless told otherwise');
+    lines.push('personal, picked up from what you said, use unless told otherwise');
     for (const memory of heard) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
   }
   if (past) lines.push(`  ${plural(past, 'older memory', 'older memories')} past the block, search satchel for them`);
-  // Counted, not injected, until it is said again.
-  //
-  // A heard memory was written without anyone asking for it, and a personal
-  // one loads at full strength in every session forever. So one bad capture is
-  // not one bad row, it is permanent context pollution, and on 21 September
-  // every retrievable satchel-scoped memory in production was wrong. Listing
-  // them under a "say this out loud first" header did not help: the agent read
-  // them either way, and the header is advice a model can skip.
-  //
-  // They stay searchable, so one that matters surfaces when the person
-  // actually says something about it. A preference said a second time
-  // moves into the group above on its own, because asking the
-  // person to confirm it is the approval queue memory was meant to avoid.
-  if (held) {
-    if (lines.length) lines.push('');
-    lines.push(`${plural(held, 'unconfirmed memory', 'unconfirmed memories')} not loaded`
-      + ' · retrieve_memory finds one if it turns out to matter');
-  }
   if (!lines.length) return '';
   lines.push('');
   lines.push('more exists, search satchel for anything not listed above');
@@ -168,27 +137,23 @@ export function sessionStartBlock({projects = [], personal = [], linked = [], ca
  *  and stays silent, because a line on every prompt is noise people learn to
  *  ignore, and Codex renders this as a warning. */
 export function noticeFor(event, {error, withheld, unrecorded, projects = 0, personal = 0,
-  unconfirmed = 0, shown = 0, matched = 0, captured = 0} = {}) {
+  shown = 0, matched = 0, captured = 0} = {}) {
   if (error) return `Satchel memory unavailable · ${error}`;
   if (withheld) return `Satchel memory not loaded · ${withheld}`;
   // Not the same as memory being unavailable: the prompt was still answered
   // and anything relevant still loaded. What was lost is the record of what
   // was said, which nothing later can reconstruct.
   if (unrecorded) return `Satchel did not record this turn · ${unrecorded}`;
-  if (event === 'SessionStart') {
-    // The unconfirmed count is said here and nowhere else the person looks.
-    // Rows nobody agreed to no longer reach the agent, so this line is the
-    // only prompt to go and deal with them.
-    const held = unconfirmed ? ` · ${unconfirmed} unconfirmed not loaded` : '';
-    return projects || personal || unconfirmed
-      ? `Satchel loaded · ${plural(projects, 'project')}, ${plural(personal, 'personal memory', 'personal memories')}${held}`
+  if (event === 'SessionStart')
+    return projects || personal
+      ? `Satchel loaded · ${plural(projects, 'project')}, ${plural(personal, 'personal memory', 'personal memories')}`
       : 'Satchel connected · nothing saved yet';
-  }
   // Counts, not just a number shown, because "2 of 9" and "2 of 2" mean very
   // different things about whether anything was left behind.
   if (event === 'UserPromptSubmit') return shown ? `Satchel recalled ${shown} of ${matched} matching` : '';
   // A heard memory is the one thing the person must be told about: it was
-  // written without them asking, and it stays unconfirmed until they say so.
+  // written without them asking, and it stays unconfirmed until they say it
+  // again.
   if (event === 'Stop') return captured ? `Satchel noted ${plural(captured, 'thing')} you said · unconfirmed` : '';
   return '';
 }

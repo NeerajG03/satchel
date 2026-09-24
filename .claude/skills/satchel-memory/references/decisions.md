@@ -98,7 +98,18 @@ style-only prompts (n=6), where the only relevant memories are standing writing 
 
 4.4x. Similarity measures topic overlap, and a standing preference is relevant by category of activity. The rules a user cares about most are the ones retrieval is worst at.
 
-## A picked-up preference said twice loads (23 September)
+## Every personal memory loads, and saying it again confirms it (24 September)
+
+The rule below lasted one day. The person's call: memory is hands off, so neither they nor the agent should be involved in whether a memory counts, and the consolidation pass's picks were not badly wrong. On 23 September a blind read of the same 27 sessions agreed with 8 of its 9 changes. So:
+
+- **Every personal memory loads**, heard or said. Confirmed ones fill the cap first; picked-up ones follow under `personal, picked up from what you said, use unless told otherwise`, so a trace still shows which is which. Nothing is counted and held back any more.
+- **A pass confirms in the background.** `affirm_memory` and `extend_memory` set `band = 'said'` (`20260924090000_said_again_is_confirmed.sql`). The history trigger logs that as `confirmed`, and `affirm_memory` now takes the trace and the document so the event says which pass did it. No backfill: a heard row loses nothing while it waits, and the history stays true.
+
+What confirmed means now is "the person asked for it, or said it again". It changes which group a row loads in and how it reads in the app, not whether it loads.
+
+The risk this accepts is the 21 September one: a wrong pick loads everywhere until something retires or replaces it. What is watching for it is the pass itself (a later conversation that contradicts a memory replaces it) and the Forget button. A bad affirm now also confirms, so affirms are the thing to watch in job reports.
+
+## A picked-up preference said twice loads (23 September, superseded on 24 September)
 
 Since the 21 September cleanup, a `heard` memory was counted at session start and never injected. That held the line on context pollution, but once consolidation became the only writer it also meant nothing Satchel learned on its own ever loaded. The job on 23 September wrote four personal preferences ("comments only when needed", "pros and cons for options", "plan docs simple with visuals", "explain terms simply") and none of them reached a session. They could only arrive through retrieval, and the table above is why that fails: a standing rule is relevant by kind of activity, not by topic, and "fix this bug" never searches for "keep comments rare".
 

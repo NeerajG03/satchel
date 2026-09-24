@@ -149,6 +149,27 @@ test('every change to a memory leaves an event, whoever made it', async t => {
       assert.deepEqual((await history(call, owner, heard)).map(r => r.action), ['added', 'confirmed']);
     });
 
+    await t.test('saying a picked-up one again confirms it, with no one asked', async () => {
+      // Memory is hands off. A pass affirms or extends only what the person
+      // restated, with their words as the source, and that is the agreement a
+      // confirm button would have asked for.
+      const again = crypto.randomUUID();
+      await call(owner, 'select * from save_memory($1,$2,$3,$4,$5)',
+        [again, null, 'Pros and cons for options.', 'they said so', 'heard']);
+      await call(owner, 'select * from affirm_memory($1,$2,$3)', [again, 'trace-1', null]);
+      const [row] = await call(owner, 'select band, mentions from memories where id=$1', [again]);
+      assert.deepEqual({...row}, {band: 'said', mentions: 2});
+      const events = await history(call, owner, again);
+      assert.deepEqual(events.map(r => r.action), ['added', 'confirmed']);
+      assert.equal(events[1].trace_id, 'trace-1', 'and the history says which pass did it');
+
+      const extended = crypto.randomUUID();
+      await call(owner, 'select * from save_memory($1,$2,$3,$4,$5)',
+        [extended, null, 'Plan docs simple.', 'they said so', 'heard']);
+      await call(owner, 'select * from extend_memory($1,$2,$3)', [extended, 1, 'Plan docs simple, with visuals.']);
+      assert.equal((await call(owner, 'select band from memories where id=$1', [extended]))[0].band, 'said');
+    });
+
     await t.test('nobody else can read any of it', async () => {
       assert.deepEqual(await history(call, other, id), []);
       assert.deepEqual(await call(other, 'select * from memory_events'), []);

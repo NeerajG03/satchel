@@ -242,7 +242,10 @@ export function memoryService(db, embedder = null, router = null) {
       await embedRow(row);
       return row;
     },
-    affirmMemory: id => result(db.rpc('affirm_memory', {p_id:id})),
+    // Affirming a heard memory also confirms it, so it carries the trace and
+    // the conversation the history needs to say where that came from.
+    affirmMemory: (id, {trace = null, document = null} = {}) =>
+      result(db.rpc('affirm_memory', {p_id:id, p_trace:trace, p_document:document})),
     // What the workspace's repository is up to. The anchor every memory is
     // measured against is derived in the database from this, so nothing has
     // to be threaded through a write.

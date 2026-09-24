@@ -102,14 +102,12 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
         const block = sessionStartBlock({projects, personal, linked: scope.linked ?? [],
           cap: settings.block_size});
         const tokens = estimateTokens(block);
-        // What the block actually injects, which is no longer all of it: an
-        // unconfirmed memory is counted and withheld until it is said again.
-        // The log has to say what reached the model, not what was fetched, or
-        // "why did it not know that" stops being answerable from the log.
+        // What the block actually injects, which is not all of it once the
+        // cap is reached. The log has to say what reached the model, not what
+        // was fetched, or "why did it not know that" stops being answerable.
         const load = personalLoad(personal, settings.block_size);
         const loaded = [...load.said, ...load.heard];
-        notice = noticeFor('SessionStart', {projects: projects.length, personal: loaded.length,
-          unconfirmed: load.held});
+        notice = noticeFor('SessionStart', {projects: projects.length, personal: loaded.length});
         if (!block) {
           context = 'Satchel is connected and has nothing saved yet. Do not invent memory.';
         } else if (tokens > settings.session_budget_tokens) {

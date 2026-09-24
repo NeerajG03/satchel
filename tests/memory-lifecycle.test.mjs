@@ -384,7 +384,7 @@ test('with no scope chosen yet, resolving the repository is allowed to select', 
   assert.match(result.context, /1 other project not linked/);
 });
 
-test('a preference said again loads, and the log and the notice say so', async () => {
+test('picked-up memories load, and the log and the notice say so', async () => {
   // The block, the injection log and the terminal line all have to agree on
   // what reached the model, or "why did it not know that" is unanswerable.
   const logged = [];
@@ -401,10 +401,10 @@ test('a preference said again loads, and the log and the notice say so', async (
     logInjection: async entry => { logged.push(entry); },
   }, {sessionKey: 's', project: null});
   assert.match(result.context, /cccccc {2}Comments only when needed\./);
-  assert.ok(!result.context.includes('Pros and cons'));
-  assert.deepEqual(logged[0].memory_ids,
-    ['aaaaaa11-0000-4000-8000-000000000001', 'cccccc33-0000-4000-8000-000000000003']);
-  assert.equal(result.notice, 'Satchel loaded · 0 projects, 2 personal memories · 1 unconfirmed not loaded');
+  assert.match(result.context, /dddddd {2}Pros and cons\./);
+  assert.deepEqual(logged[0].memory_ids, ['aaaaaa11-0000-4000-8000-000000000001',
+    'cccccc33-0000-4000-8000-000000000003', 'dddddd44-0000-4000-8000-000000000004']);
+  assert.equal(result.notice, 'Satchel loaded · 0 projects, 3 personal memories');
 });
 
 test('a rate limit tells the person what actually happened', async () => {

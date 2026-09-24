@@ -37,10 +37,10 @@ async function apply(service, change, {projects, trace, document}) {
     return 'extended';
   }
   if (change.action === 'affirm') {
-    // Not an edit and not an event: the wording did not change, the evidence
-    // for it did. A claim restated across sessions is stronger than one said
-    // once, and that signal was free and being thrown away.
-    await service.affirmMemory(change.target);
+    // Not an edit: the wording did not change, the evidence for it did. A
+    // claim restated is stronger than one said once, and on a heard memory it
+    // is the confirmation, so it becomes `said` and the history says so.
+    await service.affirmMemory(change.target, {trace, document});
     return 'affirmed';
   }
   if (change.action === 'retire') {

@@ -90,7 +90,7 @@ This replaced the `agent_repository_hints` table, which existed only because the
 
 ## What is injected
 
-Session start injects the projects list, every confirmed personal memory and any unconfirmed preference said at least twice, through `sessionStartBlock` in `server/injection-format.mjs`, plus one line naming the active project. Nothing scoped to a project is injected, because loading it assumes you will touch it; `retrieve_memory` is there for that. An oversized block is withheld with a reason rather than truncated, because a partial block that looks complete is worse than an honest absence.
+Session start injects the projects list and every personal memory up to the cap, confirmed ones first, through `sessionStartBlock` in `server/injection-format.mjs`, plus one line naming the active project. Nothing scoped to a project is injected, because loading it assumes you will touch it; `retrieve_memory` is there for that. An oversized block is withheld with a reason rather than truncated, because a partial block that looks complete is worse than an honest absence.
 
 `Stop` injects nothing at all. Claude Code can inject from `Stop` and Codex cannot, so a design that used it would work on one host only, and the next turn may change the subject anyway. It returns one line for the person when a memory was written without them asking for it.
 
