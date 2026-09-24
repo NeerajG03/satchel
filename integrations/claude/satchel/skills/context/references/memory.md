@@ -38,7 +38,7 @@ A project memory can arrive with a note that its repository has moved some numbe
 
 ## Saving
 
-`save_memory` takes `project_id`, a fresh `id` UUID, and `statement`. Optionally `source`, `name` and `more_info`. There is no `task_id`.
+`save_memory` takes `project_id` and `statement`. Optionally provide `source`, `name` and `more_info`. Satchel returns the new memory ID. There is no `task_id`.
 
 Save only when the user asks you to remember something. Write the statement so it still makes sense in six weeks, with no pronouns pointing at this conversation. An explicit save is confirmed by definition, so it is stored as `said`.
 

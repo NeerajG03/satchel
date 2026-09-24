@@ -29,10 +29,10 @@ Personal-task access is a separate grant from personal-memory access. A task sco
 
 - `list_tasks(project_id, statuses?)` - bounded summaries in one scope, optionally filtered to at most 5 states. Check `complete`.
 - `read_task(project_id, id)` - one task with planning relationships, derived actionability, comments, progress updates, handoffs, verified resources and events.
-- `create_task(request_id, id, project_id, ...content)` - explicit requests only.
-- `edit_task(request_id, project_id, id, revision, change)` - one typed change.
-- `record_task_update(request_id, project_id, id, entry)` - one typed append-only entry.
-- `add_task_resource(request_id, resource_id, project_id, id, revision, label, url, resource_type, provider)` - attach an HTTPS link.
+- `create_task(slug, project_id, ...content)` - explicit requests only; Satchel returns the task ID.
+- `edit_task(project_id, id, revision, change)` - one typed change.
+- `record_task_update(project_id, id, entry)` - one typed append-only entry; Satchel assigns its ID.
+- `add_task_resource(project_id, id, revision, label, url, resource_type, provider)` - attach an HTTPS link; Satchel assigns its ID.
 
 `edit_task` change kinds: `content` (full replacement of the content fields), `state` (`status` plus `blocked_reason`), `parent` (`parent_id`, nullable), `add_dependency` / `remove_dependency` (`depends_on_task_id`). One change per call.
 
@@ -40,8 +40,8 @@ Personal-task access is a separate grant from personal-memory access. A task sco
 
 These are three different things, not three labels for a note. `record_task_update` entry kinds:
 
-- **`comment`** - lightweight discussion or context. Needs `entry_id` and `body`. No revision, because it does not change task state and must not invalidate an in-flight editor.
-- **`progress`** - what moved. Needs `entry_id`, the current `revision` and a `summary`, plus optional `completed`, `decisions`, `remaining`, `blockers`, `next_action`, `status`. Advances the revision atomically and may move state.
+- **`comment`** - lightweight discussion or context. Needs `body`. No revision, because it does not change task state and must not invalidate an in-flight editor.
+- **`progress`** - what moved. Needs the current `revision` and a `summary`, plus optional `completed`, `decisions`, `remaining`, `blockers`, `next_action`, `status`. Advances the revision atomically and may move state.
 - **`handoff`** - the stronger boundary when work stops or ownership changes. Everything progress carries, plus `validation` evidence, a required `next_action`, and `supersedes_ids` for correcting earlier handoffs.
 
 Handoffs are append-only. A correction supersedes earlier handoff IDs; it never edits historical evidence.

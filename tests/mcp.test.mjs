@@ -35,6 +35,9 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     const tools=(await client.listTools()).tools;
     assert.equal(tools.find(t=>t.name==='save_memory').annotations.readOnlyHint,false);
     assert.equal(tools.find(t=>t.name==='select_project').annotations.readOnlyHint,false);
+    assert.equal(tools.find(t=>t.name==='save_memory').inputSchema.properties.id,undefined);
+    assert.equal(tools.find(t=>t.name==='correct_memory').inputSchema.properties.source,undefined);
+    assert.equal(tools.find(t=>t.name==='upsert_project').inputSchema.properties.request_id,undefined);
     // Selection and permissions each have exactly one tool; the merged names are gone.
     // load_memory_context is gone. Hooks are command scripts with their own
     // credential now, so they POST to /api/hook-index and /api/hook-capture
@@ -77,19 +80,18 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.equal(connection.can_write,true);
     assert.deepEqual(connection.projects,[{id:projectId,name:'Fixture',brief:''}]);
     assert.equal(connection.project_ids,undefined);
-    result=await call('upsert_project',{request_id:crypto.randomUUID(),project_id:crypto.randomUUID(),
+    result=await call('upsert_project',{
       slug:'created-by-agent',name:'Created by agent',brief:'Fixture',
       repository_change:{kind:'link',repository:'NeerajG03/Satchel'}});
     assert.equal(JSON.parse(result.content[0].text).grant_required,true);
+    assert.match(JSON.parse(result.content[0].text).project.id,/^[0-9a-f-]{36}$/);
     assert.equal(projectWrites,1);
-    assert.equal((await call('upsert_project',{request_id:crypto.randomUUID(),project_id:projectId,
+    assert.equal((await call('upsert_project',{project_id:projectId,
       slug:'invalid-revision',expected_revision:0,name:'Invalid revision'})).isError,true);
     // A slug is required, and a title-shaped one is rejected rather than
     // quietly slugified into something nobody would say.
-    assert.equal((await call('upsert_project',{request_id:crypto.randomUUID(),
-      project_id:crypto.randomUUID(),name:'No slug'})).isError,true);
-    assert.equal((await call('upsert_project',{request_id:crypto.randomUUID(),
-      project_id:crypto.randomUUID(),slug:'Not A Slug',name:'Bad slug'})).isError,true);
+    assert.equal((await call('upsert_project',{name:'No slug'})).isError,true);
+    assert.equal((await call('upsert_project',{slug:'Not A Slug',name:'Bad slug'})).isError,true);
     assert.equal(projectWrites,1);
     // Selecting by repository returns the combined index without a follow-up memory_index call.
     result=await call('select_project',{session_key:'one',repository:'neerajg03/satchel'});
@@ -141,9 +143,10 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     // whole statement in the index it is only reached for the rare detail row.
     result=await call('read_memory',{project_id:null,id});
     assert.ok(result.content[0].text.includes('amber'));assert.equal(detailReads,1);
-    await call('save_memory',{project_id:null,id:crypto.randomUUID(),statement:'A saved sentence.'});
+    await call('save_memory',{project_id:null,statement:'A saved sentence.'});
     assert.equal(writes,1);
-    const invalid=await call('save_memory',{project_id:null,statement:'missing id'});
+    assert.match(service.lastSave.id,/^[0-9a-f-]{36}$/);
+    const invalid=await call('save_memory',{project_id:null});
     assert.ok(invalid.isError);assert.equal(writes,1);
     // An explicit save is confirmed by definition.
     assert.equal(service.lastSave?.band,'said');
@@ -193,38 +196,47 @@ test('MCP exposes revision-safe task operations without turning links into fetch
   try {
     const tools=(await client.listTools()).tools;
     assert.equal(tools.find(tool=>tool.name==='list_tasks').annotations.readOnlyHint,true);
-    assert.equal(tools.find(tool=>tool.name==='record_task_update').annotations.idempotentHint,true);
-    assert.equal(tools.find(tool=>tool.name==='edit_task').annotations.idempotentHint,true);
+    assert.equal(tools.find(tool=>tool.name==='record_task_update').annotations.idempotentHint,false);
+    assert.equal(tools.find(tool=>tool.name==='edit_task').annotations.idempotentHint,false);
     assert.equal(tools.find(tool=>tool.name==='add_task_resource').annotations.openWorldHint,false);
+    for(const name of ['create_task','edit_task','record_task_update','add_task_resource'])
+      assert.equal(tools.find(tool=>tool.name===name).inputSchema.properties.request_id,undefined);
+    assert.equal(tools.find(tool=>tool.name==='create_task').inputSchema.properties.id,undefined);
+    assert.equal(tools.find(tool=>tool.name==='add_task_resource').inputSchema.properties.resource_id,undefined);
     assert.deepEqual(tools.filter(tool=>tool.name.includes('task')).map(tool=>tool.name).sort(),[
       'add_task_resource','create_task','edit_task','list_tasks','read_task','record_task_update',
     ]);
     const listed=await call('list_tasks',{project_id:projectId,statuses:['ready']});
     assert.match(listed.content[0].text,/Fixture/);
     assert.match((await call('list_tasks',{project_id:null})).content[0].text,/Fixture/);
-    await call('create_task',{request_id:crypto.randomUUID(),id:taskId,slug:'fixture-task',project_id:projectId,title:'Fixture'});
-    await call('create_task',{request_id:crypto.randomUUID(),id:crypto.randomUUID(),slug:'personal-fixture',project_id:null,title:'Personal fixture'});
-    assert.equal((await call('create_task',{request_id:crypto.randomUUID(),id:crypto.randomUUID(),
+    await call('create_task',{slug:'fixture-task',project_id:projectId,title:'Fixture'});
+    await call('create_task',{slug:'personal-fixture',project_id:null,title:'Personal fixture'});
+    assert.equal((await call('create_task',{
       project_id:projectId,title:'No slug'})).isError,true,'a task cannot be created without a slug');
-    await call('edit_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,revision:1,
+    await call('edit_task',{id:taskId,project_id:projectId,revision:1,
       change:{kind:'state',status:'in_progress'}});
-    await call('record_task_update',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,
-      entry:{kind:'handoff',entry_id:crypto.randomUUID(),revision:1,next_action:'Continue'}});
-    await call('record_task_update',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,
-      entry:{kind:'comment',entry_id:crypto.randomUUID(),body:'Useful context'}});
-    await call('record_task_update',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,
-      entry:{kind:'progress',entry_id:crypto.randomUUID(),revision:1,summary:'Implemented the next slice',next_action:'Verify it'}});
+    await call('record_task_update',{id:taskId,project_id:projectId,
+      entry:{kind:'handoff',revision:1,next_action:'Continue'}});
+    await call('record_task_update',{id:taskId,project_id:projectId,
+      entry:{kind:'comment',body:'Useful context'}});
+    await call('record_task_update',{id:taskId,project_id:projectId,
+      entry:{kind:'progress',revision:1,summary:'Implemented the next slice',next_action:'Verify it'}});
     const relatedId=crypto.randomUUID();
-    await call('edit_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,revision:1,
+    await call('edit_task',{id:taskId,project_id:projectId,revision:1,
       change:{kind:'parent',parent_id:relatedId}});
-    await call('edit_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,revision:1,
+    await call('edit_task',{id:taskId,project_id:projectId,revision:1,
       change:{kind:'add_dependency',depends_on_task_id:relatedId}});
-    await call('edit_task',{request_id:crypto.randomUUID(),id:taskId,project_id:projectId,revision:1,
+    await call('edit_task',{id:taskId,project_id:projectId,revision:1,
       change:{kind:'remove_dependency',depends_on_task_id:relatedId}});
-    await call('add_task_resource',{request_id:crypto.randomUUID(),resource_id:crypto.randomUUID(),id:taskId,
+    await call('add_task_resource',{id:taskId,
       project_id:projectId,revision:1,label:'Docs',url:'https://example.com/doc'});
     assert.deepEqual(calls.map(entry=>entry[0]),['create','create','transition','handoff','comment','progress','parent','add-dependency','remove-dependency','resource']);
-    const invalid=await call('add_task_resource',{request_id:crypto.randomUUID(),resource_id:crypto.randomUUID(),id:taskId,
+    for(const [,args] of calls)
+      assert.match(args.request_id,/^[0-9a-f-]{36}$/);
+    assert.match(calls[0][1].id,/^[0-9a-f-]{36}$/);
+    assert.match(calls.find(([kind])=>kind==='comment')[1].update_id,/^[0-9a-f-]{36}$/);
+    assert.match(calls.find(([kind])=>kind==='resource')[1].resource_id,/^[0-9a-f-]{36}$/);
+    const invalid=await call('add_task_resource',{id:taskId,
       project_id:projectId,revision:1,label:'Unsafe',url:'http://example.com'});
     assert.equal(invalid.isError,true);
   }finally{await client.close();await server.close();}
@@ -249,7 +261,7 @@ test('a refused tool call names the field or rule to change, never the whole row
   const server=createMemoryServer(service);const client=new Client({name:'test',version:'1'});
   const [left,right]=InMemoryTransport.createLinkedPair();await server.connect(right);await client.connect(left);
   const call=async(name,args)=>{const r=await client.callTool({name,arguments:args});return {error:r.isError,text:r.content[0].text};};
-  const ids=()=>({request_id:crypto.randomUUID(),id:crypto.randomUUID()});
+  const ids=()=>({id:crypto.randomUUID()});
   try {
     // Checked before any database call: the schema says what a slug is.
     let r=await call('create_task',{...ids(),slug:'Bad Slug!',project_id:null,title:'Fixture'});
@@ -265,7 +277,7 @@ test('a refused tool call names the field or rule to change, never the whole row
     assert.match(r.text,/cannot be its own parent/);
     const resource=crypto.randomUUID();
     r=await call('record_task_update',{...ids(),project_id:null,
-      entry:{kind:'comment',entry_id:crypto.randomUUID(),body:'x',resource_ids:[resource,resource]}});
+      entry:{kind:'comment',body:'x',resource_ids:[resource,resource]}});
     assert.match(r.text,/same id twice/);
 
     // A database refusal names the rule, says nothing landed, and never
@@ -279,16 +291,16 @@ test('a refused tool call names the field or rule to change, never the whole row
     r=await call('create_task',{...ids(),slug:'ok-slug',project_id:null,title:'Fixture'});
     assert.equal(JSON.parse(r.text).error,'A blocked status needs a blocked_reason saying what it is waiting on. Nothing was written.');
     // A progress list the table would refuse for its joined length.
-    r=await call('record_task_update',{...ids(),project_id:null,entry:{kind:'progress',entry_id:crypto.randomUUID(),
+    r=await call('record_task_update',{...ids(),project_id:null,entry:{kind:'progress',
       revision:1,summary:'s',completed:Array.from({length:25},()=>'x'.repeat(1000))}});
     assert.ok(r.error);assert.match(r.text,/20000 characters in total.*at entry\.completed/);
-    r=await call('add_task_resource',{...ids(),resource_id:crypto.randomUUID(),project_id:null,revision:1,label:'Doc',url:'http://example.com'});
+    r=await call('add_task_resource',{...ids(),project_id:null,revision:1,label:'Doc',url:'http://example.com'});
     assert.match(r.text,/https URL/);
 
     // The two conflicts that shared one line now say which one it was.
     refusal={code:'PT409',message:'Task request conflict'};
     r=await call('create_task',{...ids(),slug:'ok-slug',project_id:null,title:'Fixture'});
-    assert.match(JSON.parse(r.text).error,/request_id or id was already used/);
+    assert.match(JSON.parse(r.text).error,/Check the task list before trying again/);
     refusal={code:'PT409',message:'Task changed or unavailable'};
     r=await call('create_task',{...ids(),slug:'ok-slug',project_id:null,title:'Fixture'});
     assert.match(JSON.parse(r.text).error,/read_task and retry with the current revision/);
@@ -310,10 +322,10 @@ test('a new project with an unlink is refused before the write, saying why',asyn
   const server=createMemoryServer(service);const client=new Client({name:'test',version:'1'});
   const [left,right]=InMemoryTransport.createLinkedPair();await server.connect(right);await client.connect(left);
   try {
-    const r=await client.callTool({name:'upsert_project',arguments:{request_id:crypto.randomUUID(),project_id:crypto.randomUUID(),
+    const r=await client.callTool({name:'upsert_project',arguments:{
       slug:'new-thing',name:'New thing',repository_change:{kind:'unlink',repository:'acme/web'}}});
     assert.ok(r.isError);assert.match(r.content[0].text,/nothing to unlink/);assert.equal(writes,0);
-    const bad=await client.callTool({name:'upsert_project',arguments:{request_id:crypto.randomUUID(),project_id:crypto.randomUUID(),
+    const bad=await client.callTool({name:'upsert_project',arguments:{
       slug:'new-thing',name:'New thing',repository_change:{kind:'link',repository:'not a repo'}}});
     assert.match(bad.content[0].text,/lowercase owner\/repository/);
   }finally{await client.close();await server.close();}

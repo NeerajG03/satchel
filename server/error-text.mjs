@@ -45,9 +45,9 @@ export const raisedText={
   'Record not found':'Satchel could not find the record it had just written. '+SATCHEL_BUG,
   'Repository is not linked to an authorized project':'That repository is not linked to a project in this connection\'s grant. Report that project memory was not loaded; do not guess a project',
   // PT409: two different causes that used to share one line.
-  'Task request conflict':'That request_id or id was already used for a different write. To retry the same write, resend the identical payload. For a new write, use a new request_id and a new id',
-  'Project request conflict':'That request_id or project_id was already used for a different write. To retry, resend the identical payload. To create a new project, use a new request_id and project_id; to update one, pass expected_revision',
-  'Memory request conflict':'That id was already used for a different memory. To retry the same save, resend the identical payload. For a new memory, use a new id',
+  'Task request conflict':'Satchel could not save this task change. Check the task list before trying again',
+  'Project request conflict':'Satchel could not save this project change. Check list_projects before trying again',
+  'Memory request conflict':'Satchel could not save this memory. Check memory_index before trying again',
   'Task changed or unavailable':'The task changed since you read it, or it is not in this scope. Call read_task and retry with the current revision',
   'Project changed or unavailable':'The project changed since you read it, or it is not in this scope. Call list_projects and retry with the current revision',
   'Memory changed or unavailable':'The memory changed since you read it, or it is not in this scope. Read it again and retry with the current revision',

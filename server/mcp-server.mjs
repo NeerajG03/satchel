@@ -15,9 +15,10 @@ const content={
   name:z.string().trim().min(1).max(100).nullable().default(null).describe('An optional handle. Most memories have none.'),
   more_info:z.string().max(40000).default(''),
 };
+const correctionContent={statement:content.statement,name:content.name,more_info:content.more_info};
 const identity={project_id:scope,id:z.uuid(),revision:z.number().int().positive()};
 const readAnnotations={readOnlyHint:true,destructiveHint:false,openWorldHint:false};
-const writeAnnotations={readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false};
+const writeAnnotations={readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false};
 const lifecycle=z.enum(['SessionStart','PostCompact']);
 // Only the server-side link table maps a repository to a project, so the provider stays implicit.
 const PROVIDER='github';
@@ -63,23 +64,22 @@ const updateList=z.array(z.string().trim().min(1).max(1000)).max(50).default([])
 const progressList=updateList.refine(items=>items.join('').length<=20000,
   {message:'This list is at most 20000 characters in total. Shorten or merge items'});
 const taskUpdate=z.discriminatedUnion('kind',[
-  z.object({kind:z.literal('comment'),entry_id:z.uuid(),body:z.string().trim().min(1).max(4000),
+  z.object({kind:z.literal('comment'),body:z.string().trim().min(1).max(4000),
     resource_ids:resourceIds}),
-  z.object({kind:z.literal('progress'),entry_id:z.uuid(),revision:z.number().int().positive(),
+  z.object({kind:z.literal('progress'),revision:z.number().int().positive(),
     summary:z.string().trim().min(1).max(4000),completed:progressList,decisions:progressList,
     remaining:progressList,blockers:progressList,next_action:z.string().max(1000).nullable().default(null),
     status:taskStatus.nullable().default(null),blocked_reason:z.string().max(2000).default(''),
     resource_ids:resourceIds}).refine(...blockedNeedsReason),
-  z.object({kind:z.literal('handoff'),entry_id:z.uuid(),revision:z.number().int().positive(),
+  z.object({kind:z.literal('handoff'),revision:z.number().int().positive(),
     supersedes_ids:z.array(z.uuid()).max(20).default([]).refine(...distinct('supersedes_ids')),completed:updateList,decisions:updateList,
     validation:z.array(z.record(z.string(),z.unknown())).max(50).default([]),remaining:updateList,
     blockers:updateList,next_action:z.string().trim().min(1).max(1000),summary:z.string().max(4000).default(''),
     status:taskStatus.nullable().default(null),blocked_reason:z.string().max(2000).default(''),
-    resource_ids:resourceIds}).refine(...blockedNeedsReason)
-    .refine(entry=>!entry.supersedes_ids.includes(entry.entry_id),
-      {message:'A handoff cannot supersede itself',path:['supersedes_ids']}),
+    resource_ids:resourceIds}).refine(...blockedNeedsReason),
 ]);
 const textResult=data=>({content:[{type:'text',text:JSON.stringify(data)}]});
+const newId=()=>crypto.randomUUID();
 // ownerId attributes a trace to the person and nothing more: never an email,
 // never a token.
 export function createMemoryServer(service, {ownerId} = {}) {
@@ -112,14 +112,18 @@ export function createMemoryServer(service, {ownerId} = {}) {
       try { return {...connection,projects:await service.projects()}; }
       catch(error) { return {...connection,projects_error:errorText(error)}; }
     });
-  register('upsert_project','Create or revise a Satchel project only when the user explicitly asks. A slug is required and is how everything else refers to this project. Omit expected_revision to create with a new project_id; provide the current revision to update an already authorized project. A repository change links or unlinks one normalized GitHub owner/repository without disturbing other links. Creating a project never expands this connection grant: when grant_required is true, tell the user to authorize the new project before using it.',
-    {request_id:z.uuid(),project_id:z.uuid(),slug,expected_revision:z.number().int().positive().optional(),
+  register('upsert_project','Create or revise a Satchel project only when the user explicitly asks. A slug is required and is how everything else refers to this project. Omit project_id and expected_revision to create; provide both to update an already authorized project. A repository change links or unlinks one normalized GitHub owner/repository without disturbing other links. Creating a project never expands this connection grant: when grant_required is true, tell the user to authorize the new project before using it.',
+    {project_id:z.uuid().optional(),slug,expected_revision:z.number().int().positive().optional(),
       name:z.string().trim().min(1).max(100),brief:z.string().trim().max(1000).default(''),
       repository_change:projectRepositoryChange.default({kind:'unchanged'})},
     a=>{
+      if(a.expected_revision!==undefined&&!a.project_id)
+        throw {reason:'an existing project needs its project_id and current revision'};
+      if(a.expected_revision===undefined&&a.project_id)
+        throw {reason:'omit project_id when creating a project; Satchel assigns it'};
       if(a.expected_revision===undefined&&a.repository_change.kind==='unlink')
         throw {reason:'a new project has nothing to unlink. Pass expected_revision to unlink from an existing project'};
-      return service.upsertProject(a);
+      return service.upsertProject({...a,request_id:newId(),project_id:a.project_id??newId()});
     },writeAnnotations);
   register('select_project','Select the active project for this conversation only, by project_id (null selects personal scope) or by the linked GitHub repository identity supplied by the Satchel bootstrap. Provide exactly one; a repository resolves only to a link whose project is already in this connection\'s grant, and only while it names one project: a repository shared by several projects is refused, so pass project_id for those. Returns the resulting personal plus project memory index: check complete before claiming all memories loaded. Pass event only when the Satchel bootstrap asks for it on a new conversation or after compaction. Does not grant permissions and does not change another conversation.',
     {session_key:session,project_id:scope.optional(),repository:repositoryName.optional(),event:lifecycle.optional()},
@@ -160,11 +164,11 @@ export function createMemoryServer(service, {ownerId} = {}) {
   // A memory has one scope: a project, or personal. There is no task_id any
   // more, so this takes three decisions instead of four and none of them can
   // move the scope after it was chosen.
-  register('save_memory','Save memory only when the user explicitly asks. Choose personal/project scope explicitly. Supply a new UUID and reuse that UUID and payload when retrying the same save. An explicit save is confirmed by definition, so it is stored as said.',
-    {project_id:scope,id:z.uuid(),...content},
-    a=>service.save({...a,band:'said'}),writeAnnotations);
+  register('save_memory','Save memory only when the user explicitly asks. Choose personal/project scope explicitly. Satchel assigns the ID. An explicit save is confirmed by definition, so it is stored as said.',
+    {project_id:scope,...content},
+    a=>service.save({...a,id:newId(),band:'said'}),writeAnnotations);
   register('correct_memory','Correct memory only on an explicit user request. Read first and provide the current revision; conflicts require re-reading. Correcting a memory also confirms it.',
-    {...identity,...content},a=>service.correct(a),{readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:false});
+    {...identity,...correctionContent},a=>service.correct(a),{readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:false});
   register('confirm_memory','Promote an unconfirmed memory to confirmed, after the user has agreed it is right. Only ever call this when they actually said so.',
     identity,a=>service.confirm(a),writeAnnotations);
   // Named for what it does. It ends the memory as forgotten and keeps the row
@@ -178,11 +182,11 @@ export function createMemoryServer(service, {ownerId} = {}) {
       {project_id:taskProject,statuses:z.array(taskStatus).max(5).optional()},a=>service.tasks.list(a.project_id,a.statuses));
     register('read_task','Read one task with its planning relationships, derived actionability, comments, progress updates, handoffs, verified resources, and event history.',
       {project_id:taskProject,id:z.uuid()},a=>service.tasks.read(a.project_id,a.id));
-    register('create_task','Create a personal or project Satchel task only when the user explicitly asks. A slug is required: it is how the user and you will refer to this task later. Use project_id=null for personal scope. Reuse request_id and id with the identical payload when retrying a lost response.',
-      {request_id:z.uuid(),id:z.uuid(),slug,project_id:taskProject,...taskContent},a=>service.tasks.create(a),writeAnnotations);
+    register('create_task','Create a personal or project Satchel task only when the user explicitly asks. A slug is required: it is how the user and you will refer to this task later. Use project_id=null for personal scope. Satchel assigns the ID.',
+      {slug,project_id:taskProject,...taskContent},a=>service.tasks.create({...a,request_id:newId(),id:newId()}),writeAnnotations);
     register('edit_task','Apply one explicit revision-safe task edit: replace content, transition state, set/clear the parent, or add/remove one dependency. Relationship edits are same-scope and cycle-safe. Re-read after a conflict.',
-      {request_id:z.uuid(),...taskIdentity,change:taskEdit},a=>{
-        const base={request_id:a.request_id,project_id:a.project_id,id:a.id,revision:a.revision};
+      {...taskIdentity,change:taskEdit},a=>{
+        const base={request_id:newId(),project_id:a.project_id,id:a.id,revision:a.revision};
         if(a.change.kind==='parent'&&a.change.parent_id===a.id)throw {reason:'a task cannot be its own parent'};
         if(a.change.kind==='add_dependency'&&a.change.depends_on_task_id===a.id)throw {reason:'a task cannot depend on itself'};
         if(a.change.kind==='content')return service.tasks.update({...base,...a.change});
@@ -192,16 +196,16 @@ export function createMemoryServer(service, {ownerId} = {}) {
         return service.tasks.removeDependency({...base,...a.change});
       },writeAnnotations);
     register('record_task_update','Append one continuation entry: a lightweight comment, structured progress, or a handoff. Progress and handoffs require the current revision because they update canonical task state; comments do not.',
-      {request_id:z.uuid(),project_id:taskProject,id:z.uuid(),entry:taskUpdate},a=>{
-        const base={request_id:a.request_id,project_id:a.project_id,id:a.id};
-        if(a.entry.kind==='comment')return service.tasks.comment({...base,...a.entry,update_id:a.entry.entry_id});
-        if(a.entry.kind==='progress')return service.tasks.progress({...base,...a.entry,update_id:a.entry.entry_id});
-        return service.tasks.handoff({...base,...a.entry,handoff_id:a.entry.entry_id});
+      {project_id:taskProject,id:z.uuid(),entry:taskUpdate},a=>{
+        const base={request_id:newId(),project_id:a.project_id,id:a.id};
+        if(a.entry.kind==='comment')return service.tasks.comment({...base,...a.entry,update_id:newId()});
+        if(a.entry.kind==='progress')return service.tasks.progress({...base,...a.entry,update_id:newId()});
+        return service.tasks.handoff({...base,...a.entry,handoff_id:newId()});
       },writeAnnotations);
     register('add_task_resource','Attach a typed HTTPS reference to a task. This stores the link only and never fetches its contents.',
-      {request_id:z.uuid(),resource_id:z.uuid(),...taskIdentity,label:z.string().trim().min(1).max(200),
+      {...taskIdentity,label:z.string().trim().min(1).max(200),
         url:z.url({protocol:/^https$/,error:'url is an https URL, like https://example.com/doc'}),resource_type:z.enum(['reference','document','image','artifact','repository','pull_request']).default('reference'),
-        provider:z.string().trim().max(80).nullable().default(null)},a=>service.tasks.addResource(a),writeAnnotations);
+        provider:z.string().trim().max(80).nullable().default(null)},a=>service.tasks.addResource({...a,request_id:newId(),resource_id:newId()}),writeAnnotations);
   }
 
   return server;

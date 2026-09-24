@@ -30,9 +30,9 @@ The return value is the combined personal plus project index. Check `complete` b
 
 ## Creating and revising
 
-`upsert_project(request_id, project_id, expected_revision?, name, brief, repository_change)`, on explicit request only.
+`upsert_project(project_id?, expected_revision?, slug, name, brief, repository_change)`, on explicit request only.
 
-- Omit `expected_revision` to create, supplying a fresh `project_id`.
+- Omit `project_id` and `expected_revision` to create. Satchel returns the new project ID.
 - Provide the current `expected_revision` to update an already authorized project.
 - `repository_change` is `{kind:'unchanged'}`, `{kind:'link', repository}` or `{kind:'unlink', repository}`, and touches one normalized lowercase `owner/repository` without disturbing other links.
 

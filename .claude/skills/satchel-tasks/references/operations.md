@@ -52,10 +52,10 @@ This check is not the authority. The database enforces the same rule. It exists 
 | --- | --- |
 | `list_tasks` | `project_id`, optional `statuses[]` |
 | `read_task` | `project_id`, `id` |
-| `create_task` | `request_id`, `id`, `slug`, `project_id`, content |
-| `edit_task` | `request_id`, identity, `revision`, `change` |
-| `record_task_update` | `request_id`, `project_id`, `id`, `entry` |
-| `add_task_resource` | `request_id`, `resource_id`, identity, `revision`, `label`, HTTPS `url`, type, provider |
+| `create_task` | `slug`, `project_id`, content; Satchel assigns the ID |
+| `edit_task` | identity, `revision`, `change` |
+| `record_task_update` | `project_id`, `id`, `entry`; Satchel assigns the entry ID |
+| `add_task_resource` | identity, `revision`, `label`, HTTPS `url`, type, provider; Satchel assigns the resource ID |
 
 `change.kind` is `content`, `state`, `parent`, `add_dependency` or `remove_dependency`. `entry.kind` is `comment`, `progress` or `handoff`. Both are Zod discriminated unions, so an agent gets a typed error rather than a half-valid payload.
 
