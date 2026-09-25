@@ -233,14 +233,26 @@ test('a session with no project is shown every project\'s memories, once each', 
   // It can file under a project now, so it has to see what that project
   // already holds, or it adds what is there and can never extend it.
   const {service, consolidator, of} = fake();
-  service.memoriesInScope = async projectId => projectId === 'p1'
-    ? [{id: 'm2', statement: 'No em dashes.', kind: 'preference', project_id: null},
-       {id: 'm1', statement: 'I want entries to be append only.', kind: 'intent', project_id: 'p1', project_slug: 'ledger'}]
-    : [{id: 'm2', statement: 'No em dashes.', kind: 'preference', project_id: null}];
+  const limits = {};
+  service.memoriesInScope = async (projectId, limit) => {
+    limits[projectId] = limit;
+    return projectId === 'p1'
+      ? [{id: 'm2', statement: 'No em dashes.', kind: 'preference', project_id: null},
+         {id: 'm1', statement: 'I want entries to be append only.', kind: 'intent', project_id: 'p1', project_slug: 'ledger'}]
+      : [{id: 'm2', statement: 'No em dashes.', kind: 'preference', project_id: null}];
+  };
   const repoed = [{...projects[0], project_repositories: [{provider: 'github', repository: 'acme/ledger'}]}, projects[1]];
   await consolidateDocument(service, consolidator, {...document, project_id: null}, {projects: repoed});
   const [{input}] = of('consolidate');
   assert.deepEqual(input.memories.map(m => m.id), ['m2', 'm1'], 'personal first, no repeats');
   assert.equal(input.project, null);
   assert.deepEqual(input.projects.map(p => [p.slug, p.repositories]), [['ledger', ['acme/ledger']], ['sourdough', []]]);
+  assert.deepEqual(limits, {null: 60, p1: 61, p2: 61}, 'personal rows do not crowd out a project\'s own');
+});
+
+test('a person with no projects is judged against personal memory alone', async () => {
+  const {service, consolidator, of} = fake();
+  await consolidateDocument(service, consolidator, {...document, project_id: null}, {projects: []});
+  assert.deepEqual(of('memories').map(c => c.projectId), [null]);
+  assert.equal(of('consolidate')[0].input.project, null);
 });

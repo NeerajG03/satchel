@@ -252,6 +252,9 @@ test('a session with no project may still file under a listed one', () => {
   const {changes} = validateConsolidation({changes: [change({project: 'ledger'})]}, unlinked);
   assert.equal(changes[0].project, 'ledger');
 
+  const replaced = validateConsolidation({changes: [change({action: 'replace', target: 3, project: null})]}, unlinked);
+  assert.equal(replaced.changes[0].project, 'ledger', 'a null answer does not move a project fact to personal');
+
   const linked = buildConsolidationPrompt(context).prompt;
   assert.match(linked, /other projects, only when the user names one/, 'a linked session keeps its narrow rule');
 });

@@ -213,7 +213,10 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
     changes.push({action, target: target.id, revision: target.revision,
       statement: action === 'retire' || action === 'affirm' ? '' : statement, source, kind: change.kind,
       why: String(change.why ?? '').slice(0, 500),
-      project: slugs.has(change?.project) ? change.project : null});
+      // A replacement stays where the claim it replaces lived unless the model
+      // names another project. An unlinked session answers null by default,
+      // and that must not move a project's fact into every session.
+      project: slugs.has(change?.project) ? change.project : target.project_slug ?? null});
   }
   return {changes, dropped};
 }

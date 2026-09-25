@@ -67,11 +67,13 @@ async function apply(service, change, {projects, trace, document}) {
 /** Personal memories and every project's own, once each. A session with no
  *  project can still be about one, and the pass cannot extend or affirm a
  *  project memory it was never shown, or tell that an add repeats one. */
-async function memoriesAcross(service, projects) {
-  const byId = new Map();
-  for (const project of projects)
-    for (const memory of await service.memoriesInScope(project.id)) byId.set(memory.id, memory);
-  return [...byId.values()].sort((a, b) => Number(Boolean(a.project_id)) - Number(Boolean(b.project_id)));
+async function memoriesAcross(service, projects, limit = 60) {
+  // Each project call returns the personal rows first, so its limit is raised
+  // by that many or the personal ones would crowd the project's own out.
+  const personal = await service.memoriesInScope(null, limit);
+  const own = await Promise.all(projects.map(project =>
+    service.memoriesInScope(project.id, limit + personal.length)));
+  return [...personal, ...own.flat().filter(memory => memory.project_id)];
 }
 
 /** One document. Read, decide, apply, and say so.

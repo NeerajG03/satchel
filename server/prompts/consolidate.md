@@ -75,7 +75,7 @@ People quote a thing in order to argue with it. "One codebase can only be connec
 - **kind**: fact, preference or intent.
 - **project**: where the claim belongs.
   - When "this conversation" names a project, use that slug, or null when the claim applies everywhere rather than to that one project, which is almost always a preference.
-  - When it says none linked, the conversation can still be about one of the listed projects. Use that project's slug when the claim is plainly about it: how it is built, a decision about how it will work, what they want it to become.
+  - When it says none linked, the conversation can still be about one of the listed projects. Use that project's slug when the claim is plainly about it.
 - **target**: the number of the memory being extended, replaced, retired or affirmed. Null for an add.
 - **expires**: an ISO date, and only when the user gave one. "The freeze is on until the 30th" has an end and should carry it; "no em dashes" does not. Null is the normal answer. Do not invent a lifetime because a claim feels temporary: a memory that disappears on a day nobody chose is worse than one that stays too long, because nobody will notice it went.
 - **why**: one short line, for the person reading the history later. Say what changed, not what the rule is.
