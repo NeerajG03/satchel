@@ -64,6 +64,18 @@ async function apply(service, change, {projects, trace, document}) {
   // resolved; resolution happens in the database, from the slug.
 }
 
+/** Personal memories and every project's own, once each. A session with no
+ *  project can still be about one, and the pass cannot extend or affirm a
+ *  project memory it was never shown, or tell that an add repeats one. */
+async function memoriesAcross(service, projects, limit = 60) {
+  // Each project call returns the personal rows first, so its limit is raised
+  // by that many or the personal ones would crowd the project's own out.
+  const personal = await service.memoriesInScope(null, limit);
+  const own = await Promise.all(projects.map(project =>
+    service.memoriesInScope(project.id, limit + personal.length)));
+  return [...personal, ...own.flat().filter(memory => memory.project_id)];
+}
+
 /** One document. Read, decide, apply, and say so.
  *
  *  Returns what it did rather than throwing, because the caller is a loop over
@@ -91,7 +103,9 @@ export async function consolidateDocument(service, consolidator, document,
       const through = turns.at(-1)?.id ?? document.consolidated_through ?? null;
       if (!turns.length) return {...counts, document: document.id, session_key: document.session_key,
         skipped: 'nothing new'};
-      const memories = await service.memoriesInScope(document.project_id ?? null);
+      const memories = document.project_id || !projects.length
+        ? await service.memoriesInScope(document.project_id ?? null)
+        : await memoriesAcross(service, projects);
       const project = projects.find(p => p.id === document.project_id) ?? null;
       setInput({turns: turns.length, memories: memories.length,
         scope: project?.slug ?? 'personal'});
@@ -99,7 +113,8 @@ export async function consolidateDocument(service, consolidator, document,
       try {
         outcome = await consolidator.consolidate({
           project: project ? {slug: project.slug, brief: project.brief} : null,
-          projects: projects.filter(p => p.id !== document.project_id).map(p => ({slug: p.slug, brief: p.brief})),
+          projects: projects.filter(p => p.id !== document.project_id).map(p => ({slug: p.slug, brief: p.brief,
+            repositories: (p.project_repositories ?? []).map(r => r.repository)})),
           memories, turns, cap, churn,
         }, {deadline});
       } catch (error) {

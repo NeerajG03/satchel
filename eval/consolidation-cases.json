@@ -2,7 +2,7 @@
   "note": "Does the consolidation pass change the memory set correctly, given what is already in it. eval/router-rigour.mjs cannot measure this: the router has one output, insert or nothing, and every case here turns on a memory that already exists. Where a case came from a real run or a real production row it says so under `from`; the rest are written from the taxonomy in docs/memory-v2-5-scope.md R2a so that a wording which only handles the exact sentence that failed does not score.",
   "projects": [
     {"slug": "satchel", "brief": "Satchel keeps your memory, projects and tasks in one place and hands them to the agent"},
-    {"slug": "ledger", "brief": "A Go payments ledger with append-only entries"},
+    {"slug": "ledger", "brief": "A Go payments ledger with append-only entries", "repositories": ["acme/ledger"]},
     {"slug": "sourdough", "brief": "Baking notes, nothing to do with work"}
   ],
   "cases": [
@@ -395,6 +395,50 @@
       "expect": {"action": "add", "want": "hands off", "scope": "satchel"},
       "from": "document 70d53087, turn 83, 22 September. The 19:23 pass added it as memory 228e41, and this case keeps it that way",
       "why": "A question, an undo request and a product rule in one message. The rule is the only part still true next week."
+    },
+    {
+      "id": "prj01",
+      "category": "project-unlinked",
+      "working": null,
+      "memories": [
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
+      ],
+      "turns": [
+        {"role": "assistant", "content": "In acme/ledger the accounts table has a currency column today. Do you want an account to hold several currencies?"},
+        {"role": "user", "content": "for v1 we keep one currency per account, multi-currency can come later"}
+      ],
+      "expect": {"action": "add", "want": "currency", "scope": "ledger"},
+      "from": "25 September review: 10 real misses were project decisions in sessions with no project, e5e13f0b among them",
+      "why": "A decision about how one listed project will work. The session has no project, but the claim plainly belongs to ledger, and the user did not need to type its name."
+    },
+    {
+      "id": "prj02",
+      "category": "project-unlinked",
+      "working": null,
+      "memories": [
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
+      ],
+      "turns": [
+        {"role": "assistant", "content": "I renamed the helper in acme/ledger and pushed the commit."},
+        {"role": "user", "content": "thanks. and no emojis in commit messages, ever"}
+      ],
+      "expect": {"action": "add", "want": "emojis", "scope": null},
+      "why": "The other side of prj01. Being free to file under a project must not pull a general preference into one."
+    },
+    {
+      "id": "prj03",
+      "category": "project-unlinked",
+      "working": null,
+      "memories": [
+        {"statement": "No em dashes.", "kind": "preference", "scope": null},
+        {"statement": "The ledger stores amounts as integers.", "kind": "fact", "scope": "ledger"}
+      ],
+      "turns": [
+        {"role": "assistant", "content": "The amount column in acme/ledger is a bigint. Should the API accept decimals?"},
+        {"role": "user", "content": "amounts stay integers, in minor units, never floats"}
+      ],
+      "expect": {"action": "extend", "target": 2, "want": "minor units"},
+      "why": "An unlinked session is shown the project's own memories, so it can extend one instead of adding a copy it could not see."
     }
   ]
 }
