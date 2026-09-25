@@ -238,6 +238,35 @@ test('a full block turns the question from absolute into comparative', () => {
   assert.doesNotMatch(roomy, /the block holds/, 'no pressure is invented when there is room');
 });
 
+test('a session with no project may still file under a listed one', () => {
+  // A repository linked to two projects starts the session with neither, and
+  // the old header told the model to use null. The validator always took any
+  // of the person's slugs; only the wording held it back.
+  const unlinked = {...context, project: null,
+    projects: [{slug: 'ledger', brief: 'Go payments ledger', repositories: ['acme/ledger']}, projects[1]]};
+  const prompt = buildConsolidationPrompt(unlinked).prompt;
+  assert.match(prompt, /project {2}none linked\n/);
+  assert.doesNotMatch(prompt, /use null unless/);
+  assert.match(prompt, /If a memory is specific to one of these, use its slug/);
+  assert.match(prompt, /ledger {2}Go payments ledger {2}repos acme\/ledger/);
+  const {changes} = validateConsolidation({changes: [change({project: 'ledger'})]}, unlinked);
+  assert.equal(changes[0].project, 'ledger');
+
+  const linked = buildConsolidationPrompt(context).prompt;
+  assert.match(linked, /other projects, only when the user names one/, 'a linked session keeps its narrow rule');
+});
+
+test('project memories shown to an unlinked session do not count against its block', () => {
+  // Only personal memories load into a session with no project, so showing it
+  // every project's memories must not invent pressure it does not have.
+  const personal = Array.from({length: 5}, (_, i) =>
+    ({id: `p${i}`, statement: `Personal ${i}.`, kind: 'preference', project_slug: null, revision: 1, mentions: 1}));
+  const ledger = Array.from({length: 30}, (_, i) =>
+    ({id: `l${i}`, statement: `Ledger ${i}.`, kind: 'fact', project_slug: 'ledger', revision: 1, mentions: 1}));
+  const prompt = buildConsolidationPrompt({...context, project: null, memories: [...personal, ...ledger], cap: 30}).prompt;
+  assert.doesNotMatch(prompt, /the block holds/);
+});
+
 const overloaded = () => new Response(JSON.stringify({error: {code: 503, status: 'UNAVAILABLE'}}),
   {status: 503, headers: {'content-type': 'application/json'}});
 const answered = () => json({candidates: [{content: {parts: [{text: '{"changes":[]}'}]}, finishReason: 'STOP'}]});

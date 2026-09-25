@@ -81,13 +81,17 @@ export function buildConsolidationPrompt({project = null, projects = [],
     lines.push('');
   } else {
     lines.push('this conversation');
-    lines.push('  project  none, so use null unless the user names one below');
+    lines.push('  project  none linked');
     lines.push('');
   }
   const others = projects.filter(p => p.slug !== project?.slug);
   if (others.length) {
-    lines.push('other projects, only when the user names one');
-    for (const other of others) lines.push(`  ${other.slug}  ${(other.brief ?? '').slice(0, 80)}`.trimEnd());
+    lines.push(project ? 'other projects, only when the user names one'
+      : 'projects. If a memory is specific to one of these, use its slug');
+    for (const other of others) {
+      const repos = other.repositories?.length ? `  repos ${other.repositories.join(', ')}` : '';
+      lines.push(`  ${other.slug}  ${(other.brief ?? '').slice(0, 80)}${repos}`.trimEnd());
+    }
     lines.push('');
   }
   // Numbered, and the numbers are the only handle the model gets. A model that
@@ -113,13 +117,17 @@ export function buildConsolidationPrompt({project = null, projects = [],
     // weakest line already here" starts being it. That is a judgement a small
     // model can actually make, where the absolute one is what the old 2000
     // word prompt kept getting wrong.
-    if (memories.length >= cap)
-      lines.push(`the block holds ${cap} and there are already ${memories.length}.`
+    // Only what loads into this session counts against the block. A session
+    // with no project is shown every project's memories so it can file under
+    // one, but only the personal ones load there.
+    const loaded = memories.filter(m => !m.project_slug || m.project_slug === project?.slug).length;
+    if (loaded >= cap)
+      lines.push(`the block holds ${cap} and there are already ${loaded}.`
         + ' Anything you add pushes the weakest line out of context, so add only what is worth'
         + ' more than the weakest line above. Extending costs nothing.');
-    else if (memories.length >= cap * 0.8)
+    else if (loaded >= cap * 0.8)
       lines.push(`the block holds ${cap}. There is not much room left, so prefer extending to adding.`);
-    if (memories.length >= cap * 0.8) lines.push('');
+    if (loaded >= cap * 0.8) lines.push('');
   } else {
     lines.push('nothing is remembered for this conversation yet');
     lines.push('');

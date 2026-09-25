@@ -137,16 +137,9 @@ test('the scope it was in is what it is judged against', async () => {
   assert.equal(of('memories')[0].projectId, 'p1');
   const [{input}] = of('consolidate');
   assert.deepEqual(input.project, {slug: 'ledger', brief: 'Go payments ledger'});
-  assert.deepEqual(input.projects, [{slug: 'sourdough', brief: 'Baking'}],
+  assert.deepEqual(input.projects, [{slug: 'sourdough', brief: 'Baking', repositories: []}],
     'the one it is in is named on its own, not repeated among the others');
   assert.equal(input.turns.length, 2, 'both roles, because one explains the other');
-});
-
-test('a personal document is judged against personal memory alone', async () => {
-  const {service, consolidator, of} = fake();
-  await consolidateDocument(service, consolidator, {...document, project_id: null}, {projects});
-  assert.equal(of('memories')[0].projectId, null);
-  assert.equal(of('consolidate')[0].input.project, null);
 });
 
 test('the run carries the trace that decided it, onto every row it writes', async () => {
@@ -234,4 +227,20 @@ test('the call is bounded by the caller’s deadline, not only its own timeout',
   await consolidateDocument(service, consolidator, document, {projects, deadline});
   assert.equal(of('consolidate')[0].options.deadline, deadline,
     'the model call has to know the wall, or it happily runs past it');
+});
+
+test('a session with no project is shown every project\'s memories, once each', async () => {
+  // It can file under a project now, so it has to see what that project
+  // already holds, or it adds what is there and can never extend it.
+  const {service, consolidator, of} = fake();
+  service.memoriesInScope = async projectId => projectId === 'p1'
+    ? [{id: 'm2', statement: 'No em dashes.', kind: 'preference', project_id: null},
+       {id: 'm1', statement: 'I want entries to be append only.', kind: 'intent', project_id: 'p1', project_slug: 'ledger'}]
+    : [{id: 'm2', statement: 'No em dashes.', kind: 'preference', project_id: null}];
+  const repoed = [{...projects[0], project_repositories: [{provider: 'github', repository: 'acme/ledger'}]}, projects[1]];
+  await consolidateDocument(service, consolidator, {...document, project_id: null}, {projects: repoed});
+  const [{input}] = of('consolidate');
+  assert.deepEqual(input.memories.map(m => m.id), ['m2', 'm1'], 'personal first, no repeats');
+  assert.equal(input.project, null);
+  assert.deepEqual(input.projects.map(p => [p.slug, p.repositories]), [['ledger', ['acme/ledger']], ['sourdough', []]]);
 });
