@@ -51,7 +51,7 @@ It picks up where the last review stopped (`~/satchel-daily/state.json`), or the
 | `F/pipeline/<name>.md` | what the pass did: what landed, the job's report entry, the Langfuse trace, the raw answer |
 | `F/pipeline/<name>.prompt.txt` | the exact prompt the model was sent |
 
-If it says nothing ran, write a three-line report (the window, sessions waiting now from a quick `stats`, and "no run to review"), mark it (step 8) and stop.
+If it says nothing ran, write a three-line report (the window, the sessions waiting now that it prints, and "no run to review"), mark it (step 8) and stop. A second review on the same day always lands here, because the first one marked the window.
 
 ### 2. Start the blind reads
 
@@ -60,6 +60,8 @@ For each batch in `F/blind/INDEX.json`, start a background agent with the prompt
 ### 3. Read the pipeline while they run
 
 Do not open `F/blind/out-*.json` yet. For every session read `F/pipeline/<name>.md`, and the head of `F/pipeline/<name>.prompt.txt` (everything before the turns) to see what the model was told: which scope the session had, which projects and memories it was shown, whether it could have written to a project at all. Read `$WORK/server/prompts/consolidate.md` once, since it is the standard the pass was held to.
+
+Then check that the two sides were given the same facts. The blind file lists every project with its repositories and says to file under a project when a claim is about one. Look at what the pass's prompt head showed instead: which projects, whether their repositories, whether their memories, and what the wording let it do with them. A gap between the two inputs explains misses faster than any judgment about the model. On 25 September it was the whole scope gap: the pass was told to use null unless a project was named, and the blind reader was not.
 
 ### 4. Compare
 
@@ -75,12 +77,12 @@ Misses seen in two or more sessions are the strongest evidence. So is the same s
 
 Every review answers all of these with numbers, even when the answer is "fine":
 
-1. **Scope.** Changes landed per scope. Sessions the pass saw as personal against project. For every blind change filed under a project: what scope the pass had for that session, and whether its prompt offered that project at all. If project memories are not being made, this is where it shows.
+1. **Scope.** Changes landed per scope. Sessions the pass saw as personal against project. For every blind change filed under a project: what scope the pass had for that session, and whether its prompt offered that project at all. If project memories are not being made, this is where it shows. How many project-scoped changes came from sessions with no project (D25 allows it; zero across a night of project talk means it is not working).
 2. **Kinds.** Facts, preferences and intents added, and intents retired, pipeline against blind.
 3. **Actions beyond add.** Affirm, extend, replace and retire: used by the pass when the blind read used them?
 4. **Shapes it misses.** Group the real misses by shape: a rule inside a job, "do X so I can Y", setup facts, decisions about a project, intents.
 5. **What it never saw.** For each real miss, is the evidence in a turn longer than the cut (`cut_user`, `cut_assistant` in INDEX, 2000 and 800 characters)? A miss past the cut is an input problem, not a judgment problem.
-6. **Runtime.** From `F/langfuse.json`: models used, thinking level, calls that waited, errors, reasoning tokens against output, cost, the slowest calls.
+6. **Runtime.** Which prompt ran: `promptSource` and `promptVersion` in each trace's metadata in `F/langfuse.json`. `local` means production read the file, so a prompt edit ships with the merge, not with `scripts/push-prompt.mjs`. From `F/langfuse.json`: models used, thinking level, calls that waited, errors, reasoning tokens against output, cost, the slowest calls.
 7. **Failures.** Failed, skipped and rejected changes, with the reasons.
 8. **Quality of what landed.** Wrong, vague, too narrow, stale-prone, or a duplicate of an existing memory.
 
@@ -108,6 +110,24 @@ node $SKILL/scripts/collect.mjs --mark F
 
 Finish with a short message: the numbers row, the top three gaps, the P1 TODOs, and the path to the report. Clean up `$WORK`.
 
+## Checking a change before it ships
+
+Only when a person asks for it, never in the scheduled run: it spends model quota.
+
+```bash
+node $SKILL/scripts/replay.mjs F --new <checkout with the change> [--old origin/main] [--only <document ids>]
+```
+
+It runs every session in `F`'s window through both versions' own `consolidateDocument`, with the database read as it stood at each run and every write recorded instead of sent. Results go to `F/replay/`. Things 25 September taught:
+
+- **One sample per side is noise.** The same session gave 1 change on one replay and 0 on the next. A difference of one or two changes across a night means nothing; a new column going from 0 to 2 or more is a signal.
+- **A call that fails is not a zero.** The model sometimes answers nothing, or the network resets. Rerun only those with `--only` before counting.
+- **Run the eval too, then repeat what it fails.** For every case that fails on the branch, run it on `main` and on the branch with `--only <category> --repeat 5`. `rej01` looked like one miss, and was 14 of 14 on `main` against 6 of 9 on the branch: an example list in the new project rule was pulling a rejected claim in as a fact.
+- **Check new eval cases before trusting them.** `want` matches words, so "emoji" fails against "emojis". A case should test one thing: a turn that also carries a project decision will score a correct second add as wrong.
+- **Edit reports and case files as text.** Re-serialising `consolidation-cases.json` rewrote 600 lines, and a scripted rewrite of `report.md` doubled it. Insert at an anchor, then check the file once.
+
 ## Where this came from
 
 The first blind comparison, on 23 September, read 27 sessions two ways. The pass made 9 changes and the blind read 27. The pass made 8 of its 9 the same way the blind read did, and it missed a preference said in three different sessions ("push first so I can review"). Nothing in the eval or the job report could have shown either fact. This skill is that comparison, made repeatable.
+
+On 25 September the scope gap was traced to the prompt: sessions with no project were told to use null unless a project was named, and 22 of 26 sessions had no project. Replaying the night with that wording changed moved project-scoped changes from 1 to 3 and made 2 from unlinked sessions. The rest of the misses were judgment, not scope.

@@ -75,7 +75,12 @@ const runs = await sql(`select r.id, r.owner_id, r.document_id, r.trace_id, r.mo
 const owners = [...new Set([...jobs.map(j => j.owner_id), ...runs.map(r => r.owner_id)])];
 write('window.json', JSON.stringify({since, until, jobs: jobs.length, runs: runs.length, owners: owners.length}, null, 1));
 if (!runs.length) {
-  console.log(`nothing ran between ${since} and ${until}. Folder: ${out}`);
+  // The short report still needs the queue, and a review that ran twice in a
+  // day lands here every time.
+  const [{n}] = await sql(`select count(*)::int n from public.documents
+    where consolidated_at is null or last_turn_at > consolidated_at`);
+  write('stats.json', JSON.stringify({jobs: [], waiting_now: n}, null, 1));
+  console.log(`nothing ran between ${since} and ${until}. ${n} sessions waiting now. Folder: ${out}`);
   process.exit(0);
 }
 
