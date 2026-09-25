@@ -419,10 +419,10 @@
         {"statement": "No em dashes.", "kind": "preference", "scope": null}
       ],
       "turns": [
-        {"role": "assistant", "content": "In acme/ledger the accounts table has a currency column today. Do you want an account to hold several currencies?"},
-        {"role": "user", "content": "one currency per account is fine for now. and no emojis in commit messages, ever"}
+        {"role": "assistant", "content": "I renamed the helper in acme/ledger and pushed the commit."},
+        {"role": "user", "content": "thanks. and no emojis in commit messages, ever"}
       ],
-      "expect": {"action": "add", "want": "emoji", "scope": null},
+      "expect": {"action": "add", "want": "emojis", "scope": null},
       "why": "The other side of prj01. Being free to file under a project must not pull a general preference into one."
     },
     {
