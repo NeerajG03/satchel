@@ -31,7 +31,14 @@ export async function observations(since, until, {limit = 5000} = {}) {
     url.searchParams.set('limit', '100');
     url.searchParams.set('fields', 'core,basic,metadata,model,usage,metrics');
     if (cursor) url.searchParams.set('cursor', cursor);
-    const res = await fetch(url, {headers: {authorization: `Basic ${auth}`}});
+    let res = await fetch(url, {headers: {authorization: `Basic ${auth}`}});
+    // Thirty requests a minute. A busy night pages past that, so wait out the
+    // window it names rather than lose the whole witness.
+    for (let tries = 0; res.status === 429 && tries < 5; tries++) {
+      const body = await res.json().catch(() => ({}));
+      await new Promise(done => setTimeout(done, ((body.details?.retryAfterSeconds ?? 60) + 1) * 1000));
+      res = await fetch(url, {headers: {authorization: `Basic ${auth}`}});
+    }
     if (!res.ok) throw new Error(`Langfuse said ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const body = await res.json();
     all.push(...(body.data ?? []));
