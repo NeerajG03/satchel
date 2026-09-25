@@ -34,9 +34,10 @@ for (const line of readFileSync(`${process.env.HOME}/.config/env`, 'utf8').split
 
 // The old side is an archive of the ref, borrowing the new side's packages.
 const OLD = mkdtempSync(join(tmpdir(), 'satchel-replay-'));
-execSync(`git -C ${JSON.stringify(NEW)} archive ${OLD_REF} | tar -x -C ${JSON.stringify(OLD)}`);
+const cleanup = () => { rmSync(join(OLD, 'node_modules'), {force: true}); rmSync(OLD, {recursive: true, force: true}); };
+process.on('exit', cleanup);
+execSync(`git -C ${JSON.stringify(NEW)} archive ${JSON.stringify(OLD_REF)} | tar -x -C ${JSON.stringify(OLD)}`);
 symlinkSync(join(NEW, 'node_modules'), join(OLD, 'node_modules'));
-const cleanup = () => { rmSync(join(OLD, 'node_modules')); rmSync(OLD, {recursive: true, force: true}); };
 
 const sides = {};
 for (const [name, dir] of [['old', OLD], ['new', NEW]]) {
@@ -64,10 +65,11 @@ async function projects(owner) {
 /** The service as it stood at `at`, read only. Writes are recorded. */
 function serviceAt(run, list, writes) {
   const slugOf = Object.fromEntries(list.map(p => [p.id, p.slug]));
+  const scopeOf = {};
   return {
     documentTurns: (id, after) => sql(`select id, role, content, created_at from public.document_turns
       where document_id = ${lit(id)} and id > ${Number(after ?? 0)} and id <= ${Number(run.through)} order by id`),
-    memoriesInScope: async projectId => (await sql(`select m.id, m.project_id, m.kind, m.mentions, m.revision,
+    memoriesInScope: async (projectId, limit = 60) => (await sql(`select m.id, m.project_id, m.kind, m.mentions, m.revision,
         m.affirmed_at, m.updated_at,
         coalesce((select e.before from public.memory_events e where e.memory_id = m.id
           and e.created_at >= ${lit(run.created_at)} and e.before is not null order by e.created_at limit 1), m.statement) statement
@@ -75,19 +77,26 @@ function serviceAt(run, list, writes) {
         and (m.ended_at is null or m.ended_at >= ${lit(run.created_at)})
         and (m.expires_at is null or m.expires_at > ${lit(run.created_at)})
         and (m.project_id is null or m.project_id = ${lit(projectId)})
-      order by m.project_id nulls first, m.updated_at desc limit 60`))
-      .map(m => ({...m, project_slug: m.project_id ? slugOf[m.project_id] : null, commits_since: null})),
+      order by m.project_id nulls first, m.updated_at desc limit ${Number(limit)}`))
+      .map(m => (scopeOf[m.id] = m.project_id ? slugOf[m.project_id] : null,
+        {...m, project_slug: scopeOf[m.id], commits_since: null})),
     captureMemory: async a => { writes.push({write: 'add', project: a.project, kind: a.kind, statement: a.statement}); return {id: `new${writes.length}`}; },
-    extendMemory: async a => { writes.push({write: 'extend', target: a.id, statement: a.statement}); return {id: a.id}; },
-    affirmMemory: async id => { writes.push({write: 'affirm', target: id}); return {id}; },
-    endMemory: async a => { writes.push({write: `end ${a.reason}`, target: a.id}); return {id: a.id}; },
+    extendMemory: async a => { writes.push({write: 'extend', target: a.id, project: scopeOf[a.id], statement: a.statement}); return {id: a.id}; },
+    affirmMemory: async id => { writes.push({write: 'affirm', target: id, project: scopeOf[id]}); return {id}; },
+    // A replace is one change: the add it wrote first becomes the replace.
+    endMemory: async a => {
+      const added = a.reason === 'replaced' && writes.findLast(w => w.write === 'add');
+      if (added) Object.assign(added, {write: 'replace', target: a.id});
+      else writes.push({write: `end ${a.reason}`, target: a.id, project: scopeOf[a.id]});
+      return {id: a.id};
+    },
     markDocumentConsolidated: async () => {},
     logConsolidationRun: async entry => { if (entry.error) writes.push({write: 'error', error: String(entry.error).slice(0, 200)}); },
   };
 }
 
 mkdirSync(join(folder, 'replay'), {recursive: true, mode: 0o700});
-const outFile = join(folder, 'replay', `${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '')}.json`);
+const outFile = join(folder, 'replay', `${new Date().toISOString().slice(0, 16).replace(':', '').replace('T', '-')}.json`);
 const results = [];
 try {
   for (const run of runs) {
@@ -113,10 +122,10 @@ try {
   }
 } finally { cleanup(); }
 
-const count = (name, f) => results.flatMap(r => r[name].filter(w => w.write !== 'error').map(w => ({...w, scope: r.scope}))).filter(f).length;
+const count = (name, f) => results.flatMap(r => r[name].filter(w => w.write !== "error").map(w => ({...w, scope: r.scope}))).filter(f).length;
 console.log(`\n${results.length} sessions · ${outFile}`);
-console.log('                          old  new');
+console.log('                              old  new');
 for (const [label, f] of [['changes', () => true], ['project-scoped', w => w.project],
-  ['unlinked into a project', w => w.project && w.scope === 'personal'], ['extend / affirm', w => w.write === 'extend' || w.write === 'affirm'],
+  ['unlinked into a project', w => w.project && w.scope === 'personal'], ['extend / affirm / replace', w => ['extend', 'affirm', 'replace'].includes(w.write)],
   ['errors', null]])
-  console.log(`  ${label.padEnd(24)}${String(f ? count('old', f) : results.filter(r => r.old.some(w => w.write === 'error')).length).padStart(4)} ${String(f ? count('new', f) : results.filter(r => r.new.some(w => w.write === 'error')).length).padStart(4)}`);
+  console.log(`  ${label.padEnd(28)}${String(f ? count('old', f) : results.filter(r => r.old.some(w => w.write === 'error')).length).padStart(4)} ${String(f ? count('new', f) : results.filter(r => r.new.some(w => w.write === 'error')).length).padStart(4)}`);
