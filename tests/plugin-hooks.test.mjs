@@ -143,6 +143,58 @@ test('the repository is read from the origin and its credentials never leave', a
   }
 });
 
+test('a token close to expiring is refreshed at SessionStart, before a prompt needs it', async () => {
+  const SATCHEL_HOME = home();
+  const cwd = mkdtempSync(join(tmpdir(), 'satchel-refresh-'));
+  const tokenRequests = [];
+  const {createServer} = await import('node:http');
+  const indexServer = createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => { res.writeHead(200, {'content-type': 'application/json'}); res.end(JSON.stringify({context: '', notice: ''})); });
+  });
+  const tokenServer = createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      tokenRequests.push(new URLSearchParams(body));
+      res.writeHead(200, {'content-type': 'application/json'});
+      res.end(JSON.stringify({access_token: 'fresh-token', refresh_token: 'rotated-refresh', expires_in: 3600}));
+    });
+  });
+  await Promise.all([
+    new Promise(done => indexServer.listen(0, '127.0.0.1', done)),
+    new Promise(done => tokenServer.listen(0, '127.0.0.1', done)),
+  ]);
+  // Five minutes left: inside the ten-minute eager margin, so this must be
+  // refreshed here rather than left for a later UserPromptSubmit hook to find
+  // already expired.
+  writeFileSync(join(SATCHEL_HOME, 'credentials.json'), JSON.stringify({
+    client_id: 'test-client', refresh_token: 'stale-refresh', access_token: 'about-to-expire',
+    expires_at: Date.now() + 5 * 60 * 1000}));
+  const env = {
+    SATCHEL_HOME,
+    SATCHEL_URL: `http://127.0.0.1:${indexServer.address().port}`,
+    SATCHEL_ISSUER: `http://127.0.0.1:${tokenServer.address().port}`,
+  };
+  try {
+    const {code} = await run('session-start.mjs', JSON.stringify({
+      session_id: 'refresh-session', hook_event_name: 'SessionStart', source: 'startup', cwd,
+    }), env);
+    assert.equal(code, 0);
+    assert.equal(tokenRequests.length, 1, 'the stale token is refreshed exactly once');
+    assert.equal(tokenRequests[0].get('grant_type'), 'refresh_token');
+    assert.equal(tokenRequests[0].get('refresh_token'), 'stale-refresh');
+    const saved = JSON.parse(readFileSync(join(SATCHEL_HOME, 'credentials.json'), 'utf8'));
+    assert.equal(saved.access_token, 'fresh-token');
+    assert.ok(saved.expires_at > Date.now() + 30 * 60 * 1000, 'the refreshed token is good for close to a full hour again');
+  } finally {
+    rmSync(cwd, {recursive: true, force: true});
+    rmSync(SATCHEL_HOME, {recursive: true, force: true});
+    await Promise.all([new Promise(done => indexServer.close(done)), new Promise(done => tokenServer.close(done))]);
+  }
+});
+
 test('invalid lifecycle input never becomes instructions or blocks the host', async () => {
   const SATCHEL_HOME = home();
   try {

@@ -246,6 +246,40 @@ async function refresh(credentials) {
   });
 }
 
+// How much life a token can have left before SessionStart refreshes it anyway.
+// Ten minutes is short enough that an untouched, freshly-minted token (a full
+// expires_in, usually an hour) never triggers this, so the common SessionStart
+// stays exactly as cheap as it was. It only fires for a token a session is
+// about to outlive, which is the one case worth spending a refresh on here
+// instead of leaving it for a UserPromptSubmit hook later in the same session.
+const EAGER_REFRESH_MARGIN_MS = 10 * 60 * 1000;
+
+/** Best effort, and called once at SessionStart: a token already close to
+ *  expiring is refreshed here, in the hook with real budget for it, instead of
+ *  being discovered expired by a UserPromptSubmit hook later in the session
+ *  with much less room to spend on a refresh. accessToken()'s own lazy
+ *  refresh is still the fallback that actually matters; this just makes it
+ *  rare for that fallback to be the one paying the cost. Never throws: a real
+ *  problem (a revoked connection) still surfaces the next time something
+ *  actually needs the token. */
+export async function refreshEagerly() {
+  const credentials = readCredentials();
+  if (!credentials?.refresh_token) return;
+  if (typeof credentials.access_token === 'string'
+    && Number(credentials.expires_at) > Date.now() + EAGER_REFRESH_MARGIN_MS) return;
+  try {
+    await withLock(async () => {
+      // Re-read inside the lock: another hook (or accessToken(), racing on the
+      // same SessionStart) may have already refreshed while this one waited.
+      const current = readCredentials() ?? credentials;
+      if (typeof current.access_token === 'string'
+        && Number(current.expires_at) > Date.now() + EAGER_REFRESH_MARGIN_MS) return;
+      if (!current.refresh_token) return;
+      await refresh(current);
+    });
+  } catch { /* Silent on purpose; see the note above. */ }
+}
+
 /** The one call the hook scripts make. Returns a usable access token, or null
  *  when there is no connection at all, which is not an error: it is a Satchel
  *  that has not been set up yet, and the hooks have to stay quiet about it

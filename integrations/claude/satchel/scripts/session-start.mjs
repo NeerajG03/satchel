@@ -16,7 +16,7 @@
 // What it sends: the session id, why it fired, and the workspace's normalized
 // GitHub origin. Not the prompt, not the transcript, not a file, not a path,
 // and never the host's own credentials.
-import {call} from './auth.mjs';
+import {call, refreshEagerly} from './auth.mjs';
 import {repositoryFrom, readHookInput, sessionIdOf, cwdOf, emit} from './workspace.mjs';
 import {connectState, recordConnectAttempt} from './connect.mjs';
 import {spawn} from 'node:child_process';
@@ -74,8 +74,13 @@ const repository = process.env.SATCHEL_DISABLE_REPOSITORY_STAGING === '1'
   ? null : repositoryFrom(cwdOf(event));
 
 try {
-  const response = await call('/api/hook-index',
-    {session_key: sessionKey, event: hookEvent, repository}, {timeout: 6000});
+  // Runs alongside the index call, not before it: refreshEagerly() is a no-op
+  // on the common path (a token with most of its hour still ahead), so this
+  // must not add a sequential round trip to every SessionStart just to check.
+  const [response] = await Promise.all([
+    call('/api/hook-index', {session_key: sessionKey, event: hookEvent, repository}, {timeout: 6000}),
+    refreshEagerly(),
+  ]);
 
   if (!response.connected) {
     const {context, notice} = notConnected();

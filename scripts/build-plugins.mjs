@@ -21,7 +21,13 @@ const description='Personal and project memory, tasks and projects across your a
 // retrieval call and that alone could take longer than 5s, discarding the
 // hook's output. A patch, not the fix: the real work is making the common
 // path fast rather than widening the timeout further.
-const versions={claude:'0.4.8',codex:'0.4.8'};
+//
+// 0.4.9 is that work: session-start.mjs now refreshes a token that is within
+// ten minutes of expiring, in the SessionStart hook's own budget, so a token a
+// session is about to outlive gets renewed at startup, clear, compact or
+// resume rather than being discovered expired by a UserPromptSubmit hook with
+// far less room to spend on a refresh.
+const versions={claude:'0.4.9',codex:'0.4.9'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
