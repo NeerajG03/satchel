@@ -190,6 +190,27 @@ test('a second key is tried for the same model, and only for the same model', as
   assert.equal(asked[0].url.split('/').pop(), asked[1].url.split('/').pop());
 });
 
+test('a burst limit switches to the fallback key immediately, without waiting', async () => {
+  // Only a spent daily quota used to skip the wait. A plain burst limit
+  // retried the same key for the whole budget instead, even with a second key
+  // sitting right there holding its own bucket: a live trace once showed eight
+  // straight waits on a key that was never going to answer sooner in that
+  // window. A route with another one behind it should not wait it out.
+  const asked = [];
+  const started = Date.now();
+  const [result] = await embedder({
+    apiKey: 'first', fallbackKey: 'second',
+    fetchImpl: async (url, init) => {
+      asked.push(init.headers['x-goog-api-key'] ?? init.headers.authorization);
+      return asked.length === 1 ? geminiLimit(PER_MINUTE, '30s', '30') : ok(vector(1))(url, init);
+    },
+  }).embed(['anything']);
+  assert.equal(result.length, EMBEDDING_DIMENSIONS);
+  assert.deepEqual(asked, ['first', 'second']);
+  assert.ok(Date.now() - started < 500,
+    `moved to the fallback key without waiting out the first, took ${Date.now() - started}ms`);
+});
+
 test('every failure carries a plain-words reason, not only a status', async () => {
   // The hook turns this into the line the person reads. Without it every
   // failure here arrived as "Satchel request failed. Reload before retrying a

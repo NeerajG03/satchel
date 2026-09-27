@@ -132,7 +132,9 @@ export function createEmbedder({
   async function attempt(inputs, task) {
     const deadline = Date.now() + budgetMs;
     let last = null;
-    for (const model_ of routes) {
+    for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
+      const model_ = routes[routeIndex];
+      const isLastRoute = routeIndex === routes.length - 1;
       for (;;) {
         const left = deadline - Date.now();
         // Under a quarter second there is no attempt worth starting, only a
@@ -183,7 +185,14 @@ export function createEmbedder({
           // refilling, so honouring it buys a single request and then fails
           // again: that is what made retrieval look flaky instead of out of
           // quota. Go straight to the other key, or stop.
-          if (limit.spent) break;
+          //
+          // The same is true of a plain burst limit when another route is
+          // still ahead: a second key has its own bucket, so trying it now is
+          // faster than waiting out this one's, and a live trace once showed
+          // eight straight waits on a key that was never going to answer
+          // sooner. Waiting in place is reserved for the last route, where
+          // there is nowhere left to go.
+          if (limit.spent || !isLastRoute) break;
           const wait = limit.retryAfterMs || 500;
           if (Date.now() + wait + 250 > deadline) break;
           await sleep(wait);
