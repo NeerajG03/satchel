@@ -314,7 +314,10 @@ test('installed packages run every hook as a local script and none through MCP',
     // transcript. Check the binary before removing it again.
     const [ask] = hooks.UserPromptSubmit.flatMap(entry => entry.hooks);
     assert.ok(ask.command.includes('retrieve.mjs'), `${host}: retrieval must run on every prompt`);
-    assert.ok(ask.timeout <= 5, 'a hook that delays the prompt is worse than one that misses');
+    // 10s, not 5s: a stale token needs a refresh before the retrieval call,
+    // and that alone could take longer than 5s, which is what was discarding
+    // the hook's output. Still bounded, so a dead network cannot hang forever.
+    assert.ok(ask.timeout <= 10, 'a hook that delays the prompt is worse than one that misses');
 
     // Capture has to be triggered by something. The router, the rolling window
     // and every capture path shipped once with nothing configured to call them.

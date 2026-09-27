@@ -15,7 +15,13 @@ const description='Personal and project memory, tasks and projects across your a
 //
 // 0.3.2 puts per-prompt retrieval back and stops reading the transcript. Both
 // came from one wrong belief: that a command hook is not handed the prompt.
-const versions={claude:'0.4.7',codex:'0.4.7'};
+//
+// 0.4.8 widens the retrieve hook's timeout from 5s to 10s (and its inner
+// fetch from 4s to 8s), because a stale token needs a refresh before the
+// retrieval call and that alone could take longer than 5s, discarding the
+// hook's output. A patch, not the fix: the real work is making the common
+// path fast rather than widening the timeout further.
+const versions={claude:'0.4.8',codex:'0.4.8'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
@@ -89,9 +95,15 @@ for(const host of ['codex','claude']) {
     // summary said otherwise, this was deleted on the strength of it, and the
     // binary settled it. Do not remove it again without checking that first.
     //
-    // 5 seconds on purpose. A hook that delays the prompt is worse than a hook
-    // that misses one.
-    UserPromptSubmit:[script('retrieve.mjs',5)],
+    // Was 5 seconds on purpose, on the same reasoning: a hook that delays the
+    // prompt is worse than a hook that misses one. But 5s did not leave room
+    // for the one case that actually needs it — a token refresh before the
+    // retrieval call, which alone can take longer than that (see auth.mjs's
+    // withLock and refresh). That turned "misses one" into "misses most of
+    // them, every time the token happens to be stale." 10s instead, patched
+    // for now; the real fix is making the common path fast rather than
+    // widening the timeout further.
+    UserPromptSubmit:[script('retrieve.mjs',10)],
   }},null,2)+'\n');
   // The skill ships SKILL.md plus its progressively disclosed references, so copy the tree.
   await rm(join(target,'skills'),{recursive:true,force:true});

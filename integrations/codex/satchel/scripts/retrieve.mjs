@@ -34,7 +34,7 @@ try {
     session_key: sessionKey,
     prompt,
     repository: process.env.SATCHEL_DISABLE_REPOSITORY_STAGING === '1' ? null : repositoryFrom(cwdOf(event)),
-  }, {timeout: 4000});
+  }, {timeout: 8000});
   // Not connected is silent here. Session start already said so once, and
   // repeating it on every prompt is how a person learns to ignore the line
   // that matters.
