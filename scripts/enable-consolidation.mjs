@@ -5,13 +5,12 @@
 //   npm run consolidation:enable -- --enable   # sign in and turn it on
 //   npm run consolidation:enable -- --disable  # turn it off and destroy the token
 //
-// **This is a developer path and it is not how consolidation normally runs.**
-// By default the Stop hook spawns integrations/shared/consolidate.mjs detached
-// and the pass uses the credential the plugin already holds, so a person
-// installing Satchel does nothing at all. See docs/memory-hooks.md.
+// **This is a developer path and it is not surfaced in the product.** No hook
+// starts consolidation: without this, it runs only when a person presses
+// Consolidate now on the activity page. See docs/memory-hooks.md.
 //
-// What this adds is the one thing the hook cannot do: process conversations
-// while you are away and never open a session. It costs a second sign-in and a
+// What this adds is a run every six hours, while you are away and without
+// opening a session. It costs a second sign-in and a
 // second long-lived token, so it is deliberately not surfaced in the product.
 //
 // Why a sign-in rather than a setting. The pass runs with nobody at the
