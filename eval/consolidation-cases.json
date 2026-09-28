@@ -439,6 +439,64 @@
       ],
       "expect": {"action": "extend", "target": 2, "want": "minor units"},
       "why": "An unlinked session is shown the project's own memories, so it can extend one instead of adding a copy it could not see."
+    },
+    {
+      "id": "jr05",
+      "category": "job-with-rule",
+      "working": null,
+      "memories": [
+        {"statement": "Explain technical terms simply using grade-school English, avoiding industry jargon.", "kind": "preference", "scope": null, "mentions": 3}
+      ],
+      "turns": [
+        {"role": "assistant", "content": "Here is the follow-up message, rewritten so the race between the two helpers is easier to follow."},
+        {"role": "user", "content": "Redo your current answer with this in mind. I keep reading it but if i find an issue i want to correct then you redo the same message until i am satisfied"}
+      ],
+      "expect": {"action": "add", "want": "satisfied", "scope": null},
+      "from": "28 September review: document fdb5b9a1, missed by the pass and kept by the blind read",
+      "why": "It starts with a verb and sits inside a job, and it is still how they want every draft handled. The verb tell ate it."
+    },
+    {
+      "id": "aff02",
+      "category": "affirm",
+      "working": null,
+      "memories": [
+        {"statement": "Explain technical terms simply using grade-school English, avoiding industry jargon.", "kind": "preference", "scope": null, "mentions": 3},
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
+      ],
+      "turns": [
+        {"role": "user", "content": "Each of these ideas i want you to explore and come up with a simple and easy to understand explainer from system perspective and user perspective for the relevant answrr and straight answers for the rest."}
+      ],
+      "expect": {"action": "affirm", "target": 1},
+      "from": "28 September review: document 814e5dad. The same night the pass affirmed this memory in another session",
+      "why": "A restatement tucked inside a longer request. An affirm costs nothing, and skipping it is how a rule said every week looks like one said once."
+    },
+    {
+      "id": "prj04",
+      "category": "project-unlinked",
+      "working": null,
+      "memories": [
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
+      ],
+      "turns": [
+        {"role": "user", "content": "now explain the race to me properly"},
+        {"role": "assistant", "content": "Two workers in acme/ledger can both read the balance before either writes it, so both think there is room."},
+        {"role": "user", "content": "Only one worker per account is allowed to check and write the balance. That's the poster. It does one pass at a time, so no one can check while someone else is halfway through."}
+      ],
+      "expect": {"action": "add", "want": "one worker per account", "scope": "ledger"},
+      "from": "28 September review: document fdb5b9a1, the same shape about another project. Twelve sessions of design talk made no project memory",
+      "why": "A design decision in the user's own words, in a conversation that is otherwise questions. It is how the project works now."
+    },
+    {
+      "id": "asst03",
+      "category": "assistant-source",
+      "working": "ledger",
+      "memories": [],
+      "turns": [
+        {"role": "assistant", "content": "I suggest one worker per account checks and writes the balance, one pass at a time, so two writers can never both see room. Want me to go with that?"},
+        {"role": "user", "content": "yes"}
+      ],
+      "expect": {"action": "nothing"},
+      "why": "The other side of prj04. The design is the assistant's and a bare yes carries none of it, so there are no user words to source the claim from."
     }
   ]
 }
