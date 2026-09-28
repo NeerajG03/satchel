@@ -199,8 +199,10 @@ const index = (await pool(runs, 4, async run => {
   // them the blind side is answering a different question.
   const known = new Set(projectsOf[run.owner_id].map(p => p.slug));
   const head = String(run.prompt ?? '').split('<conversation>')[0].split('\ntoday is ').at(-1);
-  const gone = [...head.matchAll(/^ {2}(?:project {2})?([a-z0-9][a-z0-9-]*) {2}(.*?)(?: {2}repos .*)?$/gm)]
-    .filter(([line, slug]) => !known.has(slug) && !line.endsWith('none linked')).map(([, slug, brief]) => ({slug, brief}));
+  // The brief is optional: a project with none is written as its slug alone.
+  const gone = [...head.matchAll(/^ {2}(?:project {2})?([a-z0-9][a-z0-9-]*)(?: {2}(.*?))?(?: {2}repos .*)?$/gm)]
+    .filter(([line, slug]) => !known.has(slug) && !line.endsWith('none linked'))
+    .map(([, slug, brief]) => ({slug, brief: brief ?? ''}));
   write(`blind/${name}.md`, [
     `# Session ${name} · scope: ${scope}`, '',
     '## Projects that exist', '',
