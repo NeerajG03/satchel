@@ -64,7 +64,7 @@ It reports extraction rate, mean word overlap with the real statement, project s
 
 ## The consolidation eval
 
-`eval/consolidation.mjs` over `eval/consolidation-cases.json`, 26 cases. Neither capture eval can measure the pass, because the router has one output and the pass has five, four of which name a memory that already exists. So **every case carries its own memory set**: the same sentence is a retire next to an intent, a no-op next to a fact, and an extend next to a narrower version of itself.
+`eval/consolidation.mjs` over `eval/consolidation-cases.json`, 37 cases. Neither capture eval can measure the pass, because the router has one output and the pass has five, four of which name a memory that already exists. So **every case carries its own memory set**: the same sentence is a retire next to an intent, a no-op next to a fact, and an extend next to a narrower version of itself.
 
 Three numbers, read together:
 

@@ -54,6 +54,20 @@ export const CONSOLIDATION_SCHEMA = z.object({
 
 export const INSTRUCTIONS = localTextFor(CONSOLIDATE_PROMPT);
 
+export const CUT = {user: 2000, assistant: 800, answered: 2000, short: 200};
+
+/** How much of a turn the model is shown. An assistant turn is cut hard,
+ *  because only the user's half may supply a claim, except when a short reply
+ *  follows it: "yes, go with that" means nothing without the plan it answers,
+ *  and on 28 September the plan was usually past the cut. */
+export function cutFor(turns, index) {
+  const turn = turns[index];
+  if (turn.role !== 'assistant') return CUT.user;
+  const next = turns[index + 1];
+  return next?.role === 'user' && String(next.content ?? '').trim().length <= CUT.short
+    ? CUT.answered : CUT.assistant;
+}
+
 /** Two messages, for the same reason the router uses two: the rules are
  *  identical on every call and everything else is a person's own words, so the
  *  boundary between them should be structural rather than a tag.
@@ -134,8 +148,8 @@ export function buildConsolidationPrompt({project = null, projects = [],
   }
   lines.push('the conversation:');
   lines.push('<conversation>');
-  for (const turn of turns)
-    lines.push(`${turn.role}: ${String(turn.content).slice(0, turn.role === 'assistant' ? 800 : 2000)}`);
+  turns.forEach((turn, index) =>
+    lines.push(`${turn.role}: ${String(turn.content).slice(0, cutFor(turns, index))}`));
   lines.push('</conversation>');
   return {system: instructions, prompt: lines.join('\n')};
 }
@@ -143,6 +157,8 @@ export function buildConsolidationPrompt({project = null, projects = [],
 /** Two statements are the same claim when they differ only in case,
  *  punctuation or spacing. Deliberately narrow, same as the router's. */
 const normalize = text => String(text ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+const AGREEMENT = /^\W*(yes|yeah|yep|ok|okay|sure|good|great|fine|correct|right|exactly|agreed|lgtm|sounds good|go ahead|do it|go with (that|it|this)|that one|all good|good as is)[\s\W]*$/i;
 
 /** A date the user gave, or nothing.
  *
@@ -191,6 +207,10 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
     // finished.
     if (!source) { drop('no source'); continue; }
     if (!haystack.includes(source.toLowerCase().slice(0, 60))) { drop('source is not in the conversation'); continue; }
+    // "yes" is in almost every conversation, so it passes the check above
+    // while carrying nothing: a claim sourced from it is the assistant's.
+    // A retire or an affirm is a yes to something already remembered.
+    if (action !== 'retire' && action !== 'affirm' && AGREEMENT.test(source)) { drop('source is only agreement'); continue; }
     // A retire and an affirm change no wording, so neither carries one.
     if (action !== 'retire' && action !== 'affirm') {
       if (!statement || statement.length > 500) { drop('statement missing or too long'); continue; }
@@ -305,7 +325,12 @@ export function createConsolidator({
         try { result = await ask(model, signal); }
         catch (second) { throw asModelError(second, signal, 'consolidation'); }
       }
-      annotate({metadata: {modelUsed: model, waited}});
+      // The generation's usage carries no reasoning count for this provider,
+      // so the trace gets it from the SDK, or nobody can tell thinking ran.
+      const usage = result.usage ?? {};
+      annotate({metadata: {modelUsed: model, waited,
+        outputTokens: usage.outputTokens ?? null,
+        reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? usage.reasoningTokens ?? null}});
       const checked = validateConsolidation(result.object, input);
       return {...checked, model, prompt: `${system}\n\n${prompt}`,
         promptVersion: instructions.version, promptSource: instructions.source,

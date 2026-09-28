@@ -124,6 +124,35 @@ test('the assistant’s own words are never a source', () => {
   assert.equal(out.changes.length, 0, 'otherwise the model is quoting itself back as evidence');
 });
 
+test('a bare yes cannot source a new claim, but it can confirm an old one', () => {
+  const agreed = {...context, turns: [
+    {role: 'assistant', content: 'I suggest one worker per account writes the balance. Go with that?'},
+    {role: 'user', content: 'yes'},
+    {role: 'user', content: 'Sounds good!'},
+  ]};
+  const out = validateConsolidation({changes: [
+    change({source: 'yes', statement: 'One worker per account writes the balance.'}),
+    change({source: 'Sounds good!', statement: 'Another claim.'}),
+    change({action: 'affirm', target: 1, statement: '', source: 'yes', kind: 'preference'}),
+  ]}, agreed);
+  assert.deepEqual(out.changes.map(c => c.action), ['affirm'],
+    'the design was the assistant\'s, and "yes" is in almost every conversation');
+  assert.deepEqual(out.dropped.map(d => d.why), ['source is only agreement', 'source is only agreement']);
+});
+
+test('the plan a short reply answers is shown in full, and other assistant turns are cut', () => {
+  const plan = 'p'.repeat(1500);
+  const {prompt} = buildConsolidationPrompt({...context, turns: [
+    {role: 'user', content: 'how should the pacing work?'},
+    {role: 'assistant', content: plan},
+    {role: 'user', content: 'yes, go with that'},
+    {role: 'assistant', content: plan},
+    {role: 'user', content: 'x'.repeat(300)},
+  ]});
+  const shown = [...prompt.matchAll(/^assistant: (p*)$/gm)].map(m => m[1].length);
+  assert.deepEqual(shown, [1500, 800], 'without the plan, "yes, go with that" refers to nothing');
+});
+
 test('an invented project falls back to personal, and a real one survives', () => {
   const out = validateConsolidation({changes: [
     change({project: 'not-a-project', statement: 'One claim.', source: 'no em dashes in commit messages'}),
@@ -187,6 +216,17 @@ test('the run says what it was looking at before it says what it did', async () 
   assert.equal(seen[0].metadata.knownMemories, 3);
   assert.equal(seen[0].metadata.turns, 3);
   assert.equal(seen[0].metadata.promptName, 'satchel-consolidate');
+});
+
+test('the trace says how much of the output was thinking', async () => {
+  const seen = [];
+  const consolidator = createConsolidator({apiKey: 'x', annotate: entry => seen.push(entry),
+    fetchImpl: async () => json({
+      candidates: [{content: {parts: [{text: JSON.stringify({changes: []})}]}, finishReason: 'STOP'}],
+      usageMetadata: {promptTokenCount: 900, candidatesTokenCount: 10, thoughtsTokenCount: 400, totalTokenCount: 1310}})});
+  await consolidator.consolidate(context);
+  const after = seen.at(-1).metadata;
+  assert.equal(after.reasoningTokens, 400, 'or an empty answer that cost 4000 output tokens cannot be explained');
 });
 
 test('the schema the provider enforces is the five decisions and nothing else', async () => {

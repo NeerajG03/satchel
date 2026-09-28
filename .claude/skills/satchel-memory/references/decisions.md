@@ -158,7 +158,7 @@ Typos, Hinglish and identifier lookups are handled far better than expected from
 
 ## The consolidation pass
 
-`eval/consolidation.mjs`, 26 cases, each carrying the memory set it is judged against. See `eval/README.md` for why neither capture eval can measure this.
+`eval/consolidation.mjs`, 37 cases, each carrying the memory set it is judged against. See `eval/README.md` for why neither capture eval can measure this.
 
 **First run, 22 September.** Not on the shipped configuration: the free key would not serve `gemini-3.8-flash` or `gemini-3.5-flash` for a request this size, so this is `gemini-3.5-flash-lite` with thinking off, which is the weakest thing that would answer. Read it as a floor rather than as a baseline, and it is deliberately not committed as one.
 
