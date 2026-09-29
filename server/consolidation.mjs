@@ -15,6 +15,7 @@
 // endpoint and whatever calls it are somebody else's problem on purpose.
 import {errorText} from './error-text.mjs';
 import {scrub} from './secrets.mjs';
+import {firstChunk} from './turn-chunks.mjs';
 
 const untraced = (_name, _options, run) => run(() => {}, () => {}, null);
 
@@ -98,8 +99,12 @@ export async function consolidateDocument(service, consolidator, document,
       // Scrubbed again on the way out. The hooks scrub what comes in now, and
       // this is for what was kept before they did: a model that has not seen
       // a password cannot write one into a memory.
-      const turns = (await service.documentTurns(document.id, document.consolidated_through ?? null))
+      const unread = (await service.documentTurns(document.id, document.consolidated_through ?? null))
         .map(turn => ({...turn, content: scrub(turn.content)}));
+      // Never a shorter view of a turn. A session too long for one call is
+      // read in pieces, each one after the last piece's changes are written.
+      const turns = firstChunk(unread);
+      const rest = unread.length - turns.length;
       const through = turns.at(-1)?.id ?? document.consolidated_through ?? null;
       if (!turns.length) return {...counts, document: document.id, session_key: document.session_key,
         skipped: 'nothing new'};
@@ -158,8 +163,16 @@ export async function consolidateDocument(service, consolidator, document,
         ...counts, input_tokens: outcome.usage?.inputTokens ?? null,
         output_tokens: outcome.usage?.outputTokens ?? null,
         duration_ms: Date.now() - started, error: null});
-      return {...counts, document: document.id, session_key: document.session_key,
+      const result = {...counts, document: document.id, session_key: document.session_key,
         scope: project?.slug ?? 'personal', actions};
+      if (!rest) return result;
+      const next = await consolidateDocument(service, consolidator,
+        {...document, consolidated_through: through},
+        {projects, cap, churn, deadline, traced, ownerId});
+      for (const key of Object.keys(counts)) result[key] += next[key] ?? 0;
+      result.actions = [...actions, ...(next.actions ?? [])];
+      if (next.failed) Object.assign(result, {failed: next.failed, spent: next.spent, later: next.later});
+      return result;
     });
 }
 

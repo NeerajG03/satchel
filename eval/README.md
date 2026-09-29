@@ -8,7 +8,7 @@ could not answer the question.
 | `node eval/run.mjs` | retrieval: does the right memory come back, and does the system stay quiet when nothing should | the invented 473-memory corpus |
 | `node eval/router.mjs` | capture at scale: does a claim survive being replayed, and does it land in the right scope | the same corpus, replayed as turns |
 | `node eval/router-rigour.mjs` | capture rigour: does the router keep *only* claims | real turns, copied out of Langfuse |
-| `node eval/consolidation.mjs` | consolidation: does the pass change an existing memory set correctly | 37 cases, each carrying the memories it is judged against |
+| `node eval/consolidation.mjs` | consolidation: does the pass change an existing memory set correctly | 41 cases, each carrying the memories it is judged against |
 
 ## Retrieval evaluation
 

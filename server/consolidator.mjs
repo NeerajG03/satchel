@@ -54,20 +54,6 @@ export const CONSOLIDATION_SCHEMA = z.object({
 
 export const INSTRUCTIONS = localTextFor(CONSOLIDATE_PROMPT);
 
-export const CUT = {user: 2000, assistant: 800, answered: 2000, short: 200};
-
-/** How much of a turn the model is shown. An assistant turn is cut hard,
- *  because only the user's half may supply a claim, except when a short reply
- *  follows it: "yes, go with that" means nothing without the plan it answers,
- *  and on 28 September the plan was usually past the cut. */
-export function cutFor(turns, index) {
-  const turn = turns[index];
-  if (turn.role !== 'assistant') return CUT.user;
-  const next = turns[index + 1];
-  return next?.role === 'user' && String(next.content ?? '').trim().length <= CUT.short
-    ? CUT.answered : CUT.assistant;
-}
-
 /** Two messages, for the same reason the router uses two: the rules are
  *  identical on every call and everything else is a person's own words, so the
  *  boundary between them should be structural rather than a tag.
@@ -148,8 +134,7 @@ export function buildConsolidationPrompt({project = null, projects = [],
   }
   lines.push('the conversation:');
   lines.push('<conversation>');
-  turns.forEach((turn, index) =>
-    lines.push(`${turn.role}: ${String(turn.content).slice(0, cutFor(turns, index))}`));
+  turns.forEach(turn => lines.push(`${turn.role}: ${turn.content}`));
   lines.push('</conversation>');
   return {system: instructions, prompt: lines.join('\n')};
 }

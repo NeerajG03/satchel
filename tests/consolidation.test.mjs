@@ -256,3 +256,15 @@ test('a person with no projects is judged against personal memory alone', async 
   assert.deepEqual(of('memories').map(c => c.projectId), [null]);
   assert.equal(of('consolidate')[0].input.project, null);
 });
+
+test('a session too long for one call is read in pieces, none of it cut, each piece marked', async () => {
+  const big = 'a'.repeat(200_000);
+  const all = [{id: 10, role: 'user', content: big}, {id: 11, role: 'user', content: big + ' end'}];
+  const {service, consolidator, of} = fake();
+  service.documentTurns = async (id, after) => all.filter(t => after == null || t.id > after);
+  const result = await consolidateDocument(service, consolidator, document, {projects});
+  const sent = of('consolidate').map(c => c.input.turns.map(t => t.content.length));
+  assert.deepEqual(sent, [[200_000], [200_004]], 'the whole turn goes, the rest waits for its own call');
+  assert.deepEqual(of('marked').map(m => m.through), [10, 11]);
+  assert.equal(result.document, 'd1');
+});

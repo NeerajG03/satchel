@@ -6,6 +6,7 @@
 // destructive rather than merely unhelpful.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {firstChunk} from '../server/turn-chunks.mjs';
 import {buildConsolidationPrompt, validateConsolidation, createConsolidator,
   CONSOLIDATION_SCHEMA} from '../server/consolidator.mjs';
 import {worthWaiting} from '../server/model-provider.mjs';
@@ -140,17 +141,25 @@ test('a bare yes cannot source a new claim, but it can confirm an old one', () =
   assert.deepEqual(out.dropped.map(d => d.why), ['source is only agreement', 'source is only agreement']);
 });
 
-test('the plan a short reply answers is shown in full, and other assistant turns are cut', () => {
-  const plan = 'p'.repeat(1500);
+test('no turn is ever shown shorter than it was said', () => {
+  const long = 'p'.repeat(5000);
   const {prompt} = buildConsolidationPrompt({...context, turns: [
-    {role: 'user', content: 'how should the pacing work?'},
-    {role: 'assistant', content: plan},
+    {role: 'user', content: long},
+    {role: 'assistant', content: long},
     {role: 'user', content: 'yes, go with that'},
-    {role: 'assistant', content: plan},
-    {role: 'user', content: 'x'.repeat(300)},
+    {role: 'assistant', content: long},
+    {role: 'user', content: 'x'.repeat(3000)},
   ]});
-  const shown = [...prompt.matchAll(/^assistant: (p*)$/gm)].map(m => m[1].length);
-  assert.deepEqual(shown, [1500, 800], 'without the plan, "yes, go with that" refers to nothing');
+  const shown = [...prompt.matchAll(/^(?:user|assistant): ([px]*)$/gm)].map(m => m[1].length);
+  assert.deepEqual(shown, [5000, 5000, 5000, 3000]);
+});
+
+test('a session too long for one call is split between turns, and one huge turn goes whole', () => {
+  const turns = [3, 3, 3, 3].map((n, i) => ({id: i, role: 'user', content: 'a'.repeat(n)}));
+  assert.deepEqual(firstChunk(turns, 7).map(t => t.id), [0, 1]);
+  assert.deepEqual(firstChunk(turns, 100).map(t => t.id), [0, 1, 2, 3]);
+  const huge = [{id: 0, role: 'user', content: 'a'.repeat(50)}, {id: 1, role: 'user', content: 'b'}];
+  assert.deepEqual(firstChunk(huge, 10).map(t => t.id), [0], 'a turn is never cut to fit');
 });
 
 test('an invented project falls back to personal, and a real one survives', () => {
