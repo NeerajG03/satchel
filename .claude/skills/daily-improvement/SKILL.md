@@ -115,6 +115,15 @@ Finish with a short message: the numbers row, the top three gaps, the P1 TODOs, 
 
 If more work happens in the same session after the mark, such as a replay, a fix or a merge a person asked for, add it to that day's entry under "changes beyond the review" when it lands. Do not wait for the next run to find it.
 
+## The real-data eval
+
+The synthetic eval checks rules someone wrote down. `eval/consolidation-real.mjs` checks the pass against the person's own conversations, so a change is judged on what actually goes wrong. It costs model quota, so it runs when a person asks, or after a prompt or input change, never in the scheduled run.
+
+1. `node $SKILL/scripts/collect-corpus.mjs` refreshes `~/satchel-daily/real-eval/` (sessions, blind files, projects). New sessions are added; nothing is deleted.
+2. For sessions with no file in `gold/`, start blind labellers on their `blind/` files with the prompt used on 29 September: they write the memories each conversation justifies, from nothing, with keywords and a clear or arguable mark. They never see the pass's answer.
+3. `node eval/consolidation-real.mjs`, then read the claims that matched nothing. A good one the labeller missed goes into that session's gold. A bad one is a precision problem to trace.
+4. Adopt a new baseline only after reading the run. First baseline, 29 September: clear recall 45% (27 of 60), all 25%, 92% under the right project, 0 of 4 quiet sessions noisy. `main` before the whole-turn change scored 25% on the same sessions.
+
 ## Checking a change before it ships
 
 Only when a person asks for it, never in the scheduled run: it spends model quota.

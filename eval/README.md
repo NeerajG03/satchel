@@ -9,6 +9,7 @@ could not answer the question.
 | `node eval/router.mjs` | capture at scale: does a claim survive being replayed, and does it land in the right scope | the same corpus, replayed as turns |
 | `node eval/router-rigour.mjs` | capture rigour: does the router keep *only* claims | real turns, copied out of Langfuse |
 | `node eval/consolidation.mjs` | consolidation: does the pass change an existing memory set correctly | 41 cases, each carrying the memories it is judged against |
+| `node eval/consolidation-real.mjs` | consolidation on real conversations: does the pass find what a blind labeller finds | the person's own sessions, kept outside the repository |
 
 ## Retrieval evaluation
 
@@ -163,3 +164,16 @@ All three are prompt problems with a measurement attached, which is the whole po
 ### The free tier will not run this
 
 The newest Gemini models allow **20 requests a day per model** on a free key, and a full run is 26. Local runs fall back to whatever the key will still serve, which is not the model that ships, so the baseline is only worth recording on a paid key. The baseline file records the model and the thinking level next to the numbers for exactly that reason.
+
+## Consolidation on real conversations
+
+`eval/consolidation-real.mjs` reads whole conversations and the memories blind labellers wrote for them, from `SATCHEL_REAL_EVAL_DIR` (default `~/satchel-daily/real-eval`). The data is private and never committed; the baseline is kept beside it.
+
+```bash
+node .claude/skills/daily-improvement/scripts/collect-corpus.mjs   # sessions and blind files, read only
+# labellers read blind/ and write gold/gold-<n>.json (the daily-improvement skill has the prompt)
+GEMINI_API_KEY=... node eval/consolidation-real.mjs                # score, and compare with baseline.json
+GEMINI_API_KEY=... node eval/consolidation-real.mjs --update-baseline
+```
+
+Every session starts from an empty memory set, so it measures whether a memory is found at all. Found means the labeller's keywords appear in a claim, or a model call says a claim states the same thing. Both numbers print, the keyword one is the strict floor. Claims that matched nothing are listed for a person to read; they are not counted as wrong, since a labeller misses things too. A fall of more than five points in clear recall exits non-zero.
