@@ -84,7 +84,7 @@ Every review answers all of these with numbers, even when the answer is "fine":
 2. **Kinds.** Facts, preferences and intents added, and intents retired, pipeline against blind.
 3. **Actions beyond add.** Affirm, extend, replace and retire: used by the pass when the blind read used them?
 4. **Shapes it misses.** Group the real misses by shape: a rule inside a job, "do X so I can Y", setup facts, decisions about a project, intents.
-5. **What it never saw.** For each real miss, is the evidence in a turn longer than the cut (`cut_user`, `cut_assistant` in INDEX; 2000 for the user, 800 for the assistant, or 2000 when a reply of 200 characters or less follows it)? A miss past the cut is an input problem, not a judgment problem.
+5. **What it never saw.** For each real miss, is the evidence in a turn longer than the cut (`cut_user`, `cut_assistant` in INDEX; 2000 for the user, 800 for the assistant, or 2000 when a reply of 200 characters or less follows it)? A miss past the cut is an input problem, not a judgment problem. Runs after the change that sends whole turns (`server/turn-chunks.mjs`) cut nothing, and a very long session shows as several runs; the cut only applies to older runs.
 6. **Runtime.** Which prompt ran: `promptSource` and `promptVersion` in each trace's metadata in `F/langfuse.json`. `local` means production read the file, so a prompt edit ships with the merge, not with `scripts/push-prompt.mjs`. From `F/langfuse.json`: models used, thinking level, calls that waited, errors, reasoning tokens against output, cost, the slowest calls.
 7. **Failures.** Failed, skipped and rejected changes, with the reasons.
 8. **Quality of what landed.** Wrong, vague, too narrow, stale-prone, or a duplicate of an existing memory.
