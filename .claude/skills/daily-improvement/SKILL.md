@@ -15,6 +15,7 @@ It reads production and Langfuse, writes a report to a private folder on this ma
 - **No evals.** A consolidation eval costs model quota the nightly run needs. Name the eval case a TODO should add; do not run it.
 - **Secrets stay in `~/.config/env`.** The scripts read `SB_TOKEN` and the `LANGFUSE_*` keys from there. Never print them, never paste them.
 - **Conversations stay in the folder.** The collected turns are the person's words. The report quotes at most a few words at a time, and the final chat message quotes nothing longer than a short phrase.
+- **Every run leaves an entry in the log.** `~/satchel-daily/log.md` gets one entry per run, even when nothing ran, in the shape in [references/log.md](references/log.md). Anything done beyond the report, such as a replay, an eval, a commit, a PR or a removed file, goes in that entry with its hash or link. `collect.mjs --mark` refuses a folder the log does not name.
 - **Do not touch the shared checkout** at `/Volumes/Casesensitive/Github/satchel`: another session may be on another branch there. Read code from `origin/main` (see Setup).
 
 ## Setup
@@ -35,6 +36,8 @@ Read code under `$WORK` from here on. `git -C $REPO log origin/main` is how you 
 
 ### 1. Collect
 
+Read the end of `~/satchel-daily/log.md` first: what the last runs did, what changed since, and the last entry's "watch next", which this review has to answer.
+
 ```bash
 node $SKILL/scripts/collect.mjs
 ```
@@ -51,7 +54,7 @@ It picks up where the last review stopped (`~/satchel-daily/state.json`), or the
 | `F/pipeline/<name>.md` | what the pass did: what landed, the job's report entry, the Langfuse trace, the raw answer |
 | `F/pipeline/<name>.prompt.txt` | the exact prompt the model was sent |
 
-If it says nothing ran, write a three-line report (the window, the sessions waiting now that it prints, and "no run to review"), mark it (step 8) and stop. A second review on the same day always lands here, because the first one marked the window.
+If it says nothing ran, write a three-line report (the window, the sessions waiting now that it prints, and "no run to review"), add the log entry and mark it (step 8), and stop. A second review on the same day always lands here, because the first one marked the window.
 
 ### 2. Start the blind reads
 
@@ -102,13 +105,15 @@ Then add new ones. Every TODO has: priority (P1 is what would make the pass lear
 
 ### 8. Report and mark
 
-Write `F/report.md` in the shape in [references/report.md](references/report.md), then record the window as reviewed:
+Write `F/report.md` in the shape in [references/report.md](references/report.md). Then append this run's entry to `~/satchel-daily/log.md` in the shape in [references/log.md](references/log.md): the window, the numbers, the TODOs that moved, and every change beyond the review. Read the last few entries while you are there. They are the quickest way to see what the previous days did, and what someone changed between reviews. Answer the last entry's "watch next" in this report, and write a new one. Then record the window as reviewed:
 
 ```bash
 node $SKILL/scripts/collect.mjs --mark F
 ```
 
 Finish with a short message: the numbers row, the top three gaps, the P1 TODOs, and the path to the report. Clean up `$WORK`.
+
+If more work happens in the same session after the mark, such as a replay, a fix or a merge a person asked for, add it to that day's entry under "changes beyond the review" when it lands. Do not wait for the next run to find it.
 
 ## Checking a change before it ships
 
@@ -118,7 +123,7 @@ Only when a person asks for it, never in the scheduled run: it spends model quot
 node $SKILL/scripts/replay.mjs F --new <checkout with the change> [--old origin/main] [--only <document ids>]
 ```
 
-It runs every session in `F`'s window through both versions' own `consolidateDocument`, with the database read as it stood at each run and every write recorded instead of sent. Results go to `F/replay/`. Things 25 September taught:
+It runs every session in `F`'s window through both versions' own `consolidateDocument`, with the database read as it stood at each run and every write recorded instead of sent. Results go to `F/replay/`. Log the result row in that day's entry, along with any eval run, commit or PR that follows. Things 25 September taught:
 
 - **One sample per side is noise.** The same session gave 1 change on one replay and 0 on the next. A difference of one or two changes across a night means nothing; a new column going from 0 to 2 or more is a signal.
 - **A call that fails is not a zero.** The model sometimes answers nothing, or the network resets. Rerun only those with `--only` before counting.
