@@ -124,6 +124,18 @@ The synthetic eval checks rules someone wrote down. `eval/consolidation-real.mjs
 3. `node eval/consolidation-real.mjs`, then read the claims that matched nothing. A good one the labeller missed goes into that session's gold. A bad one is a precision problem to trace.
 4. Adopt a new baseline only after reading the run. First baseline, 29 September: clear recall 45% (27 of 60), all 25%, 92% under the right project, 0 of 4 quiet sessions noisy. `main` before the whole-turn change scored 25% on the same sessions.
 
+### Evals cost money, so do not be wasteful
+
+Every eval call is a paid model call, and the real-data eval makes about 50 per pass over the sessions plus a judge call for each session that needs one. Neeraj asked for this rule on 29 September, after a session that ran more than it needed to.
+
+- Start with the smallest slice that can answer the question: `--only <category>` or `--only <session ids>`. Run the full suite once per change, after the slice looks right.
+- Repeat (`--repeat`) only the cases that changed between runs, and stop at 3 unless a number is right on the edge. One sample is noise, but five samples of a case that is clearly fine is waste.
+- Do not run `main` again for a comparison you already have. Keep the last numbers in the log and compare against them, and re-run the old side only when the input data or the model changed.
+- Do not run the synthetic and real-data suites together for a change that can only move one of them. A prompt change moves both; a scoring or corpus change moves only the real one.
+- Label and audit each session once. New sessions only; never re-label the corpus to get a different number.
+- Say before a full run what it will cost in calls (sessions x repeats, plus the judge), and skip it if a slice already answers.
+- Never leave a wait loop or a watcher running after its job finished.
+
 ## Checking a change before it ships
 
 Only when a person asks for it, never in the scheduled run: it spends model quota.
