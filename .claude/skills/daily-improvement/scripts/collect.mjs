@@ -18,13 +18,14 @@
 // The folder holds conversations, so it is created private and stays on this
 // machine. Nothing here is committed.
 import {mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync} from 'node:fs';
-import {join} from 'node:path';
+import {join, basename, resolve} from 'node:path';
 import {sql, lit} from './db.mjs';
 import {observations, summarize} from './langfuse.mjs';
 
 const HOME = process.env.HOME;
 const ROOT = process.env.SATCHEL_DAILY_DIR ?? join(HOME, 'satchel-daily');
 const STATE = join(ROOT, 'state.json');
+const LOG = join(ROOT, 'log.md');
 // The consolidator cuts each turn before the model sees it
 // (server/consolidator.mjs, the slice in the turn formatter). Counted here so
 // the review can tell a miss the model made from one it was never shown.
@@ -48,6 +49,12 @@ const readJson = (path, fallback) => { try { return JSON.parse(readFileSync(path
 if (flag('--mark')) {
   const window = readJson(join(flag('--mark'), 'window.json'), null);
   if (!window) throw new Error('no window.json in that folder');
+  // Every run leaves a line in the log before it is marked, so a day with no
+  // entry is a day the review did not finish (references/log.md).
+  const name = basename(resolve(flag('--mark')));
+  const log = existsSync(LOG) ? readFileSync(LOG, 'utf8') : '';
+  if (!new RegExp(`^## \\S+ · ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm').test(log))
+    throw new Error(`${LOG} has no entry for ${name}. Append one in the shape in references/log.md, then mark again.`);
   writeFileSync(STATE, JSON.stringify({until: window.until, folder: flag('--mark')}, null, 1));
   console.log(`reviewed through ${window.until}`);
   process.exit(0);
