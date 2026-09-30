@@ -1,6 +1,6 @@
 # The blind read prompt
 
-Fill in `{folder}`, `{files}` and `{out}`, then give it to a background agent with `subagent_type: general-purpose` and `model: sonnet`. One agent per batch in `blind/INDEX.json`, all started in one message.
+`collect.mjs` fills in `{folder}`, `{files}` and `{out}` from the text below the line and writes one prompt per batch to `F/blind/prompt-<n>.txt`. Start one background agent per batch (`subagent_type: general-purpose`, `model: sonnet`, all in one message) that reads its file and does what it says.
 
 The point is an independent answer to the question the pass answers, from a reader who has never seen the pass's prompt, its output or the codebase. So the prompt below does not mention Satchel's rules, and the agent is told to read nothing but its files.
 

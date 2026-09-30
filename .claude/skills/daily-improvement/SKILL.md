@@ -50,7 +50,8 @@ It picks up where the last review stopped (`~/satchel-daily/state.json`), or the
 | `F/stats.json` | each job's totals; live memories by scope, kind and band; changes in the window; documents in the window by scope; sessions waiting now |
 | `F/langfuse.json` | per run trace: model, thinking, waited, tokens, cost, latency, level and status |
 | `F/blind/<name>.md` | what the pass was given: projects, memories in scope then, the new turns in full |
-| `F/blind/INDEX.json` | per session turns, characters, turns longer than the consolidator's cut, and the batches |
+| `F/blind/INDEX.json` | per session turns, characters, and the batches (the cut counts only matter for runs before 29 September) |
+| `F/blind/prompt-<n>.txt` | the ready blind-read prompt for batch n, with its files and its answer path filled in |
 | `F/pipeline/<name>.md` | what the pass did: what landed, the job's report entry, the Langfuse trace, the raw answer |
 | `F/pipeline/<name>.prompt.txt` | the exact prompt the model was sent |
 
@@ -58,7 +59,7 @@ If it says nothing ran, write a three-line report (the window, the sessions wait
 
 ### 2. Start the blind reads
 
-For each batch in `F/blind/INDEX.json`, start a background agent with the prompt in [references/blind-read.md](references/blind-read.md): `subagent_type: general-purpose`, `model: sonnet`, all batches in one message. Output goes to `F/blind/out-<n>.json`. The blind readers see `F/blind/` and nothing else; never point them at `pipeline/`, the repository or the database.
+For each batch in `F/blind/INDEX.json`, start a background agent: `subagent_type: general-purpose`, `model: sonnet`, all batches in one message, with the one-line prompt `Read /<F>/blind/prompt-<n>.txt and do exactly what it says.` The prompt files are written by `collect.mjs` from [references/blind-read.md](references/blind-read.md), and each answer goes to `F/blind/out-<n>.json`. The blind readers see `F/blind/` and nothing else; never point them at `pipeline/`, the repository or the database.
 
 ### 3. Read the pipeline while they run
 
@@ -68,7 +69,13 @@ Then check that the two sides were given the same facts. The blind file lists ev
 
 ### 4. Compare
 
-When every blind agent is back, go session by session and sort every change into:
+When every blind agent is back, run the counting first:
+
+```bash
+node $SKILL/scripts/compare.mjs F
+```
+
+It prints and writes `F/numbers.md`: changes, sessions with any, empty answers, project-scoped and from unlinked sessions, kinds and actions, rejected claims, the runtime table, and a check that the blind side was shown the same memories as the pass (a WARNING there means "both" cannot be trusted). Copy its numbers into the report and answer the warning first. Then go session by session and sort every change into:
 
 - **both**: the same claim, action and scope, near enough. Note a scope or kind mismatch.
 - **pipeline only**: judge it good, noisy, wrong or stale-prone.
@@ -84,7 +91,7 @@ Every review answers all of these with numbers, even when the answer is "fine":
 2. **Kinds.** Facts, preferences and intents added, and intents retired, pipeline against blind.
 3. **Actions beyond add.** Affirm, extend, replace and retire: used by the pass when the blind read used them?
 4. **Shapes it misses.** Group the real misses by shape: a rule inside a job, "do X so I can Y", setup facts, decisions about a project, intents.
-5. **What it never saw.** For each real miss, is the evidence in a turn longer than the cut (`cut_user`, `cut_assistant` in INDEX; 2000 for the user, 800 for the assistant, or 2000 when a reply of 200 characters or less follows it)? A miss past the cut is an input problem, not a judgment problem. Runs after the change that sends whole turns (`server/turn-chunks.mjs`) cut nothing, and a very long session shows as several runs; the cut only applies to older runs.
+5. **What it never saw.** Since 29 September no turn is cut (`server/turn-chunks.mjs`), and a session over 240,000 characters is read in pieces, so it shows as several runs. Check `characters` and `turns` in the trace against the session. Only runs before that change can have a miss that is an input problem (`cut_user`, `cut_assistant` in INDEX).
 6. **Runtime.** Which prompt ran: `promptSource` and `promptVersion` in each trace's metadata in `F/langfuse.json`. `local` means production read the file, so a prompt edit ships with the merge, not with `scripts/push-prompt.mjs`. From `F/langfuse.json`: models used, thinking level, calls that waited, errors, reasoning tokens against output, cost, the slowest calls.
 7. **Failures.** Failed, skipped and rejected changes, with the reasons.
 8. **Quality of what landed.** Wrong, vague, too narrow, stale-prone, or a duplicate of an existing memory.

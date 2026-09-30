@@ -18,7 +18,8 @@
 // The folder holds conversations, so it is created private and stays on this
 // machine. Nothing here is committed.
 import {mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync} from 'node:fs';
-import {join, basename, resolve} from 'node:path';
+import {join, basename, resolve, dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {sql, lit, runStart} from './db.mjs';
 import {observations, summarize} from './langfuse.mjs';
 
@@ -237,6 +238,15 @@ for (const s of readable) {
   else batches.push({files: [`${s.name}.md`], chars: s.chars});
 }
 write('blind/INDEX.json', JSON.stringify({sessions: index, batches}, null, 1));
+
+// One ready prompt per batch, from references/blind-read.md, so starting a
+// blind reader is one line: "read and follow <file>". Inside blind/ on purpose,
+// the only folder they are allowed to read.
+const template = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../references/blind-read.md'), 'utf8')
+  .split('\n---\n').slice(1).join('\n---\n').trim();
+batches.forEach((batch, i) => write(`blind/prompt-${i + 1}.txt`, template
+  .replaceAll('{folder}', join(out, 'blind')).replaceAll('{files}', batch.files.join(', '))
+  .replaceAll('{out}', join(out, 'blind', `out-${i + 1}.json`))));
 
 // The shape of the whole set, now and in this window.
 const stats = {};
