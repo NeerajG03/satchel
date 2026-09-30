@@ -143,7 +143,15 @@ export function buildConsolidationPrompt({project = null, projects = [],
  *  punctuation or spacing. Deliberately narrow, same as the router's. */
 const normalize = text => String(text ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
-const AGREEMENT = /^\W*(yes|yeah|yep|ok|okay|sure|good|great|fine|correct|right|exactly|agreed|lgtm|sounds good|go ahead|do it|go with (that|it|this)|that one|all good|good as is)[\s\W]*$/i;
+// A label like "C4" after the yes names the assistant's option, not a choice of their own.
+const AGREEMENT = /^\W*(yes|yeah|yep|ok|okay|sure|good|great|fine|correct|right|exactly|agreed|lgtm|sounds good|go ahead|do it|go with (that|it|this)|that one|all good|good as is)(\s+(for|on)\s+[a-z]\d{1,2})?[\s\W]*$/i;
+
+/** A quote the model stitched from two places with "..." is checked a piece at
+ *  a time. Only the start of each piece has to match, same as a whole quote. */
+const quoted = (haystack, source) => {
+  const pieces = source.toLowerCase().split(/\.{3}|…/).map(p => p.trim()).filter(Boolean);
+  return pieces.length > 0 && pieces.every(piece => haystack.includes(piece.slice(0, 60)));
+};
 
 /** A date the user gave, or nothing.
  *
@@ -191,7 +199,7 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
     // said, or an intent can be ended by a model's opinion that it looks
     // finished.
     if (!source) { drop('no source'); continue; }
-    if (!haystack.includes(source.toLowerCase().slice(0, 60))) { drop('source is not in the conversation'); continue; }
+    if (!quoted(haystack, source)) { drop('source is not in the conversation'); continue; }
     // "yes" is in almost every conversation, so it passes the check above
     // while carrying nothing: a claim sourced from it is the assistant's.
     // A retire or an affirm is a yes to something already remembered.

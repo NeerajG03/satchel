@@ -141,6 +141,55 @@ test('a bare yes cannot source a new claim, but it can confirm an old one', () =
   assert.deepEqual(out.dropped.map(d => d.why), ['source is only agreement', 'source is only agreement']);
 });
 
+test('a yes with only an option label after it is still a bare yes', () => {
+  const picked = {...context, turns: [
+    {role: 'assistant', content: 'C4: the daily cap counts every send. Agree?'},
+    {role: 'user', content: 'yes for C4'},
+  ]};
+  const out = validateConsolidation({changes: [
+    change({source: 'yes for C4', statement: 'The daily cap counts every send.'}),
+    change({action: 'extend', target: 3, statement: 'Deploys go out on Tuesday mornings, and the cap counts every send.', source: 'Yes for c4'}),
+  ]}, picked);
+  assert.deepEqual(out.changes, []);
+  assert.deepEqual(out.dropped.map(d => d.why), ['source is only agreement', 'source is only agreement']);
+});
+
+test('a yes that names what they chose is kept', () => {
+  // The narrow rule above must not eat a pick: "yes for option A" and
+  // "let's go with option A" say which one, and that is the decision.
+  const picked = {...context, turns: [
+    {role: 'user', content: 'yes for option A, one worker per account'},
+    {role: 'user', content: "let's go with option A"},
+  ]};
+  const out = validateConsolidation({changes: [
+    change({source: 'yes for option A, one worker per account', statement: 'One worker per account writes the balance.'}),
+    change({source: "let's go with option A", statement: 'The ledger uses one worker per account.'}),
+  ]}, picked);
+  assert.equal(out.changes.length, 2);
+});
+
+test('a quote stitched from two turns with an ellipsis is checked piece by piece', () => {
+  // Seen on 29 September: the model joined two things the user said with "..."
+  // and the whole claim was dropped as "not in the conversation".
+  const two = {...context, turns: [
+    {role: 'user', content: 'log based pattern matching does not seem right, do you agree?'},
+    {role: 'assistant', content: 'Agreed, metrics are better. Should I write the ticket?'},
+    {role: 'user', content: 'yes write the ticket, the alerts from the app should go out as otel metrics'},
+  ]};
+  const out = validateConsolidation({changes: [
+    change({source: 'log based pattern matching does not seem right ... the alerts from the app should go out as otel metrics',
+      statement: 'App alerts go out as OTel metrics, not log patterns.', kind: 'preference'}),
+    change({source: 'log based pattern matching does not seem right … the assistant said something else entirely',
+      statement: 'A claim built on a piece nobody typed.'}),
+    change({source: 'the alerts from the app should go out as otel ...', statement: 'A quote that just trails off.'}),
+    change({source: '...', statement: 'A source of nothing but dots.'}),
+  ]}, two);
+  assert.deepEqual(out.changes.map(c => c.statement),
+    ['App alerts go out as OTel metrics, not log patterns.', 'A quote that just trails off.']);
+  assert.deepEqual(out.dropped.map(d => d.why), ['source is not in the conversation', 'source is not in the conversation'],
+    'one piece that was never said still sinks the claim');
+});
+
 test('no turn is ever shown shorter than it was said', () => {
   const long = 'p'.repeat(5000);
   const {prompt} = buildConsolidationPrompt({...context, turns: [
