@@ -31,3 +31,12 @@ export async function sql(query) {
 /** Quote a value for a literal. Only ever used on ids and timestamps that came
  *  out of the database or were checked as dates. */
 export const lit = value => value === null || value === undefined ? 'null' : `'${String(value).replace(/'/g, "''")}'`;
+
+/** When a run began. Its row is written when it ends, after its own adds exist,
+ *  so the memory set the pass saw is the set as of this moment. Without a
+ *  duration the start is unknown and the set would include the run's own adds,
+ *  so say so rather than guess. */
+export function runStart(run) {
+  if (run.duration_ms == null) console.warn(`run ${String(run.id).slice(0, 8)} has no duration_ms: its memory set may include its own adds`);
+  return new Date(new Date(run.created_at).getTime() - (run.duration_ms ?? 0)).toISOString();
+}

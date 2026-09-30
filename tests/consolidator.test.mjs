@@ -148,7 +148,7 @@ test('a yes with only an option label after it is still a bare yes', () => {
   ]};
   const out = validateConsolidation({changes: [
     change({source: 'yes for C4', statement: 'The daily cap counts every send.'}),
-    change({action: 'extend', target: 3, statement: 'Deploys go out on Tuesday mornings, and the cap counts every send.', source: 'Yes for c4'}),
+    change({action: 'extend', target: 3, statement: 'Deploys go out on Tuesday mornings, and the cap counts every send.', source: 'Yes for C4'}),
   ]}, picked);
   assert.deepEqual(out.changes, []);
   assert.deepEqual(out.dropped.map(d => d.why), ['source is only agreement', 'source is only agreement']);
@@ -160,12 +160,14 @@ test('a yes that names what they chose is kept', () => {
   const picked = {...context, turns: [
     {role: 'user', content: 'yes for option A, one worker per account'},
     {role: 'user', content: "let's go with option A"},
+    {role: 'user', content: 'yes for v2, keep the ledger schema'},
   ]};
   const out = validateConsolidation({changes: [
     change({source: 'yes for option A, one worker per account', statement: 'One worker per account writes the balance.'}),
     change({source: "let's go with option A", statement: 'The ledger uses one worker per account.'}),
+    change({source: 'yes for v2, keep the ledger schema', statement: 'The ledger keeps its schema for v2.'}),
   ]}, picked);
-  assert.equal(out.changes.length, 2);
+  assert.equal(out.changes.length, 3);
 });
 
 test('a quote stitched from two turns with an ellipsis is checked piece by piece', () => {
@@ -183,10 +185,11 @@ test('a quote stitched from two turns with an ellipsis is checked piece by piece
       statement: 'A claim built on a piece nobody typed.'}),
     change({source: 'the alerts from the app should go out as otel ...', statement: 'A quote that just trails off.'}),
     change({source: '...', statement: 'A source of nothing but dots.'}),
+    change({source: 'yes ... and', statement: 'Two scraps that appear anywhere.'}),
   ]}, two);
   assert.deepEqual(out.changes.map(c => c.statement),
     ['App alerts go out as OTel metrics, not log patterns.', 'A quote that just trails off.']);
-  assert.deepEqual(out.dropped.map(d => d.why), ['source is not in the conversation', 'source is not in the conversation'],
+  assert.deepEqual(out.dropped.map(d => d.why), Array(3).fill('source is not in the conversation'),
     'one piece that was never said still sinks the claim');
 });
 

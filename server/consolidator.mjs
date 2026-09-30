@@ -143,13 +143,19 @@ export function buildConsolidationPrompt({project = null, projects = [],
  *  punctuation or spacing. Deliberately narrow, same as the router's. */
 const normalize = text => String(text ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
-// A label like "C4" after the yes names the assistant's option, not a choice of their own.
-const AGREEMENT = /^\W*(yes|yeah|yep|ok|okay|sure|good|great|fine|correct|right|exactly|agreed|lgtm|sounds good|go ahead|do it|go with (that|it|this)|that one|all good|good as is)(\s+(for|on)\s+[a-z]\d{1,2})?[\s\W]*$/i;
+const AGREEMENT = /^\W*(yes|yeah|yep|ok|okay|sure|good|great|fine|correct|right|exactly|agreed|lgtm|sounds good|go ahead|do it|go with (that|it|this)|that one|all good|good as is)[\s\W]*$/i;
+
+/** A yes is still a bare yes when only the assistant's option label follows it,
+ *  as in "yes for C4". The label has to be capitals, so "yes for v2" is kept. */
+const agreed = source => AGREEMENT.test(source.replace(/\s+(for|on)\s+[A-Z]\d{1,2}[\s\W]*$/, ''));
 
 /** A quote the model stitched from two places with "..." is checked a piece at
- *  a time. Only the start of each piece has to match, same as a whole quote. */
+ *  a time, and only the start of each piece has to match, same as a whole
+ *  quote. One piece has to be long enough to mean something, or "yes ... and"
+ *  would match anywhere. */
 const quoted = (haystack, source) => {
   const pieces = source.toLowerCase().split(/\.{3}|…/).map(p => p.trim()).filter(Boolean);
+  if (pieces.length > 1 && Math.max(...pieces.map(p => p.length)) < 12) return false;
   return pieces.length > 0 && pieces.every(piece => haystack.includes(piece.slice(0, 60)));
 };
 
@@ -203,7 +209,7 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
     // "yes" is in almost every conversation, so it passes the check above
     // while carrying nothing: a claim sourced from it is the assistant's.
     // A retire or an affirm is a yes to something already remembered.
-    if (action !== 'retire' && action !== 'affirm' && AGREEMENT.test(source)) { drop('source is only agreement'); continue; }
+    if (action !== 'retire' && action !== 'affirm' && agreed(source)) { drop('source is only agreement'); continue; }
     // A retire and an affirm change no wording, so neither carries one.
     if (action !== 'retire' && action !== 'affirm') {
       if (!statement || statement.length > 500) { drop('statement missing or too long'); continue; }

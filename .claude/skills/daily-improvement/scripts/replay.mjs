@@ -15,7 +15,7 @@ import {readFileSync, writeFileSync, mkdirSync, symlinkSync, rmSync, mkdtempSync
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {execSync} from 'node:child_process';
-import {sql, lit} from './db.mjs';
+import {sql, lit, runStart} from './db.mjs';
 
 const args = process.argv.slice(2);
 const flag = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
@@ -66,9 +66,7 @@ async function projects(owner) {
 function serviceAt(run, list, writes) {
   const slugOf = Object.fromEntries(list.map(p => [p.id, p.slug]));
   const scopeOf = {};
-  // The run row is written when the run ends, so its own adds already exist
-  // at created_at. The set the pass saw is the set as of when it began.
-  const at = new Date(new Date(run.created_at).getTime() - (run.duration_ms ?? 0)).toISOString();
+  const at = runStart(run);
   return {
     documentTurns: (id, after) => sql(`select id, role, content, created_at from public.document_turns
       where document_id = ${lit(id)} and id > ${Number(after ?? 0)} and id <= ${Number(run.through)} order by id`),

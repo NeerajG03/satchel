@@ -19,7 +19,7 @@
 // machine. Nothing here is committed.
 import {mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync} from 'node:fs';
 import {join, basename, resolve} from 'node:path';
-import {sql, lit} from './db.mjs';
+import {sql, lit, runStart} from './db.mjs';
 import {observations, summarize} from './langfuse.mjs';
 
 const HOME = process.env.HOME;
@@ -197,7 +197,7 @@ const index = (await pool(runs, 4, async run => {
     where document_id = ${lit(run.document_id)} and id > ${Number(after)} and id <= ${Number(run.through)} order by id`);
   // The row is written when the run ends, after its own adds exist, so the set
   // is read as of the moment the run began.
-  const memories = await setAt(run.owner_id, new Date(new Date(run.created_at).getTime() - (run.duration_ms ?? 0)).toISOString());
+  const memories = await setAt(run.owner_id, runStart(run));
   // The same set the pass was shown: a session with no project sees every
   // project's memories (memoriesAcross in server/consolidation.mjs).
   const inScope = run.project_id

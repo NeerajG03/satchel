@@ -36,7 +36,7 @@ A memory marked with commits since it was confirmed is a reason to look, not to 
 
 ## Short choices and design decisions
 
-When the assistant offered ways to build something and they pick one ("let's go with option A"), the choice is a fact about the project even though the words are short: state the option they picked, with their words as the source. An instruction that states a lasting arrangement, like "it should deploy through the shared pipeline like every other codebase", says where deploys live and is more than a task. A design still being worked out is not settled until they say it is, but a limit or rule they state plainly inside it ("a plan over capacity gets a warning, not a block") is theirs. So is a goal they call the standing one ("a system that does not block us later is always the goal"). None of this applies to a claim they are arguing against.
+When the assistant offered ways to build something and they pick one ("let's go with option A"), the choice is a fact about the project even though the words are short: state the option they picked, with their words as the source. An instruction that states a lasting arrangement, like "it should deploy through the shared pipeline like every other codebase", says where deploys live and is more than a task. A design still being worked out is not settled until they say it is, but a limit or rule they state plainly inside it ("a plan over capacity gets a warning, not a block") is theirs. So is a goal they call the standing one ("whatever we build now must not box us in later, that is the point"). None of this applies to a claim they are arguing against.
 
 ## Writing each change
 
