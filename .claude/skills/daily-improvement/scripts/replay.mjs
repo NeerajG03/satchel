@@ -49,7 +49,7 @@ for (const [name, dir] of [['old', OLD], ['new', NEW]]) {
     promptResolver: async () => ({text, source: 'local', version: name})})};
 }
 
-const runs = (await sql(`select r.id, r.owner_id, r.document_id, r.through, r.created_at, d.project_id, d.session_key, d.turns
+const runs = (await sql(`select r.id, r.owner_id, r.document_id, r.through, r.created_at, r.duration_ms, d.project_id, d.session_key, d.turns
   from public.consolidation_runs r join public.documents d on d.id = r.document_id
   where r.created_at >= ${lit(since)} and r.created_at < ${lit(until)} and r.error is null and r.through is not null
   order by r.created_at`)).filter(r => !ONLY || ONLY.includes(String(r.document_id).slice(0, 8)));
@@ -66,16 +66,19 @@ async function projects(owner) {
 function serviceAt(run, list, writes) {
   const slugOf = Object.fromEntries(list.map(p => [p.id, p.slug]));
   const scopeOf = {};
+  // The run row is written when the run ends, so its own adds already exist
+  // at created_at. The set the pass saw is the set as of when it began.
+  const at = new Date(new Date(run.created_at).getTime() - (run.duration_ms ?? 0)).toISOString();
   return {
     documentTurns: (id, after) => sql(`select id, role, content, created_at from public.document_turns
       where document_id = ${lit(id)} and id > ${Number(after ?? 0)} and id <= ${Number(run.through)} order by id`),
     memoriesInScope: async (projectId, limit = 60) => (await sql(`select m.id, m.project_id, m.kind, m.mentions, m.revision,
         m.affirmed_at, m.updated_at,
         coalesce((select e.before from public.memory_events e where e.memory_id = m.id
-          and e.created_at >= ${lit(run.created_at)} and e.before is not null order by e.created_at limit 1), m.statement) statement
-      from public.memories m where m.owner_id = ${lit(run.owner_id)} and m.created_at < ${lit(run.created_at)}
-        and (m.ended_at is null or m.ended_at >= ${lit(run.created_at)})
-        and (m.expires_at is null or m.expires_at > ${lit(run.created_at)})
+          and e.created_at >= ${lit(at)} and e.before is not null order by e.created_at limit 1), m.statement) statement
+      from public.memories m where m.owner_id = ${lit(run.owner_id)} and m.created_at < ${lit(at)}
+        and (m.ended_at is null or m.ended_at >= ${lit(at)})
+        and (m.expires_at is null or m.expires_at > ${lit(at)})
         and (m.project_id is null or m.project_id = ${lit(projectId)})
       order by m.project_id nulls first, m.updated_at desc limit ${Number(limit)}`))
       .map(m => (scopeOf[m.id] = m.project_id ? slugOf[m.project_id] : null,

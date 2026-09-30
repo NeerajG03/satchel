@@ -195,7 +195,9 @@ const index = (await pool(runs, 4, async run => {
   const after = prev?.m ?? 0;
   const turns = await sql(`select id, role, content, created_at from public.document_turns
     where document_id = ${lit(run.document_id)} and id > ${Number(after)} and id <= ${Number(run.through)} order by id`);
-  const memories = await setAt(run.owner_id, run.created_at);
+  // The row is written when the run ends, after its own adds exist, so the set
+  // is read as of the moment the run began.
+  const memories = await setAt(run.owner_id, new Date(new Date(run.created_at).getTime() - (run.duration_ms ?? 0)).toISOString());
   // The same set the pass was shown: a session with no project sees every
   // project's memories (memoriesAcross in server/consolidation.mjs).
   const inScope = run.project_id
