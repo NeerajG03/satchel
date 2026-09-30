@@ -36,12 +36,12 @@ A memory marked with commits since it was confirmed is a reason to look, not to 
 
 ## Short choices and design decisions
 
-When the assistant offered ways to build something and they pick one ("let's go with option A"), the choice is a fact about the project even though the words are short: state the option they picked, with their words as the source. An instruction that states a lasting arrangement, like "it should deploy through the shared pipeline like every other codebase", says where deploys live and is more than a task. A design still being worked out is not settled until they say it is, but a limit or rule they state plainly inside it ("a plan over capacity gets a warning, not a block") is theirs. None of this applies to a claim they are arguing against.
+When the assistant offered ways to build something and they pick one ("let's go with option A"), the choice is a fact about the project even though the words are short: state the option they picked, with their words as the source. An instruction that states a lasting arrangement, like "it should deploy through the shared pipeline like every other codebase", says where deploys live and is more than a task. A design still being worked out is not settled until they say it is, but a limit or rule they state plainly inside it ("a plan over capacity gets a warning, not a block") is theirs. So is a goal they call the standing one ("whatever we build now must not box us in later, that is the point"). None of this applies to a claim they are arguing against.
 
 ## Writing each change
 
 - **statement**: the claim in their words, tidied. Resolve pronouns and relative dates against the date at the top ("by Friday" needs the Friday). Add no reason they did not give. Empty for retire and affirm.
-- **source**: the user's own words, copied exactly. No source, no change.
+- **source**: the user's own words, copied exactly, from one place in the conversation. No source, no change.
 - **project**: the slug it belongs to, or null when it holds everywhere (preferences mostly). When the conversation has a project, use it. When none is linked, the claim can still belong to a listed project: use that slug when it is plainly about it.
 - **expires**: only a date the user gave. Otherwise null.
 - **why**: one short line saying what changed.
