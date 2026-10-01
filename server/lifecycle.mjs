@@ -246,6 +246,7 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // later has no workspace and no git remote to resolve it from, so if
         // the end of the turn does not say which project this was, nothing
         // ever will.
+        let repositoryNote = '';
         const scope = project !== undefined ? {project} : await resolveScope(service, {sessionKey, repository});
         // How far the repository has come, recorded here and nowhere else.
         // Every hook could report it, but the per-prompt one has a five
@@ -264,7 +265,8 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // Only when nothing scoped the session. A linked project already says
         // more than the codebase does. Never allowed to fail the capture.
         if (repository && !scope.project)
-          try { await service.noteRepository?.(sessionKey, repository); } catch { /* the pass reads without it */ }
+          try { await service.noteRepository?.(sessionKey, repository); }
+          catch (error) { repositoryNote = errorText(error); setInput({repositoryNote}); }
         // Without a router there is nothing to classify. The document is still
         // written above, because raw material is worth keeping whether or not
         // anything reads it today.
@@ -287,7 +289,7 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // The turn being classified is the only thing that may supply a source.
         // Everything before it is there to understand it.
         const earlier = ordered.slice(0, start);
-        setInput({turn, contextMessages: earlier.length});
+        setInput({turn, contextMessages: earlier.length, ...(repositoryNote && {repositoryNote})});
         const [projects, saved] = await Promise.all([
           service.projects(), service.capturedThisSession?.(sessionKey) ?? []]);
         const active = projects.find(p => p.id === scope.project) ?? null;

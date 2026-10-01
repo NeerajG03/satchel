@@ -29,7 +29,8 @@ begin
   if caller is null then raise exception 'Authentication required' using errcode = '42501'; end if;
   if length(repo) > 201 or repo !~ '^[a-z0-9_.-]+/[a-z0-9_.-]+$' then return; end if;
   update public.documents set repository = repo
-    where owner_id = caller and session_key = p_session_key;
+    where owner_id = caller and session_key = p_session_key
+      and repository is distinct from repo;
 end;
 $$;
 
