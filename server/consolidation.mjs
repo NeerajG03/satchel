@@ -120,6 +120,7 @@ export async function consolidateDocument(service, consolidator, document,
           project: project ? {slug: project.slug, brief: project.brief} : null,
           projects: projects.filter(p => p.id !== document.project_id).map(p => ({slug: p.slug, brief: p.brief,
             repositories: (p.project_repositories ?? []).map(r => r.repository)})),
+          codebase: project ? null : document.repository ?? null,
           memories, turns, cap, churn,
         }, {deadline});
       } catch (error) {

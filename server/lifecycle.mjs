@@ -261,6 +261,10 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // and exists only to note the scope, which is the one thing the end of
         // a turn always knows.
         await service.recordTurn(sessionKey, 'assistant', assistant, settings.capture_window * 2, scope.project ?? null);
+        // Only when nothing scoped the session. A linked project already says
+        // more than the codebase does. Never allowed to fail the capture.
+        if (repository && !scope.project)
+          try { await service.noteRepository?.(sessionKey, repository); } catch { /* the pass reads without it */ }
         // Without a router there is nothing to classify. The document is still
         // written above, because raw material is worth keeping whether or not
         // anything reads it today.

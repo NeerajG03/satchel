@@ -268,3 +268,12 @@ test('a session too long for one call is read in pieces, none of it cut, each pi
   assert.deepEqual(of('marked').map(m => m.through), [10, 11]);
   assert.equal(result.document, 'd1');
 });
+
+test('the codebase goes to the pass only when no project was chosen', async () => {
+  for (const [doc, want] of [[{...document, project_id: null, repository: 'acme/ledger'}, 'acme/ledger'],
+    [{...document, repository: 'acme/ledger'}, null], [{...document, project_id: null}, null]]) {
+    const {service, consolidator, of} = fake();
+    await consolidateDocument(service, consolidator, doc, {projects});
+    assert.equal(of('consolidate')[0].input.codebase, want);
+  }
+});

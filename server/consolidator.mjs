@@ -61,7 +61,7 @@ export const INSTRUCTIONS = localTextFor(CONSOLIDATE_PROMPT);
  *  Both roles of the conversation go in. The assistant's half is what makes
  *  "yes, do that one" readable at all. Only the user's half may supply a
  *  source, and validate() is where that is enforced rather than here. */
-export function buildConsolidationPrompt({project = null, projects = [],
+export function buildConsolidationPrompt({project = null, projects = [], codebase = null,
   memories = [], turns = [], instructions = INSTRUCTIONS, now = new Date(), cap = 30,
   churn = 25} = {}) {
   const lines = [];
@@ -82,6 +82,12 @@ export function buildConsolidationPrompt({project = null, projects = [],
   } else {
     lines.push('this conversation');
     lines.push('  project  none linked');
+    // Where the talk happened, and which listed projects own that codebase.
+    // Several may, and none may: it narrows the choice, it does not make it.
+    if (codebase) {
+      const owners = projects.filter(p => p.repositories?.includes(codebase)).map(p => p.slug);
+      lines.push(`  codebase  ${codebase}${owners.length ? `  (belongs to ${owners.join(', ')})` : ''}`);
+    }
     lines.push('');
   }
   const others = projects.filter(p => p.slug !== project?.slug);

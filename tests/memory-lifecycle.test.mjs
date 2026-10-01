@@ -610,3 +610,20 @@ test('the default is that nothing writes a memory without reading the conversati
   assert.equal(routed, false, 'the turn router must not run when the pass is the writer');
   assert.equal(result.captured, 0);
 });
+
+test('the codebase is noted on the document only when no project was chosen, and never fails the capture', async () => {
+  const noted = [];
+  const base = {...scopeStubs, status: async () => connected, settings: async () => ({...baseSettings}),
+    recordTurn: async () => {}, sessionWindow: async () => [], projects: async () => []};
+  await capture({...base, noteRepository: async (key, repo) => { noted.push([key, repo]); }},
+    {sessionKey: 's', repository: 'acme/backend', assistant: 'Noted.'});
+  assert.deepEqual(noted, [['s', 'acme/backend']]);
+  await capture({...base, noteRepository: async () => { throw new Error('column missing'); }},
+    {sessionKey: 's', repository: 'acme/backend', assistant: 'Noted.'});
+  await capture({...base, noteRepository: async (key, repo) => { noted.push([key, repo]); }},
+    {sessionKey: 's', assistant: 'Noted.'});
+  assert.equal(noted.length, 1, 'no repository, nothing to note');
+  await capture({...base, noteRepository: async (key, repo) => { noted.push([key, repo]); }},
+    {sessionKey: 's', repository: 'acme/backend', project: 'p1', assistant: 'Noted.'});
+  assert.equal(noted.length, 1, 'a chosen project already says more than the codebase');
+});
