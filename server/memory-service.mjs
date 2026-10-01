@@ -179,6 +179,9 @@ export function memoryService(db, embedder = null, router = null) {
       result(db.rpc('record_turn',
         {p_session_key:sessionKey, p_role:role, p_content:content,
          p_keep:keep, p_project_id:projectId})),
+    // The codebase a conversation ran in, for the pass that reads it later.
+    noteRepository: (sessionKey, repository) =>
+      result(db.rpc('note_document_repository', {p_session_key:sessionKey, p_repository:repository})),
     sessionWindow: (sessionKey, limit = 12) =>
       result(db.rpc('session_window', {p_session_key:sessionKey, p_limit:limit})),
     // Called only after the router has answered. A run that failed on a rate

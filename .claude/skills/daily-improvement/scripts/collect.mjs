@@ -210,13 +210,20 @@ const index = (await pool(runs, 4, async run => {
   const known = new Set(projectsOf[run.owner_id].map(p => p.slug));
   const head = String(run.prompt ?? '').split('<conversation>')[0].split('\ntoday is ').at(-1);
   // The brief is optional: a project with none is written as its slug alone.
-  const gone = [...head.matchAll(/^ {2}(?:project {2})?([a-z0-9][a-z0-9-]*)(?: {2}(.*?))?(?: {2}repos .*)?$/gm)]
-    .filter(([line, slug]) => !known.has(slug) && !line.endsWith('none linked'))
+  const listedInPrompt = [...head.matchAll(/^ {2}(?:project {2})?([a-z0-9][a-z0-9-]*)(?: {2}(.*?))?(?: {2}repos .*)?$/gm)]
+    .filter(([line]) => !line.endsWith('none linked') && !/^ {2}codebase /.test(line));
+  const gone = listedInPrompt.filter(([, slug]) => !known.has(slug))
     .map(([, slug, brief]) => ({slug, brief: brief ?? ''}));
+  // Only the projects the pass was shown (TODO 16): one made after the run is
+  // not part of the question it answered. A run that never reached the model
+  // has no list, and then every project is shown.
+  const shown = listedInPrompt.length ? new Set(listedInPrompt.map(([, slug]) => slug)) : null;
+  const codebase = head.match(/^ {2}codebase {2}(.+)$/m)?.[1] ?? null;
   write(`blind/${name}.md`, [
     `# Session ${name} · scope: ${scope}`, '',
+    ...(codebase ? [`The conversation ran in the codebase ${codebase}`, ''] : []),
     '## Projects that exist', '',
-    ...projectsOf[run.owner_id].map(p => `- ${p.slug}: ${p.brief ?? p.name ?? ''}`.slice(0, 220)
+    ...projectsOf[run.owner_id].filter(p => !shown || shown.has(p.slug)).map(p => `- ${p.slug}: ${(p.brief ?? p.name ?? '').replace(/\s+/g, ' ')}`.slice(0, 220)
       + (repos.some(r => r.project_id === p.id) ? ` (repos: ${repos.filter(r => r.project_id === p.id).map(r => r.repository).join(', ')})` : '')),
     ...gone.map(p => `- ${p.slug}: ${p.brief}`.slice(0, 220)), '',
     `## Memories that already existed before this pass (${run.project_id ? 'personal, plus this session\'s project' : 'personal, plus every project\'s'})`, '',

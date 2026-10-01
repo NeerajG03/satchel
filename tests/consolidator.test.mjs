@@ -441,3 +441,15 @@ test('a source quoting a long paste is cut to what memories.source holds, not re
   assert.equal(out.changes.length, 1, JSON.stringify(out.dropped));
   assert.equal(out.changes[0].source.length, 4000);
 });
+
+test('an unlinked conversation is told which codebase it ran in and which projects own it', () => {
+  const unlinked = {turns, memories, project: null, codebase: 'acme/ledger', projects: [
+    {slug: 'ledger', brief: 'Go ledger', repositories: ['acme/ledger']},
+    {slug: 'audit', brief: 'Audit trail', repositories: ['acme/ledger', 'acme/audit']},
+    {slug: 'sourdough', brief: 'Baking'}]};
+  const {prompt} = buildConsolidationPrompt(unlinked);
+  assert.match(prompt, /project {2}none linked\n {2}codebase {2}acme\/ledger {2}\(belongs to ledger, audit\)/);
+  const none = buildConsolidationPrompt({...unlinked, codebase: 'acme/else'}).prompt;
+  assert.match(none, /codebase {2}acme\/else\n/, 'a codebase no project owns is still named, with no owners');
+  assert.doesNotMatch(buildConsolidationPrompt({...unlinked, codebase: null}).prompt, /codebase/);
+});

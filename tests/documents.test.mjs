@@ -262,3 +262,21 @@ test('consolidation picks up sessions that are finished, once each', async t => 
     });
   } finally { await db.close(); }
 });
+
+test('the codebase a session ran in is kept on its document, and only the owner can set it', async () => {
+  const {db, owner, other, call} = await database();
+  try {
+    await say(call, owner, 'user', 'plan the pacing queue');
+    await call(owner, 'select note_document_repository($1,$2)', ['s1', ' Acme/Backend ']);
+    assert.equal((await call(owner, 'select * from pending_documents($1)', [0]))[0].repository, 'acme/backend',
+      'stored in the same lowercase shape project_repositories uses');
+    await call(owner, 'select note_document_repository($1,$2)', ['s1', 'not a repository']);
+    await call(owner, 'select note_document_repository($1,$2)', ['s1', null]);
+    assert.equal((await call(owner, 'select * from pending_documents($1)', [0]))[0].repository, 'acme/backend',
+      'a value of the wrong shape is dropped, not stored and not an error');
+    await call(other, 'select note_document_repository($1,$2)', ['s1', 'evil/repo']);
+    assert.equal((await call(owner, 'select * from pending_documents($1)', [0]))[0].repository, 'acme/backend',
+      'somebody else naming the same session key changes nothing');
+    await assert.rejects(db.query('select note_document_repository($1,$2)', ['s1', 'a/b']), 'no caller, no write');
+  } finally { await db.close(); }
+});

@@ -108,7 +108,7 @@ Open the newest earlier `~/satchel-daily/*/report.md`, if there is one, and carr
 - still open and seen again today: raise its `seen` count and add today's evidence.
 - still open and not seen today: keep it, unchanged.
 
-Then add new ones. Every TODO has: priority (P1 is what would make the pass learn the most), what to change, the evidence (session ids and a short quote), where (`file:line`), and how to verify it (the eval case to add, or the number in this review that should move). One TODO per cause, not per symptom.
+Before writing a prompt TODO, read the `prompt-management` skill: a TODO says what shape is missed and where, and the fix is a goal, a guardrail and an example, not another instruction. Then add new ones. Every TODO has: priority (P1 is what would make the pass learn the most), what to change, the evidence (session ids and a short quote), where (`file:line`), and how to verify it (the eval case to add, or the number in this review that should move). One TODO per cause, not per symptom.
 
 ### 8. Report and mark
 
