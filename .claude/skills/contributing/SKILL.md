@@ -51,7 +51,7 @@ Both must pass. `npm run build` type checks first. If you touched `integrations/
 
 Migrations in the hosted pilot are applied by hand. Say so in the PR when a change needs one. CI does not migrate. **Vercel deploys `main` on every push, so apply the migration before you push code that reads it.** The other order took every hook down for about two hours on 22 September. `satchel-memory` `references/operations.md` has the commands.
 
-If you changed a model prompt, run its eval before publishing it to Langfuse: `eval/router-rigour.mjs` for capture, `eval/consolidation.mjs` for the pass. A local free Gemini key will not cover a full consolidation run.
+If you changed a model prompt, read the `prompt-management` skill first, then run its eval before publishing it to Langfuse: `eval/router-rigour.mjs` for capture, `eval/consolidation.mjs` for the pass. A local free Gemini key will not cover a full consolidation run.
 
 ## Docs to update with the code
 
