@@ -27,7 +27,7 @@ const description='Personal and project memory, tasks and projects across your a
 // session is about to outlive gets renewed at startup, clear, compact or
 // resume rather than being discovered expired by a UserPromptSubmit hook with
 // far less room to spend on a refresh.
-const versions={claude:'0.4.9',codex:'0.4.9'};
+const versions={claude:'0.4.10',codex:'0.4.10'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
