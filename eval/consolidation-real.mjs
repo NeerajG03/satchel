@@ -127,7 +127,7 @@ console.log(`  quiet sessions with a claim  ${sum.quiet.noisy}/${sum.quiet.total
 console.log(`  claims matching nothing (read them)  ${sum.extra}`);
 if (failed) console.log(`  failed outright  ${failed}`);
 
-const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
 writeFileSync(join(dir, `run-${stamp}.json`), JSON.stringify({model: MODEL, thinking: THINKING,
   prompt: instructions.text.length, repeat: REPEAT, summary: sum, sessions: log}, null, 1), {mode: 0o600});
 
