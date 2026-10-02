@@ -42,7 +42,7 @@ Read the end of `~/satchel-daily/log.md` first: what the last runs did, what cha
 node $SKILL/scripts/collect.mjs
 ```
 
-It picks up where the last review stopped (`~/satchel-daily/state.json`), or the last 48 hours, and prints the folder it wrote. Call it `F`. It holds:
+It picks up where the last review stopped (`~/satchel-daily/state.json`), or the last 48 hours, and prints the folder it wrote. Call it `F`. Every network read has a 30 second deadline and is tried up to 4 times (`scripts/net.mjs`). If it still fails, the script removes the folder it made and marks nothing, so run it again; a leftover folder with a number after the date is never a finished one. It holds:
 
 | Path | What |
 | --- | --- |
@@ -87,7 +87,7 @@ Misses seen in two or more sessions are the strongest evidence. So is the same s
 
 Every review answers all of these with numbers, even when the answer is "fine":
 
-1. **Scope.** Changes landed per scope. Sessions the pass saw as personal against project. For every blind change filed under a project: what scope the pass had for that session, and whether its prompt offered that project at all. If project memories are not being made, this is where it shows. How many project-scoped changes came from sessions with no project (D25 allows it; zero across a night of project talk means it is not working).
+1. **Scope.** Changes landed per scope. Sessions the pass saw as personal against project. `compare.mjs` also says how many of the sessions with no project had a repository on their document: only those can show a `codebase` line in the pass's prompt, so a session that started before the repository was recorded cannot test it. For every blind change filed under a project: what scope the pass had for that session, and whether its prompt offered that project at all. If project memories are not being made, this is where it shows. How many project-scoped changes came from sessions with no project (D25 allows it; zero across a night of project talk means it is not working).
 2. **Kinds.** Facts, preferences and intents added, and intents retired, pipeline against blind.
 3. **Actions beyond add.** Affirm, extend, replace and retire: used by the pass when the blind read used them?
 4. **Shapes it misses.** Group the real misses by shape: a rule inside a job, "do X so I can Y", setup facts, decisions about a project, intents.
