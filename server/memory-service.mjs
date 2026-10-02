@@ -3,6 +3,14 @@
 // touches the service, including the one a session start waits on.
 import {indexedText, toVectorLiteral} from './vector.mjs';
 
+// How close two statements have to be, in cosine on the production embedding,
+// before the pass treats an add as the same claim as a live memory. Well above
+// the 0.67 relevance gate: relevance is "about the same thing", this is "says
+// the same thing", and the cost of getting it wrong is a real claim affirmed
+// onto a different one. Recalibrate with the gate when the embedding model
+// changes.
+export const DEDUPE_GATE = 0.9;
+
 // Request-scoped adapter. RLS remains authoritative even for direct RPC calls.
 export function memoryService(db, embedder = null, router = null) {
   async function result(query) {
@@ -162,6 +170,35 @@ export function memoryService(db, embedder = null, router = null) {
       }));
     },
     personal: () => result(db.rpc('personal_memories')),
+    // The live memory closest to a claim about to be written, when it is close
+    // enough to be the same claim said differently. The pass's own check is an
+    // exact match after normalising, which never fires on a paraphrase, and
+    // production grew pairs like "explain terms simply" beside "use grade
+    // school English". No scope boost, because sameness is not relevance, and
+    // no scope filter, because the caller decides what a twin in another scope
+    // means.
+    async nearest(statement, {gate = DEDUPE_GATE, limit = 1} = {}) {
+      if (!embedder) return null;
+      const vector = await embedder.embedQuery(statement);
+      const rows = await result(db.rpc('search_memories', {
+        p_query:toVectorLiteral(vector), p_in_scope:null, p_exclude:[],
+        p_limit:limit, p_gate:gate, p_boost:1.0,
+      }));
+      return rows?.[0] ?? null;
+    },
+    // Rows saved while the embedder was down or out of quota. embedRow swallows
+    // its failure so the write lands, which left four live memories invisible
+    // to retrieval for eleven days because the only repair was a script with a
+    // key nobody ran. The pass runs under the owner's own token, so it can do
+    // the repair itself before it reads anything.
+    async reembedMissing(limit = 20) {
+      if (!embedder) return 0;
+      const rows = await result(db.from('memories').select('id,statement,source')
+        .is('embedding', null).is('ended_at', null).limit(limit));
+      let done = 0;
+      for (const row of rows ?? []) { await embedRow(row); done += 1; }
+      return done;
+    },
     // The conversation lives here, not on the user's machine. The per-prompt
     // hook already sends the prompt as a tool argument, so nothing extra is
     // read from disk and no transcript is parsed on either host.

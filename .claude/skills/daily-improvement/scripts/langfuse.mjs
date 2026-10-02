@@ -19,7 +19,7 @@ function env() {
 }
 
 /** Every observation that started in the window, paged. */
-export async function observations(since, until, {limit = 5000} = {}) {
+export async function observations(since, until, {limit = 5000, fields = 'core,basic,metadata,model,usage,metrics'} = {}) {
   const e = env();
   const auth = Buffer.from(`${e.LANGFUSE_PUBLIC_KEY}:${e.LANGFUSE_SECRET_KEY}`).toString('base64');
   const all = [];
@@ -29,7 +29,7 @@ export async function observations(since, until, {limit = 5000} = {}) {
     url.searchParams.set('fromStartTime', since);
     url.searchParams.set('toStartTime', until);
     url.searchParams.set('limit', '100');
-    url.searchParams.set('fields', 'core,basic,metadata,model,usage,metrics');
+    url.searchParams.set('fields', fields);
     if (cursor) url.searchParams.set('cursor', cursor);
     let res = await fetch(url, {headers: {authorization: `Basic ${auth}`}});
     // Thirty requests a minute. A busy night pages past that, so wait out the

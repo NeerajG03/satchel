@@ -30,9 +30,19 @@ const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 /** Per prompt. The counts are the point: they let the agent tell "there is no
  *  rule about this" from "nothing scored high enough", which is the failure a
  *  silently truncated top-5 causes. */
-export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25} = {}) {
+export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25, slugs = {}} = {}) {
   if (!rows.length) return '';
   const lines = [`◪ retrieved · ${rows.length} shown · ${matched} matched · ${inScope} in scope`];
+  // Where a row came from, and whether anyone confirmed it. Measured over a
+  // week of real prompts, rows from the wrong project were injected into
+  // sessions about another one, and nothing in the line said so; and a
+  // picked-up row read exactly like a confirmed one, so the agent could not
+  // apply the rule the session-start header gives it. The label is the
+  // project's slug, or "personal", with "picked up" when it is still heard.
+  const labelOf = row => {
+    const where = row.project_id ? slugs[row.project_id] ?? 'project' : 'personal';
+    return row.band === 'heard' ? `${where}, picked up` : where;
+  };
   // A `[task closed, may be fixed]` hint used to hang off rows whose task had
   // been completed. It was the only thing the memory-to-task link ever
   // produced, and the link cost a scope the model could get wrong.
@@ -44,7 +54,7 @@ export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25} = 
   // repository has moved and stops there: a merge is a reason to check a
   // claim, never a reason to know it is wrong.
   for (const row of rows) {
-    lines.push(`  ${handleOf(row.id)}  ${clip(row.statement, 300)}`);
+    lines.push(`  ${handleOf(row.id)}  (${labelOf(row)})  ${clip(row.statement, 300)}`);
     if (row.commits_since >= churn)
       lines.push(`          [${row.anchor_repository ?? 'the repo'} has moved ${row.commits_since} commits since this was confirmed, check before relying on it]`);
   }
@@ -68,9 +78,35 @@ export function personalLoad(personal = [], cap = 30) {
   return {said, heard, past: personal.length - said.length - heard.length};
 }
 
-/** Session start. Only what applies no matter what you do today: the projects
- *  that exist, and every personal memory, up to the cap. Nothing scoped to a project or a task
- *  is injected here, because loading it assumes you will touch it.
+/** Which of the active project's memories the session block injects.
+ *
+ *  Project memories used to arrive only by topic, through retrieval, and the
+ *  measurement that put personal memories in the block applies to them just
+ *  as much: a rule about how the work in this codebase is done ("tickets move
+ *  straight to Done", "one QA run per commit is enough") is relevant by kind
+ *  of activity, and "fix this test" never searches for it. On the real
+ *  sessions reviewed in September the shapes the pass caught best were
+ *  project decisions, and they were the ones that never loaded.
+ *
+ *  So when the workspace resolves to exactly one project, its preferences
+ *  load, then its most-said facts and intents, under their own cap. Personal
+ *  rows keep the main cap to themselves; this is a smaller second block, not a
+ *  share of the first, so a busy project cannot push a standing personal rule
+ *  out. Confirmed rows fill it before picked-up ones, same as personal. */
+export function projectLoad(memories = [], cap = 15) {
+  const room = Math.max(0, cap);
+  const rank = m => (m.kind === 'preference' ? 0 : 1);
+  const ordered = [...memories].sort((a, b) => rank(a) - rank(b)
+    || (b.mentions ?? 1) - (a.mentions ?? 1)
+    || String(b.updated_at ?? '').localeCompare(String(a.updated_at ?? '')));
+  const said = ordered.filter(m => m.band !== 'heard').slice(0, room);
+  const heard = ordered.filter(m => m.band === 'heard').slice(0, Math.max(0, room - said.length));
+  return {said, heard, past: memories.length - said.length - heard.length};
+}
+
+/** Session start. What applies no matter what you do today: the projects
+ *  that exist, every personal memory up to the cap, and, when the workspace
+ *  is one project, that project's own rules under a smaller cap of their own.
  *
  *  `linked` is the projects this workspace's repository belongs to. When it is
  *  known, the others are counted rather than listed. A flat list of every
@@ -82,7 +118,8 @@ export function personalLoad(personal = [], cap = 30) {
  *
  *  With nothing linked, which is every non-Git and unlinked workspace, there is
  *  nothing to filter by and the full list is the honest answer. */
-export function sessionStartBlock({projects = [], personal = [], linked = [], cap = 30} = {}) {
+export function sessionStartBlock({projects = [], personal = [], linked = [], cap = 30,
+  project = null, projectMemories = [], projectCap = 15} = {}) {
   const lines = [];
   const ids = new Set(linked);
   const here = ids.size ? projects.filter(p => ids.has(p.id)) : projects;
@@ -119,6 +156,24 @@ export function sessionStartBlock({projects = [], personal = [], linked = [], ca
     for (const memory of heard) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
   }
   if (past) lines.push(`  ${plural(past, 'older memory', 'older memories')} past the block, search satchel for them`);
+  // The active project's own block, after personal. Only when one project was
+  // resolved: with two candidates nothing is scoped, and loading either one's
+  // rules would be the guess the choose-a-project line exists to refuse.
+  if (project) {
+    const own = projectLoad(projectMemories, projectCap);
+    const slug = project.slug ?? project.name ?? 'project';
+    if (own.said.length) {
+      if (lines.length) lines.push('');
+      lines.push(`project ${slug}, confirmed, applies to work in this codebase`);
+      for (const memory of own.said) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
+    }
+    if (own.heard.length) {
+      if (lines.length) lines.push('');
+      lines.push(`project ${slug}, picked up from what you said, use unless told otherwise`);
+      for (const memory of own.heard) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
+    }
+    if (own.past) lines.push(`  ${plural(own.past, 'more project memory', 'more project memories')} not loaded, search satchel for them`);
+  }
   if (!lines.length) return '';
   lines.push('');
   lines.push('more exists, search satchel for anything not listed above');
@@ -137,7 +192,7 @@ export function sessionStartBlock({projects = [], personal = [], linked = [], ca
  *  and stays silent, because a line on every prompt is noise people learn to
  *  ignore, and Codex renders this as a warning. */
 export function noticeFor(event, {error, withheld, unrecorded, projects = 0, personal = 0,
-  shown = 0, matched = 0, captured = 0} = {}) {
+  projectMemories = 0, shown = 0, matched = 0, captured = 0} = {}) {
   if (error) return `Satchel memory unavailable · ${error}`;
   if (withheld) return `Satchel memory not loaded · ${withheld}`;
   // Not the same as memory being unavailable: the prompt was still answered
@@ -145,8 +200,9 @@ export function noticeFor(event, {error, withheld, unrecorded, projects = 0, per
   // was said, which nothing later can reconstruct.
   if (unrecorded) return `Satchel did not record this turn · ${unrecorded}`;
   if (event === 'SessionStart')
-    return projects || personal
+    return projects || personal || projectMemories
       ? `Satchel loaded · ${plural(projects, 'project')}, ${plural(personal, 'personal memory', 'personal memories')}`
+        + (projectMemories ? `, ${plural(projectMemories, 'project memory', 'project memories')}` : '')
       : 'Satchel connected · nothing saved yet';
   // Counts, not just a number shown, because "2 of 9" and "2 of 2" mean very
   // different things about whether anything was left behind.

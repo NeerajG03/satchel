@@ -27,6 +27,18 @@ const untraced = (_name, _options, run) => run(() => {}, () => {}, null);
 async function apply(service, change, {projects, trace, document}) {
   const slug = change.project ?? null;
   if (change.action === 'add') {
+    // Said before, in other words. The model's own check is an exact match,
+    // so a paraphrase of a live memory reached the database as a second row
+    // and both then loaded. A twin in the same scope, or a personal twin that
+    // already loads everywhere, is affirmed instead: the claim was restated,
+    // which is what an affirm means. A twin in another project is left alone
+    // and the add goes through, because the same rule can hold in two
+    // projects without being one memory.
+    const twin = await sameClaim(service, change, projects);
+    if (twin) {
+      await service.affirmMemory(twin.id, {trace, document});
+      return {did: 'affirmed', on: twin.id, why: `said again, as "${String(change.statement).slice(0, 120)}"`};
+    }
     await service.captureMemory({id: crypto.randomUUID(), statement: change.statement,
       source: change.source, project: slug, kind: change.kind,
       expires: change.expires ?? null, trace, document});
@@ -61,8 +73,17 @@ async function apply(service, change, {projects, trace, document}) {
     return 'replaced';
   }
   return null;
-  // `projects` is unused here and named so the caller can see the scope it
-  // resolved; resolution happens in the database, from the slug.
+}
+
+/** A live memory that already says what this add says, when the service can
+ *  look. Optional, so a replay or a test without an embedder adds as before. */
+async function sameClaim(service, change, projects) {
+  if (!service.nearest) return null;
+  let near;
+  try { near = await service.nearest(change.statement); } catch { return null; }
+  if (!near) return null;
+  const target = change.project ? projects.find(p => p.slug === change.project)?.id ?? null : null;
+  return near.project_id == null || near.project_id === target ? near : null;
 }
 
 /** Personal memories and every project's own, once each. A session with no
@@ -144,8 +165,13 @@ export async function consolidateDocument(service, consolidator, document,
       const actions = [];
       for (const change of outcome.changes) {
         try {
-          const did = await apply(service, change, {projects, trace: traceId, document: document.id});
-          if (did) { counts[did] += 1; actions.push({did, on: change.target ?? null, statement: change.statement, why: change.why}); }
+          const out = await apply(service, change, {projects, trace: traceId, document: document.id});
+          const did = typeof out === 'string' ? out : out?.did;
+          if (did) {
+            counts[did] += 1;
+            actions.push({did, on: out?.on ?? change.target ?? null, statement: change.statement,
+              why: out?.why ?? change.why});
+          }
         } catch (error) {
           counts.dropped += 1;
           actions.push({did: 'failed', on: change.target ?? null, statement: change.statement, why: errorText(error)});
@@ -241,6 +267,10 @@ export async function consolidateStep(service, consolidator, job,
   // failed one is still pending. Asking the same question of a model that
   // just refused it is how a chain spends its 30 minutes on one session.
   const tried = new Set((job.runs ?? []).map(run => run.document));
+  // Rows the embedder missed are repaired first, under the same token the
+  // pass reads with. Never allowed to stop the pass: a memory that cannot be
+  // embedded is still a memory, it is only one retrieval cannot see.
+  try { await service.reembedMissing?.(); } catch { /* retrieval only, the pass goes on */ }
   const waiting = (await service.pendingDocuments(job.idle_minutes)).filter(d => !tried.has(d.id));
   let current = job;
   const stop = async (reason, patch = {}) => {

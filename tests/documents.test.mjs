@@ -280,3 +280,23 @@ test('the codebase a session ran in is kept on its document, and only the owner 
     await assert.rejects(db.query('select note_document_repository($1,$2)', ['s1', 'a/b']), 'no caller, no write');
   } finally { await db.close(); }
 });
+
+test('the conversation text kept beside the documents expires on the same clock', async () => {
+  // Three tables held the same words with no end: a run keeps the prompt it
+  // sent, which is the conversation. The rows stay for the audit; the text goes.
+  const {db, owner, call} = await database();
+  try {
+    const run = crypto.randomUUID(), old = crypto.randomUUID(), route = crypto.randomUUID();
+    await call(owner, `insert into consolidation_runs(id, model, prompt, response) values ($1, 'm', 'fresh words', '{}')`, [run]);
+    await call(owner, `insert into consolidation_runs(id, model, prompt, response) values ($1, 'm', 'old words', '{}')`, [old]);
+    await call(owner, `insert into router_runs(id, session_key, model, prompt, kept) values ($1, 's', 'm', 'old window', 0)`, [route]);
+    await db.exec(`update public.consolidation_runs set created_at = now() - interval '31 days' where id = '${old}'`);
+    await db.exec(`update public.router_runs set created_at = now() - interval '31 days'`);
+    await call(owner, 'select expire_documents()');
+    const rows = await call(owner, 'select id, prompt, response from consolidation_runs order by created_at');
+    assert.deepEqual(rows.find(r => r.id === old), {id: old, prompt: '(expired)', response: null});
+    assert.deepEqual(rows.find(r => r.id === run), {id: run, prompt: 'fresh words', response: '{}'});
+    const [router] = await call(owner, 'select prompt, kept from router_runs');
+    assert.deepEqual(router, {prompt: '(expired)', kept: 0}, 'the counts stay, the words go');
+  } finally { await db.close(); }
+});

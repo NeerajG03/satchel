@@ -18,8 +18,14 @@
 // `{…, hook_event_name:"UserPromptSubmit", prompt, session_title}`, which the
 // binary settles and no amount of reading the docs did. Nothing about this
 // needs the transcript, which is why capture does not read one.
-import {sessionStartBlock, personalLoad, promptBlock, estimateTokens, noticeFor} from './injection-format.mjs';
+import {sessionStartBlock, personalLoad, projectLoad, promptBlock, estimateTokens, noticeFor} from './injection-format.mjs';
+import {classifyPrompt, machineTurnNote} from './machine-prompt.mjs';
 import {errorText} from './error-text.mjs';
+
+// How many of the active project's own memories load at session start. Its
+// own cap rather than a share of block_size, so a busy project cannot push a
+// standing personal rule out of the block.
+const PROJECT_BLOCK = 15;
 
 const PROVIDER = 'github';
 
@@ -92,22 +98,35 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
         const scope = project !== undefined ? {project, linked: [], candidates: []}
           : await resolveScope(service, {sessionKey, repository});
         active = scope.project;
-        const [projects, personal] = await Promise.all([
+        const [projects, personal, own] = await Promise.all([
           // all_projects is its own scope: a blanket grant keeps no list, so
           // checking project_ids alone would load nothing for the connection
           // that was given everything.
           status.all_projects || status.project_ids?.length || status.personal ? service.projects() : [],
           status.personal ? service.personal() : [],
+          // The active project's own memories, when there is exactly one.
+          // memories_in_scope answers the personal rows first and the
+          // project's after, under RLS, so a project this connection was not
+          // granted comes back empty rather than refused. Its failure is held
+          // apart from the rest: a project block that cannot be read must not
+          // take the personal one down with it.
+          active && service.memoriesInScope
+            ? service.memoriesInScope(active, 60).then(rows => rows.filter(r => r.project_id === active), () => [])
+            : [],
         ]);
+        const here = projects.find(p => p.id === active) ?? null;
         const block = sessionStartBlock({projects, personal, linked: scope.linked ?? [],
-          cap: settings.block_size});
+          cap: settings.block_size, project: here, projectMemories: own, projectCap: PROJECT_BLOCK});
         const tokens = estimateTokens(block);
         // What the block actually injects, which is not all of it once the
         // cap is reached. The log has to say what reached the model, not what
         // was fetched, or "why did it not know that" stops being answerable.
         const load = personalLoad(personal, settings.block_size);
-        const loaded = [...load.said, ...load.heard];
-        notice = noticeFor('SessionStart', {projects: projects.length, personal: loaded.length});
+        const ownLoad = here ? projectLoad(own, PROJECT_BLOCK) : {said: [], heard: []};
+        const loaded = [...load.said, ...load.heard, ...ownLoad.said, ...ownLoad.heard];
+        notice = noticeFor('SessionStart', {projects: projects.length,
+          personal: load.said.length + load.heard.length,
+          projectMemories: ownLoad.said.length + ownLoad.heard.length});
         if (!block) {
           context = 'Satchel is connected and has nothing saved yet. Do not invent memory.';
         } else if (tokens > settings.session_budget_tokens) {
@@ -173,19 +192,37 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
         // Its failure is held separately from retrieval's. Recording the turn
         // and answering the prompt are two jobs and neither should take the
         // other down.
+        // Not everything the host hands this hook was typed by the person. A
+        // subagent's report, a task notification or a CI event is recorded as
+        // a note that says what it was, never as the person's words, and is
+        // not searched: the slots are for what they said, and the document
+        // must not offer a machine's conclusion as a source.
+        const {kind: machine, query} = classifyPrompt(prompt);
         if (settings.capture)
-          try { await service.recordTurn(sessionKey, 'user', prompt, settings.capture_window * 2); }
+          try { await service.recordTurn(sessionKey, 'user', machine ? machineTurnNote(machine) : query, settings.capture_window * 2); }
           catch (error) { unrecorded = errorText(error); }
-        if (settings.per_prompt_matches) {
-          const scope = project !== undefined ? {project} : await resolveScope(service, {sessionKey, repository});
-          const lookup = retrieval?.('retrieve-memory', {input: prompt,
+        if (settings.per_prompt_matches && !machine) {
+          const [scope, personal, projects] = await Promise.all([
+            project !== undefined ? {project} : resolveScope(service, {sessionKey, repository}),
+            // What session start already loaded is not retrieved again. The
+            // hook never knew those ids, so for a week the personal rows took
+            // the five slots on prompt after prompt, and the same rows came
+            // back on every message in a session. The set is recomputed the
+            // way session start computes it, so the two cannot disagree.
+            status.personal && service.personal ? service.personal().catch(() => []) : [],
+            // For the labels on each row. A project's slug, not its id.
+            service.projects ? service.projects().catch(() => []) : [],
+          ]);
+          const load = personalLoad(personal, settings.block_size);
+          const already = [...new Set([...exclude, ...load.said.map(m => m.id), ...load.heard.map(m => m.id)])];
+          const lookup = retrieval?.('retrieve-memory', {input: query,
             metadata: {gate: settings.gate, limit: settings.per_prompt_matches,
-              inScope: scope.project ?? 'personal', excluded: exclude.length}});
+              inScope: scope.project ?? 'personal', excluded: already.length}});
           let rows;
           try {
-            rows = await service.search({query: prompt, in_scope: scope.project ?? null,
+            rows = await service.search({query, in_scope: scope.project ?? null,
               limit: settings.per_prompt_matches, gate: settings.gate,
-              boost: settings.scope_boost, exclude});
+              boost: settings.scope_boost, exclude: already});
           } catch (error) { lookup?.fail(error); throw error; }
           lookup?.end(rows.map(r => ({id: r.id, statement: r.statement, score: r.score})),
             {metadata: {shown: rows.length, matched: rows[0]?.matched ?? 0, inScope: rows[0]?.in_scope ?? 0}});
@@ -194,8 +231,9 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
           if (rows.length) {
             notice = noticeFor('UserPromptSubmit', {shown: rows.length, matched: rows[0].matched});
             context = promptBlock({rows, matched: rows[0].matched, inScope: rows[0].in_scope,
-              churn: settings.staleness_commits});
-            logged = {query: prompt, memory_ids: rows.map(r => r.id),
+              churn: settings.staleness_commits,
+              slugs: Object.fromEntries((projects ?? []).map(p => [p.id, p.slug]))});
+            logged = {query, memory_ids: rows.map(r => r.id),
               matched: rows[0].matched, in_scope: rows[0].in_scope, tokens: estimateTokens(context)};
           }
         }

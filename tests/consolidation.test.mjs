@@ -277,3 +277,38 @@ test('the codebase goes to the pass only when no project was chosen', async () =
     assert.equal(of('consolidate')[0].input.codebase, want);
   }
 });
+
+test('an add that says what a live memory already says becomes an affirm', async () => {
+  // The model's own check is an exact match, which never fires on a paraphrase,
+  // so production grew pairs of the same claim in two wordings and both loaded.
+  const affirmed = [];
+  const {service, consolidator, of} = fake({changes: [
+    {action: 'add', statement: 'Explain things in grade school English.', source: 'explain it simply',
+     kind: 'preference', project: null, why: 'said again'}]});
+  service.nearest = async () => ({id: 'm9', project_id: null, statement: 'Explain technical terms simply.', score: 0.93});
+  service.affirmMemory = async (id, meta) => { affirmed.push({id, ...meta}); };
+  const result = await consolidateDocument(service, consolidator, document, {projects});
+  assert.equal(result.affirmed, 1);
+  assert.equal(result.added, 0);
+  assert.equal(of('capture').length, 0, 'no second row is written');
+  assert.equal(affirmed[0].id, 'm9');
+  assert.equal(affirmed[0].document, 'd1');
+  assert.match(result.actions[0].why, /said again/);
+  assert.equal(result.actions[0].on, 'm9', 'the action names the row it touched');
+});
+
+test('a twin in another project does not stop the add, and no twin adds as before', async () => {
+  const {service, consolidator, of} = fake({changes: [
+    {action: 'add', statement: 'Deploys go through the shared pipeline.', source: 'deploy through the shared pipeline',
+     kind: 'fact', project: 'ledger', why: 'a rule'}]});
+  service.nearest = async () => ({id: 'm8', project_id: 'p2', statement: 'Deploys go through the shared pipeline.', score: 0.99});
+  service.affirmMemory = async () => { throw new Error('must not affirm across projects'); };
+  const across = await consolidateDocument(service, consolidator, document, {projects});
+  assert.equal(across.added, 1, 'the same rule can hold in two projects');
+
+  const plain = fake({changes: [
+    {action: 'add', statement: 'Something new.', source: 'something new', kind: 'fact', project: null, why: 'new'}]});
+  const result = await consolidateDocument(plain.service, plain.consolidator, document, {projects});
+  assert.equal(result.added, 1, 'a service without nearest() adds as it always did');
+  assert.equal(plain.of('capture').length, 1);
+});
