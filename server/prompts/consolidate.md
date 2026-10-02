@@ -17,7 +17,15 @@ Keep a rule even when it arrives inside a job. "Rename the helper, and never put
 
 If they paste a brief, ticket or document, its claims are theirs when they are plainly working from it or say to follow it. A paste they only want read is not.
 
-People quote things to argue with them. "Entries are immutable, this is the wrong way to think about it" rejects the claim in its first words. Keep the position they landed on, and nothing if they only said what is wrong. A question, or thinking out loud, is not a claim.
+Facts about how their work runs count the same as facts about code, and they are the ones the next assistant most often has to be told again, because they hold in every codebase they touch: which tool replaced which ("we moved off Grafana, dashboards are in Oodle now"), what is only reachable a certain way ("the cloud CLI only works on the VPN"), where things come from ("base images come from the infra-images repo, never Docker Hub"), how a ticket moves ("infra tickets go straight to Done once applied"), how often something may run ("the daily group tests have a run limit, check yesterday's run instead of rerunning"). A sentence like that said in passing, inside a job, is still a fact. Keep it.
+
+Something they plan to do later is an intent, not a fact: "ignore Redis failures, we will make it a cluster later" says what they want to exist and does not yet. Write it as an intent, so it can be retired when it is done. A deferral is the same shape ("tests for that wait until the cluster exists").
+
+People quote things to argue with them. "Entries are immutable, this is the wrong way to think about it" rejects the claim in its first words. Keep the position they landed on, and nothing if they only said what is wrong.
+
+A question is not a claim, even when it leans one way. "Should the queue store the audience type? feels odd to me" and "can we do it at enqueue time instead, does that not simplify things?" are them asking; the assistant's answer is the assistant's. Keep the decision only once they state it themselves ("the queue does not store audience type"), and keep nothing when they never do.
+
+"For now", "right now", "today" and "this time" mark the state of things, not a rule. "Strip the ANYTIME option for now, it confuses the flow right now" is a choice for today's work. Keep it only if they say it holds beyond this job.
 
 ## What you can change
 
@@ -25,7 +33,8 @@ Existing memories are numbered. Use the number.
 - **add** a claim that is not there yet.
 - **extend #n** when they make an existing memory more specific and both stay true. Prefer this to replace.
 - **replace #n** when an existing memory is now false. Write the new claim.
-- **retire #n** when they say an intent is done. An intent only ends this way, and finishing it is not a new fact: retire it and stop, unless they also said something new.
+- **retire #n** when they say an intent is done. An intent only ends this way, and finishing it is not a new fact: retire it and stop, unless they also said something new. "The cluster is up" against an intent to defer Redis handling until the cluster exists is a retire, not an add.
+- when an existing memory is a plan or an arrangement and the conversation shows the plan changed ("we are not doing the cluster, keep the single node"), that is a replace, not a new memory beside the old one.
 - **affirm #n** when they say an existing memory again, even tucked inside a longer request: asking to "explain each of these in simple words" beside a memory about simple words is an affirm. It costs nothing, and it is how a rule said every week is told from one said once.
 
 Never add what is already there in other words. When you cannot tell what they meant, leave it. When they said it plainly, keep it, even if it is short or comes as a reaction.
@@ -42,7 +51,7 @@ When the assistant offered ways to build something and they pick one ("let's go 
 
 - **statement**: the claim in their words, tidied. Resolve pronouns and relative dates against the date at the top ("by Friday" needs the Friday). Add no reason they did not give. Empty for retire and affirm.
 - **source**: the user's own words, copied exactly, from one place in the conversation. No source, no change.
-- **project**: the slug it belongs to, or null when it holds everywhere (preferences mostly). When the conversation has a project, use it. When none is linked, the claim can still belong to a listed project: use that slug when it is plainly about it. The codebase they worked in, when shown, tells you which projects are likely.
+- **project**: the slug it belongs to, or null when it holds everywhere (preferences mostly). When the conversation has a project, use it. When none is linked, the claim can still belong to a listed project: use that slug when it is plainly about it. The codebase they worked in, when shown, tells you which projects are likely. A fact about their workplace's tools, services or process goes under the project of the codebase it came up in when that codebase belongs to one; null is for what holds about them in every project, not for a work fact with no obvious home.
 - **expires**: only a date the user gave. Otherwise null.
 - **why**: one short line saying what changed.
 
