@@ -24,9 +24,47 @@ const untraced = (_name, _options, run) => run(() => {}, () => {}, null);
  *  Each change is caught on its own. One memory that moved under us, or one
  *  row that will not write, must not cost the rest of the run: the alternative
  *  is a document that half applied and is then marked as read. */
-async function apply(service, change, {projects, trace, document}) {
+async function apply(service, change, {projects, trace, document, consolidator = null, deadline = null, now}) {
   const slug = change.project ?? null;
   if (change.action === 'add') {
+    // Said before, in other words? The model's own check is an exact match,
+    // so a paraphrase of a live memory reached the database as a second row
+    // and both then loaded. When a live memory in the same scope, or a
+    // personal one that already loads everywhere, sits close to this claim,
+    // the model is asked what the pair means and the answer is applied: an
+    // affirm, an extend, a replace, or the add after all. Never decided on the
+    // similarity score, which rates a contradiction higher than a paraphrase.
+    // A twin in another project is left alone and the add goes through,
+    // because the same rule can hold in two projects without being one memory.
+    const twin = await sameClaim(service, change, projects);
+    if (twin && consolidator?.reconsider) {
+      let verdict = null;
+      try { verdict = await consolidator.reconsider({proposed: change, existing: twin, now}, {deadline}); }
+      catch { verdict = null; }
+      const why = `${verdict?.why ?? 'the model could not be asked'} · proposed: "${String(change.statement).slice(0, 120)}"`;
+      // R11: the verdict and the raw answer travel with the action, so the run
+      // row says what decided the write and not only that it happened.
+      const asked = verdict ? {action: verdict.action, twin: twin.id, raw: verdict.raw ?? null} : null;
+      if (verdict?.action === 'affirm') {
+        await service.affirmMemory(twin.id, {trace, document});
+        return {did: 'affirmed', on: twin.id, why, asked};
+      }
+      if (verdict?.action === 'extend') {
+        await service.extendMemory({id: twin.id, revision: twin.revision, statement: verdict.statement, trace, document});
+        return {did: 'extended', on: twin.id, why, asked};
+      }
+      if (verdict?.action === 'replace') {
+        // The successor lives where the claim it replaces lived. A personal
+        // twin loads in every session, and a replace proposed from inside one
+        // project must not narrow it to that project: nobody said it should.
+        const where = twin.project_id ? projects.find(p => p.id === twin.project_id)?.slug ?? slug : null;
+        const written = await service.captureMemory({id: crypto.randomUUID(), statement: verdict.statement,
+          source: change.source, project: where, kind: change.kind, expires: change.expires ?? null, trace, document});
+        await service.endMemory({id: twin.id, revision: twin.revision, reason: 'replaced', ended_by: written.id,
+          note: verdict.why, trace, document});
+        return {did: 'replaced', on: twin.id, why, asked};
+      }
+    }
     await service.captureMemory({id: crypto.randomUUID(), statement: change.statement,
       source: change.source, project: slug, kind: change.kind,
       expires: change.expires ?? null, trace, document});
@@ -61,8 +99,17 @@ async function apply(service, change, {projects, trace, document}) {
     return 'replaced';
   }
   return null;
-  // `projects` is unused here and named so the caller can see the scope it
-  // resolved; resolution happens in the database, from the slug.
+}
+
+/** A live memory that already says what this add says, when the service can
+ *  look. Optional, so a replay or a test without an embedder adds as before. */
+async function sameClaim(service, change, projects) {
+  if (!service.nearest) return null;
+  let near;
+  try { near = await service.nearest(change.statement); } catch { return null; }
+  if (!near) return null;
+  const target = change.project ? projects.find(p => p.slug === change.project)?.id ?? null : null;
+  return near.project_id == null || near.project_id === target ? near : null;
 }
 
 /** Personal memories and every project's own, once each. A session with no
@@ -144,8 +191,14 @@ export async function consolidateDocument(service, consolidator, document,
       const actions = [];
       for (const change of outcome.changes) {
         try {
-          const did = await apply(service, change, {projects, trace: traceId, document: document.id});
-          if (did) { counts[did] += 1; actions.push({did, on: change.target ?? null, statement: change.statement, why: change.why}); }
+          const out = await apply(service, change, {projects, trace: traceId, document: document.id,
+            consolidator, deadline, now: turns.at(-1)?.created_at});
+          const did = typeof out === 'string' ? out : out?.did;
+          if (did) {
+            counts[did] += 1;
+            actions.push({did, on: out?.on ?? change.target ?? null, statement: change.statement,
+              why: out?.why ?? change.why, ...(out?.asked ? {asked: out.asked} : {})});
+          }
         } catch (error) {
           counts.dropped += 1;
           actions.push({did: 'failed', on: change.target ?? null, statement: change.statement, why: errorText(error)});
@@ -241,6 +294,15 @@ export async function consolidateStep(service, consolidator, job,
   // failed one is still pending. Asking the same question of a model that
   // just refused it is how a chain spends its 30 minutes on one session.
   const tried = new Set((job.runs ?? []).map(run => run.document));
+  // Rows the embedder missed are repaired first, under the same token the
+  // pass reads with. Never allowed to stop the pass: a memory that cannot be
+  // embedded is still a memory, it is only one retrieval cannot see.
+  try { await service.reembedMissing?.(); } catch { /* retrieval only, the pass goes on */ }
+  // The conversation text kept in the run logs expires on the documents' 30
+  // day clock. Done here and not in record_turn, which runs on every prompt
+  // inside the hook's budget: three log tables are nothing to scan once a job
+  // and something to scan on every keystroke.
+  try { await service.expireRunLogs?.(); } catch { /* retention, never the pass */ }
   const waiting = (await service.pendingDocuments(job.idle_minutes)).filter(d => !tried.has(d.id));
   let current = job;
   const stop = async (reason, patch = {}) => {

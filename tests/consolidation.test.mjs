@@ -277,3 +277,90 @@ test('the codebase goes to the pass only when no project was chosen', async () =
     assert.equal(of('consolidate')[0].input.codebase, want);
   }
 });
+
+test('an add next to a live twin is a question for the model, and its answer is applied', async () => {
+  // Similarity finds the twin but cannot say what it is: on the production
+  // embedding a contradiction scores higher than a paraphrase. So the pair is
+  // put to the model, and each of its four answers maps to one write.
+  const twin = {id: 'm9', project_id: null, revision: 4, kind: 'preference', statement: 'Explain technical terms simply.', score: 0.88};
+  const run = async verdict => {
+    const asked = [];
+    const {service, consolidator, of, calls} = fake({changes: [
+      {action: 'add', statement: 'Explain things in grade school English.', source: 'explain it simply',
+       kind: 'preference', project: null, why: 'said again'}]});
+    service.nearest = async () => twin;
+    service.affirmMemory = async (id, meta) => { calls.push({call: 'affirm', id, ...meta}); };
+    consolidator.reconsider = async input => { asked.push(input); return verdict; };
+    const result = await consolidateDocument(service, consolidator, document, {projects});
+    return {result, asked, of, calls};
+  };
+
+  const affirmed = await run({action: 'affirm', statement: '', why: 'same rule'});
+  assert.equal(affirmed.asked[0].existing.id, 'm9');
+  assert.equal(affirmed.asked[0].proposed.source, 'explain it simply');
+  assert.equal(affirmed.result.affirmed, 1);
+  assert.equal(affirmed.of('capture').length, 0, 'no second row');
+  assert.equal(affirmed.result.actions[0].on, 'm9');
+  assert.match(affirmed.result.actions[0].why, /same rule/);
+
+  const extended = await run({action: 'extend', statement: 'Explain technical terms simply, in grade school English.', why: 'more specific'});
+  assert.equal(extended.result.extended, 1);
+  const [ext] = extended.of('extend');
+  assert.equal(ext.id, 'm9');
+  assert.equal(ext.revision, 4, 'the twin\'s revision travels');
+  assert.match(ext.statement, /grade school/);
+
+  const replaced = await run({action: 'replace', statement: 'Explain things in grade school English.', why: 'now false'});
+  assert.equal(replaced.result.replaced, 1);
+  const order = replaced.calls.filter(c => c.call === 'capture' || c.call === 'end').map(c => c.call);
+  assert.deepEqual(order, ['capture', 'end'], 'the new claim is written before the old one ends');
+  assert.equal(replaced.of('end')[0].id, 'm9');
+
+  const added = await run({action: 'add', statement: '', why: 'different claims'});
+  assert.equal(added.result.added, 1);
+  assert.equal(added.of('capture').length, 1);
+});
+
+test('a replace verdict keeps the successor where the twin lived', async () => {
+  // A personal rule loads in every session. A replace proposed from inside
+  // one project must not narrow it to that project: nobody said it should.
+  const {service, consolidator, of} = fake({changes: [
+    {action: 'add', statement: 'Explain things in grade school English.', source: 'explain it simply',
+     kind: 'preference', project: 'ledger', why: 'said again'}]});
+  service.nearest = async () => ({id: 'm9', project_id: null, revision: 2, kind: 'preference', statement: 'Explain simply.'});
+  consolidator.reconsider = async () => ({action: 'replace', statement: 'Explain things in grade school English.', why: 'narrower', raw: '{"action":"replace"}'});
+  const result = await consolidateDocument(service, consolidator, document, {projects});
+  assert.equal(result.replaced, 1);
+  assert.equal(of('capture')[0].project, null, 'the successor stays personal');
+  assert.deepEqual(result.actions[0].asked, {action: 'replace', twin: 'm9', raw: '{"action":"replace"}'},
+    'the run row says what decided the write');
+});
+
+test('when the model cannot be asked about a twin, the add goes through as before', async () => {
+  const {service, consolidator, of} = fake({changes: [
+    {action: 'add', statement: 'Explain things in grade school English.', source: 'explain it simply',
+     kind: 'preference', project: null, why: 'said again'}]});
+  service.nearest = async () => ({id: 'm9', project_id: null, revision: 1, statement: 'Explain simply.'});
+  service.affirmMemory = async () => { throw new Error('must not affirm on the score alone'); };
+  consolidator.reconsider = async () => { throw new Error('503'); };
+  const result = await consolidateDocument(service, consolidator, document, {projects});
+  assert.equal(result.added, 1);
+  assert.equal(of('capture').length, 1);
+});
+
+test('a twin in another project does not stop the add, and no twin adds as before', async () => {
+  const {service, consolidator, of} = fake({changes: [
+    {action: 'add', statement: 'Deploys go through the shared pipeline.', source: 'deploy through the shared pipeline',
+     kind: 'fact', project: 'ledger', why: 'a rule'}]});
+  service.nearest = async () => ({id: 'm8', project_id: 'p2', statement: 'Deploys go through the shared pipeline.', score: 0.99});
+  service.affirmMemory = async () => { throw new Error('must not affirm across projects'); };
+  consolidator.reconsider = async () => { throw new Error('must not be asked about a twin in another project'); };
+  const across = await consolidateDocument(service, consolidator, document, {projects});
+  assert.equal(across.added, 1, 'the same rule can hold in two projects');
+
+  const plain = fake({changes: [
+    {action: 'add', statement: 'Something new.', source: 'something new', kind: 'fact', project: null, why: 'new'}]});
+  const result = await consolidateDocument(plain.service, plain.consolidator, document, {projects});
+  assert.equal(result.added, 1, 'a service without nearest() adds as it always did');
+  assert.equal(plain.of('capture').length, 1);
+});

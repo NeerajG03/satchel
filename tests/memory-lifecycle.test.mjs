@@ -627,3 +627,115 @@ test('the codebase is noted on the document only when no project was chosen, and
     {sessionKey: 's', repository: 'acme/backend', project: 'p1', assistant: 'Noted.'});
   assert.equal(noted.length, 1, 'a chosen project already says more than the codebase');
 });
+
+test('a machine message is noted in the document and never searched', async () => {
+  // Over a week of real prompts, every subagent hand-back scored a memory hit
+  // and every one was recorded as the person's words, where the pass could
+  // quote it as a source. The slots are for what the person typed.
+  const recorded = [];
+  let searched = 0;
+  const service = {
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    recordTurn: async (_k, role, content) => { recorded.push({role, content}); },
+    search: async () => { searched += 1; return [{id: crypto.randomUUID(), statement: 'x', score: 0.9, matched: 1, in_scope: 1}]; },
+    projects: async () => [],
+    personal: async () => [],
+  };
+  const handback = 'Another Claude session sent a message:\n<agent-message from="a1">\n[Subagent hand-back] never bump Go';
+  const result = await retrieve(service, {sessionKey: 's', prompt: handback});
+  assert.equal(searched, 0, 'nothing is retrieved for text nobody typed');
+  assert.equal(result.context, '');
+  assert.deepEqual(recorded, [{role: 'user', content: '[host message, not the person: agent message]'}],
+    'the document says a machine spoke, and keeps none of its words as the person\'s');
+});
+
+test('what session start already loaded is excluded from retrieval, and rows say where they came from', async () => {
+  const personal = [
+    {id: 'aaaaaaaa-0000-4000-8000-000000000001', statement: 'Explain simply.', band: 'said', mentions: 3},
+    {id: 'bbbbbbbb-0000-4000-8000-000000000002', statement: 'Pros and cons for options.', band: 'heard', mentions: 1},
+  ];
+  const searched = [];
+  const service = {
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => ({...baseSettings, block_size: 30}),
+    recordTurn: async () => {},
+    personal: async () => personal,
+    projects: async () => [{id: 'p1', slug: 'ledger', brief: ''}],
+    search: async args => {
+      searched.push(args);
+      return [
+        {id: 'cccccccc-0000-4000-8000-000000000003', project_id: 'p1', band: 'said', statement: 'Payouts ship before Go moves.', score: 0.8, matched: 2, in_scope: 9},
+        {id: 'dddddddd-0000-4000-8000-000000000004', project_id: null, band: 'heard', statement: 'Comments only when needed.', score: 0.7, matched: 2, in_scope: 9},
+      ];
+    },
+  };
+  const result = await retrieve(service, {sessionKey: 's', prompt: 'can we bump Go', exclude: ['eeeeeeee-0000-4000-8000-000000000005']});
+  assert.deepEqual(new Set(searched[0].exclude), new Set([
+    'eeeeeeee-0000-4000-8000-000000000005', personal[0].id, personal[1].id]),
+    'the hook\'s exclusions and every personal row the block loaded');
+  assert.match(result.context, /cccccc {2}\(ledger\) {2}Payouts ship before Go moves\./);
+  assert.match(result.context, /dddddd {2}\(personal, picked up\) {2}Comments only when needed\./);
+});
+
+test('a slash command searches for its arguments, not its wrapper', async () => {
+  const searched = [];
+  const recorded = [];
+  await retrieve({
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    recordTurn: async (_k, _r, content) => { recorded.push(content); },
+    search: async args => { searched.push(args.query); return []; },
+    projects: async () => [], personal: async () => [],
+  }, {sessionKey: 's', prompt: '<command-name>/plan</command-name>\n<command-args>the release order for payouts</command-args>'});
+  assert.deepEqual(searched, ['the release order for payouts']);
+  assert.deepEqual(recorded, ['the release order for payouts']);
+});
+
+test('session start loads the active project\'s own rules under their own cap', async () => {
+  // Project memories arrived only by topic, and a rule about how the work in
+  // this codebase is done is relevant by activity, which is the measurement
+  // that put personal memories in the block in the first place.
+  const own = [
+    {id: 'f1000000-0000-4000-8000-000000000001', project_id: 'p1', kind: 'fact', band: 'heard', mentions: 1, statement: 'Deploys go through infra-configurations.'},
+    {id: 'f2000000-0000-4000-8000-000000000002', project_id: 'p1', kind: 'preference', band: 'said', mentions: 2, statement: 'One QA run per commit is enough.'},
+    {id: 'f3000000-0000-4000-8000-000000000003', project_id: null, kind: 'preference', band: 'said', mentions: 1, statement: 'A personal row memories_in_scope also answers.'},
+  ];
+  const logged = [];
+  const result = await sessionStart({
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    resolveRepository: async () => [{project_id: 'p1', slug: 'ledger', name: 'Ledger', brief: 'Payments', selected: true}],
+    projects: async () => [{id: 'p1', slug: 'ledger', brief: 'Payments'}],
+    personal: async () => [],
+    index: async projectId => { assert.equal(projectId, 'p1'); return {memories: own, complete: true}; },
+    logInjection: async entry => { logged.push(entry); },
+  }, {sessionKey: 's', repository: 'acme/ledger'});
+  assert.match(result.context, /project ledger, confirmed, applies to work in this codebase\n {2}f20000 {2}One QA run per commit is enough\./);
+  assert.match(result.context, /project ledger, picked up from what you said, use unless told otherwise\n {2}f10000 {2}Deploys go through infra-configurations\./);
+  assert.doesNotMatch(result.context, /A personal row memories_in_scope/, 'only the project\'s own rows go in its block');
+  assert.doesNotMatch(result.context, /personal, confirmed/, 'the personal block is empty here, and the project rows did not leak into it');
+  assert.match(result.notice, /2 project memories/);
+  assert.deepEqual(new Set(logged[0].memory_ids), new Set([own[0].id, own[1].id]), 'the log names what loaded');
+});
+
+test('with two candidate projects no project block loads', async () => {
+  let asked = false;
+  const result = await sessionStart({
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    resolveRepository: async () => [
+      {project_id: 'p1', slug: 'a', name: 'A', brief: '', selected: false},
+      {project_id: 'p2', slug: 'b', name: 'B', brief: '', selected: false}],
+    projects: async () => [{id: 'p1', slug: 'a', brief: ''}, {id: 'p2', slug: 'b', brief: ''}],
+    personal: async () => [],
+    index: async () => { asked = true; return {memories: [], complete: true}; },
+  }, {sessionKey: 's', repository: 'acme/mono'});
+  assert.equal(asked, false, 'nothing is scoped, so nothing project-scoped loads');
+  assert.doesNotMatch(result.context, /applies to work in this codebase/);
+});

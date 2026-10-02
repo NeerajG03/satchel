@@ -3,6 +3,16 @@
 // touches the service, including the one a session start waits on.
 import {indexedText, toVectorLiteral} from './vector.mjs';
 
+// How close two statements have to be, in cosine on the production embedding,
+// before an add is held next to a live memory and the model is asked what the
+// pair means. Measured on gemini-embedding-001 at 768: paraphrases of one rule
+// score 0.81 to 0.88, an extension 0.86, two contradicting claims 0.92 to
+// 0.94, and two different claims about the same tool 0.65. So the number
+// finds a twin but cannot say what kind, which is why it only opens a
+// question and never decides one. Recalibrate with the gate when the
+// embedding model changes.
+export const DEDUPE_GATE = 0.85;
+
 // Request-scoped adapter. RLS remains authoritative even for direct RPC calls.
 export function memoryService(db, embedder = null, router = null) {
   async function result(query) {
@@ -162,6 +172,57 @@ export function memoryService(db, embedder = null, router = null) {
       }));
     },
     personal: () => result(db.rpc('personal_memories')),
+    // The live memory closest to a claim about to be written, when it is close
+    // enough to be about the same claim. The pass's own check is an exact
+    // match after normalising, which never fires on a paraphrase, and
+    // production grew pairs like "explain terms simply" beside "use grade
+    // school English". No scope boost, because sameness is not relevance, and
+    // no scope filter, because the caller decides what a twin in another scope
+    // means. Carries the revision, so the caller can extend or replace it.
+    async nearest(statement, {gate = DEDUPE_GATE, limit = 1} = {}) {
+      if (!embedder) return null;
+      const vector = await embedder.embedQuery(statement);
+      const rows = await result(db.rpc('search_memories', {
+        p_query:toVectorLiteral(vector), p_in_scope:null, p_exclude:[],
+        p_limit:limit, p_gate:gate, p_boost:1.0,
+      }));
+      const near = rows?.[0];
+      if (!near) return null;
+      // No row, no twin. A twin without its revision would be extended or
+      // replaced with a null revision, fail the conflict check, and take the
+      // proposed add down with it; none is the answer that lets the add land.
+      const [row] = await result(db.from('memories').select('id,revision,kind,project_id,statement,band').eq('id', near.id).limit(1)) ?? [];
+      return row ? {...near, ...row, score: near.score} : null;
+    },
+    // Rows saved while the embedder was down or out of quota. embedRow swallows
+    // its failure so the write lands, which left four live memories invisible
+    // to retrieval for eleven days because the only repair was a script with a
+    // key nobody ran. The pass runs under the owner's own token, so it can do
+    // the repair itself before it reads anything. One batched call, because
+    // this sits inside a job step's clock and twenty single embeds each with
+    // their own retry budget could spend most of it.
+    async reembedMissing(limit = 20) {
+      if (!embedder) return 0;
+      const rows = await result(db.from('memories').select('id,statement,source')
+        .is('embedding', null).is('ended_at', null).limit(limit));
+      if (!rows?.length) return 0;
+      let vectors;
+      try { vectors = await embedder.embed(rows.map(indexedText)); }
+      catch { return 0; /* still unsearchable, still saved; the next step tries again */ }
+      let done = 0;
+      for (const [i, row] of rows.entries()) {
+        try {
+          await result(db.from('memories').update({
+            embedding:toVectorLiteral(vectors[i]),embedding_model:embedder.model,embedded_at:new Date().toISOString(),
+          }).eq('id',row.id));
+          done += 1;
+        } catch { /* one row that will not take its vector must not stop the rest */ }
+      }
+      return done;
+    },
+    // The conversation text in the run logs, blanked once it is 30 days old.
+    // Called from the job, not from the hooks: see expire_run_logs.
+    expireRunLogs: () => result(db.rpc('expire_run_logs')),
     // The conversation lives here, not on the user's machine. The per-prompt
     // hook already sends the prompt as a tool argument, so nothing extra is
     // read from disk and no transcript is parsed on either host.

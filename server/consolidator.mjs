@@ -54,6 +54,76 @@ export const CONSOLIDATION_SCHEMA = z.object({
 
 export const INSTRUCTIONS = localTextFor(CONSOLIDATE_PROMPT);
 
+/** The one question asked when an add lands next to a live memory.
+ *
+ *  Similarity cannot answer it. On the production embedding two contradicting
+ *  claims ("deploys go out Tuesday" against "Thursday") score 0.94, while a
+ *  real paraphrase of the same rule scores 0.81 to 0.88. So a twin above the
+ *  gate is never affirmed on the number: the same model is asked, about these
+ *  two sentences and the words that produced the new one, which of the four
+ *  lifecycle answers holds. It is the pass's own decision narrowed to one row,
+ *  and it is where extend and replace, which the pass almost never produces on
+ *  its own, actually come from. */
+export const RECONSIDER_SCHEMA = z.object({
+  action: z.enum(['affirm', 'extend', 'replace', 'add'])
+    .describe('affirm: the new claim says what the existing one says. extend: it makes the existing one more specific and both stay true. replace: it makes the existing one false. add: they are different claims that both hold.'),
+  statement: z.string().describe('For extend, the existing memory reworded to carry the new detail. For replace, the new claim. Empty for affirm and add.'),
+  why: z.string().describe('One short line.'),
+});
+
+export const RECONSIDER_INSTRUCTIONS = `You keep a person's long-term memory. A pass over one conversation proposed adding a memory, and a memory that already exists is close to it. Decide what the existing memory should become.
+
+- affirm: the new claim says what the existing one says, in other words. Nothing changes but the count.
+- extend: the new claim makes the existing one more specific, and both readings stay true. Give the existing memory reworded to carry the detail, nothing dropped.
+- replace: the new claim makes the existing one false. Give the new claim. A different day, number, tool or rule for the same thing is a replace, not an extend.
+- add: they are about the same thing but are different claims that both hold.
+
+Only the person's own words decide. The quoted source is what they typed; the proposed claim is a pass's reading of it. When the source does not settle it, prefer add over replace, and affirm over extend: a wrong replace ends a memory nobody contradicted.`;
+
+export function buildReconsiderPrompt({proposed, existing, now = new Date()} = {}) {
+  const day = value => new Date(value).toISOString().slice(0, 10);
+  const lines = [`today is ${day(now)}`, ''];
+  lines.push('existing memory');
+  lines.push(`  [${existing.kind ?? 'fact'}, ${existing.project_slug ?? (existing.project_id ? 'project' : 'personal')}]  ${String(existing.statement).slice(0, 500)}`);
+  lines.push('');
+  lines.push('proposed memory');
+  lines.push(`  [${proposed.kind}]  ${String(proposed.statement).slice(0, 500)}`);
+  lines.push('');
+  lines.push('what the person typed, that the proposal came from');
+  lines.push(`  "${String(proposed.source).slice(0, 1000)}"`);
+  return {system: RECONSIDER_INSTRUCTIONS, prompt: lines.join('\n')};
+}
+
+/** One structured call, shared by the pass and the twin question, so a change
+ *  to how a fenced answer is salvaged or an error is classified lands once.
+ *
+ *  A host that ignores the schema request still answers in prose, and a model
+ *  told to return JSON sometimes wraps it in a fence. Leniency about the
+ *  wrapper only: whatever comes out is parsed against the same schema and
+ *  still has to survive validation. Errors leave raw, so the caller can tell
+ *  an overloaded host from a bad request, and every caller wraps them before
+ *  they reach anyone. */
+async function askModel({provider, apiKey, baseURL, fetchImpl, model, thinking, schema, system, prompt, signal, functionId}) {
+  try {
+    return await generateObject({
+      model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(model),
+      schema, system, prompt, temperature: 0, abortSignal: signal,
+      // Under a provider key, so an OpenAI-shaped host ignores it rather
+      // than rejecting the request.
+      ...(thinking ? {providerOptions: {google: {thinkingConfig: {thinkingLevel: thinking}}}} : {}),
+      // One attempt. A document that was not consolidated this run stays
+      // pending and is picked up by the next one, which is a better answer
+      // than holding a background job open on a spent quota.
+      maxRetries: 0,
+      telemetry: {functionId},
+    });
+  } catch (error) {
+    const salvaged = NoObjectGeneratedError.isInstance(error) && salvage(schema, error.text);
+    if (!salvaged) throw error;
+    return {object: salvaged, usage: error.usage ?? null};
+  }
+}
+
 /** Two messages, for the same reason the router uses two: the rules are
  *  identical on every call and everything else is a person's own words, so the
  *  boundary between them should be structural rather than a tag.
@@ -283,6 +353,32 @@ export function createConsolidator({
     model,
     timeoutMs,
     retryAfterMs,
+    /** One add against one live memory. Same model, a short prompt, a single
+     *  attempt: a failure here is answered by the caller adding as proposed,
+     *  which is what happened before the question existed. */
+    async reconsider({proposed, existing, now = new Date()}, {deadline = null} = {}) {
+      if (!apiKey) throw new Error('No router key configured');
+      const {system, prompt} = buildReconsiderPrompt({proposed, existing, now});
+      const signal = AbortSignal.timeout(
+        Math.min(timeoutMs, deadline ? Math.max(1000, deadline - Date.now()) : timeoutMs));
+      let result;
+      try {
+        result = await askModel({provider, apiKey, baseURL, fetchImpl, model, thinking,
+          schema: RECONSIDER_SCHEMA, system, prompt, signal, functionId: 'reconsider'});
+      } catch (error) { throw asModelError(error, signal, 'consolidation'); }
+      const verdict = result.object ?? {};
+      const statement = String(verdict.statement ?? '').trim();
+      // A verdict that needs a statement and has none, or has one too long
+      // for the row, falls back to the safe answer for that direction.
+      const held = (verdict.action === 'extend' || verdict.action === 'replace') && (!statement || statement.length > 500);
+      const answer = held
+        ? {action: 'add', statement: '', why: 'the reworded claim did not hold up'}
+        : {action: verdict.action, statement, why: String(verdict.why ?? '').slice(0, 500)};
+      // R11: the question and its answer are on the trace, next to the run
+      // they belong to, so a replace that ends a memory names what decided it.
+      annotate({metadata: {reconsidered: `${answer.action} on ${existing.id ?? 'twin'}`}});
+      return {...answer, prompt: `${system}\n\n${prompt}`, raw: JSON.stringify(result.object)};
+    },
     /** `deadline` is the wall the caller has to finish behind, which is the
      *  serverless function's own limit rather than anything about the model.
      *  Bounding the call by whichever comes first is what keeps a batch from
@@ -313,7 +409,8 @@ export function createConsolidator({
       let signal = attempt();
       let waited = false;
       try {
-        result = await ask(model, signal);
+        result = await askModel({provider, apiKey, baseURL, fetchImpl, model, thinking,
+          schema: CONSOLIDATION_SCHEMA, system, prompt, signal, functionId: 'consolidate'});
       } catch (error) {
         // The same model, once more, after a wait. Never a different one: a
         // session a weaker model read is marked as read and not looked at
@@ -327,7 +424,10 @@ export function createConsolidator({
         await sleep(retryAfterMs);
         waited = true;
         signal = attempt();
-        try { result = await ask(model, signal); }
+        try {
+          result = await askModel({provider, apiKey, baseURL, fetchImpl, model, thinking,
+            schema: CONSOLIDATION_SCHEMA, system, prompt, signal, functionId: 'consolidate'});
+        }
         catch (second) { throw asModelError(second, signal, 'consolidation'); }
       }
       // The generation's usage carries no reasoning count for this provider,
@@ -340,36 +440,6 @@ export function createConsolidator({
       return {...checked, model, prompt: `${system}\n\n${prompt}`,
         promptVersion: instructions.version, promptSource: instructions.source,
         raw: JSON.stringify(result.object), usage: result.usage ?? null};
-
-      async function ask(which, signal) {
-      let result;
-      try {
-        result = await generateObject({
-          model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(which),
-          schema: CONSOLIDATION_SCHEMA,
-          system, prompt, temperature: 0, abortSignal: signal,
-          // Under a provider key, so an OpenAI-shaped host ignores it rather
-          // than rejecting the request.
-          ...(thinking ? {providerOptions: {google: {thinkingConfig: {thinkingLevel: thinking}}}} : {}),
-          // One attempt. A document that was not consolidated this run stays
-          // pending and is picked up by the next one, which is a better answer
-          // than holding a background job open on a spent quota.
-          maxRetries: 0,
-          telemetry: {functionId: 'consolidate'},
-        });
-      } catch (error) {
-        // A host that ignores the schema request still answers in prose, and
-        // a model told to return JSON sometimes wraps it in a fence. Leniency
-        // about the wrapper only: whatever comes out is parsed against the
-        // same schema and still has to survive validation.
-        const salvaged = NoObjectGeneratedError.isInstance(error) && salvage(CONSOLIDATION_SCHEMA, error.text);
-        // Raw, so the caller can tell an overloaded host from a bad request.
-        // Every path out of consolidate() wraps it before it reaches anyone.
-        if (!salvaged) throw error;
-        result = {object: salvaged, usage: error.usage ?? null};
-      }
-      return result;
-      }
     },
   };
 }

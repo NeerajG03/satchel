@@ -166,3 +166,8 @@ The first blind comparison, on 23 September, read 27 sessions two ways. The pass
 On 25 September the scope gap was traced to the prompt: sessions with no project were told to use null unless a project was named, and 22 of 26 sessions had no project. Replaying the night with that wording changed moved project-scoped changes from 1 to 3 and made 2 from unlinked sessions. The rest of the misses were judgment, not scope.
 
 On 28 September the pass answered nothing on 27 of 30 sessions, and the blind read found only 6 real changes, so both sides were thin. Two things the review could not see made it look worse than it was: a project deleted after the run took the pass's two adds with it, and an affirm on a confirmed memory leaves no history row by design. `collect.mjs` now sets the job report beside the history, lists projects the run's prompt named even if they are gone, and shows an unlinked session every project's memories, as the pass sees them. The misses that were left were judgment: a rule that started with a verb, and an affirm inside a long request.
+
+## The read side, once a week
+
+`node $SKILL/scripts/injection-audit.mjs --days 7 [--checkout <dir>]` replays the window's `retrieve-memory` spans through a checkout's retrieval rules (which prompts count as the person's, which rows the block already loaded) and prints before and after: prompts with a hit, slots, slots on machine prompts, and the most injected memories. Run it before a retrieval change ships and once a week in the review, and read the "most injected" list the way the pipeline table is read: a row that is injected often and is a work order or describes code is noise to forget by hand, and it is the first thing a person feels.
+
