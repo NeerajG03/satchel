@@ -17,7 +17,7 @@
 //
 // The folder holds conversations, so it is created private and stays on this
 // machine. Nothing here is committed.
-import {mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync} from 'node:fs';
+import {mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync, rmSync} from 'node:fs';
 import {join, basename, resolve, dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {sql, lit, runStart} from './db.mjs';
@@ -72,13 +72,23 @@ for (let n = 2; existsSync(out); n++) out = join(ROOT, `${day}-${n}`);
 mkdirSync(join(out, 'blind'), {recursive: true, mode: 0o700});
 mkdirSync(join(out, 'pipeline'), {recursive: true, mode: 0o700});
 chmodSync(out, 0o700);
+// A run that dies leaves a half folder that looks like a finished one, and the
+// next run then numbers itself after it (2026-10-02-2, -3 on 2 October). This
+// run made the folder, so this run takes it away when it does not finish.
+let finished = false;
+const made = out;
+process.on('exit', code => {
+  if (finished || code === 0) return;
+  rmSync(made, {recursive: true, force: true});
+  console.error(`collect did not finish, so ${made} was removed. Nothing is marked as reviewed.`);
+});
 const write = (path, text) => writeFileSync(join(out, path), text, {mode: 0o600});
 
 const jobs = await sql(`select * from public.consolidation_jobs
   where started_at >= ${lit(since)} and started_at < ${lit(until)} order by started_at`);
 const runs = await sql(`select r.id, r.owner_id, r.document_id, r.trace_id, r.model, r.through, r.error,
     r.added, r.extended, r.replaced, r.retired, r.affirmed, r.dropped, r.duration_ms, r.created_at,
-    r.prompt, r.response, d.session_key, d.project_id, d.turns doc_turns, p.slug
+    r.prompt, r.response, d.session_key, d.project_id, d.repository, d.turns doc_turns, p.slug
   from public.consolidation_runs r
   left join public.documents d on d.id = r.document_id
   left join public.projects p on p.id = d.project_id
@@ -190,7 +200,7 @@ const index = (await pool(runs, 4, async run => {
   ].join('\n'));
   write(`pipeline/${name}.prompt.txt`, String(run.prompt ?? '(no prompt stored)'));
 
-  if (run.through == null || run.error) return {name, scope, error: run.error ?? 'no through mark', turns: 0, chars: 0};
+  if (run.through == null || run.error) return {name, scope, error: run.error ?? 'no through mark', turns: 0, chars: 0, repository: run.repository ?? null};
   const [prev] = await sql(`select max(through) m from public.consolidation_runs
     where document_id = ${lit(run.document_id)} and created_at < ${lit(run.created_at)} and through is not null and error is null`);
   const after = prev?.m ?? 0;
@@ -233,7 +243,7 @@ const index = (await pool(runs, 4, async run => {
   ].join('\n'));
   return {name, scope, turns: turns.length, chars: turns.reduce((n, t) => n + t.content.length, 0),
     cut_user: cut.filter(t => t.role === 'user').length, cut_assistant: cut.filter(t => t.role === 'assistant').length,
-    model: run.model, landed: events.length};
+    model: run.model, landed: events.length, repository: run.repository ?? null};
 }));
 
 // Batches for the blind readers, biggest first so no batch is all small ones.
@@ -282,3 +292,4 @@ write('stats.json', JSON.stringify({jobs: jobs.map(j => ({id: j.id, status: j.st
 console.log(`${runs.length} runs in ${jobs.length} jobs, ${readable.length} sessions to read in ${batches.length} batches`);
 console.log(langfuseError ? `langfuse: unavailable (${langfuseError})` : `langfuse: ${Object.keys(traces).length} of ${runs.length} runs matched a trace`);
 console.log(`folder: ${out}`);
+finished = true;

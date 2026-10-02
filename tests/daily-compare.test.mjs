@@ -8,10 +8,10 @@ import {execFileSync} from 'node:child_process';
 
 const script = new URL('../.claude/skills/daily-improvement/scripts/compare.mjs', import.meta.url).pathname;
 
-function folder({shown}) {
+function folder({shown, repository}) {
   const dir = mkdtempSync(join(tmpdir(), 'compare-'));
   mkdirSync(join(dir, 'blind')); mkdirSync(join(dir, 'pipeline'));
-  const sessions = [{name: 'aaaa1111', scope: 'personal', turns: 3, chars: 100}, {name: 'bbbb2222', scope: 'ledger', turns: 2, chars: 50}];
+  const sessions = [{name: 'aaaa1111', scope: 'personal', turns: 3, chars: 100, ...(repository !== undefined && {repository})}, {name: 'bbbb2222', scope: 'ledger', turns: 2, chars: 50, ...(repository !== undefined && {repository: 'owner/other'})}];
   writeFileSync(join(dir, 'blind/INDEX.json'), JSON.stringify({sessions, batches: []}));
   writeFileSync(join(dir, 'pipeline/aaaa1111.md'), ['# aaaa1111', '', 'model m · 10 ms · error none',
     'counts: added 1 extended 0 replaced 0 retired 0 affirmed 1 rejected 1', '', '## What landed', '',
@@ -51,4 +51,13 @@ test('a blind file with more memories than the pass saw is a warning', () => {
   const out = run(dir);
   assert.match(out, /WARNING: 2 of 2 sessions differ/);
   assert.match(readFileSync(join(dir, 'numbers.md'), 'utf8'), /"both" is unproven/);
+});
+
+test('a session with no project says whether it had a repository to show the pass', () => {
+  assert.match(run(folder({shown: 2, repository: null})), /\| sessions with no project that have a repository \| 0 of 1 \(none for aaaa1111\) \|/);
+  assert.match(run(folder({shown: 2, repository: 'owner/name'})), /\| sessions with no project that have a repository \| 1 of 1 \|/);
+});
+
+test('a folder from before the field existed does not claim anything about it', () => {
+  assert.doesNotMatch(run(folder({shown: 2})), /that have a repository/);
 });

@@ -5,6 +5,7 @@
 // .claude/skills/debugging/references/langfuse.md, and ask for the fields:
 // the default projection leaves out the model, the usage and the metadata.
 import {readFileSync} from 'node:fs';
+import {fetchText} from './net.mjs';
 
 function env() {
   const out = {};
@@ -31,16 +32,17 @@ export async function observations(since, until, {limit = 5000} = {}) {
     url.searchParams.set('limit', '100');
     url.searchParams.set('fields', 'core,basic,metadata,model,usage,metrics');
     if (cursor) url.searchParams.set('cursor', cursor);
-    let res = await fetch(url, {headers: {authorization: `Basic ${auth}`}});
+    const get = () => fetchText(url, {headers: {authorization: `Basic ${auth}`}});
+    let res = await get();
     // Thirty requests a minute. A busy night pages past that, so wait out the
     // window it names rather than lose the whole witness.
     for (let tries = 0; res.status === 429 && tries < 5; tries++) {
-      const body = await res.json().catch(() => ({}));
+      const body = JSON.parse(res.text || '{}');
       await new Promise(done => setTimeout(done, ((body.details?.retryAfterSeconds ?? 60) + 1) * 1000));
-      res = await fetch(url, {headers: {authorization: `Basic ${auth}`}});
+      res = await get();
     }
-    if (!res.ok) throw new Error(`Langfuse said ${res.status}: ${(await res.text()).slice(0, 200)}`);
-    const body = await res.json();
+    if (!res.ok) throw new Error(`Langfuse said ${res.status}: ${res.text.slice(0, 200)}`);
+    const body = JSON.parse(res.text);
     all.push(...(body.data ?? []));
     cursor = body.meta?.cursor ?? null;
   } while (cursor && all.length < limit);

@@ -4,6 +4,7 @@
 // Never the service role key. Never print the token. Every query this skill
 // runs is a select; anything else belongs in a change someone reviews.
 import {readFileSync} from 'node:fs';
+import {fetchText} from './net.mjs';
 
 const PROJECT = 'prpgcrwteepcunizdcut';
 
@@ -18,13 +19,12 @@ function token() {
 
 export async function sql(query) {
   if (!/^\s*(select|with)\b/i.test(query)) throw new Error('this skill only reads');
-  const res = await fetch(`https://api.supabase.com/v1/projects/${PROJECT}/database/query`, {
+  const {ok, status, text} = await fetchText(`https://api.supabase.com/v1/projects/${PROJECT}/database/query`, {
     method: 'POST',
     headers: {authorization: `Bearer ${token()}`, 'content-type': 'application/json'},
     body: JSON.stringify({query}),
   });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`database said ${res.status}: ${text.slice(0, 300)}`);
+  if (!ok) throw new Error(`database said ${status}: ${text.slice(0, 300)}`);
   return JSON.parse(text);
 }
 

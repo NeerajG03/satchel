@@ -64,6 +64,14 @@ lines.push(row('project-scoped', sum(names, n => count(pl(n), inProject)), sum(n
 lines.push(row('project-scoped from sessions with no project',
   sum(unlinked, n => count(pl(n), inProject)), sum(unlinked, n => count(bl(n), blindIn))));
 lines.push(row(`sessions with no project`, `${unlinked.length} of ${names.length}`, ''));
+// A session with no project only gets a `codebase` line in the pass's prompt if
+// its document has a repository (TODO 1). Old folders did not record it.
+const repoOf = Object.fromEntries(sessions.map(s => [s.name, s.repository]));
+if (unlinked.length && sessions.every(s => 'repository' in s)) {
+  const without = unlinked.filter(n => !repoOf[n]);
+  lines.push(row('sessions with no project that have a repository',
+    `${unlinked.length - without.length} of ${unlinked.length}${without.length ? ` (none for ${without.join(', ')})` : ''}`, ''));
+}
 for (const kind of kinds) lines.push(row(`${kind}s`, sum(names, n => count(pl(n), c => c.kind === kind)),
   sum(names, n => count(bl(n), c => c.kind === kind))));
 lines.push(row('add / extend / replace / retire / affirm',
