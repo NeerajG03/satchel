@@ -54,6 +54,46 @@ export const CONSOLIDATION_SCHEMA = z.object({
 
 export const INSTRUCTIONS = localTextFor(CONSOLIDATE_PROMPT);
 
+/** The one question asked when an add lands next to a live memory.
+ *
+ *  Similarity cannot answer it. On the production embedding two contradicting
+ *  claims ("deploys go out Tuesday" against "Thursday") score 0.94, while a
+ *  real paraphrase of the same rule scores 0.81 to 0.88. So a twin above the
+ *  gate is never affirmed on the number: the same model is asked, about these
+ *  two sentences and the words that produced the new one, which of the four
+ *  lifecycle answers holds. It is the pass's own decision narrowed to one row,
+ *  and it is where extend and replace, which the pass almost never produces on
+ *  its own, actually come from. */
+export const RECONSIDER_SCHEMA = z.object({
+  action: z.enum(['affirm', 'extend', 'replace', 'add'])
+    .describe('affirm: the new claim says what the existing one says. extend: it makes the existing one more specific and both stay true. replace: it makes the existing one false. add: they are different claims that both hold.'),
+  statement: z.string().describe('For extend, the existing memory reworded to carry the new detail. For replace, the new claim. Empty for affirm and add.'),
+  why: z.string().describe('One short line.'),
+});
+
+export const RECONSIDER_INSTRUCTIONS = `You keep a person's long-term memory. A pass over one conversation proposed adding a memory, and a memory that already exists is close to it. Decide what the existing memory should become.
+
+- affirm: the new claim says what the existing one says, in other words. Nothing changes but the count.
+- extend: the new claim makes the existing one more specific, and both readings stay true. Give the existing memory reworded to carry the detail, nothing dropped.
+- replace: the new claim makes the existing one false. Give the new claim. A different day, number, tool or rule for the same thing is a replace, not an extend.
+- add: they are about the same thing but are different claims that both hold.
+
+Only the person's own words decide. The quoted source is what they typed; the proposed claim is a pass's reading of it. When the source does not settle it, prefer add over replace, and affirm over extend: a wrong replace ends a memory nobody contradicted.`;
+
+export function buildReconsiderPrompt({proposed, existing, now = new Date()} = {}) {
+  const day = value => new Date(value).toISOString().slice(0, 10);
+  const lines = [`today is ${day(now)}`, ''];
+  lines.push('existing memory');
+  lines.push(`  [${existing.kind ?? 'fact'}, ${existing.project_slug ?? (existing.project_id ? 'project' : 'personal')}]  ${String(existing.statement).slice(0, 500)}`);
+  lines.push('');
+  lines.push('proposed memory');
+  lines.push(`  [${proposed.kind}]  ${String(proposed.statement).slice(0, 500)}`);
+  lines.push('');
+  lines.push('what the person typed, that the proposal came from');
+  lines.push(`  "${String(proposed.source).slice(0, 1000)}"`);
+  return {system: RECONSIDER_INSTRUCTIONS, prompt: lines.join('\n')};
+}
+
 /** Two messages, for the same reason the router uses two: the rules are
  *  identical on every call and everything else is a person's own words, so the
  *  boundary between them should be structural rather than a tag.
@@ -283,6 +323,37 @@ export function createConsolidator({
     model,
     timeoutMs,
     retryAfterMs,
+    /** One add against one live memory. Same model, a short prompt, a single
+     *  attempt: a failure here is answered by the caller adding as proposed,
+     *  which is what happened before the question existed. */
+    async reconsider({proposed, existing, now = new Date()}, {deadline = null} = {}) {
+      if (!apiKey) throw new Error('No router key configured');
+      const {system, prompt} = buildReconsiderPrompt({proposed, existing, now});
+      const signal = AbortSignal.timeout(
+        Math.min(timeoutMs, deadline ? Math.max(1000, deadline - Date.now()) : timeoutMs));
+      let result;
+      try {
+        result = await generateObject({
+          model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(model),
+          schema: RECONSIDER_SCHEMA, system, prompt, temperature: 0, abortSignal: signal,
+          ...(thinking ? {providerOptions: {google: {thinkingConfig: {thinkingLevel: thinking}}}} : {}),
+          maxRetries: 0,
+          telemetry: {functionId: 'reconsider'},
+        });
+      } catch (error) {
+        const salvaged = NoObjectGeneratedError.isInstance(error) && salvage(RECONSIDER_SCHEMA, error.text);
+        if (!salvaged) throw asModelError(error, signal, 'consolidation');
+        result = {object: salvaged};
+      }
+      const verdict = result.object ?? {};
+      const statement = String(verdict.statement ?? '').trim();
+      // A verdict that needs a statement and has none, or has one too long
+      // for the row, falls back to the safe answer for that direction.
+      if ((verdict.action === 'extend' || verdict.action === 'replace') && (!statement || statement.length > 500))
+        return {action: 'add', statement: '', why: 'the reworded claim did not hold up'};
+      return {action: verdict.action, statement, why: String(verdict.why ?? '').slice(0, 500),
+        prompt: `${system}\n\n${prompt}`, raw: JSON.stringify(result.object)};
+    },
     /** `deadline` is the wall the caller has to finish behind, which is the
      *  serverless function's own limit rather than anything about the model.
      *  Bounding the call by whichever comes first is what keeps a batch from

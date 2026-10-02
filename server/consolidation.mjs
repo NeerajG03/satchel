@@ -24,20 +24,39 @@ const untraced = (_name, _options, run) => run(() => {}, () => {}, null);
  *  Each change is caught on its own. One memory that moved under us, or one
  *  row that will not write, must not cost the rest of the run: the alternative
  *  is a document that half applied and is then marked as read. */
-async function apply(service, change, {projects, trace, document}) {
+async function apply(service, change, {projects, trace, document, consolidator = null, deadline = null, now}) {
   const slug = change.project ?? null;
   if (change.action === 'add') {
-    // Said before, in other words. The model's own check is an exact match,
+    // Said before, in other words? The model's own check is an exact match,
     // so a paraphrase of a live memory reached the database as a second row
-    // and both then loaded. A twin in the same scope, or a personal twin that
-    // already loads everywhere, is affirmed instead: the claim was restated,
-    // which is what an affirm means. A twin in another project is left alone
-    // and the add goes through, because the same rule can hold in two
-    // projects without being one memory.
+    // and both then loaded. When a live memory in the same scope, or a
+    // personal one that already loads everywhere, sits close to this claim,
+    // the model is asked what the pair means and the answer is applied: an
+    // affirm, an extend, a replace, or the add after all. Never decided on the
+    // similarity score, which rates a contradiction higher than a paraphrase.
+    // A twin in another project is left alone and the add goes through,
+    // because the same rule can hold in two projects without being one memory.
     const twin = await sameClaim(service, change, projects);
-    if (twin) {
-      await service.affirmMemory(twin.id, {trace, document});
-      return {did: 'affirmed', on: twin.id, why: `said again, as "${String(change.statement).slice(0, 120)}"`};
+    if (twin && consolidator?.reconsider) {
+      let verdict = null;
+      try { verdict = await consolidator.reconsider({proposed: change, existing: twin, now}, {deadline}); }
+      catch { verdict = null; }
+      const why = `${verdict?.why ?? 'the model could not be asked'} · proposed: "${String(change.statement).slice(0, 120)}"`;
+      if (verdict?.action === 'affirm') {
+        await service.affirmMemory(twin.id, {trace, document});
+        return {did: 'affirmed', on: twin.id, why};
+      }
+      if (verdict?.action === 'extend') {
+        await service.extendMemory({id: twin.id, revision: twin.revision, statement: verdict.statement, trace, document});
+        return {did: 'extended', on: twin.id, why};
+      }
+      if (verdict?.action === 'replace') {
+        const written = await service.captureMemory({id: crypto.randomUUID(), statement: verdict.statement,
+          source: change.source, project: slug, kind: change.kind, expires: change.expires ?? null, trace, document});
+        await service.endMemory({id: twin.id, revision: twin.revision, reason: 'replaced', ended_by: written.id,
+          note: verdict.why, trace, document});
+        return {did: 'replaced', on: twin.id, why};
+      }
     }
     await service.captureMemory({id: crypto.randomUUID(), statement: change.statement,
       source: change.source, project: slug, kind: change.kind,
@@ -165,7 +184,8 @@ export async function consolidateDocument(service, consolidator, document,
       const actions = [];
       for (const change of outcome.changes) {
         try {
-          const out = await apply(service, change, {projects, trace: traceId, document: document.id});
+          const out = await apply(service, change, {projects, trace: traceId, document: document.id,
+            consolidator, deadline, now: turns.at(-1)?.created_at});
           const did = typeof out === 'string' ? out : out?.did;
           if (did) {
             counts[did] += 1;

@@ -4,12 +4,14 @@
 import {indexedText, toVectorLiteral} from './vector.mjs';
 
 // How close two statements have to be, in cosine on the production embedding,
-// before the pass treats an add as the same claim as a live memory. Well above
-// the 0.67 relevance gate: relevance is "about the same thing", this is "says
-// the same thing", and the cost of getting it wrong is a real claim affirmed
-// onto a different one. Recalibrate with the gate when the embedding model
-// changes.
-export const DEDUPE_GATE = 0.9;
+// before an add is held next to a live memory and the model is asked what the
+// pair means. Measured on gemini-embedding-001 at 768: paraphrases of one rule
+// score 0.81 to 0.88, an extension 0.86, two contradicting claims 0.92 to
+// 0.94, and two different claims about the same tool 0.65. So the number
+// finds a twin but cannot say what kind, which is why it only opens a
+// question and never decides one. Recalibrate with the gate when the
+// embedding model changes.
+export const DEDUPE_GATE = 0.85;
 
 // Request-scoped adapter. RLS remains authoritative even for direct RPC calls.
 export function memoryService(db, embedder = null, router = null) {
@@ -171,12 +173,12 @@ export function memoryService(db, embedder = null, router = null) {
     },
     personal: () => result(db.rpc('personal_memories')),
     // The live memory closest to a claim about to be written, when it is close
-    // enough to be the same claim said differently. The pass's own check is an
-    // exact match after normalising, which never fires on a paraphrase, and
+    // enough to be about the same claim. The pass's own check is an exact
+    // match after normalising, which never fires on a paraphrase, and
     // production grew pairs like "explain terms simply" beside "use grade
     // school English". No scope boost, because sameness is not relevance, and
     // no scope filter, because the caller decides what a twin in another scope
-    // means.
+    // means. Carries the revision, so the caller can extend or replace it.
     async nearest(statement, {gate = DEDUPE_GATE, limit = 1} = {}) {
       if (!embedder) return null;
       const vector = await embedder.embedQuery(statement);
@@ -184,7 +186,10 @@ export function memoryService(db, embedder = null, router = null) {
         p_query:toVectorLiteral(vector), p_in_scope:null, p_exclude:[],
         p_limit:limit, p_gate:gate, p_boost:1.0,
       }));
-      return rows?.[0] ?? null;
+      const near = rows?.[0];
+      if (!near) return null;
+      const [row] = await result(db.from('memories').select('id,revision,kind,project_id,statement,band').eq('id', near.id).limit(1)) ?? [];
+      return row ? {...near, ...row, score: near.score} : near;
     },
     // Rows saved while the embedder was down or out of quota. embedRow swallows
     // its failure so the write lands, which left four live memories invisible

@@ -8,7 +8,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {firstChunk} from '../server/turn-chunks.mjs';
 import {buildConsolidationPrompt, validateConsolidation, createConsolidator,
-  CONSOLIDATION_SCHEMA} from '../server/consolidator.mjs';
+  CONSOLIDATION_SCHEMA, buildReconsiderPrompt} from '../server/consolidator.mjs';
 import {worthWaiting} from '../server/model-provider.mjs';
 
 const projects = [{slug: 'ledger', brief: 'Go payments ledger'}, {slug: 'sourdough', brief: 'Baking'}];
@@ -452,4 +452,32 @@ test('an unlinked conversation is told which codebase it ran in and which projec
   const none = buildConsolidationPrompt({...unlinked, codebase: 'acme/else'}).prompt;
   assert.match(none, /codebase {2}acme\/else\n/, 'a codebase no project owns is still named, with no owners');
   assert.doesNotMatch(buildConsolidationPrompt({...unlinked, codebase: null}).prompt, /codebase/);
+});
+
+test('the twin question carries both claims and the words that produced the new one', async () => {
+  const {system, prompt} = buildReconsiderPrompt({
+    proposed: {statement: 'Deploys go out on Thursday mornings.', source: 'deploys are thursdays now', kind: 'fact'},
+    existing: {statement: 'Deploys go out on Tuesday mornings.', kind: 'fact', project_slug: 'ledger'},
+    now: new Date('2026-10-02T00:00:00Z')});
+  assert.match(system, /replace: the new claim makes the existing one false/);
+  assert.match(prompt, /existing memory\n {2}\[fact, ledger\] {2}Deploys go out on Tuesday mornings\./);
+  assert.match(prompt, /proposed memory\n {2}\[fact\] {2}Deploys go out on Thursday mornings\./);
+  assert.match(prompt, /"deploys are thursdays now"/);
+  assert.match(prompt, /today is 2026-10-02/);
+});
+
+test('a verdict that needs a statement and has none falls back to add', async () => {
+  const verdict = body => createConsolidator({apiKey: 'x', fetchImpl: async () => json({
+    candidates: [{content: {parts: [{text: JSON.stringify(body)}]}, finishReason: 'STOP'}],
+    usageMetadata: {promptTokenCount: 200, candidatesTokenCount: 20, totalTokenCount: 220}})});
+  const existing = {id: 'm1', statement: 'Deploys go out on Tuesday mornings.', kind: 'fact'};
+  const proposed = {statement: 'Deploys go out on Thursday mornings.', source: 'deploys are thursdays now', kind: 'fact'};
+  const replaced = await verdict({action: 'replace', statement: 'Deploys go out on Thursday mornings.', why: 'new day'})
+    .reconsider({proposed, existing});
+  assert.equal(replaced.action, 'replace');
+  assert.equal(replaced.statement, 'Deploys go out on Thursday mornings.');
+  const empty = await verdict({action: 'replace', statement: '', why: 'new day'}).reconsider({proposed, existing});
+  assert.equal(empty.action, 'add', 'a replace with no claim would end a memory and write nothing');
+  const affirm = await verdict({action: 'affirm', statement: '', why: 'same'}).reconsider({proposed, existing});
+  assert.equal(affirm.action, 'affirm');
 });
