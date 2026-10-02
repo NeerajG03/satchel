@@ -23,11 +23,15 @@ const MARKERS = [
   ['Another Claude session sent a message', 'agent message'],
   ['[Subagent hand-back]', 'agent message'],
   ['<ci-monitor-event>', 'ci event'],
-  ['<system-reminder', 'system reminder'],
   ['<local-command-stdout>', 'command output'],
   ['<local-command-caveat>', 'command output'],
 ];
 
+// A reminder block wraps nothing and is prepended to whatever the person
+// typed: the week this shipped, all five prompts that began with one carried
+// a real message after it. So the blocks are cut out and the rest is judged
+// on its own; only a prompt that is nothing but reminders is the host's.
+const REMINDER = /<system-reminder\b[^>]*>[\s\S]*?<\/system-reminder>\s*/g;
 const COMMAND = /^\s*<command-name>([^<]*)<\/command-name>/;
 const COMMAND_ARGS = /<command-args>([\s\S]*?)<\/command-args>/;
 
@@ -39,8 +43,9 @@ const COMMAND_ARGS = /<command-args>([\s\S]*?)<\/command-args>/;
  *  machine message like the rest. `query` is null when nothing in the prompt
  *  is the person's. */
 export function classifyPrompt(prompt) {
-  const text = String(prompt ?? '');
-  const head = text.trimStart().slice(0, 400);
+  const text = String(prompt ?? '').replace(REMINDER, '').trim();
+  if (!text) return {kind: 'system reminder', query: null};
+  const head = text.slice(0, 400);
   const command = head.match(COMMAND);
   if (command) {
     const args = text.match(COMMAND_ARGS)?.[1]?.trim() ?? '';

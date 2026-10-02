@@ -22,6 +22,16 @@ test('a subagent report, a task notification and a CI event are not the person',
   assert.equal(classifyPrompt('<system-reminder id="1">stale</system-reminder>').kind, 'system reminder');
 });
 
+test('a reminder block in front of a real message is cut out, and the message is the person\'s', () => {
+  // All five prompts that began with a reminder in the week this shipped
+  // carried a real message after it. The host prepends; it does not replace.
+  const wrapped = '<system-reminder id="a1">The user opened a file.</system-reminder>\nhttps://example.slack.com/archives/C1/p2 what did we decide here';
+  assert.deepEqual(classifyPrompt(wrapped), {kind: null, query: 'https://example.slack.com/archives/C1/p2 what did we decide here'});
+  const two = '<system-reminder>a</system-reminder>\n<system-reminder>b</system-reminder>\n  yes do that';
+  assert.deepEqual(classifyPrompt(two), {kind: null, query: 'yes do that'});
+  assert.equal(classifyPrompt('<system-reminder>only this</system-reminder>\n').kind, 'system reminder');
+});
+
 test('a marker deep inside a long prompt does not make it a machine message', () => {
   // The person may paste a log that mentions one. Only the head of the prompt
   // decides, because that is where the host puts its own wrapper.

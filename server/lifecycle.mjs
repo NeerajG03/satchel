@@ -105,13 +105,14 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
           status.all_projects || status.project_ids?.length || status.personal ? service.projects() : [],
           status.personal ? service.personal() : [],
           // The active project's own memories, when there is exactly one.
-          // memories_in_scope answers the personal rows first and the
-          // project's after, under RLS, so a project this connection was not
-          // granted comes back empty rather than refused. Its failure is held
-          // apart from the rest: a project block that cannot be read must not
-          // take the personal one down with it.
-          active && service.memoriesInScope
-            ? service.memoriesInScope(active, 60).then(rows => rows.filter(r => r.project_id === active), () => [])
+          // list_memories, through index(), is project-only: memories_in_scope
+          // answers the personal rows first under one limit, so a person with
+          // sixty personal memories would get no project rows at all and the
+          // block would be silently empty. Its failure is held apart from the
+          // rest, since index() refuses a project this connection was not
+          // granted and that must not take the personal block down with it.
+          active && service.index
+            ? service.index(active).then(out => (out?.memories ?? []).filter(r => r.project_id === active), () => [])
             : [],
         ]);
         const here = projects.find(p => p.id === active) ?? null;
@@ -202,7 +203,7 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
           try { await service.recordTurn(sessionKey, 'user', machine ? machineTurnNote(machine) : query, settings.capture_window * 2); }
           catch (error) { unrecorded = errorText(error); }
         if (settings.per_prompt_matches && !machine) {
-          const [scope, personal, projects] = await Promise.all([
+          const [scope, personal] = await Promise.all([
             project !== undefined ? {project} : resolveScope(service, {sessionKey, repository}),
             // What session start already loaded is not retrieved again. The
             // hook never knew those ids, so for a week the personal rows took
@@ -210,8 +211,6 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
             // back on every message in a session. The set is recomputed the
             // way session start computes it, so the two cannot disagree.
             status.personal && service.personal ? service.personal().catch(() => []) : [],
-            // For the labels on each row. A project's slug, not its id.
-            service.projects ? service.projects().catch(() => []) : [],
           ]);
           const load = personalLoad(personal, settings.block_size);
           const already = [...new Set([...exclude, ...load.said.map(m => m.id), ...load.heard.map(m => m.id)])];
@@ -229,10 +228,14 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
           // Nothing relevant is a real answer, and the common one. It costs
           // nothing and says nothing.
           if (rows.length) {
+            // The slugs for the labels, read only now: most prompts find
+            // nothing, and this hook has the tightest budget of the three.
+            const projects = rows.some(r => r.project_id) && service.projects
+              ? await service.projects().catch(() => []) : [];
             notice = noticeFor('UserPromptSubmit', {shown: rows.length, matched: rows[0].matched});
             context = promptBlock({rows, matched: rows[0].matched, inScope: rows[0].in_scope,
               churn: settings.staleness_commits,
-              slugs: Object.fromEntries((projects ?? []).map(p => [p.id, p.slug]))});
+              slugs: Object.fromEntries(projects.map(p => [p.id, p.slug]))});
             logged = {query, memory_ids: rows.map(r => r.id),
               matched: rows[0].matched, in_scope: rows[0].in_scope, tokens: estimateTokens(context)};
           }

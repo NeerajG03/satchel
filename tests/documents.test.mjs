@@ -281,7 +281,7 @@ test('the codebase a session ran in is kept on its document, and only the owner 
   } finally { await db.close(); }
 });
 
-test('the conversation text kept beside the documents expires on the same clock', async () => {
+test('the conversation text kept beside the documents expires on the same clock, from the job', async () => {
   // Three tables held the same words with no end: a run keeps the prompt it
   // sent, which is the conversation. The rows stay for the audit; the text goes.
   const {db, owner, call} = await database();
@@ -289,11 +289,15 @@ test('the conversation text kept beside the documents expires on the same clock'
     const run = crypto.randomUUID(), old = crypto.randomUUID(), route = crypto.randomUUID();
     await call(owner, `insert into consolidation_runs(id, model, prompt, response) values ($1, 'm', 'fresh words', '{}')`, [run]);
     await call(owner, `insert into consolidation_runs(id, model, prompt, response) values ($1, 'm', 'old words', '{}')`, [old]);
+    const unsent = crypto.randomUUID();
+    await call(owner, `insert into consolidation_runs(id, model, prompt, error) values ($1, 'm', '(not sent)', 'quota')`, [unsent]);
     await call(owner, `insert into router_runs(id, session_key, model, prompt, kept) values ($1, 's', 'm', 'old window', 0)`, [route]);
-    await db.exec(`update public.consolidation_runs set created_at = now() - interval '31 days' where id = '${old}'`);
+    await db.exec(`update public.consolidation_runs set created_at = now() - interval '31 days' where id in ('${old}', '${unsent}')`);
     await db.exec(`update public.router_runs set created_at = now() - interval '31 days'`);
-    await call(owner, 'select expire_documents()');
+    const [{expire_run_logs: blanked}] = await call(owner, 'select expire_run_logs()');
+    assert.equal(blanked, 2, 'one run and one router window, counted');
     const rows = await call(owner, 'select id, prompt, response from consolidation_runs order by created_at');
+    assert.equal(rows.find(r => r.id === unsent).prompt, '(not sent)', 'a run that never reached the model keeps its marker');
     assert.deepEqual(rows.find(r => r.id === old), {id: old, prompt: '(expired)', response: null});
     assert.deepEqual(rows.find(r => r.id === run), {id: run, prompt: 'fresh words', response: '{}'});
     const [router] = await call(owner, 'select prompt, kept from router_runs');

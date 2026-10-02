@@ -321,6 +321,21 @@ test('an add next to a live twin is a question for the model, and its answer is 
   assert.equal(added.of('capture').length, 1);
 });
 
+test('a replace verdict keeps the successor where the twin lived', async () => {
+  // A personal rule loads in every session. A replace proposed from inside
+  // one project must not narrow it to that project: nobody said it should.
+  const {service, consolidator, of} = fake({changes: [
+    {action: 'add', statement: 'Explain things in grade school English.', source: 'explain it simply',
+     kind: 'preference', project: 'ledger', why: 'said again'}]});
+  service.nearest = async () => ({id: 'm9', project_id: null, revision: 2, kind: 'preference', statement: 'Explain simply.'});
+  consolidator.reconsider = async () => ({action: 'replace', statement: 'Explain things in grade school English.', why: 'narrower', raw: '{"action":"replace"}'});
+  const result = await consolidateDocument(service, consolidator, document, {projects});
+  assert.equal(result.replaced, 1);
+  assert.equal(of('capture')[0].project, null, 'the successor stays personal');
+  assert.deepEqual(result.actions[0].asked, {action: 'replace', twin: 'm9', raw: '{"action":"replace"}'},
+    'the run row says what decided the write');
+});
+
 test('when the model cannot be asked about a twin, the add goes through as before', async () => {
   const {service, consolidator, of} = fake({changes: [
     {action: 'add', statement: 'Explain things in grade school English.', source: 'explain it simply',

@@ -94,6 +94,36 @@ export function buildReconsiderPrompt({proposed, existing, now = new Date()} = {
   return {system: RECONSIDER_INSTRUCTIONS, prompt: lines.join('\n')};
 }
 
+/** One structured call, shared by the pass and the twin question, so a change
+ *  to how a fenced answer is salvaged or an error is classified lands once.
+ *
+ *  A host that ignores the schema request still answers in prose, and a model
+ *  told to return JSON sometimes wraps it in a fence. Leniency about the
+ *  wrapper only: whatever comes out is parsed against the same schema and
+ *  still has to survive validation. Errors leave raw, so the caller can tell
+ *  an overloaded host from a bad request, and every caller wraps them before
+ *  they reach anyone. */
+async function askModel({provider, apiKey, baseURL, fetchImpl, model, thinking, schema, system, prompt, signal, functionId}) {
+  try {
+    return await generateObject({
+      model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(model),
+      schema, system, prompt, temperature: 0, abortSignal: signal,
+      // Under a provider key, so an OpenAI-shaped host ignores it rather
+      // than rejecting the request.
+      ...(thinking ? {providerOptions: {google: {thinkingConfig: {thinkingLevel: thinking}}}} : {}),
+      // One attempt. A document that was not consolidated this run stays
+      // pending and is picked up by the next one, which is a better answer
+      // than holding a background job open on a spent quota.
+      maxRetries: 0,
+      telemetry: {functionId},
+    });
+  } catch (error) {
+    const salvaged = NoObjectGeneratedError.isInstance(error) && salvage(schema, error.text);
+    if (!salvaged) throw error;
+    return {object: salvaged, usage: error.usage ?? null};
+  }
+}
+
 /** Two messages, for the same reason the router uses two: the rules are
  *  identical on every call and everything else is a person's own words, so the
  *  boundary between them should be structural rather than a tag.
@@ -333,26 +363,21 @@ export function createConsolidator({
         Math.min(timeoutMs, deadline ? Math.max(1000, deadline - Date.now()) : timeoutMs));
       let result;
       try {
-        result = await generateObject({
-          model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(model),
-          schema: RECONSIDER_SCHEMA, system, prompt, temperature: 0, abortSignal: signal,
-          ...(thinking ? {providerOptions: {google: {thinkingConfig: {thinkingLevel: thinking}}}} : {}),
-          maxRetries: 0,
-          telemetry: {functionId: 'reconsider'},
-        });
-      } catch (error) {
-        const salvaged = NoObjectGeneratedError.isInstance(error) && salvage(RECONSIDER_SCHEMA, error.text);
-        if (!salvaged) throw asModelError(error, signal, 'consolidation');
-        result = {object: salvaged};
-      }
+        result = await askModel({provider, apiKey, baseURL, fetchImpl, model, thinking,
+          schema: RECONSIDER_SCHEMA, system, prompt, signal, functionId: 'reconsider'});
+      } catch (error) { throw asModelError(error, signal, 'consolidation'); }
       const verdict = result.object ?? {};
       const statement = String(verdict.statement ?? '').trim();
       // A verdict that needs a statement and has none, or has one too long
       // for the row, falls back to the safe answer for that direction.
-      if ((verdict.action === 'extend' || verdict.action === 'replace') && (!statement || statement.length > 500))
-        return {action: 'add', statement: '', why: 'the reworded claim did not hold up'};
-      return {action: verdict.action, statement, why: String(verdict.why ?? '').slice(0, 500),
-        prompt: `${system}\n\n${prompt}`, raw: JSON.stringify(result.object)};
+      const held = (verdict.action === 'extend' || verdict.action === 'replace') && (!statement || statement.length > 500);
+      const answer = held
+        ? {action: 'add', statement: '', why: 'the reworded claim did not hold up'}
+        : {action: verdict.action, statement, why: String(verdict.why ?? '').slice(0, 500)};
+      // R11: the question and its answer are on the trace, next to the run
+      // they belong to, so a replace that ends a memory names what decided it.
+      annotate({metadata: {reconsidered: `${answer.action} on ${existing.id ?? 'twin'}`}});
+      return {...answer, prompt: `${system}\n\n${prompt}`, raw: JSON.stringify(result.object)};
     },
     /** `deadline` is the wall the caller has to finish behind, which is the
      *  serverless function's own limit rather than anything about the model.
@@ -384,7 +409,8 @@ export function createConsolidator({
       let signal = attempt();
       let waited = false;
       try {
-        result = await ask(model, signal);
+        result = await askModel({provider, apiKey, baseURL, fetchImpl, model, thinking,
+          schema: CONSOLIDATION_SCHEMA, system, prompt, signal, functionId: 'consolidate'});
       } catch (error) {
         // The same model, once more, after a wait. Never a different one: a
         // session a weaker model read is marked as read and not looked at
@@ -398,7 +424,10 @@ export function createConsolidator({
         await sleep(retryAfterMs);
         waited = true;
         signal = attempt();
-        try { result = await ask(model, signal); }
+        try {
+          result = await askModel({provider, apiKey, baseURL, fetchImpl, model, thinking,
+            schema: CONSOLIDATION_SCHEMA, system, prompt, signal, functionId: 'consolidate'});
+        }
         catch (second) { throw asModelError(second, signal, 'consolidation'); }
       }
       // The generation's usage carries no reasoning count for this provider,
@@ -411,36 +440,6 @@ export function createConsolidator({
       return {...checked, model, prompt: `${system}\n\n${prompt}`,
         promptVersion: instructions.version, promptSource: instructions.source,
         raw: JSON.stringify(result.object), usage: result.usage ?? null};
-
-      async function ask(which, signal) {
-      let result;
-      try {
-        result = await generateObject({
-          model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(which),
-          schema: CONSOLIDATION_SCHEMA,
-          system, prompt, temperature: 0, abortSignal: signal,
-          // Under a provider key, so an OpenAI-shaped host ignores it rather
-          // than rejecting the request.
-          ...(thinking ? {providerOptions: {google: {thinkingConfig: {thinkingLevel: thinking}}}} : {}),
-          // One attempt. A document that was not consolidated this run stays
-          // pending and is picked up by the next one, which is a better answer
-          // than holding a background job open on a spent quota.
-          maxRetries: 0,
-          telemetry: {functionId: 'consolidate'},
-        });
-      } catch (error) {
-        // A host that ignores the schema request still answers in prose, and
-        // a model told to return JSON sometimes wraps it in a fence. Leniency
-        // about the wrapper only: whatever comes out is parsed against the
-        // same schema and still has to survive validation.
-        const salvaged = NoObjectGeneratedError.isInstance(error) && salvage(CONSOLIDATION_SCHEMA, error.text);
-        // Raw, so the caller can tell an overloaded host from a bad request.
-        // Every path out of consolidate() wraps it before it reaches anyone.
-        if (!salvaged) throw error;
-        result = {object: salvaged, usage: error.usage ?? null};
-      }
-      return result;
-      }
     },
   };
 }

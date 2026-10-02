@@ -42,20 +42,27 @@ async function apply(service, change, {projects, trace, document, consolidator =
       try { verdict = await consolidator.reconsider({proposed: change, existing: twin, now}, {deadline}); }
       catch { verdict = null; }
       const why = `${verdict?.why ?? 'the model could not be asked'} · proposed: "${String(change.statement).slice(0, 120)}"`;
+      // R11: the verdict and the raw answer travel with the action, so the run
+      // row says what decided the write and not only that it happened.
+      const asked = verdict ? {action: verdict.action, twin: twin.id, raw: verdict.raw ?? null} : null;
       if (verdict?.action === 'affirm') {
         await service.affirmMemory(twin.id, {trace, document});
-        return {did: 'affirmed', on: twin.id, why};
+        return {did: 'affirmed', on: twin.id, why, asked};
       }
       if (verdict?.action === 'extend') {
         await service.extendMemory({id: twin.id, revision: twin.revision, statement: verdict.statement, trace, document});
-        return {did: 'extended', on: twin.id, why};
+        return {did: 'extended', on: twin.id, why, asked};
       }
       if (verdict?.action === 'replace') {
+        // The successor lives where the claim it replaces lived. A personal
+        // twin loads in every session, and a replace proposed from inside one
+        // project must not narrow it to that project: nobody said it should.
+        const where = twin.project_id ? projects.find(p => p.id === twin.project_id)?.slug ?? slug : null;
         const written = await service.captureMemory({id: crypto.randomUUID(), statement: verdict.statement,
-          source: change.source, project: slug, kind: change.kind, expires: change.expires ?? null, trace, document});
+          source: change.source, project: where, kind: change.kind, expires: change.expires ?? null, trace, document});
         await service.endMemory({id: twin.id, revision: twin.revision, reason: 'replaced', ended_by: written.id,
           note: verdict.why, trace, document});
-        return {did: 'replaced', on: twin.id, why};
+        return {did: 'replaced', on: twin.id, why, asked};
       }
     }
     await service.captureMemory({id: crypto.randomUUID(), statement: change.statement,
@@ -190,7 +197,7 @@ export async function consolidateDocument(service, consolidator, document,
           if (did) {
             counts[did] += 1;
             actions.push({did, on: out?.on ?? change.target ?? null, statement: change.statement,
-              why: out?.why ?? change.why});
+              why: out?.why ?? change.why, ...(out?.asked ? {asked: out.asked} : {})});
           }
         } catch (error) {
           counts.dropped += 1;
@@ -291,6 +298,11 @@ export async function consolidateStep(service, consolidator, job,
   // pass reads with. Never allowed to stop the pass: a memory that cannot be
   // embedded is still a memory, it is only one retrieval cannot see.
   try { await service.reembedMissing?.(); } catch { /* retrieval only, the pass goes on */ }
+  // The conversation text kept in the run logs expires on the documents' 30
+  // day clock. Done here and not in record_turn, which runs on every prompt
+  // inside the hook's budget: three log tables are nothing to scan once a job
+  // and something to scan on every keystroke.
+  try { await service.expireRunLogs?.(); } catch { /* retention, never the pass */ }
   const waiting = (await service.pendingDocuments(job.idle_minutes)).filter(d => !tried.has(d.id));
   let current = job;
   const stop = async (reason, patch = {}) => {

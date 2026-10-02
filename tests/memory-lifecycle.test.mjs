@@ -712,12 +712,13 @@ test('session start loads the active project\'s own rules under their own cap', 
     resolveRepository: async () => [{project_id: 'p1', slug: 'ledger', name: 'Ledger', brief: 'Payments', selected: true}],
     projects: async () => [{id: 'p1', slug: 'ledger', brief: 'Payments'}],
     personal: async () => [],
-    memoriesInScope: async projectId => { assert.equal(projectId, 'p1'); return own; },
+    index: async projectId => { assert.equal(projectId, 'p1'); return {memories: own, complete: true}; },
     logInjection: async entry => { logged.push(entry); },
   }, {sessionKey: 's', repository: 'acme/ledger'});
   assert.match(result.context, /project ledger, confirmed, applies to work in this codebase\n {2}f20000 {2}One QA run per commit is enough\./);
   assert.match(result.context, /project ledger, picked up from what you said, use unless told otherwise\n {2}f10000 {2}Deploys go through infra-configurations\./);
   assert.doesNotMatch(result.context, /A personal row memories_in_scope/, 'only the project\'s own rows go in its block');
+  assert.doesNotMatch(result.context, /personal, confirmed/, 'the personal block is empty here, and the project rows did not leak into it');
   assert.match(result.notice, /2 project memories/);
   assert.deepEqual(new Set(logged[0].memory_ids), new Set([own[0].id, own[1].id]), 'the log names what loaded');
 });
@@ -733,7 +734,7 @@ test('with two candidate projects no project block loads', async () => {
       {project_id: 'p2', slug: 'b', name: 'B', brief: '', selected: false}],
     projects: async () => [{id: 'p1', slug: 'a', brief: ''}, {id: 'p2', slug: 'b', brief: ''}],
     personal: async () => [],
-    memoriesInScope: async () => { asked = true; return []; },
+    index: async () => { asked = true; return {memories: [], complete: true}; },
   }, {sessionKey: 's', repository: 'acme/mono'});
   assert.equal(asked, false, 'nothing is scoped, so nothing project-scoped loads');
   assert.doesNotMatch(result.context, /applies to work in this codebase/);

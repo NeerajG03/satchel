@@ -188,22 +188,41 @@ export function memoryService(db, embedder = null, router = null) {
       }));
       const near = rows?.[0];
       if (!near) return null;
+      // No row, no twin. A twin without its revision would be extended or
+      // replaced with a null revision, fail the conflict check, and take the
+      // proposed add down with it; none is the answer that lets the add land.
       const [row] = await result(db.from('memories').select('id,revision,kind,project_id,statement,band').eq('id', near.id).limit(1)) ?? [];
-      return row ? {...near, ...row, score: near.score} : near;
+      return row ? {...near, ...row, score: near.score} : null;
     },
     // Rows saved while the embedder was down or out of quota. embedRow swallows
     // its failure so the write lands, which left four live memories invisible
     // to retrieval for eleven days because the only repair was a script with a
     // key nobody ran. The pass runs under the owner's own token, so it can do
-    // the repair itself before it reads anything.
+    // the repair itself before it reads anything. One batched call, because
+    // this sits inside a job step's clock and twenty single embeds each with
+    // their own retry budget could spend most of it.
     async reembedMissing(limit = 20) {
       if (!embedder) return 0;
       const rows = await result(db.from('memories').select('id,statement,source')
         .is('embedding', null).is('ended_at', null).limit(limit));
+      if (!rows?.length) return 0;
+      let vectors;
+      try { vectors = await embedder.embed(rows.map(indexedText)); }
+      catch { return 0; /* still unsearchable, still saved; the next step tries again */ }
       let done = 0;
-      for (const row of rows ?? []) { await embedRow(row); done += 1; }
+      for (const [i, row] of rows.entries()) {
+        try {
+          await result(db.from('memories').update({
+            embedding:toVectorLiteral(vectors[i]),embedding_model:embedder.model,embedded_at:new Date().toISOString(),
+          }).eq('id',row.id));
+          done += 1;
+        } catch { /* one row that will not take its vector must not stop the rest */ }
+      }
       return done;
     },
+    // The conversation text in the run logs, blanked once it is 30 days old.
+    // Called from the job, not from the hooks: see expire_run_logs.
+    expireRunLogs: () => result(db.rpc('expire_run_logs')),
     // The conversation lives here, not on the user's machine. The per-prompt
     // hook already sends the prompt as a tool argument, so nothing extra is
     // read from disk and no transcript is parsed on either host.
