@@ -23,6 +23,7 @@ const MARKERS = [
   ['Another Claude session sent a message', 'agent message'],
   ['[Subagent hand-back]', 'agent message'],
   ['<ci-monitor-event>', 'ci event'],
+  ['<scheduled-task', 'scheduled task'],
   ['<local-command-stdout>', 'command output'],
   ['<local-command-caveat>', 'command output'],
 ];

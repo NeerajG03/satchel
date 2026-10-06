@@ -20,6 +20,9 @@ test('a subagent report, a task notification and a CI event are not the person',
   assert.equal(classifyPrompt('<task-notification>\n<task-id>x</task-id>').kind, 'task notification');
   assert.equal(classifyPrompt('<ci-monitor-event>{"status":"failed"}</ci-monitor-event>').kind, 'ci event');
   assert.equal(classifyPrompt('<system-reminder id="1">stale</system-reminder>').kind, 'system reminder');
+  const scheduled = classifyPrompt('<system-reminder>ctx</system-reminder><scheduled-task name="review">\nThis is an automated run. No em dashes.\n</scheduled-task>');
+  assert.equal(scheduled.kind, 'scheduled task');
+  assert.equal(scheduled.query, null);
 });
 
 test('a reminder block in front of a real message is cut out, and the message is the person\'s', () => {
