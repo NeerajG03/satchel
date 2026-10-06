@@ -67,3 +67,6 @@
 .settings-row h2 { font-size: var(--text-h3); }
 .settings-row .stack-tight { align-items: flex-start; }
 @media (max-width: 900px) { .settings-row { grid-template-columns: 1fr; } }
+.days { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.days legend { padding: 0; margin-bottom: 6px; font-size: 13px; font-weight: 500; }
+.days .row { gap: 6px 18px; }

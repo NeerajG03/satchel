@@ -8,7 +8,13 @@ export const client = url && key && !url.includes('your-project') && key !== 'yo
   ? createClient(url, key, { auth: { flowType: 'pkce', detectSessionInUrl: true } })
   : null;
 
+/** An error whose message is already a sentence for the person, written by us.
+ *  Everything else is mapped from its code, because a raw database message is
+ *  never something to show on a page. */
+export class Sentence extends Error {}
+
 export function errorMessage(error: unknown, operation: 'load' | 'save' = 'save'): string {
+  if (error instanceof Sentence) return error.message;
   const code = error && typeof error === 'object' && 'code' in error ? error.code : '';
   if (code === 'SATCHEL_TIMEOUT') return operation === 'load'
     ? 'Loading took too long. Reload to try again.'

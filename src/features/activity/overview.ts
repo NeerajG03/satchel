@@ -58,6 +58,7 @@ export function modelHealth(calls: ModelCall[]): ModelHealth[] {
 export type ScheduleStatus = {
   enabled: boolean; endpoint: string; idle_minutes: number; last_run_at: string | null;
   last_status: number | null; last_error: string | null; failures: number; scheduled: boolean;
+  days: number[]; times: string[]; timezone: string;
 };
 
 /** A live memory, just the columns the tally needs. */
