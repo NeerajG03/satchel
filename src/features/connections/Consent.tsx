@@ -6,6 +6,7 @@ import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter } from '../../app/readout';
 import type { Project } from '../projects/repository';
 import { partnerSlug } from './repository';
+import { rememberedClientId } from '../settings/consolidationConnect';
 import { Button } from '../../ui/Button';
 import { CheckField } from '../../ui/Field';
 import { LoadError, SaveError, Skeleton } from '../../ui/Notice';
@@ -64,6 +65,9 @@ export function Consent() {
   }, [page.data]);
   useEffect(() => { if (!valid) navigate('/apps', { replace: true }); }, [valid, navigate]);
 
+  // The client name is whatever the app said it was, so a name is no reason to
+  // suggest anything. The id this browser registered a minute ago in Settings is.
+  const overnight = details !== null && rememberedClientId() === details.client.id;
   const projects = page.data?.projects ?? [];
   const anyMemory = memory.personal || memory.all || memory.ids.length > 0;
   const anyTasks = tasks.personal || tasks.all || tasks.ids.length > 0;
@@ -100,6 +104,7 @@ export function Consent() {
     <div className="row wrap"><span className="fine muted">Quick start:</span>
       <Button small onClick={() => { setMemory(all()); setTasks(all()); setMemoryWrite(false); setTaskWrite(false); setTaskUpload(false); }}>Read everything</Button>
       <Button small onClick={() => { setMemory(all()); setTasks(all()); setMemoryWrite(true); setTaskWrite(true); setTaskUpload(true); }}>Read and save everything</Button>
+      {overnight && <Button small onClick={() => { setMemory(all()); setTasks(NONE); setMemoryWrite(true); setTaskWrite(false); setTaskUpload(false); }}>What the overnight pass needs</Button>}
       <Button small look="quiet" onClick={() => { setMemory(NONE); setTasks(NONE); setMemoryWrite(false); setTaskWrite(false); setTaskUpload(false); }}>Clear all</Button>
     </div>
     <div className="two">
@@ -117,6 +122,8 @@ export function Consent() {
           <p className="fine muted">Reading means the app’s hooks get the names and descriptions of memories in these scopes. It fetches More info by name only when it needs it.</p>
           <p className="fine muted">Writing still needs your explicit ask inside the chat. The app cannot save on its own.</p>
           <p className="fine muted">“Every project” keeps being true. A project you make next month is included without asking again. Tick projects one by one instead and the list is fixed at what you choose now, so anything new stays private until you say otherwise.</p></div>
+        {overnight && <div className="aside-block"><div className="between"><h3>The overnight pass</h3></div>
+          <p className="fine muted">This is the connection you just asked for in Settings. It reads conversations that have gone quiet and saves what it learns, so it needs your memory, every project and you, with saves. It does not need tasks. Nothing is ticked for you: press the button above or choose your own.</p></div>}
         <div className="aside-block"><div className="between"><h3>Summary</h3></div>
           <p className="fine">Memory: {anyMemory ? `${scopeText(memory)} · ${memoryWrite ? 'read and save' : 'read only'}` : 'nothing'}</p>
           <p className="fine">Tasks: {anyTasks ? `${scopeText(tasks)} · ${taskWrite ? 'read and write' : 'read only'}${taskUpload ? ' · uploads' : ''}` : 'nothing'}</p></div>

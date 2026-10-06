@@ -5,6 +5,7 @@ import { createProjectRepository } from '../features/projects/repository';
 import { createTaskRepository } from '../features/tasks/repository';
 import { createConnectionRepository } from '../features/connections/repository';
 import { createActivityRepository } from '../features/activity/repository';
+import { createOvernightRepository } from '../features/settings/repository';
 
 export function useStores() {
   const db = useDb();
@@ -15,6 +16,7 @@ export function useStores() {
     tasks: createTaskRepository(db),
     connections: createConnectionRepository(db),
     activity: createActivityRepository(db),
+    overnight: createOvernightRepository(db),
   }), [db]);
 }
 export type Stores = ReturnType<typeof useStores>;

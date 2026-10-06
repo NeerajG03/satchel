@@ -1,0 +1,10 @@
+export type Schedule = { days: number[]; times: string[]; timezone: string };
+export const DAY_NAMES: string[];
+export const EVERY_DAY: number[];
+export const WEEKDAYS: number[];
+export function scheduleProblem(schedule: Schedule): string | null;
+export function hourMinute(time: string): string;
+export function tidy(schedule: Schedule): Schedule;
+export function sameSchedule(a: Schedule, b: Schedule): boolean;
+export function describeSchedule(schedule: Schedule): string;
+export function nextRun(schedule: Schedule, now?: Date): Date | null;

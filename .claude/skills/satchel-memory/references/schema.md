@@ -196,7 +196,7 @@ Browser only to read, like `memory_injections`. The prompt is a whole session pl
 The hard part is not the schedule, it is the credential. `/api/consolidate` runs under RLS as a real person, which is R9's "isolation is enforced by the database for every caller", and pg_cron runs inside the database and is nobody. Handing a background job a blanket key is the service role key wearing a different hat, so the owner grants the job its own connection instead.
 
 ```
-scripts/enable-consolidation.mjs   one OAuth flow, its own client
+Settings > Overnight pass          one OAuth flow, its own client, days and times
 vault                              the refresh token, encrypted at rest
 consolidation_credentials          who is enabled, and nothing secret
 cron -> private.run_consolidation -> net.http_post -> /api/consolidate
@@ -208,7 +208,9 @@ Four properties, each one a line of code. It is a **separate OAuth client**, so 
 
 `/api/consolidate` is the only endpoint that accepts `x-satchel-refresh`. A hook that took a refresh token would be a second way in for no reason.
 
-The schedule itself installs inside a guarded `do` block: a project without pg_cron, or one where creating extensions is not ours, must still deploy. That makes "did it install" a real question, so `consolidation_status()` answers it.
+The person's schedule is `days`, `times` and `timezone` on `consolidation_credentials`. The timer ticks every 15 minutes and `private.consolidation_due` decides whether a slot is due: today's or yesterday's, on a chosen day, under three hours old, after the last run. `enable`, `disable`, `set_consolidation_schedule` and `consolidation_status` refuse any token with a `client_id`; only `rotate_consolidation_credential` stays open to the job's own client.
+
+The timer itself installs inside a guarded `do` block: a project without pg_cron, or one where creating extensions is not ours, must still deploy. That makes "did it install" a real question, so `consolidation_status()` answers it.
 
 ## `capture_memory`
 

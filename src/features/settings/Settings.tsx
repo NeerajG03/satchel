@@ -10,6 +10,7 @@ import { setDevMode, useDevMode } from '../../app/dev';
 import { Button } from '../../ui/Button';
 import { CheckField, SelectField } from '../../ui/Field';
 import { SaveError } from '../../ui/Notice';
+import { Overnight } from './Overnight';
 
 export function Settings() {
   const { user, signOut, busy: authBusy } = useAuth();
@@ -60,6 +61,7 @@ export function Settings() {
           {action.error && <SaveError message={action.error} />}
         </div>
       </div>
+      <Overnight />
       <div className="settings-row">
         <h2>Developer mode</h2>
         <div className="stack-tight">

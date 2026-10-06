@@ -49,26 +49,15 @@ The image builds the app and runs the same server. Local Supabase stays the CLI'
 Satchel's auth and isolation are Supabase specific on purpose. GoTrue issues the JWT, a custom access token hook puts the grant claims in it, and RLS reads them. Replacing that is not in scope. Running it locally is, and the container exists so deploying somewhere other than Vercel stays possible rather than becoming a rewrite.
 
 
-## The background pass, and its developer-only schedule
+## The background pass and its overnight schedule
 
-Nothing runs the pass on its own. No hook spawns it, because a hook that quietly spends money on a model call is the wrong default. It runs when the six-hourly job fires or when someone presses a button.
+Nothing runs the pass on its own until a person switches it on. No hook spawns it, because a hook that quietly spends money on a model call is the wrong default. It runs when the schedule fires or when someone presses a button.
 
-The job is not surfaced in the product, because it costs a second sign-in and a second long-lived token. What it needs is not a schedule, it is a credential. `/api/consolidate` runs under RLS as a real person, which is what keeps one account's memory out of another's, and a job inside the database is nobody. Handing a background writer a blanket key would be the service role key wearing a different hat.
+The switch is in Settings, under Overnight pass. What it needs is not a schedule, it is a credential. `/api/consolidate` runs under RLS as a real person, which is what keeps one account's memory out of another's, and a job inside the database is nobody. Handing a background writer a blanket key would be the service role key wearing a different hat.
 
-So you grant the job its own connection, once:
+So switching it on sends you through the ordinary consent page for a second OAuth client, "Satchel consolidation", separate from the plugin's, and puts the refresh token in your own Supabase Vault. The browser holds it only between the token exchange and the call that stores it. It is rotated on every run, three refusals in a row switch the job off, switching it off destroys the stored token, and revoking either client in Apps leaves the other alone. Locally the client is registered for the address you are on, so the page that Supabase sends you back to has to be reachable there.
 
-```bash
-npm run consolidation:enable -- --enable
-```
-
-That registers a second OAuth client, "Satchel consolidation", separate from the plugin's, runs the ordinary consent flow in a browser, and puts the refresh token in your own Supabase Vault. It is never written to disk and never printed. It is rotated on every run, three refusals in a row switch the job off, and revoking either client in Apps leaves the other alone.
-
-```bash
-npm run consolidation:enable             # what is set up, including whether pg_cron installed
-npm run consolidation:enable -- --disable # off, and the stored token is destroyed
-```
-
-The schedule installs inside a guarded block in the migration, because a project without pg_cron must still deploy. The status output says whether it actually installed, which is worth reading rather than assuming.
+The timer installs inside a guarded block in the migration, because a project without pg_cron must still deploy. Settings says whether it actually installed, which is worth reading rather than assuming.
 
 Turning it on does not change what writes memory. That is `memory_settings.capture_mode`: `turn` is the old router at the end of every Stop, `session` is the background pass. They are not meant to run together, and the default is still `turn`.
 

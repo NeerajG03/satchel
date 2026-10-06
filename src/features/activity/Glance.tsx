@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStores } from '../../app/stores';
 import { useLoad } from '../../app/useLoad';
 import { count, whenText } from '../../app/format';
+import { describeSchedule, hourMinute } from '../settings/schedule.mjs';
 import { Button } from '../../ui/Button';
 import { Light } from '../../ui/Light';
 import { Notice } from '../../ui/Notice';
@@ -81,7 +82,9 @@ function Schedule({ status }: { status: ScheduleStatus | null }) {
     <p className="fine">{!status.enabled
       ? status.failures >= 3 ? 'Switched off after three refusals in a row.' : 'Switched off. Only the button runs a pass.'
       : !status.scheduled ? 'Switched on, but the timer that runs it is not installed on this database.'
-      : `Every six hours, for sessions quiet for ${status.idle_minutes} minutes.`}</p>
+      : Array.isArray(status.times)
+        ? `${describeSchedule({ days: status.days, times: status.times.map(hourMinute), timezone: status.timezone })} (${status.timezone}), for sessions quiet for ${status.idle_minutes} minutes.`
+        : `Every six hours, for sessions quiet for ${status.idle_minutes} minutes.`}</p>
     <dl className="facts">
       <dt>last run</dt><dd>{status.last_run_at ? whenText(status.last_run_at) : 'never'}</dd>
       {status.last_status !== null && <><dt>last answer</dt><dd>{status.last_status}</dd></>}
