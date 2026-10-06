@@ -18,17 +18,24 @@
 // The folder holds conversations, so it is created private and stays on this
 // machine. Nothing here is committed.
 import {mkdirSync, writeFileSync, readFileSync, existsSync, chmodSync} from 'node:fs';
-import {join} from 'node:path';
-import {sql, lit} from './db.mjs';
+import {join, basename, resolve, dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {sql, lit, runStart} from './db.mjs';
 import {observations, summarize} from './langfuse.mjs';
 
 const HOME = process.env.HOME;
 const ROOT = process.env.SATCHEL_DAILY_DIR ?? join(HOME, 'satchel-daily');
 const STATE = join(ROOT, 'state.json');
+const LOG = join(ROOT, 'log.md');
 // The consolidator cuts each turn before the model sees it
 // (server/consolidator.mjs, the slice in the turn formatter). Counted here so
 // the review can tell a miss the model made from one it was never shown.
-const CUT = {user: 2000, assistant: 800};
+// The same rule as cutFor there, copied because this runs from an archive with
+// no node_modules: an assistant turn followed by a short reply keeps more.
+const CUT = {user: 2000, assistant: 800, answered: 2000, short: 200};
+const cutFor = (turns, i) => turns[i].role !== 'assistant' ? CUT.user
+  : turns[i + 1]?.role === 'user' && String(turns[i + 1].content ?? '').trim().length <= CUT.short
+    ? CUT.answered : CUT.assistant;
 const BATCH_CHARS = 90_000;
 
 const args = process.argv.slice(2);
@@ -43,6 +50,12 @@ const readJson = (path, fallback) => { try { return JSON.parse(readFileSync(path
 if (flag('--mark')) {
   const window = readJson(join(flag('--mark'), 'window.json'), null);
   if (!window) throw new Error('no window.json in that folder');
+  // Every run leaves a line in the log before it is marked, so a day with no
+  // entry is a day the review did not finish (references/log.md).
+  const name = basename(resolve(flag('--mark')));
+  const log = existsSync(LOG) ? readFileSync(LOG, 'utf8') : '';
+  if (!new RegExp(`^## \\S+ · ${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm').test(log))
+    throw new Error(`${LOG} has no entry for ${name}. Append one in the shape in references/log.md, then mark again.`);
   writeFileSync(STATE, JSON.stringify({until: window.until, folder: flag('--mark')}, null, 1));
   console.log(`reviewed through ${window.until}`);
   process.exit(0);
@@ -151,12 +164,22 @@ const index = (await pool(runs, 4, async run => {
     from public.memory_events e left join public.memories m on m.id = e.memory_id
     where e.trace_id = ${lit(run.trace_id)} order by e.created_at`) : [];
   const job = jobRunFor(run);
+  // The history cannot show everything the job did. Saying a confirmed memory
+  // again only moves a counter, which is deliberately not an event, and a
+  // memory whose project was deleted since takes its events with it. So the
+  // job's own report is set beside the history, or a good add reads as nothing.
+  const actions = job?.entry?.actions ?? [];
+  const affirms = actions.filter(a => a.did === 'affirmed');
+  const lost = Math.max(0, actions.filter(a => ['added', 'replaced'].includes(a.did)).length
+    - events.filter(e => e.action === 'added').length);
   write(`pipeline/${name}.md`, [
     `# ${name} · scope ${scope} · ${run.created_at}`, '',
     `model ${run.model} · ${run.duration_ms ?? '?'} ms · error ${run.error ?? 'none'}`,
     `counts: added ${run.added} extended ${run.extended} replaced ${run.replaced} retired ${run.retired} affirmed ${run.affirmed} rejected ${run.dropped}`, '',
     '## What landed (memory_events on this trace)', '',
-    ...(events.length ? events.map(e => `- ${e.action} [${e.kind ?? '?'} · ${e.project_id ? slugs[e.project_id] ?? e.project_id : 'personal'} · ${e.band ?? '?'}] ${e.after ?? e.before ?? ''}${e.reason ? `  (reason: ${e.reason})` : ''}`) : ['- nothing']), '',
+    ...(events.length ? events.map(e => `- ${e.action} [${e.kind ?? '?'} · ${e.project_id ? slugs[e.project_id] ?? e.project_id : 'personal'} · ${e.band ?? '?'}] ${e.after ?? e.before ?? ''}${e.reason ? `  (reason: ${e.reason})` : ''}`) : ['- nothing']),
+    ...affirms.map(a => `- affirmed ${a.on ?? '?'} (from the job report: an affirm on a confirmed memory leaves no history row)`),
+    ...(lost ? [`- ${lost} added in the job report with no row now: the memory, or the project it was filed under, was deleted since`] : []), '',
     '## The job report entry', '',
     job ? '```json\n' + JSON.stringify(job.entry, null, 1) + '\n```' : 'not part of a job in this window', '',
     '## Langfuse', '',
@@ -173,16 +196,37 @@ const index = (await pool(runs, 4, async run => {
   const after = prev?.m ?? 0;
   const turns = await sql(`select id, role, content, created_at from public.document_turns
     where document_id = ${lit(run.document_id)} and id > ${Number(after)} and id <= ${Number(run.through)} order by id`);
-  const memories = await setAt(run.owner_id, run.created_at);
-  const inScope = memories.filter(m => m.project_id === null || m.project_id === run.project_id);
-  const cut = turns.filter(t => t.content.length > (CUT[t.role] ?? Infinity));
+  // The row is written when the run ends, after its own adds exist, so the set
+  // is read as of the moment the run began.
+  const memories = await setAt(run.owner_id, runStart(run));
+  // The same set the pass was shown: a session with no project sees every
+  // project's memories (memoriesAcross in server/consolidation.mjs).
+  const inScope = run.project_id
+    ? memories.filter(m => m.project_id === null || m.project_id === run.project_id) : memories;
+  const cut = turns.filter((t, i) => t.content.length > cutFor(turns, i));
   const repos = reposOf[run.owner_id];
+  // Projects deleted since the run are still in the prompt it was sent. Without
+  // them the blind side is answering a different question.
+  const known = new Set(projectsOf[run.owner_id].map(p => p.slug));
+  const head = String(run.prompt ?? '').split('<conversation>')[0].split('\ntoday is ').at(-1);
+  // The brief is optional: a project with none is written as its slug alone.
+  const listedInPrompt = [...head.matchAll(/^ {2}(?:project {2})?([a-z0-9][a-z0-9-]*)(?: {2}(.*?))?(?: {2}repos .*)?$/gm)]
+    .filter(([line]) => !line.endsWith('none linked') && !/^ {2}codebase /.test(line));
+  const gone = listedInPrompt.filter(([, slug]) => !known.has(slug))
+    .map(([, slug, brief]) => ({slug, brief: brief ?? ''}));
+  // Only the projects the pass was shown (TODO 16): one made after the run is
+  // not part of the question it answered. A run that never reached the model
+  // has no list, and then every project is shown.
+  const shown = listedInPrompt.length ? new Set(listedInPrompt.map(([, slug]) => slug)) : null;
+  const codebase = head.match(/^ {2}codebase {2}(.+)$/m)?.[1] ?? null;
   write(`blind/${name}.md`, [
     `# Session ${name} · scope: ${scope}`, '',
+    ...(codebase ? [`The conversation ran in the codebase ${codebase}`, ''] : []),
     '## Projects that exist', '',
-    ...projectsOf[run.owner_id].map(p => `- ${p.slug}: ${p.brief ?? p.name ?? ''}`.slice(0, 220)
-      + (repos.some(r => r.project_id === p.id) ? ` (repos: ${repos.filter(r => r.project_id === p.id).map(r => r.repository).join(', ')})` : '')), '',
-    '## Memories that already existed before this pass (personal, plus this session\'s project)', '',
+    ...projectsOf[run.owner_id].filter(p => !shown || shown.has(p.slug)).map(p => `- ${p.slug}: ${(p.brief ?? p.name ?? '').replace(/\s+/g, ' ')}`.slice(0, 220)
+      + (repos.some(r => r.project_id === p.id) ? ` (repos: ${repos.filter(r => r.project_id === p.id).map(r => r.repository).join(', ')})` : '')),
+    ...gone.map(p => `- ${p.slug}: ${p.brief}`.slice(0, 220)), '',
+    `## Memories that already existed before this pass (${run.project_id ? 'personal, plus this session\'s project' : 'personal, plus every project\'s'})`, '',
     ...inScope.map((m, i) => `${i + 1}. [${m.kind} · ${m.project_id ? slugs[m.project_id] : 'personal'}${m.mentions > 1 ? ` · said ${m.mentions} times` : ''}] ${m.statement}`), '',
     `## The new turns (${turns.length})`, '',
     ...turns.map(t => `### ${t.role} · ${t.created_at}\n\n${t.content}\n`),
@@ -201,6 +245,15 @@ for (const s of readable) {
   else batches.push({files: [`${s.name}.md`], chars: s.chars});
 }
 write('blind/INDEX.json', JSON.stringify({sessions: index, batches}, null, 1));
+
+// One ready prompt per batch, from references/blind-read.md, so starting a
+// blind reader is one line: "read and follow <file>". Inside blind/ on purpose,
+// the only folder they are allowed to read.
+const template = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../references/blind-read.md'), 'utf8')
+  .split('\n---\n').slice(1).join('\n---\n').trim();
+batches.forEach((batch, i) => write(`blind/prompt-${i + 1}.txt`, template
+  .replaceAll('{folder}', join(out, 'blind')).replaceAll('{files}', batch.files.join(', '))
+  .replaceAll('{out}', join(out, 'blind', `out-${i + 1}.json`))));
 
 // The shape of the whole set, now and in this window.
 const stats = {};

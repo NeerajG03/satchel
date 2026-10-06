@@ -6,8 +6,9 @@
 // destructive rather than merely unhelpful.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {firstChunk} from '../server/turn-chunks.mjs';
 import {buildConsolidationPrompt, validateConsolidation, createConsolidator,
-  CONSOLIDATION_SCHEMA} from '../server/consolidator.mjs';
+  CONSOLIDATION_SCHEMA, buildReconsiderPrompt} from '../server/consolidator.mjs';
 import {worthWaiting} from '../server/model-provider.mjs';
 
 const projects = [{slug: 'ledger', brief: 'Go payments ledger'}, {slug: 'sourdough', brief: 'Baking'}];
@@ -124,6 +125,95 @@ test('the assistant’s own words are never a source', () => {
   assert.equal(out.changes.length, 0, 'otherwise the model is quoting itself back as evidence');
 });
 
+test('a bare yes cannot source a new claim, but it can confirm an old one', () => {
+  const agreed = {...context, turns: [
+    {role: 'assistant', content: 'I suggest one worker per account writes the balance. Go with that?'},
+    {role: 'user', content: 'yes'},
+    {role: 'user', content: 'Sounds good!'},
+  ]};
+  const out = validateConsolidation({changes: [
+    change({source: 'yes', statement: 'One worker per account writes the balance.'}),
+    change({source: 'Sounds good!', statement: 'Another claim.'}),
+    change({action: 'affirm', target: 1, statement: '', source: 'yes', kind: 'preference'}),
+  ]}, agreed);
+  assert.deepEqual(out.changes.map(c => c.action), ['affirm'],
+    'the design was the assistant\'s, and "yes" is in almost every conversation');
+  assert.deepEqual(out.dropped.map(d => d.why), ['source is only agreement', 'source is only agreement']);
+});
+
+test('a yes with only an option label after it is still a bare yes', () => {
+  const picked = {...context, turns: [
+    {role: 'assistant', content: 'C4: the daily cap counts every send. Agree?'},
+    {role: 'user', content: 'yes for C4'},
+  ]};
+  const out = validateConsolidation({changes: [
+    change({source: 'yes for C4', statement: 'The daily cap counts every send.'}),
+    change({action: 'extend', target: 3, statement: 'Deploys go out on Tuesday mornings, and the cap counts every send.', source: 'Yes for C4'}),
+  ]}, picked);
+  assert.deepEqual(out.changes, []);
+  assert.deepEqual(out.dropped.map(d => d.why), ['source is only agreement', 'source is only agreement']);
+});
+
+test('a yes that names what they chose is kept', () => {
+  // The narrow rule above must not eat a pick: "yes for option A" and
+  // "let's go with option A" say which one, and that is the decision.
+  const picked = {...context, turns: [
+    {role: 'user', content: 'yes for option A, one worker per account'},
+    {role: 'user', content: "let's go with option A"},
+    {role: 'user', content: 'yes for v2, keep the ledger schema'},
+  ]};
+  const out = validateConsolidation({changes: [
+    change({source: 'yes for option A, one worker per account', statement: 'One worker per account writes the balance.'}),
+    change({source: "let's go with option A", statement: 'The ledger uses one worker per account.'}),
+    change({source: 'yes for v2, keep the ledger schema', statement: 'The ledger keeps its schema for v2.'}),
+  ]}, picked);
+  assert.equal(out.changes.length, 3);
+});
+
+test('a quote stitched from two turns with an ellipsis is checked piece by piece', () => {
+  // Seen on 29 September: the model joined two things the user said with "..."
+  // and the whole claim was dropped as "not in the conversation".
+  const two = {...context, turns: [
+    {role: 'user', content: 'log based pattern matching does not seem right, do you agree?'},
+    {role: 'assistant', content: 'Agreed, metrics are better. Should I write the ticket?'},
+    {role: 'user', content: 'yes write the ticket, the alerts from the app should go out as otel metrics'},
+  ]};
+  const out = validateConsolidation({changes: [
+    change({source: 'log based pattern matching does not seem right ... the alerts from the app should go out as otel metrics',
+      statement: 'App alerts go out as OTel metrics, not log patterns.', kind: 'preference'}),
+    change({source: 'log based pattern matching does not seem right … the assistant said something else entirely',
+      statement: 'A claim built on a piece nobody typed.'}),
+    change({source: 'the alerts from the app should go out as otel ...', statement: 'A quote that just trails off.'}),
+    change({source: '...', statement: 'A source of nothing but dots.'}),
+    change({source: 'yes ... and', statement: 'Two scraps that appear anywhere.'}),
+  ]}, two);
+  assert.deepEqual(out.changes.map(c => c.statement),
+    ['App alerts go out as OTel metrics, not log patterns.', 'A quote that just trails off.']);
+  assert.deepEqual(out.dropped.map(d => d.why), Array(3).fill('source is not in the conversation'),
+    'one piece that was never said still sinks the claim');
+});
+
+test('no turn is ever shown shorter than it was said', () => {
+  const long = 'p'.repeat(5000);
+  const {prompt} = buildConsolidationPrompt({...context, turns: [
+    {role: 'user', content: long},
+    {role: 'assistant', content: long},
+    {role: 'user', content: 'yes, go with that'},
+    {role: 'assistant', content: long},
+    {role: 'user', content: 'x'.repeat(3000)},
+  ]});
+  const shown = [...prompt.matchAll(/^(?:user|assistant): ([px]*)$/gm)].map(m => m[1].length);
+  assert.deepEqual(shown, [5000, 5000, 5000, 3000]);
+});
+
+test('a session too long for one call is split between turns, and one huge turn goes whole', () => {
+  const turns = [3, 3, 3, 3].map((n, i) => ({id: i, role: 'user', content: 'a'.repeat(n)}));
+  assert.deepEqual(firstChunk(turns, 7).map(t => t.id), [0, 1]);
+  assert.deepEqual(firstChunk(turns, 100).map(t => t.id), [0, 1, 2, 3]);
+  const huge = [{id: 0, role: 'user', content: 'a'.repeat(50)}, {id: 1, role: 'user', content: 'b'}];
+  assert.deepEqual(firstChunk(huge, 10).map(t => t.id), [0], 'a turn is never cut to fit');
+});
+
 test('an invented project falls back to personal, and a real one survives', () => {
   const out = validateConsolidation({changes: [
     change({project: 'not-a-project', statement: 'One claim.', source: 'no em dashes in commit messages'}),
@@ -187,6 +277,17 @@ test('the run says what it was looking at before it says what it did', async () 
   assert.equal(seen[0].metadata.knownMemories, 3);
   assert.equal(seen[0].metadata.turns, 3);
   assert.equal(seen[0].metadata.promptName, 'satchel-consolidate');
+});
+
+test('the trace says how much of the output was thinking', async () => {
+  const seen = [];
+  const consolidator = createConsolidator({apiKey: 'x', annotate: entry => seen.push(entry),
+    fetchImpl: async () => json({
+      candidates: [{content: {parts: [{text: JSON.stringify({changes: []})}]}, finishReason: 'STOP'}],
+      usageMetadata: {promptTokenCount: 900, candidatesTokenCount: 10, thoughtsTokenCount: 400, totalTokenCount: 1310}})});
+  await consolidator.consolidate(context);
+  const after = seen.at(-1).metadata;
+  assert.equal(after.reasoningTokens, 400, 'or an empty answer that cost 4000 output tokens cannot be explained');
 });
 
 test('the schema the provider enforces is the five decisions and nothing else', async () => {
@@ -339,4 +440,44 @@ test('a source quoting a long paste is cut to what memories.source holds, not re
     {turns: [{role: 'user', content: paste}], memories: [], projects: []});
   assert.equal(out.changes.length, 1, JSON.stringify(out.dropped));
   assert.equal(out.changes[0].source.length, 4000);
+});
+
+test('an unlinked conversation is told which codebase it ran in and which projects own it', () => {
+  const unlinked = {turns, memories, project: null, codebase: 'acme/ledger', projects: [
+    {slug: 'ledger', brief: 'Go ledger', repositories: ['acme/ledger']},
+    {slug: 'audit', brief: 'Audit trail', repositories: ['acme/ledger', 'acme/audit']},
+    {slug: 'sourdough', brief: 'Baking'}]};
+  const {prompt} = buildConsolidationPrompt(unlinked);
+  assert.match(prompt, /project {2}none linked\n {2}codebase {2}acme\/ledger {2}\(belongs to ledger, audit\)/);
+  const none = buildConsolidationPrompt({...unlinked, codebase: 'acme/else'}).prompt;
+  assert.match(none, /codebase {2}acme\/else\n/, 'a codebase no project owns is still named, with no owners');
+  assert.doesNotMatch(buildConsolidationPrompt({...unlinked, codebase: null}).prompt, /codebase/);
+});
+
+test('the twin question carries both claims and the words that produced the new one', async () => {
+  const {system, prompt} = buildReconsiderPrompt({
+    proposed: {statement: 'Deploys go out on Thursday mornings.', source: 'deploys are thursdays now', kind: 'fact'},
+    existing: {statement: 'Deploys go out on Tuesday mornings.', kind: 'fact', project_slug: 'ledger'},
+    now: new Date('2026-10-02T00:00:00Z')});
+  assert.match(system, /replace: the new claim makes the existing one false/);
+  assert.match(prompt, /existing memory\n {2}\[fact, ledger\] {2}Deploys go out on Tuesday mornings\./);
+  assert.match(prompt, /proposed memory\n {2}\[fact\] {2}Deploys go out on Thursday mornings\./);
+  assert.match(prompt, /"deploys are thursdays now"/);
+  assert.match(prompt, /today is 2026-10-02/);
+});
+
+test('a verdict that needs a statement and has none falls back to add', async () => {
+  const verdict = body => createConsolidator({apiKey: 'x', fetchImpl: async () => json({
+    candidates: [{content: {parts: [{text: JSON.stringify(body)}]}, finishReason: 'STOP'}],
+    usageMetadata: {promptTokenCount: 200, candidatesTokenCount: 20, totalTokenCount: 220}})});
+  const existing = {id: 'm1', statement: 'Deploys go out on Tuesday mornings.', kind: 'fact'};
+  const proposed = {statement: 'Deploys go out on Thursday mornings.', source: 'deploys are thursdays now', kind: 'fact'};
+  const replaced = await verdict({action: 'replace', statement: 'Deploys go out on Thursday mornings.', why: 'new day'})
+    .reconsider({proposed, existing});
+  assert.equal(replaced.action, 'replace');
+  assert.equal(replaced.statement, 'Deploys go out on Thursday mornings.');
+  const empty = await verdict({action: 'replace', statement: '', why: 'new day'}).reconsider({proposed, existing});
+  assert.equal(empty.action, 'add', 'a replace with no claim would end a memory and write nothing');
+  const affirm = await verdict({action: 'affirm', statement: '', why: 'same'}).reconsider({proposed, existing});
+  assert.equal(affirm.action, 'affirm');
 });

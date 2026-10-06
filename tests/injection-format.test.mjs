@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {sessionStartBlock, personalLoad, promptBlock, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
+import {sessionStartBlock, personalLoad, projectLoad, promptBlock, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
 
 const memory = (id, statement, band = 'said', task_id = null) => ({id, statement, band, task_id});
 
@@ -170,4 +170,33 @@ test('a memory whose repository moved is flagged, and nothing more than flagged'
   assert.match(block, /Deploys are on Tuesdays\./, 'and it is still injected');
   assert.doesNotMatch(promptBlock({rows, matched: 2, inScope: 9, churn: 500}), /has moved/,
     'the threshold is a setting, not a constant');
+});
+
+test('a retrieved row says which scope it came from and whether it was picked up', () => {
+  const block = promptBlock({slugs: {p1: 'ledger'}, matched: 2, inScope: 9, rows: [
+    {id: 'c1000000-0000-4000-8000-000000000001', project_id: 'p1', band: 'said', statement: 'Payouts first.'},
+    {id: 'c2000000-0000-4000-8000-000000000002', project_id: null, band: 'heard', statement: 'Comments rarely.'},
+    {id: 'c3000000-0000-4000-8000-000000000003', project_id: 'unknown', band: 'said', statement: 'Elsewhere.'},
+  ]});
+  assert.match(block, /c10000 {2}\(ledger\) {2}Payouts first\./);
+  assert.match(block, /c20000 {2}\(personal, picked up\) {2}Comments rarely\./);
+  assert.match(block, /c30000 {2}\(project\) {2}Elsewhere\./, 'a slug the caller could not name still says it is a project row');
+});
+
+test('the project block puts preferences first, then the most said, under its own cap', () => {
+  const rows = [
+    {id: 'd1000000-0000-4000-8000-000000000001', kind: 'fact', band: 'said', mentions: 5, statement: 'Fact said five times.'},
+    {id: 'd2000000-0000-4000-8000-000000000002', kind: 'preference', band: 'said', mentions: 1, statement: 'A preference.'},
+    {id: 'd3000000-0000-4000-8000-000000000003', kind: 'fact', band: 'heard', mentions: 1, statement: 'A picked-up fact.'},
+    {id: 'd4000000-0000-4000-8000-000000000004', kind: 'intent', band: 'said', mentions: 1, statement: 'An intent.'},
+  ];
+  const load = projectLoad(rows, 2);
+  assert.deepEqual(load.said.map(m => m.statement), ['A preference.', 'Fact said five times.']);
+  assert.deepEqual(load.heard, [], 'confirmed rows fill the cap first');
+  assert.equal(load.past, 2);
+  const block = sessionStartBlock({project: {slug: 'ledger'}, projectMemories: rows, projectCap: 3});
+  assert.match(block, /project ledger, confirmed, applies to work in this codebase\n {2}d20000 {2}A preference\.\n {2}d10000 {2}Fact said five times\.\n {2}d40000 {2}An intent\./);
+  assert.match(block, /1 more project memory not loaded/);
+  assert.doesNotMatch(block, /picked up/, 'no room was left for the picked-up row');
+  assert.equal(sessionStartBlock({project: {slug: 'ledger'}, projectMemories: []}), '', 'an empty project adds nothing');
 });

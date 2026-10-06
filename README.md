@@ -2,6 +2,8 @@
 
 **Your work, with you.**
 
+<img width="1024" height="596" alt="image" src="https://github.com/user-attachments/assets/d9cd2ca0-0d52-4718-9b5b-e6a331479243" />
+
 Satchel keeps your memory, projects and tasks in one place and hands them to the AI coding apps you already use. You decide what gets saved. Every app sees only what you allowed it to see, and you can revoke that any time.
 
 The hosted pilot is at [satchel-pi.vercel.app](https://satchel-pi.vercel.app). Sign in with GitHub. It is a personal pilot, not a product with uptime promises yet.

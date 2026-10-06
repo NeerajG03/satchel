@@ -15,6 +15,7 @@ It reads production and Langfuse, writes a report to a private folder on this ma
 - **No evals.** A consolidation eval costs model quota the nightly run needs. Name the eval case a TODO should add; do not run it.
 - **Secrets stay in `~/.config/env`.** The scripts read `SB_TOKEN` and the `LANGFUSE_*` keys from there. Never print them, never paste them.
 - **Conversations stay in the folder.** The collected turns are the person's words. The report quotes at most a few words at a time, and the final chat message quotes nothing longer than a short phrase.
+- **Every run leaves an entry in the log.** `~/satchel-daily/log.md` gets one entry per run, even when nothing ran, in the shape in [references/log.md](references/log.md). Anything done beyond the report, such as a replay, an eval, a commit, a PR or a removed file, goes in that entry with its hash or link. `collect.mjs --mark` refuses a folder the log does not name.
 - **Do not touch the shared checkout** at `/Volumes/Casesensitive/Github/satchel`: another session may be on another branch there. Read code from `origin/main` (see Setup).
 
 ## Setup
@@ -35,6 +36,8 @@ Read code under `$WORK` from here on. `git -C $REPO log origin/main` is how you 
 
 ### 1. Collect
 
+Read the end of `~/satchel-daily/log.md` first: what the last runs did, what changed since, and the last entry's "watch next", which this review has to answer.
+
 ```bash
 node $SKILL/scripts/collect.mjs
 ```
@@ -47,15 +50,16 @@ It picks up where the last review stopped (`~/satchel-daily/state.json`), or the
 | `F/stats.json` | each job's totals; live memories by scope, kind and band; changes in the window; documents in the window by scope; sessions waiting now |
 | `F/langfuse.json` | per run trace: model, thinking, waited, tokens, cost, latency, level and status |
 | `F/blind/<name>.md` | what the pass was given: projects, memories in scope then, the new turns in full |
-| `F/blind/INDEX.json` | per session turns, characters, turns longer than the consolidator's cut, and the batches |
+| `F/blind/INDEX.json` | per session turns, characters, and the batches (the cut counts only matter for runs before 29 September) |
+| `F/blind/prompt-<n>.txt` | the ready blind-read prompt for batch n, with its files and its answer path filled in |
 | `F/pipeline/<name>.md` | what the pass did: what landed, the job's report entry, the Langfuse trace, the raw answer |
 | `F/pipeline/<name>.prompt.txt` | the exact prompt the model was sent |
 
-If it says nothing ran, write a three-line report (the window, the sessions waiting now that it prints, and "no run to review"), mark it (step 8) and stop. A second review on the same day always lands here, because the first one marked the window.
+If it says nothing ran, write a three-line report (the window, the sessions waiting now that it prints, and "no run to review"), add the log entry and mark it (step 8), and stop. A second review on the same day always lands here, because the first one marked the window.
 
 ### 2. Start the blind reads
 
-For each batch in `F/blind/INDEX.json`, start a background agent with the prompt in [references/blind-read.md](references/blind-read.md): `subagent_type: general-purpose`, `model: sonnet`, all batches in one message. Output goes to `F/blind/out-<n>.json`. The blind readers see `F/blind/` and nothing else; never point them at `pipeline/`, the repository or the database.
+For each batch in `F/blind/INDEX.json`, start a background agent: `subagent_type: general-purpose`, `model: sonnet`, all batches in one message, with the one-line prompt `Read /<F>/blind/prompt-<n>.txt and do exactly what it says.` The prompt files are written by `collect.mjs` from [references/blind-read.md](references/blind-read.md), and each answer goes to `F/blind/out-<n>.json`. The blind readers see `F/blind/` and nothing else; never point them at `pipeline/`, the repository or the database.
 
 ### 3. Read the pipeline while they run
 
@@ -65,7 +69,13 @@ Then check that the two sides were given the same facts. The blind file lists ev
 
 ### 4. Compare
 
-When every blind agent is back, go session by session and sort every change into:
+When every blind agent is back, run the counting first:
+
+```bash
+node $SKILL/scripts/compare.mjs F
+```
+
+It prints and writes `F/numbers.md`: changes, sessions with any, empty answers, project-scoped and from unlinked sessions, kinds and actions, rejected claims, the runtime table, and a check that the blind side was shown the same memories as the pass (a WARNING there means "both" cannot be trusted). Copy its numbers into the report and answer the warning first. Then go session by session and sort every change into:
 
 - **both**: the same claim, action and scope, near enough. Note a scope or kind mismatch.
 - **pipeline only**: judge it good, noisy, wrong or stale-prone.
@@ -81,7 +91,7 @@ Every review answers all of these with numbers, even when the answer is "fine":
 2. **Kinds.** Facts, preferences and intents added, and intents retired, pipeline against blind.
 3. **Actions beyond add.** Affirm, extend, replace and retire: used by the pass when the blind read used them?
 4. **Shapes it misses.** Group the real misses by shape: a rule inside a job, "do X so I can Y", setup facts, decisions about a project, intents.
-5. **What it never saw.** For each real miss, is the evidence in a turn longer than the cut (`cut_user`, `cut_assistant` in INDEX, 2000 and 800 characters)? A miss past the cut is an input problem, not a judgment problem.
+5. **What it never saw.** Since 29 September no turn is cut (`server/turn-chunks.mjs`), and a session over 240,000 characters is read in pieces, so it shows as several runs. Check `characters` and `turns` in the trace against the session. Only runs before that change can have a miss that is an input problem (`cut_user`, `cut_assistant` in INDEX).
 6. **Runtime.** Which prompt ran: `promptSource` and `promptVersion` in each trace's metadata in `F/langfuse.json`. `local` means production read the file, so a prompt edit ships with the merge, not with `scripts/push-prompt.mjs`. From `F/langfuse.json`: models used, thinking level, calls that waited, errors, reasoning tokens against output, cost, the slowest calls.
 7. **Failures.** Failed, skipped and rejected changes, with the reasons.
 8. **Quality of what landed.** Wrong, vague, too narrow, stale-prone, or a duplicate of an existing memory.
@@ -98,17 +108,40 @@ Open the newest earlier `~/satchel-daily/*/report.md`, if there is one, and carr
 - still open and seen again today: raise its `seen` count and add today's evidence.
 - still open and not seen today: keep it, unchanged.
 
-Then add new ones. Every TODO has: priority (P1 is what would make the pass learn the most), what to change, the evidence (session ids and a short quote), where (`file:line`), and how to verify it (the eval case to add, or the number in this review that should move). One TODO per cause, not per symptom.
+Before writing a prompt TODO, read the `prompt-management` skill: a TODO says what shape is missed and where, and the fix is a goal, a guardrail and an example, not another instruction. Then add new ones. Every TODO has: priority (P1 is what would make the pass learn the most), what to change, the evidence (session ids and a short quote), where (`file:line`), and how to verify it (the eval case to add, or the number in this review that should move). One TODO per cause, not per symptom.
 
 ### 8. Report and mark
 
-Write `F/report.md` in the shape in [references/report.md](references/report.md), then record the window as reviewed:
+Write `F/report.md` in the shape in [references/report.md](references/report.md). Then append this run's entry to `~/satchel-daily/log.md` in the shape in [references/log.md](references/log.md): the window, the numbers, the TODOs that moved, and every change beyond the review. Read the last few entries while you are there. They are the quickest way to see what the previous days did, and what someone changed between reviews. Answer the last entry's "watch next" in this report, and write a new one. Then record the window as reviewed:
 
 ```bash
 node $SKILL/scripts/collect.mjs --mark F
 ```
 
 Finish with a short message: the numbers row, the top three gaps, the P1 TODOs, and the path to the report. Clean up `$WORK`.
+
+If more work happens in the same session after the mark, such as a replay, a fix or a merge a person asked for, add it to that day's entry under "changes beyond the review" when it lands. Do not wait for the next run to find it.
+
+## The real-data eval
+
+The synthetic eval checks rules someone wrote down. `eval/consolidation-real.mjs` checks the pass against the person's own conversations, so a change is judged on what actually goes wrong. It costs model quota, so it runs when a person asks, or after a prompt or input change, never in the scheduled run.
+
+1. `node $SKILL/scripts/collect-corpus.mjs` refreshes `~/satchel-daily/real-eval/` (sessions, blind files, projects). New sessions are added; nothing is deleted.
+2. For sessions with no file in `gold/`, start blind labellers on their `blind/` files with the prompt used on 29 September: they write the memories each conversation justifies, from nothing, with keywords and a clear or arguable mark. They never see the pass's answer.
+3. `node eval/consolidation-real.mjs`, then read the claims that matched nothing. A good one the labeller missed goes into that session's gold. A bad one is a precision problem to trace.
+4. Adopt a new baseline only after reading the run. First baseline, 29 September: clear recall 45% (27 of 60), all 25%, 92% under the right project, 0 of 4 quiet sessions noisy. `main` before the whole-turn change scored 25% on the same sessions.
+
+### Evals cost money, so do not be wasteful
+
+Every eval call is a paid model call, and the real-data eval makes about 50 per pass over the sessions plus a judge call for each session that needs one. Neeraj asked for this rule on 29 September, after a session that ran more than it needed to.
+
+- Start with the smallest slice that can answer the question: `--only <category>` or `--only <session ids>`. Run the full suite once per change, after the slice looks right.
+- Repeat (`--repeat`) only the cases that changed between runs, and stop at 3 unless a number is right on the edge. One sample is noise, but five samples of a case that is clearly fine is waste.
+- Do not run `main` again for a comparison you already have. Keep the last numbers in the log and compare against them, and re-run the old side only when the input data or the model changed.
+- Do not run the synthetic and real-data suites together for a change that can only move one of them. A prompt change moves both; a scoring or corpus change moves only the real one.
+- Label and audit each session once. New sessions only; never re-label the corpus to get a different number.
+- Say before a full run what it will cost in calls (sessions x repeats, plus the judge), and skip it if a slice already answers.
+- Never leave a wait loop or a watcher running after its job finished.
 
 ## Checking a change before it ships
 
@@ -118,7 +151,7 @@ Only when a person asks for it, never in the scheduled run: it spends model quot
 node $SKILL/scripts/replay.mjs F --new <checkout with the change> [--old origin/main] [--only <document ids>]
 ```
 
-It runs every session in `F`'s window through both versions' own `consolidateDocument`, with the database read as it stood at each run and every write recorded instead of sent. Results go to `F/replay/`. Things 25 September taught:
+It runs every session in `F`'s window through both versions' own `consolidateDocument`, with the database read as it stood at each run and every write recorded instead of sent. Results go to `F/replay/`. Log the result row in that day's entry, along with any eval run, commit or PR that follows. Things 25 September taught:
 
 - **One sample per side is noise.** The same session gave 1 change on one replay and 0 on the next. A difference of one or two changes across a night means nothing; a new column going from 0 to 2 or more is a signal.
 - **A call that fails is not a zero.** The model sometimes answers nothing, or the network resets. Rerun only those with `--only` before counting.
@@ -131,3 +164,10 @@ It runs every session in `F`'s window through both versions' own `consolidateDoc
 The first blind comparison, on 23 September, read 27 sessions two ways. The pass made 9 changes and the blind read 27. The pass made 8 of its 9 the same way the blind read did, and it missed a preference said in three different sessions ("push first so I can review"). Nothing in the eval or the job report could have shown either fact. This skill is that comparison, made repeatable.
 
 On 25 September the scope gap was traced to the prompt: sessions with no project were told to use null unless a project was named, and 22 of 26 sessions had no project. Replaying the night with that wording changed moved project-scoped changes from 1 to 3 and made 2 from unlinked sessions. The rest of the misses were judgment, not scope.
+
+On 28 September the pass answered nothing on 27 of 30 sessions, and the blind read found only 6 real changes, so both sides were thin. Two things the review could not see made it look worse than it was: a project deleted after the run took the pass's two adds with it, and an affirm on a confirmed memory leaves no history row by design. `collect.mjs` now sets the job report beside the history, lists projects the run's prompt named even if they are gone, and shows an unlinked session every project's memories, as the pass sees them. The misses that were left were judgment: a rule that started with a verb, and an affirm inside a long request.
+
+## The read side, once a week
+
+`node $SKILL/scripts/injection-audit.mjs --days 7 [--checkout <dir>]` replays the window's `retrieve-memory` spans through a checkout's retrieval rules (which prompts count as the person's, which rows the block already loaded) and prints before and after: prompts with a hit, slots, slots on machine prompts, and the most injected memories. Run it before a retrieval change ships and once a week in the review, and read the "most injected" list the way the pipeline table is read: a row that is injected often and is a work order or describes code is noise to forget by hand, and it is the first thing a person feels.
+

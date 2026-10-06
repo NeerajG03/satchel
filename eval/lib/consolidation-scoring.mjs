@@ -94,6 +94,11 @@ export function score(item, changes) {
   if (want.want && contains(change.statement, want.want) < 0.5) {
     return {scored: true, ok: false, harm, note: `drifted: "${String(change.statement).slice(0, 56)}"`};
   }
+  // The kind is load bearing: an intent can be retired and a fact cannot, so a
+  // plan stored as a fact is a memory nothing can ever end.
+  if (want.kind && change.kind !== want.kind) {
+    return {scored: true, ok: false, harm, note: `kind ${change.kind}, wanted ${want.kind}`};
+  }
   if ('scope' in want && (change.project ?? null) !== (want.scope ?? null)) {
     return {scored: true, ok: false, harm,
       note: `scope ${change.project ?? 'personal'}, wanted ${want.scope ?? 'personal'}`};

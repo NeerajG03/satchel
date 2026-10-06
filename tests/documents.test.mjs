@@ -262,3 +262,45 @@ test('consolidation picks up sessions that are finished, once each', async t => 
     });
   } finally { await db.close(); }
 });
+
+test('the codebase a session ran in is kept on its document, and only the owner can set it', async () => {
+  const {db, owner, other, call} = await database();
+  try {
+    await say(call, owner, 'user', 'plan the pacing queue');
+    await call(owner, 'select note_document_repository($1,$2)', ['s1', ' Acme/Backend ']);
+    assert.equal((await call(owner, 'select * from pending_documents($1)', [0]))[0].repository, 'acme/backend',
+      'stored in the same lowercase shape project_repositories uses');
+    await call(owner, 'select note_document_repository($1,$2)', ['s1', 'not a repository']);
+    await call(owner, 'select note_document_repository($1,$2)', ['s1', null]);
+    assert.equal((await call(owner, 'select * from pending_documents($1)', [0]))[0].repository, 'acme/backend',
+      'a value of the wrong shape is dropped, not stored and not an error');
+    await call(other, 'select note_document_repository($1,$2)', ['s1', 'evil/repo']);
+    assert.equal((await call(owner, 'select * from pending_documents($1)', [0]))[0].repository, 'acme/backend',
+      'somebody else naming the same session key changes nothing');
+    await assert.rejects(db.query('select note_document_repository($1,$2)', ['s1', 'a/b']), 'no caller, no write');
+  } finally { await db.close(); }
+});
+
+test('the conversation text kept beside the documents expires on the same clock, from the job', async () => {
+  // Three tables held the same words with no end: a run keeps the prompt it
+  // sent, which is the conversation. The rows stay for the audit; the text goes.
+  const {db, owner, call} = await database();
+  try {
+    const run = crypto.randomUUID(), old = crypto.randomUUID(), route = crypto.randomUUID();
+    await call(owner, `insert into consolidation_runs(id, model, prompt, response) values ($1, 'm', 'fresh words', '{}')`, [run]);
+    await call(owner, `insert into consolidation_runs(id, model, prompt, response) values ($1, 'm', 'old words', '{}')`, [old]);
+    const unsent = crypto.randomUUID();
+    await call(owner, `insert into consolidation_runs(id, model, prompt, error) values ($1, 'm', '(not sent)', 'quota')`, [unsent]);
+    await call(owner, `insert into router_runs(id, session_key, model, prompt, kept) values ($1, 's', 'm', 'old window', 0)`, [route]);
+    await db.exec(`update public.consolidation_runs set created_at = now() - interval '31 days' where id in ('${old}', '${unsent}')`);
+    await db.exec(`update public.router_runs set created_at = now() - interval '31 days'`);
+    const [{expire_run_logs: blanked}] = await call(owner, 'select expire_run_logs()');
+    assert.equal(blanked, 2, 'one run and one router window, counted');
+    const rows = await call(owner, 'select id, prompt, response from consolidation_runs order by created_at');
+    assert.equal(rows.find(r => r.id === unsent).prompt, '(not sent)', 'a run that never reached the model keeps its marker');
+    assert.deepEqual(rows.find(r => r.id === old), {id: old, prompt: '(expired)', response: null});
+    assert.deepEqual(rows.find(r => r.id === run), {id: run, prompt: 'fresh words', response: '{}'});
+    const [router] = await call(owner, 'select prompt, kept from router_runs');
+    assert.deepEqual(router, {prompt: '(expired)', kept: 0}, 'the counts stay, the words go');
+  } finally { await db.close(); }
+});

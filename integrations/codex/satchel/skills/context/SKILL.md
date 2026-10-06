@@ -34,11 +34,11 @@ Grants are separate and independently denied. Memory access does not imply task 
 
 You do not have to go and get context. It arrives once, at the start.
 
-**At the start of a conversation, after a clear, after compaction and on resume**, you receive the list of projects and the confirmed personal memories, up to a cap. A local Satchel script reads the workspace's GitHub origin and resolves it, so the active project is named too. If the block says the repository belongs to several projects, none was chosen: call `select_project` with one of the `project_id` values it listed, and never substitute a similar name.
+**At the start of a conversation, after a clear, after compaction and on resume**, you receive the list of projects and the personal memories, up to a cap: the confirmed ones first, then the ones Satchel picked up from what the user said, under their own header. When the workspace is one project, that project's own rules follow under a smaller cap. A local Satchel script reads the workspace's GitHub origin and resolves it, so the active project is named too. If the block says the repository belongs to several projects, none was chosen: call `select_project` with one of the `project_id` values it listed, and never substitute a similar name.
 
-Nothing scoped to a project or a task loads here. That is deliberate: loading it would assume you are about to touch it.
+Nothing from any other project loads here, and nothing about tasks. A picked-up row is used unless the user says otherwise; a retrieved row says `picked up` beside its scope when that is what it is.
 
-**On every message**, memories relevant to what the user just said are retrieved and handed to you, with counts. Read the counts. `0 matched` is a real answer and means no such memory exists, which is not the same as one existing and being held back.
+**On every message the user types**, memories relevant to what they said are retrieved and handed to you, with counts and with each row's scope. Messages from the host or another agent, such as a subagent's report or a task notification, are not searched. Read the counts. `0 matched` is a real answer and means no such memory exists, which is not the same as one existing and being held back.
 
 So do not add per-turn freshness checks, and do not re-read a scope you were already given. Search with `retrieve_memory` when you need something this conversation has not surfaced. Companion or phone edits appear at the next fresh context or on an explicit refresh request.
 

@@ -25,7 +25,7 @@ Every hook is a `command` script in `integrations/shared/` that holds its own cr
 SessionStart      matcher ^(startup|clear|compact|resume)$   timeout 10s
   session-start.mjs  ──▶ POST /api/hook-index      projects list and the personal block
 
-UserPromptSubmit  timeout 5s
+UserPromptSubmit  timeout 10s
   retrieve.mjs       ──▶ POST /api/hook-retrieve   record the user's half, then search
 
 Stop              timeout 25s
@@ -65,7 +65,7 @@ No key, no prompt text, no ranking logic and no routing logic ever lands on the 
 
 ### SessionStart
 
-Loads the projects list and the **personal block**: live personal memories, confirmed only, ranked by `personal_memories` (most mentioned, then most recently affirmed) and cut at `block_size`, 30 by default. Unconfirmed ones are counted in the notice, never injected. Nothing scoped to a project loads here, because loading that assumes you will touch it.
+Loads the projects list and the **personal block**: live personal memories ranked by `personal_memories` (most mentioned, then most recently affirmed) and cut at `block_size`, 30 by default, confirmed ones first and picked-up ones after them under their own header. When the workspace resolves to exactly one project, the **project block** follows: that project's own memories from `memories_in_scope`, preferences first, then the most said, under a cap of 15 of their own (`PROJECT_BLOCK` in `lifecycle.mjs`, `projectLoad` in `injection-format.mjs`). A rule about how the work in a codebase is done is relevant by activity, not topic, which is the measurement that put personal memories in the block. With two candidate projects nothing is scoped and no project block loads.
 
 Nothing past the cap is ended or hidden. It is simply not injected, and it is still retrievable per prompt.
 
@@ -74,6 +74,8 @@ If the block exceeds `session_budget_tokens`, it is **withheld entirely** with a
 If Satchel is unreachable, the injected text says memory was not loaded and tells the agent not to invent it. Degrading to silence and saying so is the rule everywhere.
 
 ### UserPromptSubmit
+
+Three things happen before the search. The prompt is classified by `machine-prompt.mjs`: a subagent hand-back, task notification, CI event or system reminder is recorded as a short note and not searched, and a slash command's arguments become the query. The personal rows session start loaded are recomputed with `personalLoad` and sent as `exclude`, with whatever the hook sent, so a row already in context is not retrieved again. And `projects()` is read for the labels: every retrieved row is printed as `handle  (slug | personal[, picked up])  statement`.
 
 1. Record the user's half through `record_turn`, into both `session_messages` and the session's document, if `capture` is on. **Awaited**, in its own try/catch. It used to be fired with `void`, and a Vercel function freezes when it responds, so the user's half, the only half that can supply a source, could be lost. A failure here produces an "unrecorded" notice rather than failing retrieval.
 2. Embed the prompt.
@@ -118,7 +120,7 @@ POST {idle_minutes}   start_consolidation_job, or show the one already running
   more left?  POST {job, step} to publicOrigin(), with the same access token
 ```
 
-The row is moved after every session, so the page shows progress and a call that dies loses one session at most. `step` is a lease: a call claims `step + 1` only if the row is still at the step it was handed, so a "carry on" pressed while the chain is alive gets a 409 instead of reading a session twice. A running job whose `heartbeat_at` is over six minutes old has lost its chain, and anyone who owns it may take it over. A job stops and says why on the row: nothing left, the 30 minutes ran out, the model's quota is spent (the consolidator already tried its fallback), or three sessions failed in a row. A session that failed stays pending for the next job but is not asked about again in this one.
+The row is moved after every session, so the page shows progress and a call that dies loses one session at most. `step` is a lease: a call claims `step + 1` only if the row is still at the step it was handed, so a "carry on" pressed while the chain is alive gets a 409 instead of reading a session twice. A running job whose `heartbeat_at` is over six minutes old has lost its chain, and anyone who owns it may take it over. A job stops and says why on the row: nothing left, the 30 minutes ran out, the model's quota is spent (the consolidator already waited and asked once more), or three sessions failed in a row. A session that failed stays pending for the next job but is not asked about again in this one.
 
 `publicOrigin()` is where the chain sends itself: `SATCHEL_PUBLIC_URL`, then `VERCEL_PROJECT_PRODUCTION_URL` in production, then `VERCEL_URL`. Never the request's Host header, because the chain carries the caller's token. The cron gets a real 202 inside pg_net's five seconds now, where it used to time out on a pass that was working.
 

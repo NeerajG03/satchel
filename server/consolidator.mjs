@@ -54,6 +54,76 @@ export const CONSOLIDATION_SCHEMA = z.object({
 
 export const INSTRUCTIONS = localTextFor(CONSOLIDATE_PROMPT);
 
+/** The one question asked when an add lands next to a live memory.
+ *
+ *  Similarity cannot answer it. On the production embedding two contradicting
+ *  claims ("deploys go out Tuesday" against "Thursday") score 0.94, while a
+ *  real paraphrase of the same rule scores 0.81 to 0.88. So a twin above the
+ *  gate is never affirmed on the number: the same model is asked, about these
+ *  two sentences and the words that produced the new one, which of the four
+ *  lifecycle answers holds. It is the pass's own decision narrowed to one row,
+ *  and it is where extend and replace, which the pass almost never produces on
+ *  its own, actually come from. */
+export const RECONSIDER_SCHEMA = z.object({
+  action: z.enum(['affirm', 'extend', 'replace', 'add'])
+    .describe('affirm: the new claim says what the existing one says. extend: it makes the existing one more specific and both stay true. replace: it makes the existing one false. add: they are different claims that both hold.'),
+  statement: z.string().describe('For extend, the existing memory reworded to carry the new detail. For replace, the new claim. Empty for affirm and add.'),
+  why: z.string().describe('One short line.'),
+});
+
+export const RECONSIDER_INSTRUCTIONS = `You keep a person's long-term memory. A pass over one conversation proposed adding a memory, and a memory that already exists is close to it. Decide what the existing memory should become.
+
+- affirm: the new claim says what the existing one says, in other words. Nothing changes but the count.
+- extend: the new claim makes the existing one more specific, and both readings stay true. Give the existing memory reworded to carry the detail, nothing dropped.
+- replace: the new claim makes the existing one false. Give the new claim. A different day, number, tool or rule for the same thing is a replace, not an extend.
+- add: they are about the same thing but are different claims that both hold.
+
+Only the person's own words decide. The quoted source is what they typed; the proposed claim is a pass's reading of it. When the source does not settle it, prefer add over replace, and affirm over extend: a wrong replace ends a memory nobody contradicted.`;
+
+export function buildReconsiderPrompt({proposed, existing, now = new Date()} = {}) {
+  const day = value => new Date(value).toISOString().slice(0, 10);
+  const lines = [`today is ${day(now)}`, ''];
+  lines.push('existing memory');
+  lines.push(`  [${existing.kind ?? 'fact'}, ${existing.project_slug ?? (existing.project_id ? 'project' : 'personal')}]  ${String(existing.statement).slice(0, 500)}`);
+  lines.push('');
+  lines.push('proposed memory');
+  lines.push(`  [${proposed.kind}]  ${String(proposed.statement).slice(0, 500)}`);
+  lines.push('');
+  lines.push('what the person typed, that the proposal came from');
+  lines.push(`  "${String(proposed.source).slice(0, 1000)}"`);
+  return {system: RECONSIDER_INSTRUCTIONS, prompt: lines.join('\n')};
+}
+
+/** One structured call, shared by the pass and the twin question, so a change
+ *  to how a fenced answer is salvaged or an error is classified lands once.
+ *
+ *  A host that ignores the schema request still answers in prose, and a model
+ *  told to return JSON sometimes wraps it in a fence. Leniency about the
+ *  wrapper only: whatever comes out is parsed against the same schema and
+ *  still has to survive validation. Errors leave raw, so the caller can tell
+ *  an overloaded host from a bad request, and every caller wraps them before
+ *  they reach anyone. */
+async function askModel({provider, apiKey, baseURL, fetchImpl, model, thinking, schema, system, prompt, signal, functionId}) {
+  try {
+    return await generateObject({
+      model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(model),
+      schema, system, prompt, temperature: 0, abortSignal: signal,
+      // Under a provider key, so an OpenAI-shaped host ignores it rather
+      // than rejecting the request.
+      ...(thinking ? {providerOptions: {google: {thinkingConfig: {thinkingLevel: thinking}}}} : {}),
+      // One attempt. A document that was not consolidated this run stays
+      // pending and is picked up by the next one, which is a better answer
+      // than holding a background job open on a spent quota.
+      maxRetries: 0,
+      telemetry: {functionId},
+    });
+  } catch (error) {
+    const salvaged = NoObjectGeneratedError.isInstance(error) && salvage(schema, error.text);
+    if (!salvaged) throw error;
+    return {object: salvaged, usage: error.usage ?? null};
+  }
+}
+
 /** Two messages, for the same reason the router uses two: the rules are
  *  identical on every call and everything else is a person's own words, so the
  *  boundary between them should be structural rather than a tag.
@@ -61,7 +131,7 @@ export const INSTRUCTIONS = localTextFor(CONSOLIDATE_PROMPT);
  *  Both roles of the conversation go in. The assistant's half is what makes
  *  "yes, do that one" readable at all. Only the user's half may supply a
  *  source, and validate() is where that is enforced rather than here. */
-export function buildConsolidationPrompt({project = null, projects = [],
+export function buildConsolidationPrompt({project = null, projects = [], codebase = null,
   memories = [], turns = [], instructions = INSTRUCTIONS, now = new Date(), cap = 30,
   churn = 25} = {}) {
   const lines = [];
@@ -82,6 +152,12 @@ export function buildConsolidationPrompt({project = null, projects = [],
   } else {
     lines.push('this conversation');
     lines.push('  project  none linked');
+    // Where the talk happened, and which listed projects own that codebase.
+    // Several may, and none may: it narrows the choice, it does not make it.
+    if (codebase) {
+      const owners = projects.filter(p => p.repositories?.includes(codebase)).map(p => p.slug);
+      lines.push(`  codebase  ${codebase}${owners.length ? `  (belongs to ${owners.join(', ')})` : ''}`);
+    }
     lines.push('');
   }
   const others = projects.filter(p => p.slug !== project?.slug);
@@ -134,8 +210,7 @@ export function buildConsolidationPrompt({project = null, projects = [],
   }
   lines.push('the conversation:');
   lines.push('<conversation>');
-  for (const turn of turns)
-    lines.push(`${turn.role}: ${String(turn.content).slice(0, turn.role === 'assistant' ? 800 : 2000)}`);
+  turns.forEach(turn => lines.push(`${turn.role}: ${turn.content}`));
   lines.push('</conversation>');
   return {system: instructions, prompt: lines.join('\n')};
 }
@@ -143,6 +218,22 @@ export function buildConsolidationPrompt({project = null, projects = [],
 /** Two statements are the same claim when they differ only in case,
  *  punctuation or spacing. Deliberately narrow, same as the router's. */
 const normalize = text => String(text ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+const AGREEMENT = /^\W*(yes|yeah|yep|ok|okay|sure|good|great|fine|correct|right|exactly|agreed|lgtm|sounds good|go ahead|do it|go with (that|it|this)|that one|all good|good as is)[\s\W]*$/i;
+
+/** A yes is still a bare yes when only the assistant's option label follows it,
+ *  as in "yes for C4". The label has to be capitals, so "yes for v2" is kept. */
+const agreed = source => AGREEMENT.test(source.replace(/\s+(for|on)\s+[A-Z]\d{1,2}[\s\W]*$/, ''));
+
+/** A quote the model stitched from two places with "..." is checked a piece at
+ *  a time, and only the start of each piece has to match, same as a whole
+ *  quote. One piece has to be long enough to mean something, or "yes ... and"
+ *  would match anywhere. */
+const quoted = (haystack, source) => {
+  const pieces = source.toLowerCase().split(/\.{3}|…/).map(p => p.trim()).filter(Boolean);
+  if (pieces.length > 1 && Math.max(...pieces.map(p => p.length)) < 12) return false;
+  return pieces.length > 0 && pieces.every(piece => haystack.includes(piece.slice(0, 60)));
+};
 
 /** A date the user gave, or nothing.
  *
@@ -190,7 +281,11 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
     // said, or an intent can be ended by a model's opinion that it looks
     // finished.
     if (!source) { drop('no source'); continue; }
-    if (!haystack.includes(source.toLowerCase().slice(0, 60))) { drop('source is not in the conversation'); continue; }
+    if (!quoted(haystack, source)) { drop('source is not in the conversation'); continue; }
+    // "yes" is in almost every conversation, so it passes the check above
+    // while carrying nothing: a claim sourced from it is the assistant's.
+    // A retire or an affirm is a yes to something already remembered.
+    if (action !== 'retire' && action !== 'affirm' && agreed(source)) { drop('source is only agreement'); continue; }
     // A retire and an affirm change no wording, so neither carries one.
     if (action !== 'retire' && action !== 'affirm') {
       if (!statement || statement.length > 500) { drop('statement missing or too long'); continue; }
@@ -258,6 +353,32 @@ export function createConsolidator({
     model,
     timeoutMs,
     retryAfterMs,
+    /** One add against one live memory. Same model, a short prompt, a single
+     *  attempt: a failure here is answered by the caller adding as proposed,
+     *  which is what happened before the question existed. */
+    async reconsider({proposed, existing, now = new Date()}, {deadline = null} = {}) {
+      if (!apiKey) throw new Error('No router key configured');
+      const {system, prompt} = buildReconsiderPrompt({proposed, existing, now});
+      const signal = AbortSignal.timeout(
+        Math.min(timeoutMs, deadline ? Math.max(1000, deadline - Date.now()) : timeoutMs));
+      let result;
+      try {
+        result = await askModel({provider, apiKey, baseURL, fetchImpl, model, thinking,
+          schema: RECONSIDER_SCHEMA, system, prompt, signal, functionId: 'reconsider'});
+      } catch (error) { throw asModelError(error, signal, 'consolidation'); }
+      const verdict = result.object ?? {};
+      const statement = String(verdict.statement ?? '').trim();
+      // A verdict that needs a statement and has none, or has one too long
+      // for the row, falls back to the safe answer for that direction.
+      const held = (verdict.action === 'extend' || verdict.action === 'replace') && (!statement || statement.length > 500);
+      const answer = held
+        ? {action: 'add', statement: '', why: 'the reworded claim did not hold up'}
+        : {action: verdict.action, statement, why: String(verdict.why ?? '').slice(0, 500)};
+      // R11: the question and its answer are on the trace, next to the run
+      // they belong to, so a replace that ends a memory names what decided it.
+      annotate({metadata: {reconsidered: `${answer.action} on ${existing.id ?? 'twin'}`}});
+      return {...answer, prompt: `${system}\n\n${prompt}`, raw: JSON.stringify(result.object)};
+    },
     /** `deadline` is the wall the caller has to finish behind, which is the
      *  serverless function's own limit rather than anything about the model.
      *  Bounding the call by whichever comes first is what keeps a batch from
@@ -288,7 +409,8 @@ export function createConsolidator({
       let signal = attempt();
       let waited = false;
       try {
-        result = await ask(model, signal);
+        result = await askModel({provider, apiKey, baseURL, fetchImpl, model, thinking,
+          schema: CONSOLIDATION_SCHEMA, system, prompt, signal, functionId: 'consolidate'});
       } catch (error) {
         // The same model, once more, after a wait. Never a different one: a
         // session a weaker model read is marked as read and not looked at
@@ -302,44 +424,22 @@ export function createConsolidator({
         await sleep(retryAfterMs);
         waited = true;
         signal = attempt();
-        try { result = await ask(model, signal); }
+        try {
+          result = await askModel({provider, apiKey, baseURL, fetchImpl, model, thinking,
+            schema: CONSOLIDATION_SCHEMA, system, prompt, signal, functionId: 'consolidate'});
+        }
         catch (second) { throw asModelError(second, signal, 'consolidation'); }
       }
-      annotate({metadata: {modelUsed: model, waited}});
+      // The generation's usage carries no reasoning count for this provider,
+      // so the trace gets it from the SDK, or nobody can tell thinking ran.
+      const usage = result.usage ?? {};
+      annotate({metadata: {modelUsed: model, waited,
+        outputTokens: usage.outputTokens ?? null,
+        reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? usage.reasoningTokens ?? null}});
       const checked = validateConsolidation(result.object, input);
       return {...checked, model, prompt: `${system}\n\n${prompt}`,
         promptVersion: instructions.version, promptSource: instructions.source,
         raw: JSON.stringify(result.object), usage: result.usage ?? null};
-
-      async function ask(which, signal) {
-      let result;
-      try {
-        result = await generateObject({
-          model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(which),
-          schema: CONSOLIDATION_SCHEMA,
-          system, prompt, temperature: 0, abortSignal: signal,
-          // Under a provider key, so an OpenAI-shaped host ignores it rather
-          // than rejecting the request.
-          ...(thinking ? {providerOptions: {google: {thinkingConfig: {thinkingLevel: thinking}}}} : {}),
-          // One attempt. A document that was not consolidated this run stays
-          // pending and is picked up by the next one, which is a better answer
-          // than holding a background job open on a spent quota.
-          maxRetries: 0,
-          telemetry: {functionId: 'consolidate'},
-        });
-      } catch (error) {
-        // A host that ignores the schema request still answers in prose, and
-        // a model told to return JSON sometimes wraps it in a fence. Leniency
-        // about the wrapper only: whatever comes out is parsed against the
-        // same schema and still has to survive validation.
-        const salvaged = NoObjectGeneratedError.isInstance(error) && salvage(CONSOLIDATION_SCHEMA, error.text);
-        // Raw, so the caller can tell an overloaded host from a bad request.
-        // Every path out of consolidate() wraps it before it reaches anyone.
-        if (!salvaged) throw error;
-        result = {object: salvaged, usage: error.usage ?? null};
-      }
-      return result;
-      }
     },
   };
 }
