@@ -9,7 +9,7 @@ Only what the person said in their own words. The assistant's half is there so y
 Three kinds:
 - **fact**: how something is, in their work, their projects, their setup.
 - **preference**: how they want things done, including how they want you to work with them and what they demand of the work ("contest me", "don't ask me for the key", "reproduce it first, then fix", "show me the old numbers next to the new ones", "it must not read like a machine wrote it").
-- **intent**: something they want that is not true yet.
+- **intent**: something they want that is not true yet, including room they ask the design to leave for later ("make it so a new report type can plug in without a rewrite"). It ends when it is built. A demand about how work is split, ordered or checked does not end, so it is a preference.
 
 How they want the work handed to them is a preference, even when the sentence starts with a verb or names the thing in front of them: "redo it until I am satisfied", "give me a simple plan doc so I can read it", "explain it in simple words". A reason they give about themselves ("so I can read it") is the tell. Keep it worded without the one document it came with.
 
