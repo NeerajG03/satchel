@@ -35,7 +35,7 @@ These are the ones that were paid for. Breaking one is a decision, not a refacto
 
 **`said` and `heard` are not cosmetic.** Automatic capture only ever writes `heard`. A heard memory is never injected at session start, only counted; it can still be retrieved, and an agent must say it out loud before acting on it. Confirming is the only thing that promotes it. Without that, automatic capture is a system that quietly invents the user's opinions and then loads them into every session forever.
 
-**There is one automatic writer, and it is the consolidation pass.** `memory_settings.capture_mode` defaults to `session`, and every existing row was moved to it in `20260922210000`. In `session` mode the Stop hook records the reply and the commit count and writes no memory. The old per-turn router still exists behind `capture_mode = 'turn'`, but the two must never run together: two writers over the same turns save the same claim in two wordings, which production did on 22 September. Nothing runs the pass on its own for a product user yet. It runs when the developer cron or the "Consolidate now" button asks.
+**There is one automatic writer, and it is the consolidation pass.** `memory_settings.capture_mode` defaults to `session`, and every existing row was moved to it in `20260922210000`. In `session` mode the Stop hook records the reply and the commit count and writes no memory. The old per-turn router still exists behind `capture_mode = 'turn'`, but the two must never run together: two writers over the same turns save the same claim in two wordings, which production did on 22 September. It runs when the person's overnight schedule fires (switched on in Settings, off by default) or the "Consolidate now" button asks.
 
 **The pass changes the set, it does not insert.** It is shown the new turns of one document and every live memory in scope, relabelled as integers so it can never invent an id. A document with no project is shown every project's memories and each project's repositories, and may file a claim under a project it is plainly about (D25); only the personal ones count against its block. Each thing it decides is `add`, `extend #n`, `replace #n`, `retire #n`, `affirm #n`, or nothing, and nothing is the usual answer. The kinds are load bearing here: a completion ("done, entries are append only now") may retire an `intent` and must never retire a `fact`. `eval/consolidation.mjs` measures exactly this, and its third number, memories ended that should not have been, has a bar of zero.
 
@@ -83,7 +83,7 @@ supabase/migrations/    the schema, the functions and every policy
 eval/                   the corpus, the labels, the metrics and the baselines
 eval/router-cases.json  turns the router got wrong in production, and the ones it must still keep
 eval/consolidation-cases.json  memory sets and conversations, each with the change it should cause
-scripts/                verify-pgvector.mjs, embed-memories.mjs, push-prompt.mjs, enable-consolidation.mjs
+scripts/                verify-pgvector.mjs, embed-memories.mjs, push-prompt.mjs
 src/features/activity/  the developer feed and the "Consolidate now" button
 src/features/memories/  the book, the archive, forget and restore
 ```

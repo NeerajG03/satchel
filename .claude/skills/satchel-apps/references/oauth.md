@@ -58,7 +58,7 @@ Each is its own `agent_connections` row with its own grant and its own Revoke bu
 |---|---|---|
 | the agent's | Claude Code or Codex, through `/api/mcp` discovery | the host's own token, which Satchel never reads |
 | the hook scripts' | `integrations/shared/auth.mjs`, dynamic registration | `~/.satchel/credentials.json`, mode 0600 |
-| the consolidation job's | `scripts/enable-consolidation.mjs`, developer only | a refresh token in Supabase Vault |
+| the consolidation job's | `src/features/settings/consolidationConnect.ts`, from the Overnight pass switch in Settings | a refresh token in Supabase Vault |
 
 Revoking one leaves the others alone, which is the reason they are separate.
 

@@ -20,7 +20,7 @@ Those two authenticate differently, which is why the endpoint takes two kinds of
 
 Only sessions idle for 30 minutes are touched, whoever triggers it. The one being typed in is not finished, and consolidating half a conversation reads a decision the person is still in the middle of changing their mind about.
 
-**The six-hourly `pg_cron` job is a developer path.** It costs a second sign-in and a second long-lived token in the Vault, so it is deliberately not surfaced in the product. `npm run consolidation:enable` turns it on. With nobody enrolled the job loops over zero rows and does nothing, which is its resting state.
+**The overnight `pg_cron` job is a switch in Settings, off by default.** It costs a second sign-in and a second long-lived token in the Vault, so it asks: the person switches it on, goes through the consent page, and picks the days and one or two times a day. The tick runs every 15 minutes and fires a slot once, only when a conversation is waiting. With nobody enrolled the job loops over zero rows and does nothing, which is its resting state. Only a browser session may turn it on, off, retime it or read it; a connected app is refused.
 
 There is no `PreToolUse` or `PostToolUse` hook, and no `PostCompact` hook: Codex cannot emit `additionalContext` from `PostCompact`, so compaction is handled through `SessionStart`'s compact source on both hosts.
 
