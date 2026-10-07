@@ -79,7 +79,9 @@ for (const s of sessions) lines.push(`| ${s.name} | ${s.scope} | ${s.turns} | ${
 // cannot be trusted (TODO 15 of 29 September).
 lines.push('', '## Same input on both sides', '');
 const differ = [];
+// A run that failed has no blind file, so there is nothing to compare for it.
 for (const s of sessions) {
+  if (!existsSync(join(folder, `blind/${s.name}.md`))) continue;
   const known = traceOf(s.name)?.metadata?.knownMemories;
   const blindList = read(`blind/${s.name}.md`).split('## Memories that already')[1]?.split('## The new turns')[0] ?? '';
   const shown = (blindList.match(/^\d+\. \[/gm) ?? []).length;

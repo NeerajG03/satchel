@@ -52,3 +52,13 @@ test('a blind file with more memories than the pass saw is a warning', () => {
   assert.match(out, /WARNING: 2 of 2 sessions differ/);
   assert.match(readFileSync(join(dir, 'numbers.md'), 'utf8'), /"both" is unproven/);
 });
+
+test('a failed run has no blind file and does not stop the count', () => {
+  const dir = folder({shown: 2});
+  const sessions = JSON.parse(readFileSync(join(dir, 'blind/INDEX.json'), 'utf8')).sessions;
+  sessions.push({name: 'cccc3333', scope: 'personal', turns: 9, chars: 900});
+  writeFileSync(join(dir, 'blind/INDEX.json'), JSON.stringify({sessions, batches: []}));
+  writeFileSync(join(dir, 'pipeline/cccc3333.md'), ['# cccc3333', '', 'model m · 10 ms · error The consolidation model did not answer in time.',
+    'counts: added 0 extended 0 replaced 0 retired 0 affirmed 0 rejected 0', '', '## What landed', ''].join('\n'));
+  assert.match(run(dir), /\| changes \| 2 \| 2 \|/);
+});
