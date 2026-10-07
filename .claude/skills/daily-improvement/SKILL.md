@@ -1,18 +1,22 @@
 ---
 name: daily-improvement
-description: Review the last consolidation runs against a blind read of the same conversations, find what the pass got, missed and could have done, trace each gap to a file, and write a ranked TODO list. Use for the scheduled daily review, or when asked why consolidation is not learning enough, why project memories are not being made, or what to improve next in the pass.
+description: Review the last consolidation runs against a blind read of the same conversations, find what the pass got, missed and could have done, trace each gap to a file, write a ranked TODO list, and build the top one as a PR that merges on green. Use for the scheduled daily review, or when asked why consolidation is not learning enough, why project memories are not being made, or what to improve next in the pass.
 ---
 
 # Daily consolidation review
 
 The pass keeps what it keeps, and nothing tells you what it left behind. This review answers that the only way it can be answered: someone else reads the same conversations without seeing the pass's answer, and the two answers are compared.
 
-It reads production and Langfuse, writes a report to a private folder on this machine, and changes nothing else. It is meant to run unattended, Tuesday to Saturday, after the nightly run.
+It reads production and Langfuse, writes a report to a private folder on this machine, then builds the top TODO as a pull request and merges it when it is green. It is meant to run unattended, Tuesday to Saturday, after the nightly run. Every run should leave the pass better in at least one small way.
+
+Why it builds and merges: from 29 September to 6 October the person followed every review with the same asks, by hand. Make the change, review the code, fix what the review found, merge if it is fine without asking, then update the TODOs and the log for tomorrow. Step 8 is those asks.
 
 ## Rules
 
-- **Read only.** No database writes, no memory writes (never call `save_memory`, `correct_memory`, `forget_memory` or `confirm_memory`), no code changes, no commits, no pushes. The review produces TODOs; a person decides which get built.
-- **No evals.** A consolidation eval costs model quota the nightly run needs. Name the eval case a TODO should add; do not run it.
+- **Production stays read only.** No database writes, no migrations applied, no memory writes (never call `save_memory`, `correct_memory`, `forget_memory` or `confirm_memory`). A fix that needs a migration is built and opened as a PR, not merged, and the final message asks the person to approve applying it.
+- **Code changes go through a PR.** Work in a worktree cut from `origin/main`, never on `main` and never in the shared checkout. No AI co-author or "generated with" lines in commits or PR text.
+- **Merge only on green, as its own step.** Wait for every check on the PR to finish, read the result, and merge only when none failed and `npm test` and `npm run build` passed locally. Never chain the merge into the command that runs the checks: on 6 October that merged a failing test. If the merge is blocked by a permission check, stop and say so; do not work around it.
+- **Evals: one small slice, for the change only.** Steps 1 to 7 run no eval. Step 8 may run the slice that proves its change, under the cost rules below, with at most 30 calls. Say the count in the PR and the log.
 - **Secrets stay in `~/.config/env`.** The scripts read `SB_TOKEN` and the `LANGFUSE_*` keys from there. Never print them, never paste them.
 - **Conversations stay in the folder.** The collected turns are the person's words. The report quotes at most a few words at a time, and the final chat message quotes nothing longer than a short phrase.
 - **Every run leaves an entry in the log.** `~/satchel-daily/log.md` gets one entry per run, even when nothing ran, in the shape in [references/log.md](references/log.md). Anything done beyond the report, such as a replay, an eval, a commit, a PR or a removed file, goes in that entry with its hash or link. `collect.mjs --mark` refuses a folder the log does not name.
@@ -55,7 +59,7 @@ It picks up where the last review stopped (`~/satchel-daily/state.json`), or the
 | `F/pipeline/<name>.md` | what the pass did: what landed, the job's report entry, the Langfuse trace, the raw answer |
 | `F/pipeline/<name>.prompt.txt` | the exact prompt the model was sent |
 
-If it says nothing ran, write a three-line report (the window, the sessions waiting now that it prints, and "no run to review"), add the log entry and mark it (step 8), and stop. A second review on the same day always lands here, because the first one marked the window.
+If it says nothing ran, write a three-line report (the window, the sessions waiting now that it prints, and "no run to review"), add the log entry and mark it (step 9), and stop. A second review on the same day always lands here, because the first one marked the window.
 
 ### 2. Start the blind reads
 
@@ -110,21 +114,33 @@ Open the newest earlier `~/satchel-daily/*/report.md`, if there is one, and carr
 
 Before writing a prompt TODO, read the `prompt-management` skill: a TODO says what shape is missed and where, and the fix is a goal, a guardrail and an example, not another instruction. Then add new ones. Every TODO has: priority (P1 is what would make the pass learn the most), what to change, the evidence (session ids and a short quote), where (`file:line`), and how to verify it (the eval case to add, or the number in this review that should move). One TODO per cause, not per symptom.
 
-### 8. Report and mark
+### 8. Build the top TODO
 
-Write `F/report.md` in the shape in [references/report.md](references/report.md). Then append this run's entry to `~/satchel-daily/log.md` in the shape in [references/log.md](references/log.md): the window, the numbers, the TODOs that moved, and every change beyond the review. Read the last few entries while you are there. They are the quickest way to see what the previous days did, and what someone changed between reviews. Answer the last entry's "watch next" in this report, and write a new one. Then record the window as reviewed:
+Pick the highest open TODO that one small PR can close and that a slice of the eval or a unit test can prove. Skip one that needs a production write to work, a decision only the person can make, or more than a few files. If none fits, build the smallest useful thing instead, such as a missing eval case or a tooling fix, and say why the P1 was skipped. If the window had no run, skip this step.
+
+1. **Build.** In a worktree from `origin/main`, make the change. For a prompt change, read the `prompt-management` skill first. Add the eval case or test that the TODO names.
+2. **Prove.** Run `npm test` and `npm run build`, and the eval slice for this change, before and after (the cost rules below apply). If the slice does not move, or a guard case gets worse, do not open the PR; log what you tried.
+3. **Open the PR.** The body says what changed, the before and after numbers, what is not proven, and what a user will feel, in a line. Say "nothing" when nothing changes for users.
+4. **Review it.** Run the `code-review` skill at `high` on the PR, fix every real finding, push, and say in the PR which ones were skipped and why.
+5. **Merge on green** (see Rules). Then mark the TODO built in the report, and remove the worktree.
+
+### 9. Report and mark
+
+Write `F/report.md` in the shape in [references/report.md](references/report.md), with step 8's PR and its state in it. Then append this run's entry to `~/satchel-daily/log.md` in the shape in [references/log.md](references/log.md): the window, the numbers, the TODOs that moved, and every change beyond the review. Read the last few entries while you are there. They are the quickest way to see what the previous days did, and what someone changed between reviews. Answer the last entry's "watch next" in this report, and write a new one. Then record the window as reviewed:
 
 ```bash
 node $SKILL/scripts/collect.mjs --mark F
 ```
 
-Finish with a short message: the numbers row, the top three gaps, the P1 TODOs, and the path to the report. Clean up `$WORK`.
+Write the log entry after step 8, so it names what merged and the "watch next" covers it.
+
+Finish with a short message: the numbers row, the top three gaps, the P1 TODOs, what step 8 built and whether it merged (with the link), what users will feel from it, anything waiting on the person (a migration, a blocked merge), and the path to the report. Clean up `$WORK`.
 
 If more work happens in the same session after the mark, such as a replay, a fix or a merge a person asked for, add it to that day's entry under "changes beyond the review" when it lands. Do not wait for the next run to find it.
 
 ## The real-data eval
 
-The synthetic eval checks rules someone wrote down. `eval/consolidation-real.mjs` checks the pass against the person's own conversations, so a change is judged on what actually goes wrong. It costs model quota, so it runs when a person asks, or after a prompt or input change, never in the scheduled run.
+The synthetic eval checks rules someone wrote down. `eval/consolidation-real.mjs` checks the pass against the person's own conversations, so a change is judged on what actually goes wrong. It costs model quota, so it runs when a person asks, or after a prompt or input change. The scheduled run never runs it whole; step 8 may run a slice of it (`--only <session ids>`).
 
 1. `node $SKILL/scripts/collect-corpus.mjs` refreshes `~/satchel-daily/real-eval/` (sessions, blind files, projects). New sessions are added; nothing is deleted.
 2. For sessions with no file in `gold/`, start blind labellers on their `blind/` files with the prompt used on 29 September: they write the memories each conversation justifies, from nothing, with keywords and a clear or arguable mark. They never see the pass's answer.
@@ -145,7 +161,7 @@ Every eval call is a paid model call, and the real-data eval makes about 50 per 
 
 ## Checking a change before it ships
 
-Only when a person asks for it, never in the scheduled run: it spends model quota.
+When a person asks for it, or in step 8 with `--only` on the sessions that showed the gap: it spends model quota.
 
 ```bash
 node $SKILL/scripts/replay.mjs F --new <checkout with the change> [--old origin/main] [--only <document ids>]
