@@ -498,9 +498,6 @@ test('a 503 early in a 240 second step still gets its retry after the wait', asy
   assert.deepEqual(slept, [120000]);
   assert.equal(asked.length, 2);
 });
-||||||| f09cd31
-
-
 test('a new topic is only made when the pass is allowed to make one', () => {
   const named = {changes: [change({source: 'and no em dashes in commit messages', project: 'infrastructure',
     new_topic: 'How the infra is set up'})]};
