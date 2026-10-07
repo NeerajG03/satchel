@@ -60,5 +60,8 @@ test('a failed run has no blind file and does not stop the count', () => {
   writeFileSync(join(dir, 'blind/INDEX.json'), JSON.stringify({sessions, batches: []}));
   writeFileSync(join(dir, 'pipeline/cccc3333.md'), ['# cccc3333', '', 'model m · 10 ms · error The consolidation model did not answer in time.',
     'counts: added 0 extended 0 replaced 0 retired 0 affirmed 0 rejected 0', '', '## What landed', ''].join('\n'));
-  assert.match(run(dir), /\| changes \| 2 \| 2 \|/);
+  const out = run(dir);
+  assert.match(out, /\| changes \| 2 \| 2 \|/);
+  assert.match(out, /\| empty answers \| 2 \| 1 \|/, 'the unanswered session is not a blind empty answer');
+  assert.match(out, /\| sessions with no blind answer \| {2}\| 1 \|/);
 });
