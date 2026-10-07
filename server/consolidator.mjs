@@ -46,6 +46,8 @@ export const CONSOLIDATION_SCHEMA = z.object({
     source: z.string().describe('The words the user actually typed that this came from.'),
     kind: z.enum(['fact', 'preference', 'intent']),
     project: z.string().nullable().describe('A project slug, or null for personal.'),
+    new_topic: z.string().nullable().optional()
+      .describe('Only when project is a new slug you are naming: one line on what that topic covers. Otherwise null.'),
     expires: z.string().nullable()
       .describe('An ISO date this stops being true, only when the user gave one. Otherwise null.'),
     why: z.string().describe('One short line for the person reading the history later.'),
@@ -133,7 +135,7 @@ async function askModel({provider, apiKey, baseURL, fetchImpl, model, thinking, 
  *  source, and validate() is where that is enforced rather than here. */
 export function buildConsolidationPrompt({project = null, projects = [], codebase = null,
   memories = [], turns = [], instructions = INSTRUCTIONS, now = new Date(), cap = 30,
-  churn = 25} = {}) {
+  churn = 25, newTopics = false} = {}) {
   const lines = [];
   // R7. Nothing had a temporal anchor of any kind, which is how "do not
   // include names of people who are not in the review list this time around"
@@ -168,6 +170,12 @@ export function buildConsolidationPrompt({project = null, projects = [], codebas
       const repos = other.repositories?.length ? `  repos ${other.repositories.join(', ')}` : '';
       lines.push(`  ${other.slug}  ${(other.brief ?? '').slice(0, 80)}${repos}`.trimEnd());
     }
+    lines.push('');
+  }
+  // Said only when the pass may act on it, so a pass that cannot create a
+  // topic is never told it can and then quietly filed into personal.
+  if (newTopics) {
+    lines.push('new topics are allowed. A fact about a subject of their work that none of the projects above covers can go under a new slug, with new_topic saying what it covers');
     lines.push('');
   }
   // Numbered, and the numbers are the only handle the model gets. A model that
@@ -255,7 +263,8 @@ function expiry(value, now) {
  *  A pass that occasionally changes nothing is the behaviour we already have.
  *  One that invents a memory, or ends one nobody was talking about, is a new
  *  failure and a worse one, because it is destructive. */
-export function validateConsolidation(payload, {turns = [], memories = [], project = null, projects = [], now = new Date()} = {}) {
+export function validateConsolidation(payload, {turns = [], memories = [], project = null, projects = [], now = new Date(),
+  newTopics = false} = {}) {
   // Only the user's half. The assistant's words are in the prompt so the model
   // can read the conversation, and a source drawn from them would be the model
   // quoting itself, which is exactly the fabrication this rule exists for.
@@ -268,6 +277,20 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
   // second fail on the revision it no longer has, and the model asking for
   // both usually means it could not decide.
   const touched = new Set();
+  // New topics the model named, slug to one line. A slug it names twice is one
+  // topic, and one that is a near spelling of a listed slug is that slug.
+  const topics = new Map();
+  const place = (wanted, brief, otherwise) => {
+    if (slugs.has(wanted)) return wanted;
+    if (!newTopics || typeof wanted !== 'string') return otherwise;
+    const slug = wanted.trim().toLowerCase();
+    const line = String(brief ?? '').trim();
+    if (!SLUG.test(slug) || !line) return otherwise;
+    const near = nearSlug(slug, [...slugs, ...topics.keys()]);
+    if (near) return near;
+    topics.set(slug, line.slice(0, 300));
+    return slug;
+  };
   for (const change of payload?.changes ?? []) {
     const action = change?.action;
     const statement = String(change?.statement ?? '').trim();
@@ -294,7 +317,7 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
       if (existing.has(normalize(statement))) { drop('already remembered'); continue; }
       existing.add(normalize(statement));
       changes.push({action, statement, source, kind: change.kind, why: String(change.why ?? '').slice(0, 500),
-        project: slugs.has(change?.project) ? change.project : null, expires: expiry(change?.expires, now)});
+        project: place(change?.project, change?.new_topic, null), expires: expiry(change?.expires, now)});
       continue;
     }
     const target = memories[Number(change?.target) - 1];
@@ -311,9 +334,31 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
       // A replacement stays where the claim it replaces lived unless the model
       // names another project. An unlinked session answers null by default,
       // and that must not move a project's fact into every session.
-      project: slugs.has(change?.project) ? change.project : target.project_slug ?? null});
+      project: place(change?.project, change?.new_topic, target.project_slug ?? null)});
   }
-  return {changes, dropped};
+  // Only the topics a kept change still points at. One named by a change that
+  // was then refused would be an empty topic with nothing in it.
+  const used = new Set(changes.map(c => c.project));
+  return {changes, dropped, topics: [...topics].filter(([slug]) => used.has(slug))
+    .map(([slug, brief]) => ({slug, brief}))};
+}
+
+/** The same rule the database holds a slug to. */
+const SLUG = /^(?=.{3,40}$)[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/** A listed slug that a new one is only a spelling of. Narrow on purpose: the
+ *  same words in another order, or one slug's words all inside the other's
+ *  ("infra" and "infra-tooling"). Two subjects that merely share a word, like
+ *  "email-pacing" and "email-self-serve", stay two. */
+export function nearSlug(slug, listed) {
+  const words = value => value.split('-').filter(Boolean);
+  const mine = new Set(words(slug));
+  for (const other of listed) {
+    const theirs = new Set(words(other));
+    const shared = [...mine].filter(word => theirs.has(word)).length;
+    if (shared && (shared === mine.size || shared === theirs.size)) return other;
+  }
+  return null;
 }
 
 export function createConsolidator({

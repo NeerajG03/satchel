@@ -28,6 +28,26 @@ On 7 October, 5 of the 14 personal memories were work facts with no project (bas
 
 If Satchel can make a topic when nothing fits, those facts get a home, and personal goes back to being about you.
 
+## First experiment: the pass makes topics (built, 7 October)
+
+The smallest piece that proves the idea: items 2 and 5 below, with no rename and no migration. A topic is stored as a project, because projects can already be made by an agent connection.
+
+- The pass can name a new topic when a work fact fits no listed project. A name that is a near spelling of a listed one reuses it (`nearSlug` in `server/consolidator.mjs`).
+- It only does this on a connection that sees every project and may write. Otherwise it behaves exactly as before. `SATCHEL_NEW_TOPICS=off` turns it off.
+- Each topic it makes shows in activity as "made topic". A topic that could not be made leaves its memory in personal, as before.
+
+How it was measured. A blind subagent read all 71 real memories and said where each belongs: personal, a listed project, or a new topic. That is the golden set. It holds real names, so it is not in the repository. `eval/topics-replay.mjs` feeds the loose memories, and 8 that plainly belong to a project, through the pass one at a time, so a topic made early is listed for the ones after it.
+
+| | Topics off (before) | Topics on |
+|---|---|---|
+| Work facts left in personal | 6 | 0 |
+| Same-subject pairs kept together | 0/7 | 7/7 |
+| Personal kept personal | 8/8 | 8/8 |
+| Project memories kept in their project | 9/9 | 9/9 |
+| All | 17/25 (68%) | 23/25 (92%) |
+
+The first run with topics on filed two facts about the person (their browser, their role) under a "team" topic. The prompt now says personal is who they are, their role and what they use, and the rerun kept all 8. The two misses left: the customer personas got nothing in both runs, and the skills repository fact went to `skill-system`, which the blind reader also called unsure.
+
 ## What other tools do
 
 We looked at 14 products on 7 October: Claude, Claude Code, ChatGPT, Gemini, mem0, supermemory, Zep, Letta, LangMem, Limitless, Notion, Mem, Tana and Obsidian, plus the PARA method.

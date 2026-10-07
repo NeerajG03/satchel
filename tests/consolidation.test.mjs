@@ -364,3 +364,45 @@ test('a twin in another project does not stop the add, and no twin adds as befor
   assert.equal(result.added, 1, 'a service without nearest() adds as it always did');
   assert.equal(plain.of('capture').length, 1);
 });
+
+test('a topic the model named is made once, and its memory goes into it', async () => {
+  const {service, consolidator, of} = fake({changes: [
+    {action: 'add', statement: 'Base images come from the infra-images repository.', source: 's', kind: 'fact',
+      project: 'infrastructure', expires: null, why: 'w'}]});
+  const made = [];
+  service.upsertProject = async args => { made.push(args); return {project: {id: args.project_id, slug: args.slug}}; };
+  const list = [...projects];
+  consolidator.consolidate = async input => ({changes: [{action: 'add', statement: 'Base images come from infra-images.',
+    source: 's', kind: 'fact', project: 'infrastructure', expires: null, why: 'w'}],
+    dropped: [], topics: [{slug: 'infrastructure', brief: 'How the infra is set up'}], prompt: 'p', raw: '{}',
+    seen: input.newTopics});
+  const result = await consolidateDocument(service, consolidator, document, {projects: list, newTopics: true});
+  assert.equal(made.length, 1);
+  assert.equal(made[0].slug, 'infrastructure');
+  assert.equal(of('capture')[0].project, 'infrastructure');
+  assert.equal(result.topics, 1);
+  assert.ok(list.some(p => p.slug === 'infrastructure'), 'the rest of the batch sees the new topic');
+  assert.equal(result.actions[0].did, 'made topic');
+});
+
+test('a topic that could not be made leaves its memory in personal, as before topics', async () => {
+  const {service, consolidator, of} = fake();
+  service.upsertProject = async () => { throw new Error('Project write unavailable'); };
+  consolidator.consolidate = async () => ({changes: [{action: 'add', statement: 'A fact.', source: 's', kind: 'fact',
+    project: 'infrastructure', expires: null, why: 'w'}], dropped: [],
+    topics: [{slug: 'infrastructure', brief: 'Infra'}], prompt: 'p', raw: '{}'});
+  const result = await consolidateDocument(service, consolidator, document, {projects: [...projects], newTopics: true});
+  assert.equal(of('capture')[0].project, null);
+  assert.equal(result.topics, 0);
+});
+
+test('the pass only makes topics on a connection that sees every project and may write', async () => {
+  for (const [status, allowed] of [[{all_projects: true, can_write: true}, true],
+    [{all_projects: false, can_write: true}, false], [{all_projects: true, can_write: false}, false]]) {
+    const {service, consolidator, of} = fake();
+    service.status = async () => status;
+    service.upsertProject = async () => ({});
+    await consolidatePending(service, consolidator);
+    assert.equal(of('consolidate')[0].input.newTopics, allowed);
+  }
+});
