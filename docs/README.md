@@ -19,6 +19,7 @@ Start with [The product](product.md). It explains what Satchel is for, what some
 | [Pre-launch security audit](checkpoints/security-audit-2026-09-18.md) | Which isolation boundaries passed locally, what was fixed, and which two-account checks remain before launch? |
 | [Current web pilot checkpoint](checkpoints/web-memory-pilot-2.md) | What works in the real browser, including personal memory, and where can development resume? |
 | [Build roadmap](build-roadmap.md) | What must we decide, how do we build and deploy it, and how do users install, onboard and use it? |
+| [Topics (proposed)](topics.md) | What replaces projects, how Satchel makes and tidies topics, and what has to get done? |
 | [Projects](projects.md) | What is a project, and how do repositories, documents, tasks, and native app projects relate? |
 | [Skills and plugins](skills-and-plugins.md) | What is shared, what is installed, and what can actually run on each platform? |
 | [Memory and storage](memory-and-storage.md) | How should save, retrieve, correct, forget, storage, and sharing work? |

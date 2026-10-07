@@ -112,6 +112,39 @@ async function sameClaim(service, change, projects) {
   return near.project_id == null || near.project_id === target ? near : null;
 }
 
+/** Whether this pass may make a topic of its own. Only on a connection that
+ *  sees every project and may write: a topic made under a narrower grant is
+ *  one the pass cannot see afterwards, so the next session would make it
+ *  again. SATCHEL_NEW_TOPICS=off turns it off without a deploy of code. */
+async function mayMakeTopics(service) {
+  if (process.env.SATCHEL_NEW_TOPICS === 'off' || !service.status || !service.upsertProject) return false;
+  try {
+    const status = await service.status();
+    return status?.all_projects === true && status?.can_write === true;
+  } catch { return false; }
+}
+
+/** Makes each new topic the model named, as a project, and adds it to the
+ *  list the rest of the batch sees so the next session reuses it. */
+async function makeTopics(service, topics, projects) {
+  const made = [];
+  const failed = new Set();
+  for (const topic of topics) {
+    if (projects.some(p => p.slug === topic.slug)) continue;
+    try {
+      const id = crypto.randomUUID();
+      const out = await service.upsertProject({request_id: crypto.randomUUID(), project_id: id, slug: topic.slug,
+        name: topic.slug.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' '), brief: topic.brief,
+        repository_change: {kind: 'unchanged'}});
+      if (out?.grant_required) { failed.add(topic.slug); continue; }
+      const row = {id: out?.project?.id ?? out?.id ?? id, slug: topic.slug, brief: topic.brief, project_repositories: []};
+      projects.push(row);
+      made.push(row);
+    } catch { failed.add(topic.slug); }
+  }
+  return {made, failed};
+}
+
 /** Personal memories and every project's own, once each. A session with no
  *  project can still be about one, and the pass cannot extend or affirm a
  *  project memory it was never shown, or tell that an add repeats one. */
@@ -129,7 +162,7 @@ async function memoriesAcross(service, projects, limit = 60) {
  *  Returns what it did rather than throwing, because the caller is a loop over
  *  documents and one failure must not end the others. */
 export async function consolidateDocument(service, consolidator, document,
-  {projects = [], cap = 30, churn = 25, deadline = null, traced = untraced, ownerId} = {}) {
+  {projects = [], cap = 30, churn = 25, deadline = null, traced = untraced, ownerId, newTopics = false} = {}) {
   return traced('satchel.consolidate',
     {sessionId: document.session_key, userId: ownerId,
      metadata: {event: 'consolidate', document: document.id,
@@ -138,7 +171,7 @@ export async function consolidateDocument(service, consolidator, document,
     async (setOutput, setInput, traceId) => {
       const runId = crypto.randomUUID();
       const started = Date.now();
-      const counts = {added: 0, extended: 0, replaced: 0, retired: 0, affirmed: 0, dropped: 0};
+      const counts = {added: 0, extended: 0, replaced: 0, retired: 0, affirmed: 0, dropped: 0, topics: 0};
       // Only what has not been read. A session that carried on after a pass is
       // pending again, and re-reading what the last run already decided about
       // is a model call spent on nothing and a second chance to save the same
@@ -168,7 +201,7 @@ export async function consolidateDocument(service, consolidator, document,
           projects: projects.filter(p => p.id !== document.project_id).map(p => ({slug: p.slug, brief: p.brief,
             repositories: (p.project_repositories ?? []).map(r => r.repository)})),
           codebase: project ? null : document.repository ?? null,
-          memories, turns, cap, churn,
+          memories, turns, cap, churn, newTopics,
         }, {deadline});
       } catch (error) {
         // The document is left pending. A run that never reached the model has
@@ -189,7 +222,15 @@ export async function consolidateDocument(service, consolidator, document,
       // R11. Every action taken and why, each naming the memory it touched,
       // and the ones validation refused with the reason it refused them.
       const actions = [];
+      const made = await makeTopics(service, outcome.topics ?? [], projects);
+      for (const topic of made.made) {
+        counts.topics += 1;
+        actions.push({did: 'made topic', on: topic.id, statement: topic.slug, why: topic.brief});
+      }
       for (const change of outcome.changes) {
+        // A topic that could not be made leaves its memory where it would
+        // have gone before topics existed, which is personal.
+        if (made.failed.has(change.project)) change.project = null;
         try {
           const out = await apply(service, change, {projects, trace: traceId, document: document.id,
             consolidator, deadline, now: turns.at(-1)?.created_at});
@@ -222,7 +263,7 @@ export async function consolidateDocument(service, consolidator, document,
       if (!rest) return result;
       const next = await consolidateDocument(service, consolidator,
         {...document, consolidated_through: through},
-        {projects, cap, churn, deadline, traced, ownerId});
+        {projects, cap, churn, deadline, traced, ownerId, newTopics});
       for (const key of Object.keys(counts)) result[key] += next[key] ?? 0;
       result.actions = [...actions, ...(next.actions ?? [])];
       if (next.failed) Object.assign(result, {failed: next.failed, spent: next.spent, later: next.later});
@@ -254,7 +295,8 @@ export async function consolidatePending(service, consolidator,
   // is by id here, not by repository: the workspace is long gone. The cap
   // comes from settings so the pass judges against the same number the
   // session start injects under.
-  const [projects, settings] = await Promise.all([service.projects(), service.settings()]);
+  const [projects, settings, newTopics] = await Promise.all([service.projects(), service.settings(),
+    mayMakeTopics(service)]);
   const runs = [];
   for (const document of documents) {
     // Not "is there time for this one", which needs a guess at how long it
@@ -263,7 +305,7 @@ export async function consolidatePending(service, consolidator,
     if (Date.now() >= deadline) break;
     runs.push(await consolidateDocument(service, consolidator, document,
       {projects, cap: settings.block_size, churn: settings.staleness_commits,
-       deadline, traced, ownerId}));
+       deadline, traced, ownerId, newTopics}));
   }
   return {documents: runs.length, remaining: documents.length - runs.length, runs};
 }
@@ -311,13 +353,14 @@ export async function consolidateStep(service, consolidator, job,
     return {job: current, more: false};
   };
   if (!waiting.length) return stop(tried.size ? 'Every waiting session was read.' : 'Nothing was waiting.');
-  const [projects, settings] = await Promise.all([service.projects(), service.settings()]);
+  const [projects, settings, newTopics] = await Promise.all([service.projects(), service.settings(),
+    mayMakeTopics(service)]);
   let failures = 0;
   let index = 0;
   for (; index < waiting.length && now() < deadline; index++) {
     const run = await consolidateDocument(service, consolidator, waiting[index],
       {projects, cap: settings.block_size, churn: settings.staleness_commits,
-       deadline, traced, ownerId});
+       deadline, traced, ownerId, newTopics});
     // The model could not answer and this call had no room to wait for it.
     // The next step starts with a full clock, and this session is the first
     // one it will reach, because nothing about it was written to the row.
