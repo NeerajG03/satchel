@@ -19,7 +19,7 @@ And when something is not working and you need evidence rather than a reading of
 
 And to find out what the consolidation pass is failing to learn:
 
-9. [daily-improvement](.claude/skills/daily-improvement/SKILL.md): compares the last runs against a blind read of the same conversations, traces each gap to a file, and writes ranked TODOs. Runs on a schedule, Tuesday to Saturday; reads only.
+9. [daily-improvement](.claude/skills/daily-improvement/SKILL.md): compares the last runs against a blind read of the same conversations, traces each gap to a file, writes ranked TODOs, and builds the top one as a PR that merges on green. Runs on a schedule, Tuesday to Saturday; never writes to production.
 
 And before you change any model prompt:
 

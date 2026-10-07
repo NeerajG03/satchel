@@ -32,7 +32,7 @@ Append this to the end of the file. Leave out a line only when it says "none".
 - a commit, a PR, a merge: the hash or the link, and one line on what it changed
 - a file removed or rewritten: which one and why
 
-In the scheduled run this line should always say none, because the run is read only. If it does not, the entry says who asked for the change.
+In the scheduled run this line names step 8's PR, its merge commit or why it did not merge, and the eval calls it spent. Anything else the entry says who asked for.
 
 ## Example
 
