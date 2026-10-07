@@ -482,13 +482,19 @@ test('a verdict that needs a statement and has none falls back to add', async ()
   assert.equal(affirm.action, 'affirm');
 });
 
-test('a whole session gets three minutes to be read, and a retry no longer fits in one step', () => {
+test('a whole session gets three minutes to be read', () => {
   const saved = process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS;
   delete process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS;
-  try {
-    const consolidator = createConsolidator({apiKey: 'x'});
-    assert.equal(consolidator.timeoutMs, 180000);
-    assert.ok(consolidator.retryAfterMs + consolidator.timeoutMs > 240000,
-      'a timeout is handed to the next step instead of waited out inside this one');
-  } finally { if (saved !== undefined) process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS = saved; }
+  try { assert.equal(createConsolidator({apiKey: 'x'}).timeoutMs, 180000); }
+  finally { if (saved !== undefined) process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS = saved; }
+});
+
+test('a 503 early in a 240 second step still gets its retry after the wait', async () => {
+  const slept = [], asked = [];
+  const consolidator = createConsolidator({apiKey: 'x', model: 'busy-model', timeoutMs: 180000,
+    sleep: async ms => { slept.push(ms); },
+    fetchImpl: async url => { asked.push(modelOf(url)); return asked.length === 1 ? overloaded() : answered(); }});
+  await consolidator.consolidate(context, {deadline: Date.now() + 230000});
+  assert.deepEqual(slept, [120000]);
+  assert.equal(asked.length, 2);
 });

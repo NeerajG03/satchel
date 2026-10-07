@@ -36,6 +36,11 @@ import {consolidatePrompt, localTextFor, CONSOLIDATE_PROMPT} from './prompt-stor
 
 export const KINDS = ['fact', 'preference', 'intent'];
 
+// The least a retry is worth starting for. The second call is cut off by the
+// caller's deadline anyway, so asking for a whole timeout after the wait would
+// mean a 503 never gets its retry inside a 240 second step.
+const RETRY_MIN_CALL_MS = 60_000;
+
 export const CONSOLIDATION_SCHEMA = z.object({
   changes: z.array(z.object({
     action: z.enum(['add', 'extend', 'replace', 'retire', 'affirm'])
@@ -339,8 +344,7 @@ export function createConsolidator({
   // this one but the function's, which is why consolidatePending keeps its
   // own clock and stops starting documents it cannot finish. Three minutes
   // because 40 seconds cut off a 35,000 character session on 7 October and
-  // another one finished at 39.25. A step is 240 seconds, so a retry after
-  // the wait no longer fits and a timeout is handed to the next step.
+  // another one finished at 39.25.
   timeoutMs = Number(process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS ?? 180000),
   promptResolver = consolidatePrompt,
   annotate = () => {},
@@ -420,10 +424,10 @@ export function createConsolidator({
         // again, and one left pending is read properly by the next pass.
         const failure = asModelError(error, signal, 'consolidation');
         if (!worthWaiting(failure)) throw failure;
-        // Only when there is room for the wait and a whole call after it.
+        // Only when there is room for the wait and a call worth making after it.
         // Otherwise the caller hears `later`, and a job hands the session to
         // its next step, which starts with a full clock.
-        if (deadline && deadline - Date.now() < retryAfterMs + timeoutMs) throw Object.assign(failure, {later: true});
+        if (deadline && deadline - Date.now() < retryAfterMs + RETRY_MIN_CALL_MS) throw Object.assign(failure, {later: true});
         await sleep(retryAfterMs);
         waited = true;
         signal = attempt();
