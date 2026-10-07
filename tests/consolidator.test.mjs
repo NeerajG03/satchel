@@ -481,3 +481,14 @@ test('a verdict that needs a statement and has none falls back to add', async ()
   const affirm = await verdict({action: 'affirm', statement: '', why: 'same'}).reconsider({proposed, existing});
   assert.equal(affirm.action, 'affirm');
 });
+
+test('a whole session gets three minutes to be read, and a retry no longer fits in one step', () => {
+  const saved = process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS;
+  delete process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS;
+  try {
+    const consolidator = createConsolidator({apiKey: 'x'});
+    assert.equal(consolidator.timeoutMs, 180000);
+    assert.ok(consolidator.retryAfterMs + consolidator.timeoutMs > 240000,
+      'a timeout is handed to the next step instead of waited out inside this one');
+  } finally { if (saved !== undefined) process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS = saved; }
+});

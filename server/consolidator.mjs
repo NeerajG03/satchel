@@ -337,8 +337,11 @@ export function createConsolidator({
   // A whole session read by a thinking model, and nothing waiting on it: this
   // runs after the conversation has ended. The ceiling that matters is not
   // this one but the function's, which is why consolidatePending keeps its
-  // own clock and stops starting documents it cannot finish.
-  timeoutMs = Number(process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS ?? 40000),
+  // own clock and stops starting documents it cannot finish. Three minutes
+  // because 40 seconds cut off a 35,000 character session on 7 October and
+  // another one finished at 39.25. A step is 240 seconds, so a retry after
+  // the wait no longer fits and a timeout is handed to the next step.
+  timeoutMs = Number(process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS ?? 180000),
   promptResolver = consolidatePrompt,
   annotate = () => {},
   // How long to wait before asking the same model again, once, after it
