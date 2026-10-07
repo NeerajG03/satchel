@@ -8,7 +8,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {firstChunk} from '../server/turn-chunks.mjs';
 import {buildConsolidationPrompt, validateConsolidation, createConsolidator,
-  CONSOLIDATION_SCHEMA, buildReconsiderPrompt} from '../server/consolidator.mjs';
+  CONSOLIDATION_SCHEMA, buildReconsiderPrompt, nearSlug} from '../server/consolidator.mjs';
 import {worthWaiting} from '../server/model-provider.mjs';
 
 const projects = [{slug: 'ledger', brief: 'Go payments ledger'}, {slug: 'sourdough', brief: 'Baking'}];
@@ -299,7 +299,7 @@ test('the schema the provider enforces is the five decisions and nothing else', 
   await consolidator.consolidate(context);
   const schema = sent.generationConfig.responseJsonSchema ?? sent.generationConfig.responseSchema;
   assert.deepEqual(Object.keys(schema.properties.changes.items.properties).sort(),
-    ['action', 'expires', 'kind', 'project', 'source', 'statement', 'target', 'why']);
+    ['action', 'expires', 'kind', 'new_topic', 'project', 'source', 'statement', 'target', 'why']);
   assert.deepEqual(CONSOLIDATION_SCHEMA.shape.changes.element.shape.action.options,
     ['add', 'extend', 'replace', 'retire', 'affirm']);
 });
@@ -497,4 +497,47 @@ test('a 503 early in a 240 second step still gets its retry after the wait', asy
   await consolidator.consolidate(context, {deadline: Date.now() + 230000});
   assert.deepEqual(slept, [120000]);
   assert.equal(asked.length, 2);
+});
+||||||| f09cd31
+
+
+test('a new topic is only made when the pass is allowed to make one', () => {
+  const named = {changes: [change({source: 'and no em dashes in commit messages', project: 'infrastructure',
+    new_topic: 'How the infra is set up'})]};
+  const off = validateConsolidation(named, context);
+  assert.equal(off.changes[0].project, null);
+  assert.deepEqual(off.topics, []);
+  const on = validateConsolidation(named, {...context, newTopics: true});
+  assert.equal(on.changes[0].project, 'infrastructure');
+  assert.deepEqual(on.topics, [{slug: 'infrastructure', brief: 'How the infra is set up'}]);
+});
+
+test('a new topic needs a slug the database accepts and a line saying what it covers', () => {
+  const allowed = {...context, newTopics: true};
+  const bare = validateConsolidation({changes: [change({project: 'infrastructure', new_topic: null})]}, allowed);
+  assert.equal(bare.changes[0].project, null);
+  const bad = validateConsolidation({changes: [change({project: 'Infra Stuff!', new_topic: 'infra'})]}, allowed);
+  assert.equal(bad.changes[0].project, null);
+});
+
+test('a near spelling of a listed slug is that slug, and one topic named twice is one topic', () => {
+  const allowed = {...context, newTopics: true};
+  const near = validateConsolidation({changes: [change({project: 'ledger-api', new_topic: 'The ledger API'})]}, allowed);
+  assert.equal(near.changes[0].project, 'ledger');
+  assert.deepEqual(near.topics, []);
+  const twice = validateConsolidation({changes: [
+    change({statement: 'One.', project: 'infra', new_topic: 'Infra'}),
+    change({statement: 'Two.', project: 'infra-tooling', new_topic: 'Infra tools'})]}, allowed);
+  assert.deepEqual(twice.changes.map(c => c.project), ['infra', 'infra']);
+  assert.equal(twice.topics.length, 1);
+});
+
+test('the prompt says new topics are allowed only when they are', () => {
+  assert.doesNotMatch(buildConsolidationPrompt(context).prompt, /new topics are allowed/);
+  assert.match(buildConsolidationPrompt({...context, newTopics: true}).prompt, /new topics are allowed/);
+});
+
+test('two subjects that only share a word stay two', () => {
+  assert.equal(nearSlug('email-pacing', ['email-self-serve']), null);
+  assert.equal(nearSlug('infra', ['infrastructure']), null);
 });

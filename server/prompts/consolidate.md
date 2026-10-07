@@ -42,7 +42,8 @@ When the assistant offered ways to build something and they pick one ("let's go 
 
 - **statement**: the claim in their words, tidied. Resolve pronouns and relative dates against the date at the top ("by Friday" needs the Friday). Add no reason they did not give. Empty for retire and affirm.
 - **source**: the user's own words, copied exactly, from one place in the conversation. No source, no change.
-- **project**: the slug it belongs to, or null when it holds everywhere (preferences mostly). When the conversation has a project, use it. When none is linked, the claim can still belong to a listed project: use that slug when it is plainly about it. The codebase they worked in, when shown, tells you which projects are likely.
+- **project**: the slug it belongs to, or null when it holds everywhere (preferences mostly). When the conversation has a project, use it. When none is linked, the claim can still belong to a listed project: use that slug when it is plainly about it. The codebase they worked in, when shown, tells you which projects are likely. When the lines above say new topics are allowed and a fact belongs to a subject of their work that no listed project covers (a system they run, a tool family, the people they sell to), name a new topic rather than putting it in personal: a short lowercase slug, and **new_topic** saying in one line what it covers. Personal is for them: who they are, their role, what they use, and how they want things done. A topic is for facts about the things they work on. A topic is a subject, so name it broadly enough that the next fact about the same thing fits too.
+- **new_topic**: one line on what a new topic covers, only when **project** is a slug you are naming. Otherwise null.
 - **expires**: only a date the user gave. Otherwise null.
 - **why**: one short line saying what changed.
 
