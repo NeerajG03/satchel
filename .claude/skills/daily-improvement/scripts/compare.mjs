@@ -59,7 +59,11 @@ lines.push('## The numbers', '', '|  | pipeline | blind |', '|---|---:|---:|');
 lines.push(row('changes', sum(names, n => pl(n).length), sum(names, n => bl(n).length)));
 lines.push(row('sessions with any', count(names, n => pl(n).length), count(names, n => bl(n).length)));
 lines.push(row('sessions with any on both sides', count(names, n => pl(n).length && bl(n).length), ''));
-lines.push(row('empty answers', count(names, n => !pl(n).length), count(names, n => !bl(n).length)));
+// A session the blind side never answered (a failed run, a batch that did not
+// run) is not an empty blind answer, so it is left out of that count and named.
+const unanswered = names.filter(n => !(n in blind));
+lines.push(row('empty answers', count(names, n => !pl(n).length), count(names, n => n in blind && !bl(n).length)));
+lines.push(row('sessions with no blind answer', '', unanswered.length));
 lines.push(row('project-scoped', sum(names, n => count(pl(n), inProject)), sum(names, n => count(bl(n), blindIn))));
 lines.push(row('project-scoped from sessions with no project',
   sum(unlinked, n => count(pl(n), inProject)), sum(unlinked, n => count(bl(n), blindIn))));
@@ -79,7 +83,9 @@ for (const s of sessions) lines.push(`| ${s.name} | ${s.scope} | ${s.turns} | ${
 // cannot be trusted (TODO 15 of 29 September).
 lines.push('', '## Same input on both sides', '');
 const differ = [];
+// A run that failed has no blind file, so there is nothing to compare for it.
 for (const s of sessions) {
+  if (!existsSync(join(folder, `blind/${s.name}.md`))) continue;
   const known = traceOf(s.name)?.metadata?.knownMemories;
   const blindList = read(`blind/${s.name}.md`).split('## Memories that already')[1]?.split('## The new turns')[0] ?? '';
   const shown = (blindList.match(/^\d+\. \[/gm) ?? []).length;
