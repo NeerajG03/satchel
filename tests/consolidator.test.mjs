@@ -482,6 +482,22 @@ test('a verdict that needs a statement and has none falls back to add', async ()
   assert.equal(affirm.action, 'affirm');
 });
 
+test('a whole session gets three minutes to be read', () => {
+  const saved = process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS;
+  delete process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS;
+  try { assert.equal(createConsolidator({apiKey: 'x'}).timeoutMs, 180000); }
+  finally { if (saved !== undefined) process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS = saved; }
+});
+
+test('a 503 early in a 240 second step still gets its retry after the wait', async () => {
+  const slept = [], asked = [];
+  const consolidator = createConsolidator({apiKey: 'x', model: 'busy-model', timeoutMs: 180000,
+    sleep: async ms => { slept.push(ms); },
+    fetchImpl: async url => { asked.push(modelOf(url)); return asked.length === 1 ? overloaded() : answered(); }});
+  await consolidator.consolidate(context, {deadline: Date.now() + 230000});
+  assert.deepEqual(slept, [120000]);
+  assert.equal(asked.length, 2);
+});
 test('a new topic is only made when the pass is allowed to make one', () => {
   const named = {changes: [change({source: 'and no em dashes in commit messages', project: 'infrastructure',
     new_topic: 'How the infra is set up'})]};
