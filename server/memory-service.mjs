@@ -73,8 +73,17 @@ export function memoryService(db, embedder = null, router = null) {
   }
   const api = {
     status: () => result(db.rpc('agent_connection_status')),
+    // A merged topic is kept for its undo and left out of everything else.
     projects: () => result(db.from('projects')
-      .select('id,slug,name,brief,revision,updated_at,project_repositories(provider,repository)').order('name')),
+      .select('id,slug,name,brief,revision,updated_at,made_by,project_repositories(provider,repository)')
+      .is('merged_into', null).order('name')),
+    createTopic: args => result(db.rpc('create_topic', {p_request_id:args.request_id,
+      p_project_id:args.project_id, p_slug:args.slug, p_name:args.name, p_brief:args.brief})),
+    moveMemory: args => result(db.rpc('move_memory', {p_id:args.id, p_revision:args.revision,
+      p_project_id:args.project_id ?? null, p_note:args.note ?? null, p_trace:args.trace ?? null,
+      p_document:args.document ?? null})),
+    mergeTopic: args => result(db.rpc('merge_topic', {p_from:args.from, p_into:args.into,
+      p_note:args.note ?? null, p_trace:args.trace ?? null})),
     upsertProject: args => result(db.rpc('upsert_project_with_slug',{
       p_slug:args.slug,
       p_request_id:args.request_id,p_project_id:args.project_id,

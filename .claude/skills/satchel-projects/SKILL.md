@@ -11,6 +11,8 @@ A project is the effort, not its storage container. It has an outcome, a brief a
 
 A project is a row with a stable UUID, a slug, a name, a brief and a revision. Personal scope is the absence of a project: `project_id is null`, everywhere, in every table. A project may link GitHub repositories, one repository to at most one project per owner. A conversation picks an active project for itself only, either explicitly or by a short-lived repository hint staged from the local Git origin. Picking never expands a grant. Creating never expands a grant either, which is why `upsert_project` returns `grant_required`.
 
+People see projects as **topics** (`docs/topics.md`). Same table and routes; the overnight pass may make one (`create_topic`, `made_by = 'satchel'`), a nightly tidy moves work facts out of personal (`move_memory`) and merges duplicate topics it made (`merge_topic`, undone with `unmerge_topic`, recorded in `topic_merges`). A merged topic keeps its row with `merged_into` set and is left out of `service.projects()`. An app may only merge away a topic Satchel made, and never one with tasks or repositories.
+
 ## Read this first, then route
 
 | What you are doing | Read |

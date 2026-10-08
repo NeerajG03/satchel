@@ -21,19 +21,15 @@ type Group = { personal: boolean; all: boolean; ids: string[] };
 const NONE: Group = { personal: false, all: false, ids: [] };
 
 function ScopeGroup({ title, hint, group, projects, disabled, onChange, extras }: { title: string; hint: string; group: Group; projects: Project[]; disabled: boolean; onChange: (group: Group) => void; extras: React.ReactNode }) {
-  const total = projects.length + 1;
-  const chosen = (group.personal ? 1 : 0) + group.ids.length;
-  const summary = group.all ? `every project${group.personal ? ' and you' : ''}` : `${chosen} of ${total}`;
+  const summary = group.all ? `every topic${group.personal ? ' and you' : ''}` : group.personal ? 'you only' : 'nothing';
   return <fieldset className="panel" disabled={disabled} style={{ margin: 0 }}>
     <div className="between"><legend style={{ padding: 0 }}><h3>{title}</h3></legend><span className="eyebrow">{summary}</span></div>
     <div className="between"><span className="fine muted">{hint}</span>
       <span className="tools"><Button look="link" small onClick={() => onChange({ personal: true, all: true, ids: [] })}>Everything</Button><span className="muted">·</span><Button look="link" small onClick={() => onChange(NONE)}>None</Button></span></div>
     <div className="list">
       <CheckField label="For me" hint={`personal ${title.toLowerCase()}`} checked={group.personal} onChange={e => onChange({ ...group, personal: e.target.checked })} />
-      <CheckField label="Every project" hint="including ones you make later" checked={group.all}
-        onChange={e => onChange({ ...group, all: e.target.checked, ids: e.target.checked ? [] : group.ids })} />
-      {projects.map(p => <CheckField key={p.id} label={p.name} disabled={group.all} checked={group.all || group.ids.includes(p.id)}
-        onChange={e => onChange({ ...group, ids: e.target.checked ? [...group.ids, p.id] : group.ids.filter(id => id !== p.id) })} />)}
+      <CheckField label="Every topic" hint={`all ${projects.length}, and the ones made later`} checked={group.all}
+        onChange={e => onChange({ ...group, all: e.target.checked, ids: [] })} />
     </div>
     <hr className="hr" />
     {extras}
@@ -72,9 +68,7 @@ export function Consent() {
   const anyMemory = memory.personal || memory.all || memory.ids.length > 0;
   const anyTasks = tasks.personal || tasks.all || tasks.ids.length > 0;
   const all = (): Group => ({ personal: true, all: true, ids: [] });
-  const scopeText = (group: Group) => group.all
-    ? `every project${group.personal ? ' and you' : ''}`
-    : `${(group.personal ? 1 : 0) + group.ids.length} scopes`;
+  const scopeText = (group: Group) => group.all ? `every topic${group.personal ? ' and you' : ''}` : 'you only';
 
   async function decide(approve: boolean) {
     if (!details) return;
@@ -121,9 +115,9 @@ export function Consent() {
         <div className="aside-block"><div className="between"><h3>What this means</h3></div>
           <p className="fine muted">Reading means the app’s hooks get the names and descriptions of memories in these scopes. It fetches More info by name only when it needs it.</p>
           <p className="fine muted">Writing still needs your explicit ask inside the chat. The app cannot save on its own.</p>
-          <p className="fine muted">“Every project” keeps being true. A project you make next month is included without asking again. Tick projects one by one instead and the list is fixed at what you choose now, so anything new stays private until you say otherwise.</p></div>
+          <p className="fine muted">Topics are all or none. “Every topic” keeps being true, so a topic made next month, by you or by Satchel, is included without asking again.</p></div>
         {overnight && <div className="aside-block"><div className="between"><h3>The overnight pass</h3></div>
-          <p className="fine muted">This is the connection you just asked for in Settings. It reads conversations that have gone quiet and saves what it learns, so it needs your memory, every project and you, with saves. It does not need tasks. Nothing is ticked for you: press the button above or choose your own.</p></div>}
+          <p className="fine muted">This is the connection you just asked for in Settings. It reads conversations that have gone quiet and saves what it learns, so it needs your memory, every topic and you, with saves. It does not need tasks. Nothing is ticked for you: press the button above or choose your own.</p></div>}
         <div className="aside-block"><div className="between"><h3>Summary</h3></div>
           <p className="fine">Memory: {anyMemory ? `${scopeText(memory)} · ${memoryWrite ? 'read and save' : 'read only'}` : 'nothing'}</p>
           <p className="fine">Tasks: {anyTasks ? `${scopeText(tasks)} · ${taskWrite ? 'read and write' : 'read only'}${taskUpload ? ' · uploads' : ''}` : 'nothing'}</p></div>

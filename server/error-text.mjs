@@ -51,6 +51,9 @@ export const raisedText={
   'Task changed or unavailable':'The task changed since you read it, or it is not in this scope. Call read_task and retry with the current revision',
   'Project changed or unavailable':'The project changed since you read it, or it is not in this scope. Call list_projects and retry with the current revision',
   'Memory changed or unavailable':'The memory changed since you read it, or it is not in this scope. Read it again and retry with the current revision',
+  'Topic changed or unavailable':'That topic changed, was already merged, or is not in this scope. Call list_projects and retry',
+  'Topic was merged':'That topic was merged into another one. Call list_projects and use the topic it went into',
+  'Topic has tasks or repositories':'That topic was made by the user or has tasks or linked repositories, so only the user can merge it, from the topics page',
   // 23514 and 23505 raised by routines.
   'Invalid project change':'repository_change is invalid. link and unlink need a lowercase owner/repository, and unlink needs expected_revision because a new project has nothing to unlink',
   'A slug is lowercase words joined by hyphens, up to 40 characters':'A slug is lowercase letters and digits in words joined by single hyphens, up to 40 characters, like fix-consent-layout',
@@ -134,7 +137,8 @@ export const constraintText={
 export const internalConstraints=new Set([
   'memories_band_check','memories_embedding_pairing','memories_ended_by_only_when_replaced',
   'memories_ended_note_check','memories_ended_reason_check','memories_ended_together','memories_kind_check',
-  'memories_mentions_check','project_repositories_provider_check','project_write_requests_payload_hash_check',
+  'memories_mentions_check','project_repositories_provider_check','projects_made_by_check',
+  'projects_not_merged_into_itself','project_write_requests_payload_hash_check',
   'project_write_requests_result_check','projects_revision_check','task_events_check','task_events_details_check',
   'task_events_event_type_check','task_resources_failure_reason_check','task_resources_kind_check',
   'task_resources_upload_status_check','task_resources_object_key','task_updates_check1','task_updates_kind_check',

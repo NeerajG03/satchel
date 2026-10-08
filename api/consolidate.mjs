@@ -11,6 +11,7 @@
 // and it is a plain Vercel function feature: nothing here needs Next.js.
 import {handleConsolidate} from '../server/hook-handler.mjs';
 import {createConsolidator} from '../server/consolidator.mjs';
+import {createTidier} from '../server/tidy.mjs';
 import {createEmbedder} from '../server/embedding.mjs';
 import {traced, annotate, flush} from '../server/tracing.mjs';
 import {waitUntil} from '@vercel/functions';
@@ -20,6 +21,9 @@ try {
   consolidator = process.env.SATCHEL_ROUTER_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY
     ? createConsolidator({annotate}) : null;
 } catch { consolidator = null; }
+// The same key and model. No tidier means no tidy, and the pass runs as before.
+let tidier = null;
+try { tidier = consolidator ? createTidier() : null; } catch { tidier = null; }
 // A memory the pass writes or extends has to be embedded on the way in, the
 // same as one a person saves. This is the writer nobody checks afterwards.
 let embedder = null;
@@ -31,6 +35,6 @@ catch { /* The memory is still written; the backfill embeds it instead. */ }
 const background = work => waitUntil(work.finally(flush));
 
 export default async function (req, res) {
-  try { await handleConsolidate(req, res, {embedder, consolidator, traced, background}); }
+  try { await handleConsolidate(req, res, {embedder, consolidator, tidier, traced, background}); }
   finally { await flush(); }
 }
