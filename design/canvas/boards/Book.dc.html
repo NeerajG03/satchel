@@ -123,30 +123,53 @@
 <div class="frame" style="width:1280px; height:820px;">
   <header class="top">
   <div class="row" style="gap:0;"><span class="wordmark">satchel</span><span class="device">MacBook</span></div>
-  <div class="topmeta"><span>Wed 17 Sep</span><span class="row" style="gap:8px;"><span class="led off"></span>No apps connected</span><span>neerajg03</span></div>
+  <div class="topmeta"><span>Wed 17 Sep</span><span class="row" style="gap:8px;"><span class="led green"></span>Synced</span><span>neerajg03</span></div>
 </header>
   <div class="body">
     <nav class="rail" aria-label="Destinations">
   <a href="Main.dc.html"><span class="dot"></span>Left off</a>
-  <a href="Book.dc.html"><span class="dot"></span>Book</a>
+  <a href="Book.dc.html" aria-current="page"><span class="dot"></span>Book</a>
   <a href="Tasks.dc.html"><span class="dot"></span>Tasks</a>
-  <a href="Projects.dc.html"><span class="dot"></span>Topics</a>
-  <a href="Apps.dc.html" aria-current="page"><span class="dot"></span>Apps</a>
+  <a href="Topics.dc.html"><span class="dot"></span>Topics</a>
+  <a href="Apps.dc.html"><span class="dot"></span>Apps</a>
   <a href="Settings.dc.html"><span class="dot"></span>Settings</a>
   <div class="spacer"></div>
   <a href="Book.dc.html" style="background:var(--orange); color:#1F1B17;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Write</a>
 </nav>
     <main class="paper">
       
-  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Your connections</span><h1 class="h1">Apps.</h1></div></div>
-  <p class="lede" style="margin:12px 0 26px;">Nothing is connected yet. An app gets only the memory and task scopes you grant when it first asks. You can revoke later.</p>
-  <div class="steps">
-    <div class="step"><span class="n">01 · IN THE APP</span><h2 class="h3">Install the Satchel plugin</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">In Claude Code, add the plugin from its marketplace. In Codex, add the MCP server.</p><code class="mono fine" style="background:var(--paper2); border:1px solid var(--line); border-radius:6px; padding:8px 10px; display:block;">https://satchel-pi.vercel.app/api/mcp</code></div>
-    <div class="step"><span class="n">02 · IN THE APP</span><h2 class="h3">Sign in from its connection settings</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">The app opens Satchel in your browser with a consent page. Nothing is granted until you allow it.</p><a href="Consent.dc.html" class="fine">Preview the consent page <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-    <div class="step"><span class="n">03 · BACK HERE</span><h2 class="h3">See it verified</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">The app appears in this list with a green light after its first real read.</p><span class="row" style="gap:8px;"><span class="led off"></span><span class="fine muted">Waiting for the first connection</span></span></div>
-  </div>
-  <div class="panel" style="margin-top:28px;"><strong>What a connected app can never do:</strong><span class="muted"> read scopes you didn't grant, save without both write permission and your explicit ask, or see More info in bulk. Hooks read names and descriptions only.</span></div>
-      <div class="foot"><span>0 apps connected</span><span>Explicit saves only</span></div>
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topic · Satchel</span><h1 class="h1">The book.</h1></div>
+    <div class="row"><button class="btn" style="gap:10px; padding-left:12px;"><span class="eyebrow" style="color:var(--muted);">In</span><strong style="font-weight:600;">Satchel</strong><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><a href="#" class="btn icon" aria-label="Search the book"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></a></div></div>
+  <div class="between" style="margin:14px 0 6px;"><p class="lede" style="margin:0;">Continuity between the AI apps you already use. Decisions saved here are read by Claude Code and Codex.</p>
+    <a href="Book.dc.html" class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Write something down</a></div>
+  <div class="row" style="gap:8px; margin:12px 0 4px;"><span class="seg"><a href="#" aria-current="true">All 5</a><a href="#">Saved by me 3</a><a href="#">Saved by agents 2</a></span><span class="fine muted">Newest first</span></div>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">no-personas-v1</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Satchel has no personas and no curator in the first version. Read before proposing agent roles.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  
+  <div class="between"><span class="prov">Said on your phone · today 09:18 · revision 1</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="false">Read more info</a></span></div>
+</article>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">task-authority</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Supabase is the only authority for task state. GitHub issues are attached references, never mirrors.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  <div class="serif" style="font-size:19px; line-height:1.5; white-space:pre-wrap; padding:10px 0 4px; max-width:680px;">Every write carries a request id and the current revision. A stale revision is a conflict, not an overwrite. Attach a GitHub issue or PR as a typed HTTPS resource; do not sync its status back.
+
+Decided 16 Sep after the Issues-only direction was dropped.</div>
+  <div class="between"><span class="prov">Saved by Claude Code · MacBook · Tue 16 Sep · revision 2</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="true">Hide more info</a><a href="#" class="fine muted" style="color:var(--muted);">2 revisions</a></span></div>
+</article>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">plain-words</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Write UI copy in plain 8th-grade words. No jargon, no metaphors, no em dashes.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  
+  <div class="between"><span class="prov">Said on your MacBook · Fri 12 Sep · revision 3</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="false">Read more info</a><a href="#" class="fine muted" style="color:var(--muted);">3 revisions</a></span></div>
+</article>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">memory-index-shape</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Hooks read only names and descriptions. More info is fetched by name when needed.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  
+  <div class="between"><span class="prov">Saved by Codex · desktop · Thu 11 Sep · revision 1</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="false">Read more info</a></span></div>
+</article>
+      <div class="foot"><span>5 in the book · Topic / Satchel</span><span>Explicit saves only</span></div>
     </main>
   </div>
 </div>

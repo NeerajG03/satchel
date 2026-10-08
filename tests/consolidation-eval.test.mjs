@@ -9,12 +9,12 @@ import {readFileSync} from 'node:fs';
 import {score, damage, contains, summarise, isRestraint} from '../eval/lib/consolidation-scoring.mjs';
 
 const suite = JSON.parse(readFileSync(new URL('../eval/consolidation-cases.json', import.meta.url), 'utf8'));
-const change = over => ({action: 'add', target: null, statement: 'A claim.', project: null, ...over});
+const change = over => ({action: 'add', target: null, statement: 'A claim.', topic: null, ...over});
 
 test('the case file is internally consistent', () => {
-  // A case that names a target no memory has, or a scope no project has, is a
+  // A case that names a target no memory has, or a scope no topic has, is a
   // case that can never pass and would quietly drag the number down forever.
-  const slugs = new Set(suite.projects.map(p => p.slug));
+  const slugs = new Set(suite.topics.map(p => p.slug));
   const ids = new Set();
   for (const item of suite.cases) {
     assert.ok(!ids.has(item.id), `duplicate case id ${item.id}`);
@@ -22,7 +22,7 @@ test('the case file is internally consistent', () => {
     assert.ok(item.why, `${item.id} has no rationale, and a case nobody can argue with is a case nobody will fix`);
     assert.ok(item.turns?.length, `${item.id} has no conversation`);
     assert.ok(item.turns.some(t => t.role === 'user'), `${item.id} has no user turn, so nothing can source a change`);
-    if (item.working) assert.ok(slugs.has(item.working), `${item.id} works in unknown project ${item.working}`);
+    if (item.working) assert.ok(slugs.has(item.working), `${item.id} works in unknown topic ${item.working}`);
     if (item.expect === 'either') continue;
     if (item.expect.target != null)
       assert.ok(item.expect.target <= (item.memories ?? []).length,
@@ -119,9 +119,9 @@ test('a rejected premise kept is called out as such', () => {
 
 test('scope and expiry are part of being right', () => {
   assert.equal(score({expect: {action: 'add', want: 'claim', scope: 'ledger'}},
-    [change({statement: 'A claim.', project: 'ledger'})]).ok, true);
+    [change({statement: 'A claim.', topic: 'ledger'})]).ok, true);
   const wrongScope = score({expect: {action: 'add', want: 'claim', scope: null}},
-    [change({statement: 'A claim.', project: 'ledger'})]);
+    [change({statement: 'A claim.', topic: 'ledger'})]);
   assert.equal(wrongScope.ok, false);
   assert.match(wrongScope.note, /scope ledger, wanted personal/);
   assert.equal(score({expect: {action: 'add', want: 'freeze', expires: true}},

@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {applyMigrations} from './helpers/migrations.mjs';
 
-test('people can delete tasks and projects with a revision check; agents cannot',async t=>{
+test('people can delete tasks and topics with a revision check; agents cannot',async t=>{
   const db=new PGlite();
   const owner=crypto.randomUUID(),other=crypto.randomUUID();
-  const project=crypto.randomUUID();
+  const topic=crypto.randomUUID();
   const client='delete-agent';
   async function call(claims,sql,params=[]) {
     await db.exec('begin; set local role authenticated;');
@@ -37,22 +37,22 @@ test('people can delete tasks and projects with a revision check; agents cannot'
     // creates one.
     await applyMigrations(db);
 
-    await call(user,'select create_project($1,$2,$3)',[project,'Doomed','Will be deleted']);
-    await call(user,'select authorize_agent_v2($1,$2,false,$3,false,$4,true,true)',[client,client,[],[project]]);
+    await call(user,'select create_topic($1,$2,$3)',[topic,'Doomed','Will be deleted']);
+    await call(user,'select authorize_agent_v2($1,$2,false,$3,false,$4,true,true)',[client,client,[],[topic]]);
     const hook=(await db.query('select satchel_access_token_hook($1) result',[
       {user_id:owner,client_id:client,claims:{sub:owner,client_id:client,aud:'authenticated'}},
     ])).rows[0].result.claims;
 
     const parent=crypto.randomUUID(),child=crypto.randomUUID(),personal=crypto.randomUUID();
-    await call(user,'select create_task($1,$2,$3,$4)',[crypto.randomUUID(),parent,project,'Parent']);
-    await call(user,'select create_task($1,$2,$3,$4)',[crypto.randomUUID(),child,project,'Child']);
+    await call(user,'select create_task($1,$2,$3,$4)',[crypto.randomUUID(),parent,topic,'Parent']);
+    await call(user,'select create_task($1,$2,$3,$4)',[crypto.randomUUID(),child,topic,'Child']);
     await call(user,'select create_task($1,$2,null,$3)',[crypto.randomUUID(),personal,'Personal']);
     await call(user,'select set_task_parent($1,$2,1,$3)',[crypto.randomUUID(),child,parent]);
     // The v2 signature: a memory is one statement, with source, band and an
     // optional handle after it. The old positional call landed 'Kept short' on
     // source and '' on band, which the band check refuses.
     await call(user,'select save_memory($1,$2,$3,$4,$5,$6,$7)',
-      [crypto.randomUUID(),project,'Kept short','Kept short','said',null,'Decision']);
+      [crypto.randomUUID(),topic,'Kept short','Kept short','said',null,'Decision']);
     const resource=crypto.randomUUID();
     await call(user,'select reserve_task_file($1,$2,$3,1,$4,$5,$6,$7,$8,$9)',[
       crypto.randomUUID(),resource,parent,'Notes','notes.txt','text/plain',5,'a'.repeat(64),'document']);
@@ -61,7 +61,7 @@ test('people can delete tasks and projects with a revision check; agents cannot'
 
     await t.test('agent tokens are refused',async()=>{
       await assert.rejects(call(hook,'select delete_task($1,2)',[parent]),{code:'42501'});
-      await assert.rejects(call(hook,'select delete_project($1,1)',[project]),{code:'42501'});
+      await assert.rejects(call(hook,'select delete_topic($1,1)',[topic]),{code:'42501'});
     });
 
     await t.test('a stale revision is a conflict, a wrong owner is not found',async()=>{
@@ -80,15 +80,15 @@ test('people can delete tasks and projects with a revision check; agents cannot'
       assert.equal((await call(user,'select parent_id from task_planning where id=$1',[child]))[0].parent_id,null);
     });
 
-    await t.test('deleting a project takes its memories, tasks and grants with it',async()=>{
-      const result=(await call(user,'select delete_project($1,1) result',[project]))[0].result;
+    await t.test('deleting a topic takes its memories, tasks and grants with it',async()=>{
+      const result=(await call(user,'select delete_topic($1,1) result',[topic]))[0].result;
       assert.equal(result.name,'Doomed');
       assert.equal(result.memories_removed,1);
       assert.equal(result.tasks_removed,1);
-      assert.equal((await call(user,'select id from tasks where project_id=$1',[project])).length,0);
-      assert.equal((await call(user,'select id from memories where project_id=$1',[project])).length,0);
-      assert.equal((await db.query('select 1 from agent_task_grants where project_id=$1',[project])).rows.length,0);
-      assert.deepEqual((await call(user,'select project_ids from agent_connections where client_id=$1',[client]))[0].project_ids,[]);
+      assert.equal((await call(user,'select id from tasks where topic_id=$1',[topic])).length,0);
+      assert.equal((await call(user,'select id from memories where topic_id=$1',[topic])).length,0);
+      assert.equal((await db.query('select 1 from agent_task_grants where topic_id=$1',[topic])).rows.length,0);
+      assert.deepEqual((await call(user,'select topic_ids from agent_connections where client_id=$1',[client]))[0].topic_ids,[]);
       assert.equal((await call(user,'select id from tasks where id=$1',[personal])).length,1);
     });
   } finally { await db.close(); }

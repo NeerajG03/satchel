@@ -7,9 +7,9 @@ import { TaskList } from '../features/tasks/TaskList';
 import { TaskDetail } from '../features/tasks/TaskDetail';
 import { TaskEdit } from '../features/tasks/TaskEdit';
 import { TaskDelete } from '../features/tasks/TaskDelete';
-import { ProjectList } from '../features/projects/ProjectList';
-import { ProjectPage } from '../features/projects/ProjectPage';
-import { ProjectDelete } from '../features/projects/ProjectDelete';
+import { TopicList } from '../features/topics/TopicList';
+import { TopicPage } from '../features/topics/TopicPage';
+import { TopicDelete } from '../features/topics/TopicDelete';
 import { Apps } from '../features/connections/Apps';
 import { Consent } from '../features/connections/Consent';
 import { Connected } from '../features/connections/Connected';
@@ -23,11 +23,11 @@ function AuthorizeRedirect() {
   return <Navigate replace to={id ? `/apps/consent?authorization_id=${encodeURIComponent(id)}` : '/apps'} />;
 }
 
-// Projects are called topics now. Old /projects links still land on the
+// Topics are called topics now. Old /topics links still land on the
 // same page, with the rest of the path and the query kept.
-function ProjectsRedirect() {
+function TopicsRedirect() {
   const { pathname, search, hash } = useLocation();
-  return <Navigate replace to={pathname.replace(/^\/projects/, '/topics') + search + hash} />;
+  return <Navigate replace to={pathname.replace(/^\/topics/, '/topics') + search + hash} />;
 }
 
 export const router = createBrowserRouter([
@@ -42,12 +42,12 @@ export const router = createBrowserRouter([
       { path: 'tasks/:id', Component: TaskDetail },
       { path: 'tasks/:id/edit', Component: TaskEdit },
       { path: 'tasks/:id/delete', Component: TaskDelete },
-      { path: 'topics', Component: ProjectList },
-      { path: 'topics/new', Component: ProjectList },
-      { path: 'topics/:id', Component: ProjectPage },
-      { path: 'topics/:id/delete', Component: ProjectDelete },
-      { path: 'projects/*', Component: ProjectsRedirect },
-      { path: 'projects', Component: ProjectsRedirect },
+      { path: 'topics', Component: TopicList },
+      { path: 'topics/new', Component: TopicList },
+      { path: 'topics/:id', Component: TopicPage },
+      { path: 'topics/:id/delete', Component: TopicDelete },
+      { path: 'topics/*', Component: TopicsRedirect },
+      { path: 'topics', Component: TopicsRedirect },
       { path: 'apps', Component: Apps },
       { path: 'apps/consent', Component: Consent },
       { path: 'authorize', Component: AuthorizeRedirect },

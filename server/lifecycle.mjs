@@ -5,11 +5,11 @@
 // now, holding their own OAuth credential, so they call an HTTP endpoint
 // instead of asking the host to make a tool call on their behalf. The logic
 // did not change, so it moved here rather than being rewritten, and
-// select_project still uses it for the manual recovery path.
+// select_topic still uses it for the manual recovery path.
 //
 // Three entry points and nothing else:
 //
-//   sessionStart   projects + every personal memory, once per session
+//   sessionStart   topics + every personal memory, once per session
 //   retrieve       memories close to what the user just said, every prompt
 //   capture        the turn that just ended, classified, maybe saved
 //
@@ -18,14 +18,14 @@
 // `{…, hook_event_name:"UserPromptSubmit", prompt, session_title}`, which the
 // binary settles and no amount of reading the docs did. Nothing about this
 // needs the transcript, which is why capture does not read one.
-import {sessionStartBlock, personalLoad, projectLoad, promptBlock, estimateTokens, noticeFor} from './injection-format.mjs';
+import {sessionStartBlock, personalLoad, topicLoad, promptBlock, estimateTokens, noticeFor} from './injection-format.mjs';
 import {classifyPrompt, machineTurnNote} from './machine-prompt.mjs';
 import {errorText} from './error-text.mjs';
 
-// How many of the active project's own memories load at session start. Its
-// own cap rather than a share of block_size, so a busy project cannot push a
+// How many of the active topic's own memories load at session start. Its
+// own cap rather than a share of block_size, so a busy topic cannot push a
 // standing personal rule out of the block.
-const PROJECT_BLOCK = 15;
+const TOPIC_BLOCK = 15;
 
 const PROVIDER = 'github';
 
@@ -41,49 +41,49 @@ const untraced = (_name, _options, run) => run(() => {}, () => {}, null);
 
 /** The scope this conversation is in.
  *
- *  Deterministic whenever it can be. An explicit select_project wins, then the
- *  workspace's git remote through project_repositories. No model is asked to
- *  guess, which is what put a memory about this project's own deployment key
+ *  Deterministic whenever it can be. An explicit select_topic wins, then the
+ *  workspace's git remote through topic_repositories. No model is asked to
+ *  guess, which is what put a memory about this topic's own deployment key
  *  into personal scope.
  *
- *  A repository may name more than one project, because a project is a
+ *  A repository may name more than one topic, because a topic is a
  *  collection of context and a monorepo holds several of them. When it does,
  *  nothing is selected and the candidates come back instead. */
 export async function resolveScope(service, {sessionKey, repository}) {
-  const active = await service.activeProject(sessionKey);
+  const active = await service.activeTopic(sessionKey);
   // Still asked, even with a scope already chosen, because the session-start
-  // block needs to know which projects belong to this codebase in order to
+  // block needs to know which topics belong to this codebase in order to
   // stop listing the ones that do not. Read-only in that case: the session key
-  // survives a /clear, so an explicit select_project made earlier is still
+  // survives a /clear, so an explicit select_topic made earlier is still
   // active and must not be quietly overwritten.
   const rows = repository
     ? await service.resolveRepository(sessionKey, PROVIDER, repository, !active) ?? []
     : [];
-  const linked = rows.map(row => row.project_id);
-  if (active) return {project: active, linked, candidates: []};
+  const linked = rows.map(row => row.topic_id);
+  if (active) return {topic: active, linked, candidates: []};
   const selected = rows.find(row => row.selected);
-  // `candidates` is the narrower thing: projects this repository names when it
-  // names more than one, so nothing could be chosen. `linked` is every project
+  // `candidates` is the narrower thing: topics this repository names when it
+  // names more than one, so nothing could be chosen. `linked` is every topic
   // the repository belongs to, chosen or not.
-  return {project: selected?.project_id ?? null, linked, candidates: selected ? [] : rows};
+  return {topic: selected?.topic_id ?? null, linked, candidates: selected ? [] : rows};
 }
 
-/** What the agent is told when its workspace could be either of two projects.
- *  Named by slug, chosen by project_id, because the id is what select_project
+/** What the agent is told when its workspace could be either of two topics.
+ *  Named by slug, chosen by topic_id, because the id is what select_topic
  *  takes and a slug it had to look up is a second place to go wrong. */
-const chooseProjectLine = candidates => candidates.length < 2 ? ''
+const chooseTopicLine = candidates => candidates.length < 2 ? ''
   : `\nThis workspace's repository belongs to ${candidates.length} topics: `
-    + candidates.map(c => `${c.slug} (${c.project_id})`).join(', ')
+    + candidates.map(c => `${c.slug} (${c.topic_id})`).join(', ')
     + `. Nothing is scoped to a topic until you call select_topic with one of those topic_id values.`
     + ` Do not guess, and do not treat memory as topic-scoped before then.`;
 
 /** Session start, after compaction, and after a clear.
  *
- *  Only what applies no matter what you do today: the projects that exist, and
- *  every personal memory. Anything scoped to a project is earned by asking for
+ *  Only what applies no matter what you do today: the topics that exist, and
+ *  every personal memory. Anything scoped to a topic is earned by asking for
  *  it, which is what retrieve_memory is for. */
 export async function sessionStart(service, {sessionKey, event = 'SessionStart', repository = null,
-  project, ownerId, traced = untraced} = {}) {
+  topic, ownerId, traced = untraced} = {}) {
   return traced(`satchel.${event}`,
     {sessionId: sessionKey, userId: ownerId, metadata: {event, repository}, tags: ['satchel', event], input: null},
     async setOutput => {
@@ -95,39 +95,39 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
         const status = await service.status();
         if (!status) throw {code: '42501'};
         const settings = await service.settings();
-        const scope = project !== undefined ? {project, linked: [], candidates: []}
+        const scope = topic !== undefined ? {topic, linked: [], candidates: []}
           : await resolveScope(service, {sessionKey, repository});
-        active = scope.project;
-        const [projects, personal, own] = await Promise.all([
-          // all_projects is its own scope: a blanket grant keeps no list, so
-          // checking project_ids alone would load nothing for the connection
+        active = scope.topic;
+        const [topics, personal, own] = await Promise.all([
+          // all_topics is its own scope: a blanket grant keeps no list, so
+          // checking topic_ids alone would load nothing for the connection
           // that was given everything.
-          status.all_projects || status.project_ids?.length || status.personal ? service.projects() : [],
+          status.all_topics || status.topic_ids?.length || status.personal ? service.topics() : [],
           status.personal ? service.personal() : [],
-          // The active project's own memories, when there is exactly one.
-          // list_memories, through index(), is project-only: memories_in_scope
+          // The active topic's own memories, when there is exactly one.
+          // list_memories, through index(), is topic-only: memories_in_scope
           // answers the personal rows first under one limit, so a person with
-          // sixty personal memories would get no project rows at all and the
+          // sixty personal memories would get no topic rows at all and the
           // block would be silently empty. Its failure is held apart from the
-          // rest, since index() refuses a project this connection was not
+          // rest, since index() refuses a topic this connection was not
           // granted and that must not take the personal block down with it.
           active && service.index
-            ? service.index(active).then(out => (out?.memories ?? []).filter(r => r.project_id === active), () => [])
+            ? service.index(active).then(out => (out?.memories ?? []).filter(r => r.topic_id === active), () => [])
             : [],
         ]);
-        const here = projects.find(p => p.id === active) ?? null;
-        const block = sessionStartBlock({projects, personal, linked: scope.linked ?? [],
-          cap: settings.block_size, project: here, projectMemories: own, projectCap: PROJECT_BLOCK});
+        const here = topics.find(p => p.id === active) ?? null;
+        const block = sessionStartBlock({topics, personal, linked: scope.linked ?? [],
+          cap: settings.block_size, topic: here, topicMemories: own, topicCap: TOPIC_BLOCK});
         const tokens = estimateTokens(block);
         // What the block actually injects, which is not all of it once the
         // cap is reached. The log has to say what reached the model, not what
         // was fetched, or "why did it not know that" stops being answerable.
         const load = personalLoad(personal, settings.block_size);
-        const ownLoad = here ? projectLoad(own, PROJECT_BLOCK) : {said: [], heard: []};
+        const ownLoad = here ? topicLoad(own, TOPIC_BLOCK) : {said: [], heard: []};
         const loaded = [...load.said, ...load.heard, ...ownLoad.said, ...ownLoad.heard];
-        notice = noticeFor('SessionStart', {projects: projects.length,
+        notice = noticeFor('SessionStart', {topics: topics.length,
           personal: load.said.length + load.heard.length,
-          projectMemories: ownLoad.said.length + ownLoad.heard.length});
+          topicMemories: ownLoad.said.length + ownLoad.heard.length});
         if (!block) {
           context = 'Satchel is connected and has nothing saved yet. Do not invent memory.';
         } else if (tokens > settings.session_budget_tokens) {
@@ -141,7 +141,7 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
             in_scope: loaded.length, tokens};
         }
         if (active) context += `\nactive topic: ${active}`;
-        else context += chooseProjectLine(scope.candidates);
+        else context += chooseTopicLine(scope.candidates);
       } catch (error) {
         context = 'Satchel memory unavailable. ' + errorText(error) + ' Do not claim that memory loaded.';
         notice = noticeFor(event, {error: errorText(error)});
@@ -150,7 +150,7 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
       // The exact bytes the agent receives, so a trace answers "what did it
       // actually see" rather than "what did we intend to send".
       setOutput(context);
-      return {active_project: active, context, notice};
+      return {active_topic: active, context, notice};
     });
 }
 
@@ -167,7 +167,7 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
  *  the point: they separate "there is no rule about this" from "nothing scored
  *  high enough". */
 export async function retrieve(service, {sessionKey, prompt, repository = null,
-  exclude = [], project, ownerId, traced = untraced, retrieval} = {}) {
+  exclude = [], topic, ownerId, traced = untraced, retrieval} = {}) {
   return traced('satchel.UserPromptSubmit',
     {sessionId: sessionKey, userId: ownerId, metadata: {event: 'UserPromptSubmit'},
      tags: ['satchel', 'UserPromptSubmit'], input: prompt},
@@ -204,7 +204,7 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
           catch (error) { unrecorded = errorText(error); }
         if (settings.per_prompt_matches && !machine) {
           const [scope, personal] = await Promise.all([
-            project !== undefined ? {project} : resolveScope(service, {sessionKey, repository}),
+            topic !== undefined ? {topic} : resolveScope(service, {sessionKey, repository}),
             // What session start already loaded is not retrieved again. The
             // hook never knew those ids, so for a week the personal rows took
             // the five slots on prompt after prompt, and the same rows came
@@ -216,10 +216,10 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
           const already = [...new Set([...exclude, ...load.said.map(m => m.id), ...load.heard.map(m => m.id)])];
           const lookup = retrieval?.('retrieve-memory', {input: query,
             metadata: {gate: settings.gate, limit: settings.per_prompt_matches,
-              inScope: scope.project ?? 'personal', excluded: already.length}});
+              inScope: scope.topic ?? 'personal', excluded: already.length}});
           let rows;
           try {
-            rows = await service.search({query, in_scope: scope.project ?? null,
+            rows = await service.search({query, in_scope: scope.topic ?? null,
               limit: settings.per_prompt_matches, gate: settings.gate,
               boost: settings.scope_boost, exclude: already});
           } catch (error) { lookup?.fail(error); throw error; }
@@ -230,12 +230,12 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
           if (rows.length) {
             // The slugs for the labels, read only now: most prompts find
             // nothing, and this hook has the tightest budget of the three.
-            const projects = rows.some(r => r.project_id) && service.projects
-              ? await service.projects().catch(() => []) : [];
+            const topics = rows.some(r => r.topic_id) && service.topics
+              ? await service.topics().catch(() => []) : [];
             notice = noticeFor('UserPromptSubmit', {shown: rows.length, matched: rows[0].matched});
             context = promptBlock({rows, matched: rows[0].matched, inScope: rows[0].in_scope,
               churn: settings.staleness_commits,
-              slugs: Object.fromEntries(projects.map(p => [p.id, p.slug]))});
+              slugs: Object.fromEntries(topics.map(p => [p.id, p.slug]))});
             logged = {query, memory_ids: rows.map(r => r.id),
               matched: rows[0].matched, in_scope: rows[0].in_scope, tokens: estimateTokens(context)};
           }
@@ -269,7 +269,7 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
  *  5 every Stop re-offered the last five and consecutive Stops overlapped by
  *  four. Anything durable got five chances and was duly saved twice. */
 export async function capture(service, {sessionKey, repository = null, assistant = '',
-  commits = null, project, ownerId, traced = untraced} = {}) {
+  commits = null, topic, ownerId, traced = untraced} = {}) {
   return traced('satchel.Stop',
     {sessionId: sessionKey, userId: ownerId, metadata: {event: 'Stop', repository}, tags: ['satchel', 'Stop'], input: null},
     async (setOutput, setInput, traceId) => {
@@ -285,10 +285,10 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // Resolved before the write rather than after it, because the scope is
         // part of what gets recorded. A cron job reading this document hours
         // later has no workspace and no git remote to resolve it from, so if
-        // the end of the turn does not say which project this was, nothing
+        // the end of the turn does not say which topic this was, nothing
         // ever will.
         let repositoryNote = '';
-        const scope = project !== undefined ? {project} : await resolveScope(service, {sessionKey, repository});
+        const scope = topic !== undefined ? {topic} : await resolveScope(service, {sessionKey, repository});
         // How far the repository has come, recorded here and nowhere else.
         // Every hook could report it, but the per-prompt one has a five
         // second budget and this is the hook that is allowed to be heavy. Once
@@ -302,10 +302,10 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // last_assistant_message, so on that host this writes no turn at all
         // and exists only to note the scope, which is the one thing the end of
         // a turn always knows.
-        await service.recordTurn(sessionKey, 'assistant', assistant, settings.capture_window * 2, scope.project ?? null);
-        // Only when nothing scoped the session. A linked project already says
+        await service.recordTurn(sessionKey, 'assistant', assistant, settings.capture_window * 2, scope.topic ?? null);
+        // Only when nothing scoped the session. A linked topic already says
         // more than the codebase does. Never allowed to fail the capture.
-        if (repository && !scope.project)
+        if (repository && !scope.topic)
           try { await service.noteRepository?.(sessionKey, repository); }
           catch (error) { repositoryNote = errorText(error); setInput({repositoryNote}); }
         // Without a router there is nothing to classify. The document is still
@@ -331,17 +331,17 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // Everything before it is there to understand it.
         const earlier = ordered.slice(0, start);
         setInput({turn, contextMessages: earlier.length, ...(repositoryNote && {repositoryNote})});
-        const [projects, saved] = await Promise.all([
-          service.projects(), service.capturedThisSession?.(sessionKey) ?? []]);
-        const active = projects.find(p => p.id === scope.project) ?? null;
-        // Named only when it is unambiguous. A project may link to several
+        const [topics, saved] = await Promise.all([
+          service.topics(), service.capturedThisSession?.(sessionKey) ?? []]);
+        const active = topics.find(p => p.id === scope.topic) ?? null;
+        // Named only when it is unambiguous. A topic may link to several
         // repositories, and naming an arbitrary one of them would be worse
         // than naming none.
-        const links = active?.project_repositories ?? [];
+        const links = active?.topic_repositories ?? [];
         const result = await service.captureTurn(sessionKey, {
           codebase: links.length === 1 ? links[0].repository : null,
-          project: active ? {slug: active.slug, brief: active.brief} : null,
-          projects: projects.filter(p => p.id !== scope.project).map(p => ({slug: p.slug, brief: p.brief})),
+          topic: active ? {slug: active.slug, brief: active.brief} : null,
+          topics: topics.filter(p => p.id !== scope.topic).map(p => ({slug: p.slug, brief: p.brief})),
           context: earlier, turn, saved, trace: traceId});
         // The boundary moves only when the model actually answered. A run that
         // died on a rate limit leaves its messages for the next turn.

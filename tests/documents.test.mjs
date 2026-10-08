@@ -38,8 +38,8 @@ async function database() {
   return {db, owner, other, call};
 }
 
-const say = (call, sub, role, content, project = null) =>
-  call(sub, 'select record_turn($1,$2,$3,$4,$5) id', ['s1', role, content, 10, project]);
+const say = (call, sub, role, content, topic = null) =>
+  call(sub, 'select record_turn($1,$2,$3,$4,$5) id', ['s1', role, content, 10, topic]);
 const documentOf = async (call, sub) =>
   (await call(sub, 'select * from session_document($1)', ['s1']))[0] ?? null;
 
@@ -94,37 +94,37 @@ test('a document carries one scope, and only a scope its owner holds', async t =
   const {db, owner, other, call} = await database();
   const mine = crypto.randomUUID(), theirs = crypto.randomUUID();
   try {
-    await call(owner, 'select * from create_project($1,$2,$3)', [mine, 'Satchel', '']);
-    await call(other, 'select * from create_project($1,$2,$3)', [theirs, 'Theirs', '']);
+    await call(owner, 'select * from create_topic($1,$2,$3)', [mine, 'Satchel', '']);
+    await call(other, 'select * from create_topic($1,$2,$3)', [theirs, 'Theirs', '']);
 
     await t.test('an unscoped turn leaves the document personal', async () => {
       await say(call, owner, 'user', 'what did we decide');
-      assert.equal((await documentOf(call, owner)).project_id, null);
+      assert.equal((await documentOf(call, owner)).topic_id, null);
     });
 
     await t.test('the first turn that knows the scope sets it', async () => {
       await say(call, owner, 'assistant', 'We decided nothing yet.', mine);
-      assert.equal((await documentOf(call, owner)).project_id, mine);
+      assert.equal((await documentOf(call, owner)).topic_id, mine);
     });
 
     await t.test('a later turn without a scope does not clear it', async () => {
       await say(call, owner, 'user', 'right, carry on');
-      assert.equal((await documentOf(call, owner)).project_id, mine);
+      assert.equal((await documentOf(call, owner)).topic_id, mine);
     });
 
-    await t.test('a project the caller does not own is dropped, not borrowed', async () => {
+    await t.test('a topic the caller does not own is dropped, not borrowed', async () => {
       // Silently personal rather than an error: the turn is the thing worth
-      // keeping, and a document scoped into someone else's project would be a
+      // keeping, and a document scoped into someone else's topic would be a
       // leak rather than a mistake.
       await say(call, other, 'user', 'my own session', mine);
-      assert.equal((await documentOf(call, other)).project_id, null);
+      assert.equal((await documentOf(call, other)).topic_id, null);
     });
 
-    await t.test('deleting the project keeps the conversation', async () => {
-      const [{revision}] = await call(owner, 'select revision from projects where id=$1', [mine]);
-      await call(owner, 'select delete_project($1,$2)', [mine, revision]);
+    await t.test('deleting the topic keeps the conversation', async () => {
+      const [{revision}] = await call(owner, 'select revision from topics where id=$1', [mine]);
+      await call(owner, 'select delete_topic($1,$2)', [mine, revision]);
       const doc = await documentOf(call, owner);
-      assert.equal(doc.project_id, null);
+      assert.equal(doc.topic_id, null);
       assert.equal(doc.turns, 3);
     });
   } finally { await db.close(); }
@@ -135,14 +135,14 @@ test('the end of a turn notes the scope even when the host gives no reply', asyn
   // append. It is still the moment the repository has been resolved, and a
   // document with no scope is a document consolidation cannot place.
   const {db, owner, call} = await database();
-  const project = crypto.randomUUID();
+  const topic = crypto.randomUUID();
   try {
-    await call(owner, 'select * from create_project($1,$2,$3)', [project, 'Satchel', '']);
+    await call(owner, 'select * from create_topic($1,$2,$3)', [topic, 'Satchel', '']);
     await say(call, owner, 'user', 'keep the client on 4.1');
-    await say(call, owner, 'assistant', '', project);
+    await say(call, owner, 'assistant', '', topic);
     const doc = await documentOf(call, owner);
     assert.equal(doc.turns, 1, 'an empty reply is not a turn');
-    assert.equal(doc.project_id, project, 'but it is still a scope');
+    assert.equal(doc.topic_id, topic, 'but it is still a scope');
   } finally { await db.close(); }
 });
 
@@ -269,7 +269,7 @@ test('the codebase a session ran in is kept on its document, and only the owner 
     await say(call, owner, 'user', 'plan the pacing queue');
     await call(owner, 'select note_document_repository($1,$2)', ['s1', ' Acme/Backend ']);
     assert.equal((await call(owner, 'select * from pending_documents($1)', [0]))[0].repository, 'acme/backend',
-      'stored in the same lowercase shape project_repositories uses');
+      'stored in the same lowercase shape topic_repositories uses');
     await call(owner, 'select note_document_repository($1,$2)', ['s1', 'not a repository']);
     await call(owner, 'select note_document_repository($1,$2)', ['s1', null]);
     assert.equal((await call(owner, 'select * from pending_documents($1)', [0]))[0].repository, 'acme/backend',

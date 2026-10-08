@@ -8,7 +8,7 @@
 // Two reasons it exists. Nothing could exercise a hook endpoint without a
 // deploy, which made the two tracing bugs found on 21 September the kind you
 // only find in production. And a head to head against a self hosted
-// supermemory has to be a command rather than a project.
+// supermemory has to be a command rather than a topic.
 //
 // The rewrites are read out of vercel.json rather than restated here. A second
 // copy is a second thing to forget, and the failure it produces is a local run

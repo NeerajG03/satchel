@@ -76,7 +76,7 @@ test('a job is its owner’s, one at a time, with a wall nobody can move', async
 
     await t.test('an app the owner connected cannot read the report', async () => {
       // The report names memories from every scope. A connection granted one
-      // project must not learn what the pass decided about the others.
+      // topic must not learn what the pass decided about the others.
       const app = {client_id: 'claude-ai', satchel_grant_id: crypto.randomUUID()};
       assert.deepEqual(await call(owner, 'select id from consolidation_jobs', [], app), []);
       await assert.rejects(call(owner, "insert into consolidation_jobs(idle_minutes) values (5)", [], app));
@@ -108,7 +108,7 @@ function fakeService({documents = [], failWith = {}} = {}) {
   const jobs = new Map();
   const service = {
     pendingDocuments: async () => documents.filter(d => !marked.has(d.id)),
-    projects: async () => [],
+    topics: async () => [],
     settings: async () => ({block_size: 30, staleness_commits: 25}),
     documentTurns: async id => [{id: 1, role: 'user', content: `said in ${id}`}],
     memoriesInScope: async () => [],
@@ -143,13 +143,13 @@ function fakeService({documents = [], failWith = {}} = {}) {
       const failure = typeof failWith[which] === 'function' ? failWith[which]() : failWith[which];
       if (failure) throw failure;
       return {changes: [{action: 'add', statement: `A claim from ${which}.`, source: `said in ${which}`,
-        kind: 'fact', project: null, why: 'new'}], dropped: [], prompt: 'p', raw: '{}'};
+        kind: 'fact', topic: null, why: 'new'}], dropped: [], prompt: 'p', raw: '{}'};
     },
   };
   return {service, consolidator, jobs, marked};
 }
 const docs = n => Array.from({length: n}, (_, i) => ({id: `d${i + 1}`, session_key: `s${i + 1}`,
-  project_id: null, turns: 1, consolidated_through: null}));
+  topic_id: null, turns: 1, consolidated_through: null}));
 
 test('one step reads until its time is up and says there is more', async () => {
   const {service, consolidator, jobs} = fakeService({documents: docs(5)});

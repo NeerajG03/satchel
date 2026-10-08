@@ -1,15 +1,15 @@
 import { PERSONAL_SCOPE, type MemoryScope } from '../features/memories/model';
-import type { Project } from '../features/projects/repository';
+import type { Topic } from '../features/topics/repository';
 
 export function parseScope(value: string | null): MemoryScope {
-  // project: is what links said before topics; they still open the topic.
-  const match = value?.match(/^(?:topic|project):(.+)$/);
-  if (match) return { kind: 'project', projectId: match[1] };
+  // topic: is what links said before topics; they still open the topic.
+  const match = value?.match(/^(?:topic|topic):(.+)$/);
+  if (match) return { kind: 'topic', topicId: match[1] };
   return PERSONAL_SCOPE;
 }
 
 export function scopeParam(scope: MemoryScope): string | null {
-  return scope.kind === 'project' ? `topic:${scope.projectId}` : null;
+  return scope.kind === 'topic' ? `topic:${scope.topicId}` : null;
 }
 
 export function scopeQuery(scope: MemoryScope, extra: Record<string, string | null> = {}): string {
@@ -21,19 +21,19 @@ export function scopeQuery(scope: MemoryScope, extra: Record<string, string | nu
   return text ? `?${text}` : '';
 }
 
-export function scopeName(scope: MemoryScope, projects: Project[]): string {
+export function scopeName(scope: MemoryScope, topics: Topic[]): string {
   if (scope.kind === 'personal') return 'For me';
-  return projects.find(project => project.id === scope.projectId)?.name ?? 'Topic';
+  return topics.find(topic => topic.id === scope.topicId)?.name ?? 'Topic';
 }
 
-export function scopeEyebrow(scope: MemoryScope, projects: Project[]): string {
-  return scope.kind === 'personal' ? 'For me' : `Topic · ${scopeName(scope, projects)}`;
+export function scopeEyebrow(scope: MemoryScope, topics: Topic[]): string {
+  return scope.kind === 'personal' ? 'For me' : `Topic · ${scopeName(scope, topics)}`;
 }
 
-export function projectScope(projectId: string | null): MemoryScope {
-  return projectId ? { kind: 'project', projectId } : PERSONAL_SCOPE;
+export function topicScope(topicId: string | null): MemoryScope {
+  return topicId ? { kind: 'topic', topicId } : PERSONAL_SCOPE;
 }
 
-export function scopeProjectIdOf(scope: MemoryScope): string | null {
-  return scope.kind === 'project' ? scope.projectId : null;
+export function scopeTopicIdOf(scope: MemoryScope): string | null {
+  return scope.kind === 'topic' ? scope.topicId : null;
 }

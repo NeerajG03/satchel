@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { useStores } from '../../app/stores';
 import { isConflict, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
-import { projectScope, scopeName, scopeQuery } from '../../app/scope';
+import { topicScope, scopeName, scopeQuery } from '../../app/scope';
 import { errorMessage } from '../../client';
 import { count } from '../../app/format';
 import { Button, LinkButton } from '../../ui/Button';
@@ -16,16 +16,16 @@ export function TaskDelete() {
   const navigate = useNavigate();
   const { announce } = useReadout();
   const page = useLoad(async () => {
-    const [task, projects] = await Promise.all([stores.tasks.read(id), stores.projects.list()]);
-    return { task, projects };
+    const [task, topics] = await Promise.all([stores.tasks.read(id), stores.topics.list()]);
+    return { task, topics };
   }, [stores, id]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [conflict, setConflict] = useState(false);
 
   const task = page.data?.task;
-  const scope = projectScope(task?.project_id ?? null);
-  const label = scopeName(scope, page.data?.projects ?? []);
+  const scope = topicScope(task?.topic_id ?? null);
+  const label = scopeName(scope, page.data?.topics ?? []);
   const back = `/tasks/${id}${scopeQuery(scope)}`;
   useFooter(task ? `Delete task · ${label} · revision ${task.revision}` : '');
 

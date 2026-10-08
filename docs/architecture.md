@@ -19,7 +19,7 @@ The pilot uses React/TypeScript with Vite, react-router and Supabase Auth/Postgr
 | `styles/*` | Tokens (copied from `design/tokens.css`), base, shell, components, pages |
 | `features/memories/*` | Model, repository, Book page, composer and entry |
 | `features/tasks/*` | Model, repository, list, capture, detail, edit, timeline, update composer, blocked sheet |
-| `features/projects/*` | Repository, list, new-topic sheet, topic page, repository links |
+| `features/topics/*` | Repository, list, new-topic sheet, topic page, repository links |
 | `features/connections/*` | Repository, Apps, Consent, Connected pages |
 | `features/settings/Settings.tsx` | Account, export, forgetting |
 | `request.mjs` | Bounded request execution shared by the repositories |

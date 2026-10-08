@@ -8,7 +8,7 @@ import {resolve} from 'node:path';
 
 const file=new URL('./corpus.json',import.meta.url);
 const corpus=JSON.parse(readFileSync(file,'utf8'));
-const projects=new Set(corpus.projects.map(p=>p.slug));
+const topics=new Set(corpus.topics.map(p=>p.slug));
 const tasks=new Map(corpus.tasks.map(t=>[t.slug,t]));
 const nextId=(list,prefix,width)=>{
   let n=list.reduce((a,x)=>Math.max(a,+x.id.slice(prefix.length)),-1);
@@ -35,14 +35,14 @@ for(const arg of process.argv.slice(2)){
       const key=r.statement.toLowerCase().trim();
       if(seenStmt.has(key)){skipped++;continue;}
       seenStmt.add(key);
-      if(r.project!==null&&!projects.has(r.project)){problems.push(`unknown project ${r.project}`);continue;}
+      if(r.topic!==null&&!topics.has(r.topic)){problems.push(`unknown topic ${r.topic}`);continue;}
       if(r.task!==null&&r.task!==undefined){
         const t=tasks.get(r.task);
         if(!t){problems.push(`unknown task ${r.task}`);continue;}
-        if(t.project!==r.project){problems.push(`task ${r.task} scope disagrees`);continue;}
+        if(t.topic!==r.topic){problems.push(`task ${r.task} scope disagrees`);continue;}
       }
       corpus.memories.push({id:newMemoryId(),statement:r.statement,source:r.source,
-        band:r.band,project:r.project??null,task:r.task??null,
+        band:r.band,topic:r.topic??null,task:r.task??null,
         ...(r.edge_case?{edge_case:r.edge_case}:{}),
         ...(r.supersedes?{supersedes:r.supersedes}:{})});
       addedM++;

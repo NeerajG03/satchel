@@ -86,7 +86,7 @@ export function createEmbedder({
   // Unset means "no taskType", which is the space every stored vector is in.
   taskType = process.env.SATCHEL_EMBEDDING_TASK_TYPE,
   // A second route for the SAME model, on a different key. Gemini's free
-  // embedding quota is per project per model, so a second project doubles it,
+  // embedding quota is per topic per model, so a second topic doubles it,
   // and the day this was written the first one ran out at 1,000 requests and
   // took retrieval down with it for the rest of the day.
   fallbackKey = process.env.SATCHEL_EMBEDDING_FALLBACK_KEY,

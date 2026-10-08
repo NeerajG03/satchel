@@ -4,7 +4,7 @@ const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 // Only the public project key belongs in the browser. RLS enforces data access.
-export const client = url && key && !url.includes('your-project') && key !== 'your-publishable-key'
+export const client = url && key && !url.includes('your-topic') && key !== 'your-publishable-key'
   ? createClient(url, key, { auth: { flowType: 'pkce', detectSessionInUrl: true } })
   : null;
 

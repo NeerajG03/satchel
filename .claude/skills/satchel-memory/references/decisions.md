@@ -236,7 +236,7 @@ The whole 21 point gain came from the prompt: worked examples, an explicit list 
 
 The router used to get a flat list of every topic and nothing saying which one the conversation was in, so it inferred the scope from the words. A memory about Satchel's own deployment key said "vercel" and not "satchel", so it landed in personal.
 
-The workspace's git remote already resolves to a topic through `project_repositories`, so the prompt names it. Topics are stored in the `projects` table, so the column is `project_id`. That was measured as an A/B on the same sample through the same code, with `ROUTER_EVAL_NO_SCOPE=1` withholding the scope and handing over the flat list the way the router used to get it:
+The workspace's git remote already resolves to a topic through `topic_repositories`, so the prompt names it. That was measured as an A/B on the same sample through the same code, with `ROUTER_EVAL_NO_SCOPE=1` withholding the scope and handing over the flat list the way the router used to get it:
 
 ```
                        scope withheld     scope named

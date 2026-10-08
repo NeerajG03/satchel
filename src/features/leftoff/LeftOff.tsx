@@ -4,7 +4,7 @@ import { useLoad } from '../../app/useLoad';
 import { useFooter } from '../../app/readout';
 import { useAuth } from '../../app/auth';
 import { count } from '../../app/format';
-import { projectScope, scopeName, scopeQuery } from '../../app/scope';
+import { topicScope, scopeName, scopeQuery } from '../../app/scope';
 import { LinkButton } from '../../ui/Button';
 import { StateChip } from '../../ui/Chip';
 import { Light } from '../../ui/Light';
@@ -18,10 +18,10 @@ export function LeftOff() {
   const stores = useStores();
   const { user } = useAuth();
   const page = useLoad(async () => {
-    const [projects, tasks, memories, connections] = await Promise.all([
-      stores.projects.list(), stores.tasks.listAll(), stores.memories.listAll(), stores.connections.list(),
+    const [topics, tasks, memories, connections] = await Promise.all([
+      stores.topics.list(), stores.tasks.listAll(), stores.memories.listAll(), stores.connections.list(),
     ]);
-    return { projects, tasks, memories, connections };
+    return { topics, tasks, memories, connections };
   }, [stores]);
 
   const data = page.data;
@@ -38,7 +38,7 @@ export function LeftOff() {
 
   if (page.error) return <><h1>Where you left off.</h1><LoadError what="Your tasks and book" onReload={page.reload} /><Skeleton rows={4} /></>;
   if (!data) return <><h1>Where you left off.</h1><Skeleton rows={5} /></>;
-  if (firstRun) return <LeftOffEmpty name={accountHandle(user)} projects={data.projects} />;
+  if (firstRun) return <LeftOffEmpty name={accountHandle(user)} topics={data.topics} />;
 
   return <>
     <div className="head">
@@ -49,10 +49,10 @@ export function LeftOff() {
       <section className="section">
         <div className="between"><h2>Next actions</h2><span className="eyebrow">{count(actionable.length, 'actionable now', 'actionable now')}</span></div>
         {actionable.length + blocked.length === 0 && <p className="muted">Nothing is actionable right now. {waiting > 0 ? `${count(waiting, 'task is', 'tasks are')} waiting on something.` : 'Capture a task with a next action and it shows up here.'}</p>}
-        <div>{actionable.map(task => <TaskRow key={task.id} task={task} projects={data.projects} showScope />)}</div>
+        <div>{actionable.map(task => <TaskRow key={task.id} task={task} topics={data.topics} showScope />)}</div>
         {blocked.length > 0 && <>
           <div className="between" style={{ marginTop: 12 }}><h3>Blocked</h3><span className="eyebrow">{count(blocked.length, 'waiting on something', 'waiting on something')}</span></div>
-          <div>{blocked.map(task => <TaskRow key={task.id} task={task} projects={data.projects} showScope />)}</div>
+          <div>{blocked.map(task => <TaskRow key={task.id} task={task} topics={data.topics} showScope />)}</div>
         </>}
         {waiting > 0 && <p className="fine muted">{count(waiting, 'more task is', 'more tasks are')} waiting on something. <Link to="/tasks">See them in Tasks</Link></p>}
       </section>
@@ -61,8 +61,8 @@ export function LeftOff() {
           <div className="between"><h3>Last thing saved</h3></div>
           {newest ? <>
             <p className="serif" style={{ fontSize: 19, lineHeight: 1.4 }}>“{newest.statement}”</p>
-            <Provenance parts={[newest.name, scopeName(projectScope(newest.project_id), data.projects), `revision ${newest.revision}`]} at={newest.updated_at} />
-            <Link to={`/book${scopeQuery(projectScope(newest.project_id))}`} className="fine">Open the book</Link>
+            <Provenance parts={[newest.name, scopeName(topicScope(newest.topic_id), data.topics), `revision ${newest.revision}`]} at={newest.updated_at} />
+            <Link to={`/book${scopeQuery(topicScope(newest.topic_id))}`} className="fine">Open the book</Link>
           </> : <p className="muted fine">Nothing in the book yet. <Link to="/book">Write the first thing down</Link>.</p>}
         </div>
         <div className="aside-block">

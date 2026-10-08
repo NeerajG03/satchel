@@ -5,32 +5,32 @@ import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
 import { count, whenText } from '../../app/format';
 import type { Connection } from './repository';
-import type { Project } from '../projects/repository';
+import type { Topic } from '../topics/repository';
 import { Button } from '../../ui/Button';
 import { Light } from '../../ui/Light';
 import { LoadError, Notice, SaveError, Skeleton } from '../../ui/Notice';
 import { CommandBlock } from '../../ui/CommandBlock';
 import { HOST_NAMES, INSTALL, LOGIN, PROMPT, type Host } from './install';
 
-function GrantLine({ personal, all, ids, projects, level }: { personal: boolean; all: boolean; ids: string[]; projects: Project[]; level: string }) {
+function GrantLine({ personal, all, ids, topics, level }: { personal: boolean; all: boolean; ids: string[]; topics: Topic[]; level: string }) {
   // A blanket grant is not a long list of names. Saying "every topic" is
   // both shorter and the only honest rendering, because the grant covers
-  // projects that do not exist yet and no list can show those.
+  // topics that do not exist yet and no list can show those.
   const names = all
     ? [...(personal ? ['For me'] : []), 'Every topic, including new ones']
-    : [...(personal ? ['For me'] : []), ...ids.map(id => projects.find(p => p.id === id)?.name ?? 'a removed topic')];
+    : [...(personal ? ['For me'] : []), ...ids.map(id => topics.find(p => p.id === id)?.name ?? 'a removed topic')];
   if (!names.length) return <dd>none</dd>;
   return <dd>{names.join(', ')} <span className="muted fine">· {level}</span></dd>;
 }
 
-function AppCard({ app, projects, busy, confirming, onAskRevoke, onRevoke }: { app: Connection; projects: Project[]; busy: boolean; confirming: boolean; onAskRevoke: (ask: boolean) => void; onRevoke: () => void }) {
-  const taskIds = app.agent_task_grants.map(g => g.project_id);
+function AppCard({ app, topics, busy, confirming, onAskRevoke, onRevoke }: { app: Connection; topics: Topic[]; busy: boolean; confirming: boolean; onAskRevoke: (ask: boolean) => void; onRevoke: () => void }) {
+  const taskIds = app.agent_task_grants.map(g => g.topic_id);
   return <article className="card">
     <div className="between wrap"><h2 style={{ fontSize: 22 }}>{app.label}</h2>
       <Light color="green" word={app.can_write || app.task_can_write ? 'reads and saves' : 'reads only'} /></div>
     <dl className="grants">
-      <dt>Memory</dt><GrantLine personal={app.personal} all={app.all_projects} ids={app.project_ids} projects={projects} level={app.can_write ? 'read and save' : 'read only'} />
-      <dt>Tasks</dt><GrantLine personal={app.task_personal} all={app.task_all_projects} ids={taskIds} projects={projects} level={[app.task_can_write ? 'read, write' : 'read only', app.task_can_upload && 'upload'].filter(Boolean).join(' and ')} />
+      <dt>Memory</dt><GrantLine personal={app.personal} all={app.all_topics} ids={app.topic_ids} topics={topics} level={app.can_write ? 'read and save' : 'read only'} />
+      <dt>Tasks</dt><GrantLine personal={app.task_personal} all={app.task_all_topics} ids={taskIds} topics={topics} level={[app.task_can_write ? 'read, write' : 'read only', app.task_can_upload && 'upload'].filter(Boolean).join(' and ')} />
     </dl>
     <p className="fine muted">Connected {whenText(app.created_at)} · a permission here applies to every installation using this app identity.</p>
     {!confirming && <div className="card-actions"><Button small disabled={busy} onClick={() => onAskRevoke(true)}>Revoke access</Button></div>}
@@ -46,8 +46,8 @@ export function Apps() {
   const stores = useStores();
   const { announce } = useReadout();
   const page = useLoad(async () => {
-    const [connections, projects] = await Promise.all([stores.connections.list(), stores.projects.list()]);
-    return { connections, projects };
+    const [connections, topics] = await Promise.all([stores.connections.list(), stores.topics.list()]);
+    return { connections, topics };
   }, [stores]);
   const action = useAction();
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -91,7 +91,7 @@ export function Apps() {
       <Notice>What a connected app can never do: read scopes you didn’t grant, save without both write permission and your explicit ask, or see More info in bulk. Hooks read names and descriptions only.</Notice>
     </>}
     {data && live.length > 0 && <div className="cards">
-      {live.map(app => <AppCard key={app.client_id} app={app} projects={data.projects} busy={action.busy} confirming={confirmId === app.client_id}
+      {live.map(app => <AppCard key={app.client_id} app={app} topics={data.topics} busy={action.busy} confirming={confirmId === app.client_id}
         onAskRevoke={ask => setConfirmId(ask ? app.client_id : null)} onRevoke={() => void revoke(app)} />)}
     </div>}
   </>;

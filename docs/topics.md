@@ -18,9 +18,9 @@ topic
 
 A "project" is just a topic that has a repository link or tasks on it.
 
-Topics are stored in the `projects` table, so the database still says project: `project_id`, `project_repositories`, `upsert_project`. Everything people and agents read says topic (D34).
+The database says topic too: the `topics` table, `topic_id`, `topic_repositories`, `upsert_topic` (D34, D35).
 
-A memory with no topic is personal, exactly like a memory with no project today. The database keeps it that way, because "no project means personal" is built into about 13 functions and the `personal` grant flag. In the UI and the tools, Personal shows as the first topic, pinned at the top, marked "always loads".
+A memory with no topic is personal, just like a memory with no project was before. The database keeps it that way, because "no topic means personal" is built into about 13 functions and the `personal` grant flag. In the UI and the tools, Personal shows as the first topic, pinned at the top, marked "always loads".
 
 ## Why
 
@@ -32,10 +32,10 @@ If Satchel can make a topic when nothing fits, those facts get a home, and perso
 
 ## First experiment: the pass makes topics (built, 7 October)
 
-The smallest piece that proves the idea: items 2 and 5 below, with no rename and no migration. A topic is stored as a project, because projects can already be made by an agent connection.
+The smallest piece that proves the idea: items 2 and 5 below, with no rename and no migration. At that point a topic was stored as a project, because projects could already be made by an agent connection.
 
 - The pass can name a new topic when a work fact fits no listed project. A name that is a near spelling of a listed one reuses it (`nearSlug` in `server/consolidator.mjs`).
-- It only does this on a connection that sees every project and may write. Otherwise it behaves exactly as before. `SATCHEL_NEW_TOPICS=off` turns it off.
+- It only does this on a connection that sees every topic and may write. Otherwise it behaves exactly as before. `SATCHEL_NEW_TOPICS=off` turns it off.
 - Each topic it makes shows in activity as "made topic". A topic that could not be made leaves its memory in personal, as before.
 
 How it was measured. A blind subagent read all 71 real memories and said where each belongs: personal, a listed project, or a new topic. That is the golden set. It holds real names, so it is not in the repository. `eval/topics-replay.mjs` feeds the loose memories, and 8 that plainly belong to a project, through the pass one at a time, so a topic made early is listed for the ones after it.
@@ -83,7 +83,7 @@ The only difference is that work facts now have a topic to live in, so personal 
 
 **Grants.** All or none for topics. A migration must not widen a live grant (security skill), so it goes the other way: existing grants that name specific topics lose topic access, and you reconnect the app once to choose "all". Satchel has one user today, so that is one reconnect per app. The overnight connection and the plugin's connection must have "all" before the capture change ships, or the pass can't see any topics and would make duplicates. So the pass only makes new topics when its own grant is "all". The grant flags for personal, write, tasks and uploads stay as they are.
 
-**Names.** "Project" becomes "topic" in the UI, the tools and the docs. The app lives at `/topics`, and the tools are `list_topics`, `upsert_topic` and `select_topic`, with `topic_id` on every call. The tables, columns, routines and code names keep project.
+**Names.** "Project" becomes "topic" in the UI, the tools and the docs. The app lives at `/topics`, and the tools are `list_topics`, `upsert_topic` and `select_topic`, with `topic_id` on every call. The tables, columns, routines and code names say topic too, since the `20261009090000_topics_everywhere` migration (D35).
 
 ## Decisions
 
@@ -103,8 +103,8 @@ Status on 8 October.
 
 | # | Area | What it means | Status |
 |---|---|---|---|
-| 1 | Rename | What a person or an agent reads says topic: the rail, the topics page at `/topics`, the topic page, the consent page, the agent tools and their fields, the docs and the skills. The table, columns, routines and code keep the word project, because renaming them changes nothing anyone sees and risks every hook. A topic with a repository or tasks is what a project was. | Built |
-| 2 | Capture | Consolidation can name a new topic, and reuses a close one. Topics it makes are marked `made_by = 'satchel'` (`create_topic`). | Built |
+| 1 | Rename | What a person or an agent reads says topic: the rail, the topics page at `/topics`, the topic page, the consent page, the agent tools and their fields, the docs and the skills. A topic with a repository or tasks is what a project was. The database and the code followed in `20261009090000_topics_everywhere.sql`: tables, columns, routines and code names all say topic (D35). | Built |
+| 2 | Capture | Consolidation can name a new topic, and reuses a close one. Topics it makes are marked `made_by = 'satchel'` (`create_satchel_topic`). | Built |
 | 3 | Tidy | One call a job, before sessions are read: moves work facts out of personal and merges topics that are one subject. Only topics Satchel made are merged away, never one with tasks or repositories. Every merge is recorded in `topic_merges` and can be undone from the topics page. | Built |
 | 4 | Grants | The consent page offers every topic or none. Existing grants are left as they are: on 8 October every live connection already had every project, so nothing needed narrowing. | Built |
 | 5 | Backfill | The tidy is the backfill: its first run moves what sits in personal today. | Built, runs on the next job |

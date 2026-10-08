@@ -68,7 +68,7 @@ async function embed(spec,texts){
 }
 
 // A separate key on purpose. Gemini's free embedding quota is 1,000 requests a
-// day per project per model, and Google counts every input in a batch, so one
+// day per topic per model, and Google counts every input in a batch, so one
 // pass over this corpus costs 632 of it. On 20 Sep 2026 an eval run six minutes
 // into the quota day took most of the day's budget and production retrieval
 // spent the next twenty-four hours answering "Satchel memory unavailable".
@@ -96,7 +96,7 @@ for(const [name,spec] of Object.entries(INDEXES)){
   // otherwise: it is not the wall clock, it is the rest of the day's retrieval.
   if(spec.provider==='gemini'&&SHARED_KEY)
     console.log(`  ${name}: about to embed ${newMem.length+newPro.length} texts on GEMINI_API_KEY, `
-      +`which is the deployment's key. The free quota is 1,000 a day per project and every text counts. `
+      +`which is the deployment's key. The free quota is 1,000 a day per topic and every text counts. `
       +`Set SATCHEL_EVAL_GEMINI_KEY to keep this off production retrieval.`);
   const t=Date.now();
   if(newMem.length){

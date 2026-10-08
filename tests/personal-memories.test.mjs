@@ -6,11 +6,11 @@ import { applyMigrations, migrationFiles } from './helpers/migrations.mjs';
 
 const alice = '10000000-0000-4000-8000-000000000001';
 const bob = '10000000-0000-4000-8000-000000000002';
-const project = '20000000-0000-4000-8000-000000000001';
-const projectMemory = '30000000-0000-4000-8000-000000000001';
+const topic = '20000000-0000-4000-8000-000000000001';
+const topicMemory = '30000000-0000-4000-8000-000000000001';
 const personalMemory = '30000000-0000-4000-8000-000000000002';
 
-test('personal and project memories share operations without mixing scopes or owners', async t => {
+test('personal and topic memories share operations without mixing scopes or owners', async t => {
   const db = new PGlite();
   async function asUser(id, sql, params = [], clientId) {
     await db.exec('begin; set local role authenticated;');
@@ -41,22 +41,23 @@ test('personal and project memories share operations without mixing scopes or ow
     const files = await migrationFiles();
     const personalMigration = files.indexOf('202609110002_personal_memory.sql');
     await applyMigrations(db, { files: files.slice(0, personalMigration) });
-    await asUser(alice, 'select * from create_project($1,$2,$3)', [project, 'Existing project', 'Keep existing data']);
+    await asUser(alice, 'select * from create_project($1,$2,$3)', [topic, 'Existing topic', 'Keep existing data']);
     // Saved against the pre-v2 signature on purpose: this row is the evidence
     // that the shape migration carries existing data across untouched.
     const [before] = await asUser(alice, 'select * from save_memory($1,$2,$3,$4,$5)',
-      [projectMemory, project, 'preferences', 'Project description', 'Project-only details']);
+      [topicMemory, topic, 'preferences', 'Topic description', 'Topic-only details']);
     await applyMigrations(db, { files: files.slice(personalMigration) });
 
-    await t.test('migration preserves every existing project field and revision', async () => {
-      const [after] = await read(alice, project, projectMemory);
+    await t.test('migration preserves every existing topic field and revision', async () => {
+      const [after] = await read(alice, topic, topicMemory);
       // v2 adds columns and renames description to statement, so the comparison
       // covers every field that survived under its own name. Nothing else about
       // an existing row may move, and revision in particular must not, or every
       // client holding one sees a spurious conflict on its next write.
       for (const field of Object.keys(before)) {
         if (field === 'description') continue;
-        assert.deepEqual(after[field], before[field], field);
+        // The topics rename moved project_id to topic_id, value untouched.
+        assert.deepEqual(after[field === 'project_id' ? 'topic_id' : field], before[field], field);
       }
       assert.equal(after.statement, before.description, 'the description carries over verbatim');
       assert.equal(after.source, before.description, 'and is kept as its own provenance');
@@ -64,13 +65,13 @@ test('personal and project memories share operations without mixing scopes or ow
       assert.equal(after.band, 'said', 'an explicitly saved memory stays confirmed');
       assert.deepEqual(await asUser(alice, 'select * from list_memories(null)'), []);
     });
-    await t.test('a user with zero projects can save, retry and read personal memory', async () => {
-      assert.deepEqual(await asUser(bob, 'select * from projects'), []);
+    await t.test('a user with zero topics can save, retry and read personal memory', async () => {
+      assert.deepEqual(await asUser(bob, 'select * from topics'), []);
       const args = [bob, personalMemory, null, 'preferences', 'Personal description', 'Personal-only details'];
       const [saved] = await save(...args);
       const [retried] = await save(...args);
       assert.equal(saved.id, retried.id); assert.equal(retried.revision, 1);
-      assert.equal(saved.project_id, null);
+      assert.equal(saved.topic_id, null);
       const [row] = await read(bob, null, personalMemory);
       assert.equal(row.more_info, 'Personal-only details');
       const [summary] = await asUser(bob, 'select * from list_memories(null)');
@@ -78,23 +79,23 @@ test('personal and project memories share operations without mixing scopes or ow
       assert.equal('more_info' in summary, false, 'the index carries a flag, never the detail');
       assert.equal(summary.has_more_info, true);
       assert.equal(summary.statement, 'Personal description');
-      assert.deepEqual(await asUser(bob, 'select * from projects'), []);
+      assert.deepEqual(await asUser(bob, 'select * from topics'), []);
     });
-    await t.test('same name works across personal/project scopes and different owners', async () => {
+    await t.test('same name works across personal/topic scopes and different owners', async () => {
       const [personal] = await save(alice, crypto.randomUUID(), null, 'preferences', 'Alice personal', 'Alice-only personal details');
       const [personalRead] = await read(alice, null, personal.id);
-      const [projectRead] = await read(alice, project, projectMemory);
-      assert.equal(personalRead.id, personal.id); assert.equal(projectRead.id, projectMemory);
-      assert.notEqual(personalRead.more_info, projectRead.more_info);
+      const [topicRead] = await read(alice, topic, topicMemory);
+      assert.equal(personalRead.id, personal.id); assert.equal(topicRead.id, topicMemory);
+      assert.notEqual(personalRead.more_info, topicRead.more_info);
       assert.deepEqual((await asUser(alice, 'select * from list_memories(null)')).map(m => m.id), [personal.id]);
-      assert.deepEqual((await asUser(alice, 'select * from list_memories($1)', [project])).map(m => m.id), [projectMemory]);
+      assert.deepEqual((await asUser(alice, 'select * from list_memories($1)', [topic])).map(m => m.id), [topicMemory]);
       await assert.rejects(save(alice, crypto.randomUUID(), null, ' PREFERENCES ', 'Duplicate personal'), { code: '23505' });
-      await assert.rejects(save(alice, crypto.randomUUID(), project, 'PREFERENCES', 'Duplicate project'), { code: '23505' });
+      await assert.rejects(save(alice, crypto.randomUUID(), topic, 'PREFERENCES', 'Duplicate topic'), { code: '23505' });
     });
     await t.test('scope is immutable and an ID cannot be reused to move or leak a record', async () => {
-      await assert.rejects(asUser(alice, 'update memories set project_id=null where id=$1', [projectMemory]), { code: '42501' });
-      await assert.rejects(save(alice, projectMemory, null, 'preferences', 'Project description', 'Project-only details'), { code: 'PT409' });
-      await assert.rejects(save(bob, crypto.randomUUID(), project, 'foreign-project', 'Denied'), { code: '23503' });
+      await assert.rejects(asUser(alice, 'update memories set topic_id=null where id=$1', [topicMemory]), { code: '42501' });
+      await assert.rejects(save(alice, topicMemory, null, 'preferences', 'Topic description', 'Topic-only details'), { code: 'PT409' });
+      await assert.rejects(save(bob, crypto.randomUUID(), topic, 'foreign-topic', 'Denied'), { code: '23503' });
       await assert.rejects(save(alice, personalMemory, null, 'stolen', 'Denied'), { code: 'PT409' });
     });
     await t.test('personal records retain owner isolation and deny unapproved agent access', async () => {
@@ -109,17 +110,17 @@ test('personal and project memories share operations without mixing scopes or ow
     await t.test('personal correction and rename enforce expected revisions', async () => {
       const [row] = await asUser(bob, 'select * from correct_memory($1,1,$2,$3,$4)',
         [personalMemory, 'Updated personal description', 'writing-preferences', 'Updated personal details']);
-      assert.equal(row.revision, 2); assert.equal(row.project_id, null);
+      assert.equal(row.revision, 2); assert.equal(row.topic_id, null);
       assert.equal(row.name, 'writing-preferences');
       await assert.rejects(asUser(bob, 'select * from correct_memory($1,1,$2,$3,$4)',
         [personalMemory, 'stale', 'stale', 'stale']), { code: 'PT409' });
       assert.equal((await read(bob, null, personalMemory))[0].more_info, 'Updated personal details');
     });
-    await t.test('deleting personal memory checks revisions without affecting project memory', async () => {
+    await t.test('deleting personal memory checks revisions without affecting topic memory', async () => {
       assert.deepEqual(await asUser(bob, 'delete from memories where id=$1 and revision=1 returning id', [personalMemory]), []);
       assert.equal((await asUser(bob, 'delete from memories where id=$1 and revision=2 returning id', [personalMemory])).length, 1);
       assert.deepEqual(await asUser(bob, 'select * from list_memories(null)'), []);
-      assert.equal((await read(alice, project, projectMemory))[0].more_info, 'Project-only details');
+      assert.equal((await read(alice, topic, topicMemory))[0].more_info, 'Topic-only details');
     });
     await t.test('anonymous access cannot list personal summaries', async () => {
       await db.exec('begin; set local role anon;');

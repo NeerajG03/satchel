@@ -38,7 +38,7 @@ Almost everything is `security invoker`, so RLS stays authoritative. The service
 ## `memories`
 
 ```
-id, owner_id, project_id
+id, owner_id, topic_id
 kind             text not null   'fact' | 'preference' | 'intent', default 'fact'
 ended_at         timestamptz     null while live
 ended_reason     text            'replaced' | 'retired' | 'forgotten'
@@ -62,7 +62,7 @@ revision, created_at, updated_at
 
 **Name uniqueness is partial.** `where name is not null`, on both the scoped and the personal index. Without the predicate the second unnamed memory collides with the first on NULL.
 
-**A memory has one scope: a topic, or personal.** Topics are stored in the `projects` table, so the column is `project_id`. There is no task link and there is no column for one. It was removed in `20260922100000` because it produced exactly one thing, a `[task closed, may be fixed]` hint, and cost three ways to get the scope wrong: `save_memory` silently moved a memory into the task's topic, so a wrong guess by a small model relocated a rule; the router made four decisions per item instead of three; and the foreign key could not be scope-qualified at all, because Postgres refuses `ON DELETE SET NULL` against a generated column and `tasks.scope_key` is generated, so a function had to enforce what the database could not. The doubt the link was for comes back in v2.5 R8, raised by the repository moving, which is what actually made the stale rows in production false. See `docs/memory-v2-5-scope.md`, R9a.
+**A memory has one scope: a topic, or personal.** There is no task link and there is no column for one. It was removed in `20260922100000` because it produced exactly one thing, a `[task closed, may be fixed]` hint, and cost three ways to get the scope wrong: `save_memory` silently moved a memory into the task's topic, so a wrong guess by a small model relocated a rule; the router made four decisions per item instead of three; and the foreign key could not be scope-qualified at all, because Postgres refuses `ON DELETE SET NULL` against a generated column and `tasks.scope_key` is generated, so a function had to enforce what the database could not. The doubt the link was for comes back in v2.5 R8, raised by the repository moving, which is what actually made the stale rows in production false. See `docs/memory-v2-5-scope.md`, R9a.
 
 **A memory ends, it is not deleted.** `ended_at`/`ended_reason` is one way out with a reason instead of four flag pairs, and `(ended_at is null) = (ended_reason is null)` is enforced. `replaced` means the claim is false now and `ended_by` names its successor; `retired` means an intent was fulfilled, which is spent rather than wrong; `forgotten` is a decision, a person's Forget in the web app or a pass deciding it should not be there. `restore_memory(id, revision)` undoes any of them: it clears the ending, clears an expiry that has already passed (a future one is a deadline the person gave, so it stays), and moves `affirmed_at`. Expiry is separate, because it is time passing rather than something happening: a row past `expires_at` is not live and no event was raised. Everything that reads a memory to use it filters to live; `archived_memories()` is where the rest goes, and it is the undo that makes auto-applied consolidation acceptable.
 
@@ -94,7 +94,7 @@ search_memories(
   p_gate    real     default 0.67,
   p_boost   real     default 1.1,
   p_exclude uuid[]   default '{}')
-returns (id, project_id, statement, band, kind, score, matched, in_scope)
+returns (id, topic_id, statement, band, kind, score, matched, in_scope)
 ```
 
 Every optional argument is `coalesce`d inside the function, because "not supplied" and "supplied as nothing" have to mean the same thing to every caller. A NULL gate once silenced retrieval completely.
@@ -105,7 +105,7 @@ Scope is a boost, not a filter. Rows without an embedding are invisible and do n
 
 ## `personal_memories`
 
-Every live row with `project_id is null`, **ranked**: most mentioned, then most recently affirmed, then most recently edited. Loaded whole at session start rather than retrieved, because similarity measures topic overlap and a standing preference is relevant by category of activity. See `decisions.md` for the 4.4x measurement.
+Every live row with `topic_id is null`, **ranked**: most mentioned, then most recently affirmed, then most recently edited. Loaded whole at session start rather than retrieved, because similarity measures topic overlap and a standing preference is relevant by category of activity. See `decisions.md` for the 4.4x measurement.
 
 The ranking exists so "the weakest line" is a fact rather than an opinion. Repetition comes first because a claim restated across sessions is the strongest evidence there is and it costs nothing, and recency is `affirmed_at`, the last time anyone meant it, not `updated_at`, the last time the wording moved.
 
@@ -155,7 +155,7 @@ The durable record of a conversation, kept apart from the memories derived from 
 
 Not the same thing as `session_messages` and not a replacement for it. Different lifetimes: the window is trimmed to `p_keep` and expires in a day, a document lives 30 days. Both are written by one call, `record_turn`, because the per-prompt hook waits for it now and must not delay the prompt.
 
-`project_id` is the scope, null meaning personal, and there is no task link. It is set by whichever turn first knows it and never cleared, because a cron reading the document hours later has no workspace and no git remote to resolve it from. A topic id the caller does not own is dropped rather than borrowed.
+`topic_id` is the scope, null meaning personal, and there is no task link. It is set by whichever turn first knows it and never cleared, because a cron reading the document hours later has no workspace and no git remote to resolve it from. A topic id the caller does not own is dropped rather than borrowed.
 
 An empty `content` is not a no-op: it creates and scopes the document without appending a turn. Codex hands over no `last_assistant_message`, so on that host the end of a turn has nothing to append but is still the moment the topic is known.
 
@@ -227,10 +227,10 @@ The browser reads every row. A connection reads back only the rows it wrote, mat
 ```
 slug text not null
 check (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and length(slug) <= 40)
-unique (owner_id, slug) on projects, and on tasks
+unique (owner_id, slug) on topics, and on tasks
 ```
 
-There is no length floor. One was tried at three characters and it rejected `go`, `ui` and `qa`, which are exactly the slugs a person would pick, and it failed from inside `create_project` with a bare constraint name.
+There is no length floor. One was tried at three characters and it rejected `go`, `ui` and `qa`, which are exactly the slugs a person would pick, and it failed from inside `create_topic` with a bare constraint name.
 
 `default_slug` is one trigger serving both tables, reading `title` or `name` through jsonb so there are not two functions to drift. It picks a candidate unique across topics and tasks **together**, and on a collision appends a numeric suffix to the base trimmed to 36 characters, with the trailing hyphen trimmed off, because otherwise the truncation produces `--` and fails the pattern.
 

@@ -163,7 +163,7 @@ export async function handleHookIndex(req, res) {
   const event = EVENTS.has(input.event) ? input.event : 'SessionStart';
   const result = await sessionStart(connection.service, {
     sessionKey, event, repository: readRepository(input.repository), ownerId: connection.ownerId});
-  send(res, {context: result.context, notice: result.notice, active_project: result.active_project});
+  send(res, {context: result.context, notice: result.notice, active_topic: result.active_topic});
 }
 
 /** Every prompt. The prompt is the search query and nothing else: no

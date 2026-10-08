@@ -32,7 +32,10 @@ const description='Personal and topic memory, tasks and topics across your agent
 // upsert_topic and select_topic, every tool field is topic_id, and the shipped
 // skill reads the same way. Minor, not a patch, because an agent following the
 // old skill would call tools that no longer exist.
-const versions={claude:'0.5.0',codex:'0.5.0'};
+//
+// 0.5.1 carries the hooks' own wording over to topic too, now that the
+// database says topic as well.
+const versions={claude:'0.5.1',codex:'0.5.1'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});

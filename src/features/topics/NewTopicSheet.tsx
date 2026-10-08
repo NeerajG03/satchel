@@ -1,13 +1,13 @@
 import { useState, type FormEvent } from 'react';
-import type { Project } from './repository';
+import type { Topic } from './repository';
 import { Sheet } from '../../ui/Sheet';
 import { Button } from '../../ui/Button';
 import { TextArea, TextField } from '../../ui/Field';
 import { SaveError } from '../../ui/Notice';
 
-type Props = { projects: Project[]; busy: boolean; error: string; onCancel: () => void; onCreate: (id: string, name: string, brief: string, slug: string) => void };
+type Props = { topics: Topic[]; busy: boolean; error: string; onCancel: () => void; onCreate: (id: string, name: string, brief: string, slug: string) => void };
 
-export function NewProjectSheet({ projects, busy, error, onCancel, onCreate }: Props) {
+export function NewTopicSheet({ topics, busy, error, onCancel, onCreate }: Props) {
   const [id] = useState(() => crypto.randomUUID());
   const [name, setName] = useState('');
   const [brief, setBrief] = useState('');
@@ -19,7 +19,7 @@ export function NewProjectSheet({ projects, busy, error, onCancel, onCreate }: P
   const suggestion = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
   const chosen = slugEdited ? slug : suggestion;
   const [confirmDuplicate, setConfirmDuplicate] = useState(false);
-  const duplicate = projects.some(project => project.name.trim().toLowerCase() === name.trim().toLowerCase());
+  const duplicate = topics.some(topic => topic.name.trim().toLowerCase() === name.trim().toLowerCase());
 
   function submit(event: FormEvent) {
     event.preventDefault();

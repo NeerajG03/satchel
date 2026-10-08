@@ -4,8 +4,8 @@
 // assumes the world changes when the user mentions it. Both stale rows in
 // Satchel's own production data were made false by a migration and a commit,
 // and nothing anyone said contradicted either of them. They were also the only
-// project-scoped memories with embeddings, so a hundred percent of retrievable
-// project memory was wrong and no amount of listening would have caught it.
+// topic-scoped memories with embeddings, so a hundred percent of retrievable
+// topic memory was wrong and no amount of listening would have caught it.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
@@ -41,28 +41,28 @@ async function database() {
 
 test('a memory is anchored to where the repository was when it was last meant', async t => {
   const {db, call} = await database();
-  const project = crypto.randomUUID();
+  const topic = crypto.randomUUID();
   const scoped = crypto.randomUUID(), personal = crypto.randomUUID();
   const head = commits => call('select record_repository_head($1,$2,$3)', ['github', 'acme/ledger', commits]);
   const anchorOf = id => call('select anchor_repository, anchor_commits from memories where id=$1', [id])
     .then(rows => rows[0]);
-  const sinceOf = async id => (await call('select * from memories_in_scope($1)', [project]))
+  const sinceOf = async id => (await call('select * from memories_in_scope($1)', [topic]))
     .find(row => row.id === id)?.commits_since;
   try {
-    await call('select * from create_project($1,$2,$3)', [project, 'Ledger', '']);
-    await call('select * from link_project_repository($1,$2,$3)', [project, 'github', 'acme/ledger']);
+    await call('select * from create_topic($1,$2,$3)', [topic, 'Ledger', '']);
+    await call('select * from link_topic_repository($1,$2,$3)', [topic, 'github', 'acme/ledger']);
 
     await t.test('without an observation there is nothing to anchor to', async () => {
       const early = crypto.randomUUID();
-      await call('select * from save_memory($1,$2,$3)', [early, project, 'Written before anyone counted.']);
+      await call('select * from save_memory($1,$2,$3)', [early, topic, 'Written before anyone counted.']);
       assert.deepEqual(await anchorOf(early), {anchor_repository: null, anchor_commits: null});
       assert.equal(await sinceOf(early), null, 'and no doubt can be raised about it');
     });
 
     await head(1000);
 
-    await t.test('a project memory takes the count at the moment it is written', async () => {
-      await call('select * from save_memory($1,$2,$3)', [scoped, project, 'The hook reads the transcript.']);
+    await t.test('a topic memory takes the count at the moment it is written', async () => {
+      await call('select * from save_memory($1,$2,$3)', [scoped, topic, 'The hook reads the transcript.']);
       assert.deepEqual(await anchorOf(scoped), {anchor_repository: 'acme/ledger', anchor_commits: 1000});
     });
 
@@ -74,7 +74,7 @@ test('a memory is anchored to where the repository was when it was last meant', 
     await t.test('the repository moving is measured, not guessed', async () => {
       await head(1120);
       assert.equal(await sinceOf(scoped), 120);
-      assert.equal((await call('select * from memories_in_scope($1)', [project]))
+      assert.equal((await call('select * from memories_in_scope($1)', [topic]))
         .find(row => row.id === personal).commits_since, null);
     });
 

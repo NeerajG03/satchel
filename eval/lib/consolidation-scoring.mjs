@@ -99,9 +99,9 @@ export function score(item, changes) {
   if (want.kind && change.kind !== want.kind) {
     return {scored: true, ok: false, harm, note: `kind ${change.kind}, wanted ${want.kind}`};
   }
-  if ('scope' in want && (change.project ?? null) !== (want.scope ?? null)) {
+  if ('scope' in want && (change.topic ?? null) !== (want.scope ?? null)) {
     return {scored: true, ok: false, harm,
-      note: `scope ${change.project ?? 'personal'}, wanted ${want.scope ?? 'personal'}`};
+      note: `scope ${change.topic ?? 'personal'}, wanted ${want.scope ?? 'personal'}`};
   }
   if (want.expires && !change.expires) {
     return {scored: true, ok: false, harm, note: 'no expiry, and the user gave one'};

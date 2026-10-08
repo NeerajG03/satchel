@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import type { Project } from '../projects/repository';
+import type { Topic } from '../topics/repository';
 import { LinkButton } from '../../ui/Button';
 import { Notice } from '../../ui/Notice';
 
@@ -9,7 +9,7 @@ const STEPS = [
   { n: '03 · When you have one', title: 'Capture a task', text: 'A title and the next action. Later, a handoff makes it resumable from any device.', to: '/tasks?compose=1', label: 'Capture a task' },
 ];
 
-export function LeftOffEmpty({ name, projects }: { name: string; projects: Project[] }) {
+export function LeftOffEmpty({ name, topics }: { name: string; topics: Topic[] }) {
   const first = name.split(/[\s@]/)[0] || 'there';
   return <>
     <div className="col" style={{ gap: 8 }}>
@@ -25,8 +25,8 @@ export function LeftOffEmpty({ name, projects }: { name: string; projects: Proje
         <LinkButton to={step.to} look={step.n.startsWith('01') ? 'primary' : 'default'}>{step.label}</LinkButton>
       </div>)}
     </div>
-    {projects.length > 0 && <Notice look="amber" actions={<Link to="/topics" className="btn sm">View topics</Link>}>
-      You have {projects.length} {projects.length === 1 ? 'topic' : 'topics'} but nothing in {projects.length === 1 ? 'it' : 'them'} yet. {projects.map(p => p.name).join(', ')} {projects.length === 1 ? 'was' : 'were'} created earlier. A topic with no memories or tasks is invisible to agents until you add something.
+    {topics.length > 0 && <Notice look="amber" actions={<Link to="/topics" className="btn sm">View topics</Link>}>
+      You have {topics.length} {topics.length === 1 ? 'topic' : 'topics'} but nothing in {topics.length === 1 ? 'it' : 'them'} yet. {topics.map(p => p.name).join(', ')} {topics.length === 1 ? 'was' : 'were'} created earlier. A topic with no memories or tasks is invisible to agents until you add something.
     </Notice>}
   </>;
 }

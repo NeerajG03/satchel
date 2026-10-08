@@ -3,7 +3,7 @@
 // Only the v2 observations list works for this organisation; traces and
 // single observations by id answer 410 or 404. See
 // .claude/skills/debugging/references/langfuse.md, and ask for the fields:
-// the default projection leaves out the model, the usage and the metadata.
+// the default topicion leaves out the model, the usage and the metadata.
 import {readFileSync} from 'node:fs';
 
 function env() {

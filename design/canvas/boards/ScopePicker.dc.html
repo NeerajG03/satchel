@@ -128,9 +128,9 @@
   <div class="body">
     <nav class="rail" aria-label="Destinations">
   <a href="Main.dc.html"><span class="dot"></span>Left off</a>
-  <a href="Book.dc.html"><span class="dot"></span>Book</a>
-  <a href="Tasks.dc.html" aria-current="page"><span class="dot"></span>Tasks</a>
-  <a href="Projects.dc.html"><span class="dot"></span>Topics</a>
+  <a href="Book.dc.html" aria-current="page"><span class="dot"></span>Book</a>
+  <a href="Tasks.dc.html"><span class="dot"></span>Tasks</a>
+  <a href="Topics.dc.html"><span class="dot"></span>Topics</a>
   <a href="Apps.dc.html"><span class="dot"></span>Apps</a>
   <a href="Settings.dc.html"><span class="dot"></span>Settings</a>
   <div class="spacer"></div>
@@ -138,35 +138,50 @@
 </nav>
     <main class="paper">
       
-  <a href="Task.dc.html" class="fine muted" style="color:var(--muted);">← Back to task</a>
-  <div class="head" style="margin-top:8px; align-items:flex-start;"><div class="col" style="gap:10px;">
-      <div class="stepper" aria-label="State"><span class="past">Inbox</span><span class="past">Ready</span><span class="on">In progress</span><span>Blocked</span><span>Done</span></div>
-      <span class="eyebrow">Editing task · state does not change here</span></div>
-    <div class="row"><a href="Task.dc.html" class="btn quiet">Discard</a><a href="Task.dc.html" class="btn primary">Save task</a></div></div>
-  <div style="display:grid; grid-template-columns:minmax(0,1.4fr) 300px; gap:44px; margin-top:20px; flex-grow:1; min-height:0;">
-    <form class="col" style="gap:14px;">
-      <label class="f"><span>Title</span><input class="field serif focus" value="Ship the skills packaging worktree" style="font-size:26px;"></label>
-      <label class="f"><span>Next action <span class="ph">· the one concrete thing to do first</span></span><input class="field" value="Open the PR from skills-packaging and request review."></label>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-        <label class="f"><span>Outcome <span class="ph">· what is true when this is done</span></span><textarea class="field" rows="3">The Satchel plugin ships one skill that covers memory, tasks and projects, and installs cleanly in Claude Code.</textarea></label>
-        <label class="f"><span>Why <span class="ph">· the reason it matters</span></span><textarea class="field" rows="3">Three separate skills confused the router and doubled the docs. One skill with references is easier to keep honest.</textarea></label>
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topic · Satchel</span><h1 class="h1">The book.</h1></div>
+    <div class="row"><button class="btn focus" style="gap:10px; padding-left:12px; background:var(--paper3);" aria-expanded="true"><span class="eyebrow" style="color:var(--muted);">In</span><strong style="font-weight:600;">Satchel</strong><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><a href="#" class="btn icon" aria-label="Search the book"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></a></div></div>
+  <div class="between" style="margin:14px 0 6px;"><p class="lede" style="margin:0;">Continuity between the AI apps you already use. Decisions saved here are read by Claude Code and Codex.</p>
+    <a href="Book.dc.html" class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Write something down</a></div>
+  <div class="row" style="gap:8px; margin:12px 0 4px;"><span class="seg"><a href="#" aria-current="true">All 5</a><a href="#">Saved by me 3</a><a href="#">Saved by agents 2</a></span><span class="fine muted">Newest first</span></div>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">no-personas-v1</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Satchel has no personas and no curator in the first version. Read before proposing agent roles.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  
+  <div class="between"><span class="prov">Said on your phone · today 09:18 · revision 1</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="false">Read more info</a></span></div>
+</article>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">task-authority</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Supabase is the only authority for task state. GitHub issues are attached references, never mirrors.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  <div class="serif" style="font-size:19px; line-height:1.5; white-space:pre-wrap; padding:10px 0 4px; max-width:680px;">Every write carries a request id and the current revision. A stale revision is a conflict, not an overwrite. Attach a GitHub issue or PR as a typed HTTPS resource; do not sync its status back.
+
+Decided 16 Sep after the Issues-only direction was dropped.</div>
+  <div class="between"><span class="prov">Saved by Claude Code · MacBook · Tue 16 Sep · revision 2</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="true">Hide more info</a><a href="#" class="fine muted" style="color:var(--muted);">2 revisions</a></span></div>
+</article>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">plain-words</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Write UI copy in plain 8th-grade words. No jargon, no metaphors, no em dashes.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  
+  <div class="between"><span class="prov">Said on your MacBook · Fri 12 Sep · revision 3</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="false">Read more info</a><a href="#" class="fine muted" style="color:var(--muted);">3 revisions</a></span></div>
+</article>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">memory-index-shape</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Hooks read only names and descriptions. More info is fetched by name when needed.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  
+  <div class="between"><span class="prov">Saved by Codex · desktop · Thu 11 Sep · revision 1</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="false">Read more info</a></span></div>
+</article>
+      
+      <div class="drop" role="listbox" aria-label="Choose a scope">
+        <label class="row" style="gap:8px; border:1px solid var(--line); border-radius:8px; padding:0 12px; height:40px; background:var(--paper2); margin-bottom:6px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input class="field" placeholder="Find a topic" style="border:0; background:transparent; padding:0;"></label>
+        <a href="BookEmpty.dc.html"><span>For me</span><span class="prov">applies everywhere</span></a>
+        <span class="eyebrow" style="padding:10px 12px 4px;">Topics · 4</span>
+        <a href="Book.dc.html" aria-current="true"><span>Satchel</span><span class="prov">5 memories</span></a>
+        <a href="#"><span>Release workflow</span><span class="prov">2 memories</span></a>
+        <a href="#"><span>Reimbursements</span><span class="prov">1 memory</span></a>
+        <a href="#"><span>Managed Agents</span><span class="prov" style="color:var(--amber);">empty</span></a>
+        <div class="hr" style="margin:6px 0;"></div>
+        <a href="TopicNew.dc.html" style="color:var(--accent);"><span class="row" style="gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> New topic</span></a>
       </div>
-      <label class="f"><span>Done when <span class="ph">· one per line, each becomes a checkbox</span></span><textarea class="field" rows="3">PR merged to main
-Plugin loads with no warnings
-docs/skills-and-plugins.md updated</textarea></label>
-      <div style="display:grid; grid-template-columns:200px 1fr; gap:14px; align-items:end;">
-        <label class="f"><span>Priority</span><button type="button" class="btn" style="justify-content:space-between;">High <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button></label>
-        <span class="fine muted" style="padding-bottom:10px;">Parent, dependencies and resources are edited on the task page, not here.</span></div>
-    </form>
-    <aside class="col" style="gap:14px;">
-      <div class="panel col" style="gap:8px;"><span class="eyebrow">What this write does</span>
-        <p style="margin:0; font-size:14px;">Saves with the current revision. If an agent changed the task since you opened it, you get a conflict, not an overwrite.</p>
-        <p style="margin:0; font-size:14px;" class="muted">Last change: Claude Code · handoff · today 09:41</p></div>
-      <div class="col" style="gap:6px; opacity:.55;"><span class="eyebrow">Planning · unchanged</span><span class="fine">Parent: Plugin pilot</span><span class="fine">Blocks: Publish plugin marketplace entry</span></div>
-      <div class="col" style="gap:6px; opacity:.55;"><span class="eyebrow">Resources · unchanged</span><span class="fine">PR #41 · design.zip</span></div>
-    </aside>
-  </div>
-      <div class="foot"><span>Editing · revision 9 · save writes revision 10</span><span>Explicit saves only</span></div>
+      <div class="foot"><span>5 in the book · Topic / Satchel</span><span>Explicit saves only</span></div>
     </main>
   </div>
 </div>

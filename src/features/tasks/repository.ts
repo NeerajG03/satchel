@@ -7,7 +7,7 @@ type ResourceMutationResult=TaskMutationResult&{resource:TaskResource};
 type ProgressMutationResult=TaskMutationResult&{update:TaskUpdate};
 type PlanningMutationResult=TaskMutationResult&{parent_id?:string|null;depends_on_task_id?:string;removed_task_id?:string};
 
-const PLANNING_SUMMARY='id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at,parent_id,dependency_ids,blocked_by_ids,child_count,actionable';
+const PLANNING_SUMMARY='id,topic_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at,parent_id,dependency_ids,blocked_by_ids,child_count,actionable';
 
 async function sha256(file:File):Promise<string> {
   const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
@@ -29,9 +29,9 @@ export function createTaskRepository(db:SupabaseClient) {
     return data as T;
   }
   return {
-    async list(projectId:string|null):Promise<TaskSummary[]> {
+    async list(topicId:string|null):Promise<TaskSummary[]> {
       const base=db.from('task_planning').select(PLANNING_SUMMARY);
-      const scoped=projectId===null?base.is('project_id',null):base.eq('project_id',projectId);
+      const scoped=topicId===null?base.is('topic_id',null):base.eq('topic_id',topicId);
       const {data,error}=await requestWithTimeout(signal=>scoped
         .order('last_activity_at',{ascending:false}).order('id').limit(201).abortSignal(signal));
       if(error)throw error;
@@ -49,7 +49,7 @@ export function createTaskRepository(db:SupabaseClient) {
       if(!found.data)throw {code:'P0002'};
       const task=found.data as TaskPlanning;
       const scopeBase=db.from('task_planning').select(PLANNING_SUMMARY);
-      const scopeQuery=task.project_id===null?scopeBase.is('project_id',null):scopeBase.eq('project_id',task.project_id);
+      const scopeQuery=task.topic_id===null?scopeBase.is('topic_id',null):scopeBase.eq('topic_id',task.topic_id);
       const [scopeTasks,handoffs,updates,resources,refs,events]=await Promise.all([
         scopeQuery.order('last_activity_at',{ascending:false}).limit(201),
         db.from('task_handoffs').select('*').eq('task_id',id).order('created_at'),
@@ -69,8 +69,8 @@ export function createTaskRepository(db:SupabaseClient) {
       return {...task,handoffs:handoffs.data??[],updates:updates.data??[],resources:resources.data??[],
         update_resource_refs:refs.data??[],events:events.data??[],scope_tasks:scope} as TaskDetail;
     },
-    create(projectId:string|null,id:string,requestId:string,draft:TaskDraft):Promise<Task> {
-      return rpc('create_task',{p_project_id:projectId,p_id:id,p_request_id:requestId,
+    create(topicId:string|null,id:string,requestId:string,draft:TaskDraft):Promise<Task> {
+      return rpc('create_task',{p_topic_id:topicId,p_id:id,p_request_id:requestId,
         p_title:draft.title.trim(),p_outcome:draft.outcome,p_why:draft.why,
         p_done_when:draft.done_when,p_next_action:draft.next_action,p_priority:draft.priority});
     },
@@ -148,12 +148,12 @@ export function createTaskRepository(db:SupabaseClient) {
       if(error)throw error;
       downloadBlob(data,resource.original_filename??resource.label);
     },
-    remove(task:{id:string;revision:number}):Promise<{id:string;title:string;project_id:string|null;files_removed:number;children_unparented:number}> {
+    remove(task:{id:string;revision:number}):Promise<{id:string;title:string;topic_id:string|null;files_removed:number;children_unparented:number}> {
       return rpc('delete_task',{p_id:task.id,p_expected_revision:task.revision});
     },
-    async exportProject(projectId:string|null):Promise<number> {
-      const manifest=await rpc<Record<string,unknown>&{resources?:TaskResource[]}>('export_tasks',{p_project_id:projectId});
-      downloadBlob(new Blob([JSON.stringify(manifest,null,2)],{type:'application/json'}),`satchel-tasks-${projectId??'personal'}.json`);
+    async exportTopic(topicId:string|null):Promise<number> {
+      const manifest=await rpc<Record<string,unknown>&{resources?:TaskResource[]}>('export_tasks',{p_topic_id:topicId});
+      downloadBlob(new Blob([JSON.stringify(manifest,null,2)],{type:'application/json'}),`satchel-tasks-${topicId??'personal'}.json`);
       let files=0;
       for(const resource of manifest.resources??[]) {
         if(resource.kind!=='storage_object'||resource.upload_status!=='verified'||!resource.object_key)continue;

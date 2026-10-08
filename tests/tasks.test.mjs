@@ -7,7 +7,7 @@ import {applyMigrations} from './helpers/migrations.mjs';
 test('Supabase-native tasks enforce grants, revisions, history, resources and idempotency',async t=>{
   const db=new PGlite();
   const owner=crypto.randomUUID(),other=crypto.randomUUID();
-  const project=crypto.randomUUID(),otherProject=crypto.randomUUID();
+  const topic=crypto.randomUUID(),otherTopic=crypto.randomUUID();
   const client='task-agent';
   async function call(claims,sql,params=[]) {
     await db.exec('begin; set local role authenticated;');
@@ -35,30 +35,30 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
     `);
     await applyMigrations(db);
 
-    await call(user,'select create_project($1,$2,$3)',[project,'Tasks','Primary']);
-    await call({sub:other},'select create_project($1,$2,$3)',[otherProject,'Other','Separate owner']);
+    await call(user,'select create_topic($1,$2,$3)',[topic,'Tasks','Primary']);
+    await call({sub:other},'select create_topic($1,$2,$3)',[otherTopic,'Other','Separate owner']);
     await call(user,'select authorize_agent_v2($1,$2,false,$3,false,$4,true,true)',[
-      client,client,[],[project],
+      client,client,[],[topic],
     ]);
     const hook=(await db.query('select satchel_access_token_hook($1) result',[
       {user_id:owner,client_id:client,claims:{sub:owner,client_id:client,aud:'authenticated'}},
     ])).rows[0].result.claims;
     await call({sub:other},'select authorize_agent_v2($1,$2,false,$3,false,false,$4,true,true)',[
-      client,client,[],[otherProject],
+      client,client,[],[otherTopic],
     ]);
     const otherHook=(await db.query('select satchel_access_token_hook($1) result',[
       {user_id:other,client_id:client,claims:{sub:other,client_id:client,aud:'authenticated'}},
     ])).rows[0].result.claims;
 
     const taskId=crypto.randomUUID(),createRequest=crypto.randomUUID();
-    const createArgs=[createRequest,taskId,project,'Ship task management','Continuity works','Avoid lost work',['MCP can resume'],'Implement the slice','high'];
+    const createArgs=[createRequest,taskId,topic,'Ship task management','Continuity works','Avoid lost work',['MCP can resume'],'Implement the slice','high'];
     await t.test('create is idempotent and writes the first event atomically',async()=>{
       const created=await call(hook,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',createArgs);
       assert.equal(created[0].revision,1);
       assert.equal((await call(hook,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',createArgs))[0].revision,1);
       assert.equal((await call(hook,'select * from task_events where task_id=$1',[taskId])).length,1);
       await assert.rejects(call(hook,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',[
-        createRequest,taskId,project,'Different','','',[],'','medium',
+        createRequest,taskId,topic,'Different','','',[],'','medium',
       ]),{code:'PT409'});
     });
 
@@ -77,7 +77,7 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
     });
 
     let resourceId;
-    await t.test('external resources are typed and handoffs return the new task projection',async()=>{
+    await t.test('external resources are typed and handoffs return the new task topicion',async()=>{
       resourceId=crypto.randomUUID();
       const added=(await call(hook,'select add_task_resource($1,$2,$3,2,$4,$5,$6,$7) result',[
         crypto.randomUUID(),resourceId,taskId,'Pull request','https://github.com/example/repo/pull/1','pull_request','github',
@@ -122,7 +122,7 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
       parentId=crypto.randomUUID();prerequisiteId=crypto.randomUUID();
       for(const [id,title,next] of [[parentId,'Task management epic','Coordinate work'],[prerequisiteId,'Approve rollout','Review changes']])
         await call(hook,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',[
-          crypto.randomUUID(),id,project,title,'','',[],next,'medium',
+          crypto.randomUUID(),id,topic,title,'','',[],next,'medium',
         ]);
 
       const parentRequest=crypto.randomUUID();
@@ -157,7 +157,7 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
         crypto.randomUUID(),prerequisiteId,taskId,
       ]),{code:'23514'});
       await assert.rejects(call(hook,'select set_task_parent($1,$2,7,$3) result',[
-        crypto.randomUUID(),taskId,otherProject,
+        crypto.randomUUID(),taskId,otherTopic,
       ]),{code:'23514'});
 
       const removed=(await call(hook,'select remove_task_dependency($1,$2,7,$3) result',[
@@ -170,12 +170,12 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
       assert.equal(restored.task.revision,9);
     });
 
-    await t.test('task grant does not expose other owners or projects',async()=>{
+    await t.test('task grant does not expose other owners or topics',async()=>{
       const otherTask=crypto.randomUUID();
       await call({sub:other},'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',[
-        crypto.randomUUID(),otherTask,otherProject,'Other owner task','Private','',[],'Keep private','medium',
+        crypto.randomUUID(),otherTask,otherTopic,'Other owner task','Private','',[],'Keep private','medium',
       ]);
-      assert.deepEqual((await call(hook,'select id from projects')).map(row=>row.id),[project]);
+      assert.deepEqual((await call(hook,'select id from topics')).map(row=>row.id),[topic]);
       assert.equal((await call(hook,'select * from tasks')).length,3);
       assert.deepEqual(await call(otherHook,'select * from tasks where id=$1',[taskId]),[]);
       assert.deepEqual(await call(user,'select * from tasks where id=$1',[otherTask]),[]);
@@ -188,7 +188,7 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
         crypto.randomUUID(),taskId,'done','',
       ]),{code:'P0002'});
       await assert.rejects(call(hook,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',[
-        crypto.randomUUID(),crypto.randomUUID(),otherProject,'Nope','','',[],'','medium',
+        crypto.randomUUID(),crypto.randomUUID(),otherTopic,'Nope','','',[],'','medium',
       ]),{code:'42501'});
     });
 
@@ -204,22 +204,22 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
 
       const personalTask=crypto.randomUUID();
       const created=await call(personalHook,'select * from create_task($1,$2,null,$3,$4,$5,$6,$7,$8)',[
-        crypto.randomUUID(),personalTask,'Personal follow-up','Not tied to a project','',[],'Do it','medium',
+        crypto.randomUUID(),personalTask,'Personal follow-up','Not tied to a topic','',[],'Do it','medium',
       ]);
-      assert.equal(created[0].project_id,null);
+      assert.equal(created[0].topic_id,null);
       const transitioned=await call(personalHook,'select * from transition_task($1,$2,1,$3,$4)',[
         crypto.randomUUID(),personalTask,'in_progress','',
       ]);
       assert.equal(transitioned[0].revision,2);
       assert.equal((await call(personalHook,'select * from tasks')).length,1);
-      assert.equal((await call(hook,'select * from tasks where project_id is null')).length,0);
+      assert.equal((await call(hook,'select * from tasks where topic_id is null')).length,0);
       const exported=(await call(user,'select export_tasks(null) result'))[0].result;
       assert.equal(exported.tasks.length,1);
       assert.equal(exported.tasks[0].id,personalTask);
 
       await assert.rejects(db.query(`insert into task_events(
-        owner_id,project_id,task_id,event_type,to_revision,created_by
-      ) values($1,$2,$3,'content_updated',3,'forged')`,[owner,project,personalTask]));
+        owner_id,topic_id,task_id,event_type,to_revision,created_by
+      ) values($1,$2,$3,'content_updated',3,'forged')`,[owner,topic,personalTask]));
     });
 
     await t.test('file reservations use opaque paths and verify Storage metadata',async()=>{
@@ -248,7 +248,7 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
 
     await t.test('read-only reauthorization invalidates the old generation and blocks writes',async()=>{
       await call(user,'select authorize_agent_v2($1,$2,false,$3,false,$4,false,false)',[
-        client,client,[],[project],
+        client,client,[],[topic],
       ]);
       assert.deepEqual(await call(hook,'select * from tasks'),[]);
       const fresh=(await db.query('select satchel_access_token_hook($1) result',[
@@ -261,7 +261,7 @@ test('Supabase-native tasks enforce grants, revisions, history, resources and id
     });
 
     await t.test('export includes database records and immutable storage identities',async()=>{
-      const exported=(await call(user,'select export_tasks($1) result',[project]))[0].result;
+      const exported=(await call(user,'select export_tasks($1) result',[topic]))[0].result;
       assert.equal(exported.version,3);
       assert.equal(exported.tasks.length,3);
       assert.equal(exported.parent_edges[0].parent_task_id,parentId);

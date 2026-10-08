@@ -16,7 +16,7 @@ test('the quota day starts at midnight in California, summer and winter', () => 
 
 test('a session counts as ready once it has been quiet for 30 minutes', () => {
   const now = Date.parse('2026-09-23T10:00:00Z');
-  const doc = (id, minutesAgo) => ({id, session_key: id, project_id: null, turns: 4, chars: 100,
+  const doc = (id, minutesAgo) => ({id, session_key: id, topic_id: null, turns: 4, chars: 100,
     last_turn_at: new Date(now - minutesAgo * 60000).toISOString(), consolidated_through: null});
   const {ready, active} = splitWaiting([doc('a', 90), doc('b', 30), doc('c', 29), doc('d', 1)], now);
   assert.deepEqual(ready.map(d => d.id), ['a', 'b']);
@@ -46,8 +46,8 @@ test('a model is judged by its last call, and a spent quota is named as one', ()
 test('the memory set is counted by scope and by kind', () => {
   const slugs = new Map([['p1', 'satchel']]);
   const set = memorySet([
-    {project_id: 'p1', band: 'heard', kind: 'fact'}, {project_id: 'p1', band: 'said', kind: 'preference'},
-    {project_id: null, band: 'heard', kind: 'preference'}, {project_id: 'gone', band: 'said', kind: 'intent'},
+    {topic_id: 'p1', band: 'heard', kind: 'fact'}, {topic_id: 'p1', band: 'said', kind: 'preference'},
+    {topic_id: null, band: 'heard', kind: 'preference'}, {topic_id: 'gone', band: 'said', kind: 'intent'},
   ], slugs);
   assert.equal(set.live, 4);
   assert.equal(set.heard, 2);

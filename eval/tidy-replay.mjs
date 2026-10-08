@@ -5,7 +5,7 @@
 //
 // The same golden file as topics-replay.mjs: real memories, each placed by a
 // blind reader. This shows the tidy what sits in personal today and the
-// listed projects, as the overnight job would, and scores what it moves. One
+// listed topics, as the overnight job would, and scores what it moves. One
 // call per run, so repeating it is cheap and the only way to see noise.
 import {readFileSync} from 'node:fs';
 import {createTidier} from '../server/tidy.mjs';
@@ -17,8 +17,8 @@ const goldenPath = flag('golden');
 if (!goldenPath) { console.error('pass --golden <file>'); process.exit(2); }
 const REPEAT = Math.max(1, Number(flag('repeat') ?? 1));
 const golden = JSON.parse(readFileSync(goldenPath, 'utf8'));
-const listed = new Set(golden.projects.map(p => p.slug));
-const topics = golden.projects.map(p => ({id: p.slug, slug: p.slug, brief: p.brief, made_by: 'person'}));
+const listed = new Set(golden.topics.map(p => p.slug));
+const topics = golden.topics.map(p => ({id: p.slug, slug: p.slug, brief: p.brief, made_by: 'person'}));
 const memories = golden.memories.filter(m => m.current_scope === 'personal')
   .map(m => ({id: m.id, statement: m.statement, kind: m.kind, revision: 1, golden: m.golden}));
 
@@ -42,7 +42,7 @@ for (let run = 1; run <= REPEAT; run++) {
   console.log(`  stayed in personal, should   ${stay.filter(right).length}/${stay.length}`);
   console.log(`  moved, should                ${go.filter(right).length}/${go.length}`);
   console.log(`  pairs kept together          ${kept}/${pairs}`);
-  console.log(`  new topics                   ${out.topics.map(t => t.slug).join(', ') || 'none'}`);
+  console.log(`  new topics                   ${out.named.map(t => t.slug).join(', ') || 'none'}`);
   for (const r of rows.filter(r => !right(r)))
     console.log(`    wanted ${r.m.golden.padEnd(16)} got ${r.got.padEnd(16)} ${r.m.statement.slice(0, 60)}`);
 }

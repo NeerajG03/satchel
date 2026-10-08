@@ -5,7 +5,7 @@
 //   GEMINI_API_KEY=... node eval/topics-replay.mjs --golden path/to/golden.json --off
 //
 // The golden file is a person's real memories, each with the one place a blind
-// reader said it belongs: personal, a listed project, or a topic that does not
+// reader said it belongs: personal, a listed topic, or a topic that does not
 // exist yet. It holds real names, so it is not in the repository and is passed
 // in by path.
 //
@@ -15,7 +15,7 @@
 // the same system lands in the topic the first one made, or makes another.
 //
 // --off replays with topics turned off, which is how the pass behaved before
-// them. That is the baseline: every fact with no project falls into personal.
+// them. That is the baseline: every fact with no topic falls into personal.
 import {readFileSync} from 'node:fs';
 import {createConsolidator} from '../server/consolidator.mjs';
 import {localTextFor, CONSOLIDATE_PROMPT} from '../server/prompt-store.mjs';
@@ -25,17 +25,17 @@ const flag = name => args.includes(`--${name}`) ? args[args.indexOf(`--${name}`)
 const goldenPath = flag('golden');
 if (!goldenPath) { console.error('pass --golden <file>'); process.exit(2); }
 const OFF = args.includes('--off');
-const LIMIT = Number(flag('project-sample') ?? 8);
+const LIMIT = Number(flag('topic-sample') ?? 8);
 const MODEL = process.env.SATCHEL_ROUTER_MODEL ?? 'gemini-3.8-flash';
 const THINKING = process.env.SATCHEL_THINKING_LEVEL ?? 'medium';
 const PACE_MS = Number(process.env.CONSOLIDATION_EVAL_PACE_MS ?? 1500);
 const wait = ms => new Promise(done => setTimeout(done, ms));
 
 const golden = JSON.parse(readFileSync(goldenPath, 'utf8'));
-const listed = new Set(golden.projects.map(p => p.slug));
-// Everything that is not a listed project's own: personal, the new topics, and
+const listed = new Set(golden.topics.map(p => p.slug));
+// Everything that is not a listed topic's own: personal, the new topics, and
 // whatever sits in the wrong place today. Plus a few that are plainly a
-// project's, so a pass that files everything under topics is caught too.
+// topic's, so a pass that files everything under topics is caught too.
 const loose = golden.memories.filter(m => m.golden === 'personal' || !listed.has(m.golden) || m.misplaced);
 const owned = golden.memories.filter(m => !loose.includes(m)).slice(0, LIMIT);
 const replay = [...loose, ...owned];
@@ -44,7 +44,7 @@ const consolidator = createConsolidator({model: MODEL, thinking: THINKING,
   promptResolver: async () => ({text: localTextFor(CONSOLIDATE_PROMPT), source: 'local', version: 'local'}),
   ...(process.env.GEMINI_API_KEY && !process.env.SATCHEL_ROUTER_URL ? {apiKey: process.env.GEMINI_API_KEY} : {})});
 
-const projects = golden.projects.map(p => ({slug: p.slug, brief: p.brief}));
+const topics = golden.topics.map(p => ({slug: p.slug, brief: p.brief}));
 const made = [];
 const rows = [];
 console.log(`model ${MODEL} thinking ${THINKING} · topics ${OFF ? 'off' : 'on'} · ${replay.length} memories\n`);
@@ -52,23 +52,23 @@ for (const memory of replay) {
   const said = memory.source || memory.statement;
   let out;
   try {
-    out = await consolidator.consolidate({now: new Date(), project: null, projects, memories: [],
-      turns: [{id: 1, role: 'user', content: said, created_at: new Date().toISOString()}], newTopics: !OFF});
+    out = await consolidator.consolidate({now: new Date(), topic: null, topics, memories: [],
+      turns: [{id: 1, role: 'user', content: said, created_at: new Date().toISOString()}], topicsAllowed: !OFF});
   } catch (error) {
     rows.push({memory, got: 'failed', why: error.reason ?? error.message});
     await wait(PACE_MS);
     continue;
   }
-  for (const topic of out.topics ?? []) {
-    projects.push(topic);
+  for (const topic of out.named ?? []) {
+    topics.push(topic);
     made.push(topic);
   }
   const first = out.changes[0];
-  rows.push({memory, got: first ? first.project ?? 'personal' : 'nothing'});
+  rows.push({memory, got: first ? first.topic ?? 'personal' : 'nothing'});
   await wait(PACE_MS);
 }
 
-// Right means: personal stays personal, a project's own stays in it, and a
+// Right means: personal stays personal, a topic's own stays in it, and a
 // fact the golden reader gave a new topic lands in some topic that was made.
 const isNew = slug => !listed.has(slug) && slug !== 'personal';
 const right = row => row.got === 'nothing' ? false
@@ -84,7 +84,7 @@ const by = key => {
 };
 const pct = (a, b) => b ? `${Math.round(100 * a / b)}%` : '-';
 for (const [label, list] of by(row => row.memory.golden === 'personal' ? 'personal'
-  : listed.has(row.memory.golden) ? 'a listed project' : 'a new topic')) {
+  : listed.has(row.memory.golden) ? 'a listed topic' : 'a new topic')) {
   const ok = list.filter(right).length;
   console.log(`  belongs in ${label.padEnd(16)} ${ok}/${list.length}  ${pct(ok, list.length)}`);
 }

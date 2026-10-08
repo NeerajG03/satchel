@@ -63,7 +63,7 @@ export function Archive() {
     <div>{rows.map(memory => <article className="entry" key={memory.id}>
       <h2 className="title">{memory.statement}</h2>
       <Provenance parts={[endedWhy(memory), kindLabel(memory.kind).toLowerCase(),
-        memory.ended_note || false, memory.project_id ? false : 'for me']}
+        memory.ended_note || false, memory.topic_id ? false : 'for me']}
         at={memory.ended_at ?? memory.expires_at ?? memory.updated_at} />
       <div className="actions">
         <Button small disabled={action.busy} onClick={() => void restore(memory)}>Put it back</Button>

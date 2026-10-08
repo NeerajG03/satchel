@@ -107,7 +107,7 @@
       "title": "Book · dark theme (v2 reference)",
       "is_interactive": true
     },
-    "Projects.dc.html": {
+    "Topics.dc.html": {
       "x": 0,
       "y": 3600,
       "w": 1280,
@@ -115,7 +115,7 @@
       "title": "Topics",
       "is_interactive": true
     },
-    "Project.dc.html": {
+    "Topic.dc.html": {
       "x": 1360,
       "y": 3600,
       "w": 1280,
@@ -123,7 +123,7 @@
       "title": "Topic",
       "is_interactive": true
     },
-    "ProjectEmpty.dc.html": {
+    "TopicEmpty.dc.html": {
       "x": 2720,
       "y": 3600,
       "w": 1280,
@@ -171,7 +171,7 @@
       "title": "Book · search results",
       "is_interactive": true
     },
-    "ProjectNew.dc.html": {
+    "TopicNew.dc.html": {
       "x": 2720,
       "y": 6000,
       "w": 1280,
@@ -305,15 +305,15 @@
     "Book.dc.html",
     "BookCorrect.dc.html",
     "BookDark.dc.html",
-    "Projects.dc.html",
-    "Project.dc.html",
-    "ProjectEmpty.dc.html",
+    "Topics.dc.html",
+    "Topic.dc.html",
+    "TopicEmpty.dc.html",
     "TasksEmpty.dc.html",
     "Tasks.dc.html",
     "Task.dc.html",
     "ScopePicker.dc.html",
     "BookSearch.dc.html",
-    "ProjectNew.dc.html",
+    "TopicNew.dc.html",
     "TaskEdit.dc.html",
     "TaskBlocked.dc.html",
     "Errors.dc.html",

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {sessionStartBlock, personalLoad, projectLoad, promptBlock, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
+import {sessionStartBlock, personalLoad, topicLoad, promptBlock, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
 
 const memory = (id, statement, band = 'said', task_id = null) => ({id, statement, band, task_id});
 
@@ -9,9 +9,9 @@ test('a handle is six stable characters of the id, with no dashes', () => {
   assert.equal(handleOf('0c28d1a4-0000-4000-8000-000000000001').length, 6);
 });
 
-test('session start carries projects and every personal memory, split by band', () => {
+test('session start carries topics and every personal memory, split by band', () => {
   const block = sessionStartBlock({
-    projects: [{slug: 'satchel', brief: 'Context that follows you'}],
+    topics: [{slug: 'satchel', brief: 'Context that follows you'}],
     personal: [memory('aaaaaa11-0000-4000-8000-000000000001', 'No em dashes.'),
                memory('bbbbbb22-0000-4000-8000-000000000002', 'Serif headings.', 'heard')],
   });
@@ -48,7 +48,7 @@ test('the cap covers both groups, and confirmed ones fill it first', () => {
 });
 
 test('the person is told how much loaded', () => {
-  assert.equal(noticeFor('SessionStart', {projects: 1, personal: 2}), 'Satchel loaded · 1 topic, 2 personal memories');
+  assert.equal(noticeFor('SessionStart', {topics: 1, personal: 2}), 'Satchel loaded · 1 topic, 2 personal memories');
   assert.equal(noticeFor('SessionStart', {}), 'Satchel connected · nothing saved yet');
 });
 
@@ -56,36 +56,36 @@ test('nothing to say produces nothing, not an empty wrapper', () => {
   assert.equal(sessionStartBlock({}), '');
 });
 
-test('only the projects this codebase belongs to are listed, the rest are counted', () => {
-  // A flat list of every project reads as though they all bear on the work in
+test('only the topics this codebase belongs to are listed, the rest are counted', () => {
+  // A flat list of every topic reads as though they all bear on the work in
   // front of you. Sitting in cbx1/backend and being shown `satchel` beside the
-  // two projects actually linked there is three equal-looking options, two of
+  // two topics actually linked there is three equal-looking options, two of
   // which are right.
-  const projects = [
+  const topics = [
     {id: 'p1', slug: 'data-model-2-0', brief: 'DM2.0'},
     {id: 'p2', slug: 'email-self-serve', brief: 'CBX1 email'},
     {id: 'p3', slug: 'satchel', brief: 'Memory'},
   ];
-  const here = sessionStartBlock({projects, linked: ['p1', 'p2']});
+  const here = sessionStartBlock({topics, linked: ['p1', 'p2']});
   assert.match(here, /^topics in this codebase$/m);
   assert.match(here, /data-model-2-0/);
   assert.match(here, /email-self-serve/);
-  assert.doesNotMatch(here, /satchel {2,}Memory/, 'an unlinked project is not listed');
+  assert.doesNotMatch(here, /satchel {2,}Memory/, 'an unlinked topic is not listed');
   // Counted, not hidden: it stays discoverable without implying relevance.
   assert.match(here, /1 other topic not linked to this codebase, by name from list_topics/);
 
-  assert.match(sessionStartBlock({projects, linked: ['p3']}),
+  assert.match(sessionStartBlock({topics, linked: ['p3']}),
     /2 other topics not linked to this codebase/, 'and it pluralises');
 
-  // Every project linked here means there is no "other" line at all.
-  assert.doesNotMatch(sessionStartBlock({projects, linked: ['p1', 'p2', 'p3']}), /other topic/);
+  // Every topic linked here means there is no "other" line at all.
+  assert.doesNotMatch(sessionStartBlock({topics, linked: ['p1', 'p2', 'p3']}), /other topic/);
 });
 
-test('an unlinked workspace still sees every project, because there is nothing to filter by', () => {
-  // Non-Git and unlinked workspaces are ordinary. Hiding projects there would
+test('an unlinked workspace still sees every topic, because there is nothing to filter by', () => {
+  // Non-Git and unlinked workspaces are ordinary. Hiding topics there would
   // leave the agent knowing about none of them.
-  const projects = [{id: 'p1', slug: 'a', brief: 'x'}, {id: 'p2', slug: 'b', brief: 'y'}];
-  const block = sessionStartBlock({projects, linked: []});
+  const topics = [{id: 'p1', slug: 'a', brief: 'x'}, {id: 'p2', slug: 'b', brief: 'y'}];
+  const block = sessionStartBlock({topics, linked: []});
   assert.match(block, /^topics$/m, 'not "in this codebase", because it is not');
   assert.match(block, /^ {2}a {2}x$/m);
   assert.match(block, /^ {2}b {2}y$/m);
@@ -94,7 +94,7 @@ test('an unlinked workspace still sees every project, because there is nothing t
 
 test('session start never mentions a task, because nothing task-scoped loads there', () => {
   const block = sessionStartBlock({
-    projects: [{slug: 'satchel', brief: 'x'}],
+    topics: [{slug: 'satchel', brief: 'x'}],
     personal: [memory('a3000000-0000-4000-8000-000000000003', 'A rule.', 'said', 'ffffffff-0000-4000-8000-000000000001')],
   });
   assert.ok(!block.includes('closed'), 'no staleness annotation at session start');
@@ -110,7 +110,7 @@ test('statements are flattened and clipped so one long row cannot reshape the bl
 });
 
 test('the same input always produces the same bytes, so a preview can be trusted', () => {
-  const input = {projects: [{slug: 'a', brief: 'b'}], personal: [memory('a6000000-0000-4000-8000-000000000006', 'c')]};
+  const input = {topics: [{slug: 'a', brief: 'b'}], personal: [memory('a6000000-0000-4000-8000-000000000006', 'c')]};
   assert.equal(sessionStartBlock(input), sessionStartBlock(input));
 });
 
@@ -120,9 +120,9 @@ test('the token estimate scales with length and is never zero for real text', ()
 });
 
 test('the notice is plain, singular where it should be, and quiet by default', () => {
-  assert.equal(noticeFor('SessionStart', {projects: 1, personal: 1}),
+  assert.equal(noticeFor('SessionStart', {topics: 1, personal: 1}),
     'Satchel loaded · 1 topic, 1 personal memory');
-  assert.equal(noticeFor('SessionStart', {projects: 3, personal: 12}),
+  assert.equal(noticeFor('SessionStart', {topics: 3, personal: 12}),
     'Satchel loaded · 3 topics, 12 personal memories');
   assert.equal(noticeFor('SessionStart', {}), 'Satchel connected · nothing saved yet');
 
@@ -174,29 +174,29 @@ test('a memory whose repository moved is flagged, and nothing more than flagged'
 
 test('a retrieved row says which scope it came from and whether it was picked up', () => {
   const block = promptBlock({slugs: {p1: 'ledger'}, matched: 2, inScope: 9, rows: [
-    {id: 'c1000000-0000-4000-8000-000000000001', project_id: 'p1', band: 'said', statement: 'Payouts first.'},
-    {id: 'c2000000-0000-4000-8000-000000000002', project_id: null, band: 'heard', statement: 'Comments rarely.'},
-    {id: 'c3000000-0000-4000-8000-000000000003', project_id: 'unknown', band: 'said', statement: 'Elsewhere.'},
+    {id: 'c1000000-0000-4000-8000-000000000001', topic_id: 'p1', band: 'said', statement: 'Payouts first.'},
+    {id: 'c2000000-0000-4000-8000-000000000002', topic_id: null, band: 'heard', statement: 'Comments rarely.'},
+    {id: 'c3000000-0000-4000-8000-000000000003', topic_id: 'unknown', band: 'said', statement: 'Elsewhere.'},
   ]});
   assert.match(block, /c10000 {2}\(ledger\) {2}Payouts first\./);
   assert.match(block, /c20000 {2}\(personal, picked up\) {2}Comments rarely\./);
-  assert.match(block, /c30000 {2}\(topic\) {2}Elsewhere\./, 'a slug the caller could not name still says it is a project row');
+  assert.match(block, /c30000 {2}\(topic\) {2}Elsewhere\./, 'a slug the caller could not name still says it is a topic row');
 });
 
-test('the project block puts preferences first, then the most said, under its own cap', () => {
+test('the topic block puts preferences first, then the most said, under its own cap', () => {
   const rows = [
     {id: 'd1000000-0000-4000-8000-000000000001', kind: 'fact', band: 'said', mentions: 5, statement: 'Fact said five times.'},
     {id: 'd2000000-0000-4000-8000-000000000002', kind: 'preference', band: 'said', mentions: 1, statement: 'A preference.'},
     {id: 'd3000000-0000-4000-8000-000000000003', kind: 'fact', band: 'heard', mentions: 1, statement: 'A picked-up fact.'},
     {id: 'd4000000-0000-4000-8000-000000000004', kind: 'intent', band: 'said', mentions: 1, statement: 'An intent.'},
   ];
-  const load = projectLoad(rows, 2);
+  const load = topicLoad(rows, 2);
   assert.deepEqual(load.said.map(m => m.statement), ['A preference.', 'Fact said five times.']);
   assert.deepEqual(load.heard, [], 'confirmed rows fill the cap first');
   assert.equal(load.past, 2);
-  const block = sessionStartBlock({project: {slug: 'ledger'}, projectMemories: rows, projectCap: 3});
+  const block = sessionStartBlock({topic: {slug: 'ledger'}, topicMemories: rows, topicCap: 3});
   assert.match(block, /topic ledger, confirmed, applies to work in this codebase\n {2}d20000 {2}A preference\.\n {2}d10000 {2}Fact said five times\.\n {2}d40000 {2}An intent\./);
   assert.match(block, /1 more topic memory not loaded/);
   assert.doesNotMatch(block, /picked up/, 'no room was left for the picked-up row');
-  assert.equal(sessionStartBlock({project: {slug: 'ledger'}, projectMemories: []}), '', 'an empty project adds nothing');
+  assert.equal(sessionStartBlock({topic: {slug: 'ledger'}, topicMemories: []}), '', 'an empty topic adds nothing');
 });

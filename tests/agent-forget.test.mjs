@@ -53,7 +53,7 @@ function client(db, claims) {
 
 test('an agent forgets a memory by ending it, and the person can bring it back', async t => {
   const db = new PGlite();
-  const owner = crypto.randomUUID(), project = crypto.randomUUID(), memory = crypto.randomUUID();
+  const owner = crypto.randomUUID(), topic = crypto.randomUUID(), memory = crypto.randomUUID();
   const person = {sub:owner};
   async function call(claims, sql, params = []) {
     await db.exec('begin; set local role authenticated;');
@@ -96,15 +96,15 @@ test('an agent forgets a memory by ending it, and the person can bring it back',
       insert into auth.users values('${owner}');
     `);
     await applyMigrations(db);
-    await call(person, 'select create_project($1,$2,$3)', [project, 'Ledger', '']);
+    await call(person, 'select create_topic($1,$2,$3)', [topic, 'Ledger', '']);
     await call(person, 'select save_memory($1,$2,$3,$4,$5,$6,$7)',
-      [memory, project, 'Entries are immutable.', 'entries are immutable', 'said', null, '']);
-    await call(person, 'select authorize_agent($1,$1,$2,$3,$4)', ['forget-writer', true, [project], true]);
-    await call(person, 'select authorize_agent($1,$1,$2,$3,$4)', ['forget-reader', true, [project], false]);
+      [memory, topic, 'Entries are immutable.', 'entries are immutable', 'said', null, '']);
+    await call(person, 'select authorize_agent($1,$1,$2,$3,$4)', ['forget-writer', true, [topic], true]);
+    await call(person, 'select authorize_agent($1,$1,$2,$3,$4)', ['forget-reader', true, [topic], false]);
     const forget = await connect('forget-writer');
 
     await t.test('a stale revision is a conflict and changes nothing', async () => {
-      const reply = await forget({topic_id:project, id:memory, revision:2});
+      const reply = await forget({topic_id:topic, id:memory, revision:2});
       assert.equal(reply.error, true);
       assert.match(reply.body.error, /changed since you read it.*current revision/);
       assert.equal((await row()).ended_at, null);
@@ -112,27 +112,27 @@ test('an agent forgets a memory by ending it, and the person can bring it back',
 
     await t.test('the scope it names has to be the scope the memory is in', async () => {
       const reply = await forget({topic_id:null, id:memory, revision:1});
-      assert.equal(reply.error, true, 'personal write access does not reach a project memory by id');
+      assert.equal(reply.error, true, 'personal write access does not reach a topic memory by id');
       assert.match(reply.body.error, /changed since you read it.*current revision/);
       assert.equal((await row()).ended_at, null);
     });
 
     await t.test('a connection without write access is refused', async () => {
-      const reply = await (await connect('forget-reader'))({topic_id:project, id:memory, revision:1});
+      const reply = await (await connect('forget-reader'))({topic_id:topic, id:memory, revision:1});
       assert.equal(reply.error, true);
       assert.match(reply.body.error, /may not write memories in that scope/);
       assert.equal((await row()).ended_at, null);
     });
 
     await t.test('forgetting ends the row as forgotten and keeps it', async () => {
-      const reply = await forget({topic_id:project, id:memory, revision:1});
+      const reply = await forget({topic_id:topic, id:memory, revision:1});
       assert.equal(reply.error, false, JSON.stringify(reply.body));
       assert.deepEqual(reply.body, {forgotten_id:memory, revision:2});
       const after = await row();
       assert.ok(after, 'the row is still there');
       assert.notEqual(after.ended_at, null);
       assert.equal(after.ended_reason, 'forgotten');
-      assert.deepEqual(await call(person, 'select id from list_memories($1)', [project]), [],
+      assert.deepEqual(await call(person, 'select id from list_memories($1)', [topic]), [],
         'and it no longer loads');
       assert.deepEqual((await call(person, 'select id from archived_memories()')).map(r => r.id), [memory]);
     });
@@ -145,7 +145,7 @@ test('an agent forgets a memory by ending it, and the person can bring it back',
     });
 
     await t.test('forgetting it again is a conflict, not a second ending', async () => {
-      const reply = await forget({topic_id:project, id:memory, revision:2});
+      const reply = await forget({topic_id:topic, id:memory, revision:2});
       assert.equal(reply.error, true);
       assert.match(reply.body.error, /changed since you read it.*current revision/);
     });
@@ -155,7 +155,7 @@ test('an agent forgets a memory by ending it, and the person can bring it back',
       const after = await row();
       assert.equal(after.ended_at, null);
       assert.equal(after.ended_reason, null);
-      assert.deepEqual((await call(person, 'select id from list_memories($1)', [project])).map(r => r.id), [memory]);
+      assert.deepEqual((await call(person, 'select id from list_memories($1)', [topic])).map(r => r.id), [memory]);
       assert.deepEqual((await history()).map(r => r.action), ['added', 'forgotten', 'restored']);
     });
   } finally { await db.close(); }

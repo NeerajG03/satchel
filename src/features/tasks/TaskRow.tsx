@@ -1,16 +1,16 @@
 import { Link } from 'react-router';
 import type { TaskSummary } from './model';
-import type { Project } from '../projects/repository';
-import { projectScope, scopeName, scopeQuery } from '../../app/scope';
+import type { Topic } from '../topics/repository';
+import { topicScope, scopeName, scopeQuery } from '../../app/scope';
 import { count } from '../../app/format';
 import { StateChip } from '../../ui/Chip';
 import { Provenance } from '../../ui/Provenance';
 
-type Props = { task: TaskSummary; projects: Project[]; showScope?: boolean; parentTitle?: string };
+type Props = { task: TaskSummary; topics: Topic[]; showScope?: boolean; parentTitle?: string };
 
-export function TaskRow({ task, projects, showScope = false, parentTitle }: Props) {
-  const scope = projectScope(task.project_id);
-  const scopeText = scopeName(scope, projects);
+export function TaskRow({ task, topics, showScope = false, parentTitle }: Props) {
+  const scope = topicScope(task.topic_id);
+  const scopeText = scopeName(scope, topics);
   return <Link to={`/tasks/${task.id}${scopeQuery(scope)}`} className="entry task-row">
     <div className="between">
       <span className="serif" style={{ fontSize: 21, lineHeight: 1.25 }}>{task.title}</span>

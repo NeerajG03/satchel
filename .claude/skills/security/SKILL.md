@@ -33,12 +33,12 @@ The database is the only authority. The server and the UI are convenience layers
 
 **Two callers, two sets of policies.** A companion session is identified by `auth.uid()`. An agent token also carries `client_id` and `satchel_grant_id`. Agent policies check the grant row: it belongs to the owner, it is not revoked, its `grant_id` matches the token, and the requested topic is in the grant. Never reuse a companion session as agent authorization, and never let an agent policy fall back to plain owner checks.
 
-**Scopes are explicit.** Topics are stored in the `projects` table, so the column is `project_id`. Personal scope is `project_id = null`. Topic scope is a real UUID from the grant, or the connection's `all_projects` flag. An unknown scope must not default to personal. Personal access needs its own grant flag, and `all_projects` does not imply it: a blanket grant is every topic, not everything. A missing grant is a denial, never an empty list.
+**Scopes are explicit.** Personal scope is `topic_id = null`. Topic scope is a real UUID from the grant, or the connection's `all_topics` flag. An unknown scope must not default to personal. Personal access needs its own grant flag, and `all_topics` does not imply it: a blanket grant is every topic, not everything. A missing grant is a denial, never an empty list.
 
-**"Every topic" is a flag, never a list.** The consent page used to build "select all" as `projects.map(p => p.id)`, which froze a set of UUIDs, so a topic made the next day was invisible to an app that had been given everything. `all_projects` and `task_all_projects` are the grant saying something that stays true about topics that do not exist yet. Three rules keep that safe:
+**"Every topic" is a flag, never a list.** The consent page used to build "select all" as `projects.map(p => p.id)`, which froze a set of UUIDs, so a topic made the next day was invisible to an app that had been given everything. `all_topics` and `task_all_topics` are the grant saying something that stays true about topics that do not exist yet. Three rules keep that safe:
 
 - It defaults to false and is never backfilled. An existing grant keeps its frozen list until the person authorizes again and sees what they are agreeing to. Widening a live grant in a migration is the same bug pointing the other way.
-- A blanket grant stores an empty `project_ids`, so a stale list can never sit beside the flag looking authoritative in the UI or in `agent_connection_status`.
+- A blanket grant stores an empty `topic_ids`, so a stale list can never sit beside the flag looking authoritative in the UI or in `agent_connection_status`.
 - Older signatures delegate to `authorize_agent_v3` with the flag false, so re-authorizing through an older client clears a blanket grant rather than keeping one.
 
 Everything else still applies: it is per connection, revocation still rotates `grant_id`, and it still cannot reach another owner.

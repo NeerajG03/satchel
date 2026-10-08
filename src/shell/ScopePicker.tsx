@@ -1,14 +1,14 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { PERSONAL_SCOPE, scopeProjectId, type MemoryScope } from '../features/memories/model';
-import type { Project } from '../features/projects/repository';
+import { PERSONAL_SCOPE, scopeTopicId, type MemoryScope } from '../features/memories/model';
+import type { Topic } from '../features/topics/repository';
 import { scopeName } from '../app/scope';
 
 type Props = {
-  scope: MemoryScope; projects: Project[]; counts?: Record<string, number>;
-  locked?: string; onChange: (scope: MemoryScope) => void; onNewProject?: () => void;
+  scope: MemoryScope; topics: Topic[]; counts?: Record<string, number>;
+  locked?: string; onChange: (scope: MemoryScope) => void; onNewTopic?: () => void;
 };
 
-export function ScopePicker({ scope, projects, counts, locked, onChange, onNewProject }: Props) {
+export function ScopePicker({ scope, topics, counts, locked, onChange, onNewTopic }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
@@ -18,10 +18,10 @@ export function ScopePicker({ scope, projects, counts, locked, onChange, onNewPr
 
   const options = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const matches = projects.filter(project => !needle || project.name.toLowerCase().includes(needle));
+    const matches = topics.filter(topic => !needle || topic.name.toLowerCase().includes(needle));
     const personal = !needle || 'for me'.includes(needle) ? [PERSONAL_SCOPE] : [];
-    return [...personal, ...matches.map(project => ({ kind: 'project', projectId: project.id } as MemoryScope))];
-  }, [projects, query]);
+    return [...personal, ...matches.map(topic => ({ kind: 'topic', topicId: topic.id } as MemoryScope))];
+  }, [topics, query]);
 
   useEffect(() => {
     if (!open) return;
@@ -40,7 +40,7 @@ export function ScopePicker({ scope, projects, counts, locked, onChange, onNewPr
   }
   function countText(option: MemoryScope) {
     if (option.kind === 'personal') return 'applies everywhere';
-    const n = counts?.[option.projectId];
+    const n = counts?.[option.topicId];
     if (n === undefined) return '';
     return n === 0 ? 'empty' : `${n} memories`;
   }
@@ -50,7 +50,7 @@ export function ScopePicker({ scope, projects, counts, locked, onChange, onNewPr
   return <div className="picker col" ref={root} style={{ gap: 4 }} onBlur={onBlur}>
     <button type="button" className="btn" aria-haspopup="listbox" aria-expanded={open} aria-controls={listId}
       disabled={Boolean(locked)} onClick={() => setOpen(value => !value)}>
-      In {scopeName(scope, projects)} ▾
+      In {scopeName(scope, topics)} ▾
     </button>
     {locked && <span className="fine muted">{locked}</span>}
     {open && <div className="drop" onKeyDown={onKey}>
@@ -58,10 +58,10 @@ export function ScopePicker({ scope, projects, counts, locked, onChange, onNewPr
         onChange={event => { setQuery(event.target.value); setCursor(0); }} />
       <div role="listbox" id={listId} aria-label="Scope" className="col" style={{ gap: 2 }}>
         {options.map((option, index) => {
-          const selected = scopeProjectId(option) === scopeProjectId(scope);
-          const name = scopeName(option, projects);
+          const selected = scopeTopicId(option) === scopeTopicId(scope);
+          const name = scopeName(option, topics);
           const count = countText(option);
-          return <button type="button" role="option" key={scopeProjectId(option) ?? 'me'} aria-selected={selected}
+          return <button type="button" role="option" key={scopeTopicId(option) ?? 'me'} aria-selected={selected}
             className={`option ${index === cursor ? 'focus' : ''}`} onClick={() => choose(option)} onMouseEnter={() => setCursor(index)}>
             <span>{name}</span>
             <span className={`fine ${count === 'empty' ? '' : 'muted'}`} style={count === 'empty' ? { color: 'var(--amber)' } : undefined}>{count}</span>
@@ -69,7 +69,7 @@ export function ScopePicker({ scope, projects, counts, locked, onChange, onNewPr
         })}
         {options.length === 0 && <span className="fine muted" style={{ padding: '6px 12px' }}>Nothing matches “{query}”.</span>}
       </div>
-      {onNewProject && <><hr className="hr" /><button type="button" className="option" onClick={() => { setOpen(false); onNewProject(); }}><span>New topic</span><span className="muted">+</span></button></>}
+      {onNewTopic && <><hr className="hr" /><button type="button" className="option" onClick={() => { setOpen(false); onNewTopic(); }}><span>New topic</span><span className="muted">+</span></button></>}
     </div>}
   </div>;
 }

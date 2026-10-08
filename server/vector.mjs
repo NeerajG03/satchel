@@ -11,7 +11,7 @@
 // Nothing here may import anything.
 
 /** What gets indexed. Measured: statement plus source beats statement alone,
- *  and prefixing the project name is worse than either. See
+ *  and prefixing the topic name is worse than either. See
  *  docs/memory-v2-build.md section 4.10. */
 export const indexedText = memory =>
   memory.source?.trim() ? `${memory.statement} ${memory.source}` : memory.statement;

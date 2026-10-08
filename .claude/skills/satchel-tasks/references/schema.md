@@ -6,7 +6,7 @@ Every table below has RLS enabled, has its defaults revoked, and grants `select`
 
 | Group | Columns |
 | --- | --- |
-| Identity | `owner_id`, `project_id` (nullable), `id`, `slug`, generated `scope_key` |
+| Identity | `owner_id`, `topic_id` (nullable), `id`, `slug`, generated `scope_key` |
 | Content | `title` (1..200), `outcome` (<=1000), `why` (<=4000), `done_when text[]` (<=20 items, <=10000 chars joined), `next_action` (<=1000) |
 | Planning | `status`, `priority`, `blocked_reason` (<=2000) |
 | Concurrency | `revision bigint > 0` |
@@ -19,18 +19,18 @@ Two check constraints do real work and are easy to trip over:
 - blocked implies a non-empty `blocked_reason`, and any other status implies an empty one. A transition that forgets to clear the blocker fails with `23514`.
 - done implies `closed_at is not null`, and not-done implies it is null. Reopening clears it.
 
-Topics are stored in the `projects` table, so the column is `project_id`. `project_id is null` is the personal **For me** scope. It became nullable in `20260916154226_personal_tasks.sql`, which also added `scope_key`, a stored generated column equal to `project_id::text` or the literal `'personal'`.
+`topic_id is null` is the personal **For me** scope. It became nullable in `20260916154226_personal_tasks.sql`, which also added `scope_key`, a stored generated column equal to `topic_id::text` or the literal `'personal'`.
 
 ## `scope_key` and the composite keys
 
-Null does not compare equal to null, so a composite foreign key through `project_id` would silently stop enforcing anything for personal rows. `scope_key` gives every row a non-null scope value, so each child table can carry:
+Null does not compare equal to null, so a composite foreign key through `topic_id` would silently stop enforcing anything for personal rows. `scope_key` gives every row a non-null scope value, so each child table can carry:
 
 ```sql
 unique (owner_id, scope_key, id)
 foreign key (owner_id, scope_key, task_id) references tasks(owner_id, scope_key, id)
 ```
 
-Every child table carries `owner_id`, `project_id`, `scope_key` and `task_id` for this reason. A resource reference binds owner, scope and task on both sides. If you add a child table, copy this shape; do not shortcut to a single `task_id` foreign key.
+Every child table carries `owner_id`, `topic_id`, `scope_key` and `task_id` for this reason. A resource reference binds owner, scope and task on both sides. If you add a child table, copy this shape; do not shortcut to a single `task_id` foreign key.
 
 ## `task_updates`
 
@@ -86,7 +86,7 @@ The idempotency ledger, keyed `(owner_id, request_id)`. It stores the operation,
 
 ## `agent_task_grants`
 
-One row per `(owner_id, client_id, grant_id, project_id)` with `can_read`, `can_write`, `can_upload`. Personal task scope lives on `agent_connections.task_personal`, and a blanket grant lives on `task_all_projects` with no rows at all. `apps` skill has the full grant model.
+One row per `(owner_id, client_id, grant_id, topic_id)` with `can_read`, `can_write`, `can_upload`. Personal task scope lives on `agent_connections.task_personal`, and a blanket grant lives on `task_all_topics` with no rows at all. `apps` skill has the full grant model.
 
 ## Error codes
 

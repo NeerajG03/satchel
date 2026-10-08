@@ -91,9 +91,9 @@ test('every way a session begins reaches the same script', async () => {
       assert.match(context, /not connected/, `${source}: same answer on every source`);
       // No instruction to go and make a tool call. The script fetches memory
       // itself now, so there is nothing left for the model to be asked to do,
-      // and a paragraph asking it to please call select_project (now select_topic) was a promise
+      // and a paragraph asking it to please call select_topic (now select_topic) was a promise
       // that depended on the model choosing to keep it.
-      assert.doesNotMatch(context, /select_project|select_topic|load_memory_context/,
+      assert.doesNotMatch(context, /select_topic|select_topic|load_memory_context/,
         `${source}: the script fetches its own memory and asks the model for nothing`);
     }
   } finally { rmSync(cwd, {recursive: true, force: true}); rmSync(SATCHEL_HOME, {recursive: true, force: true}); }

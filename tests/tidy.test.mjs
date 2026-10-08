@@ -24,7 +24,7 @@ test('a move needs a real memory and a listed topic, or a new one with a line', 
   ], merges: []}, {topics, memories});
   assert.deepEqual(out.moves.map(m => [m.memory.id, m.slug]), [['m1', 'deploys']]);
   assert.equal(out.dropped.length, 2);
-  assert.deepEqual(out.topics, []);
+  assert.deepEqual(out.named, []);
 });
 
 test('a new topic named twice is one topic, and a near spelling reuses a listed one', () => {
@@ -32,7 +32,7 @@ test('a new topic named twice is one topic, and a near spelling reuses a listed 
     {memory: 1, topic: 'monitoring', new_topic: 'Alerts and dashboards', why: 'a'},
     {memory: 3, topic: 'monitoring', new_topic: 'Alerting', why: 'b'},
   ], merges: []}, {topics, memories});
-  assert.deepEqual(out.topics, [{slug: 'monitoring', brief: 'Alerts and dashboards'}]);
+  assert.deepEqual(out.named, [{slug: 'monitoring', brief: 'Alerts and dashboards'}]);
   const near = validateTidy({moves: [{memory: 1, topic: 'ledger-api', why: 'a'}], merges: []}, {topics, memories});
   assert.equal(near.moves[0].slug, 'ledger');
 });
@@ -55,15 +55,15 @@ test('the prompt marks the topics Satchel made and numbers personal', () => {
   assert.deepEqual(Object.keys(TIDY_SCHEMA.shape).sort(), ['merges', 'moves']);
 });
 
-function service({status = {all_projects: true, can_write: true}, failMove = false} = {}) {
+function service({status = {all_topics: true, can_write: true}, failMove = false} = {}) {
   const calls = [];
   return {calls,
     status: async () => status,
-    upsertProject: async () => ({}),
-    createTopic: async args => { calls.push(['create', args.slug]); return {project: {id: 'new-' + args.slug}}; },
-    projects: async () => topics.map(t => ({...t})),
+    upsertTopic: async () => ({}),
+    createSatchelTopic: async args => { calls.push(['create', args.slug]); return {topic: {id: 'new-' + args.slug}}; },
+    topics: async () => topics.map(t => ({...t})),
     memoriesInScope: async () => memories,
-    moveMemory: async args => { calls.push(['move', args.id, args.project_id]); if (failMove) throw new Error('Memory changed or unavailable'); return {}; },
+    moveMemory: async args => { calls.push(['move', args.id, args.topic_id]); if (failMove) throw new Error('Memory changed or unavailable'); return {}; },
     mergeTopic: async args => { calls.push(['merge', args.from, args.into]); return {}; },
   };
 }
@@ -78,7 +78,7 @@ test('the tidy makes, merges and moves, and says so', async () => {
 });
 
 test('no tidy without a grant to make topics, and a failed write is recorded, not thrown', async () => {
-  assert.equal(await tidyTopics(service({status: {all_projects: false, can_write: true}}), tidier({moves: [], merges: []})), null);
+  assert.equal(await tidyTopics(service({status: {all_topics: false, can_write: true}}), tidier({moves: [], merges: []})), null);
   const run = await tidyTopics(service({failMove: true}), tidier({moves: [{memory: 1, topic: 'deploys', why: 'b'}], merges: []}));
   assert.equal(run.moved, 0);
   assert.equal(run.actions[0].did, 'failed');

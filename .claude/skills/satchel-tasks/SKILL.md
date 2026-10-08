@@ -11,7 +11,7 @@ There is a second skill with a similar name. `integrations/shared/context/` is t
 
 ## The one paragraph version
 
-A task belongs to exactly one scope: personal (`project_id is null`) or one topic. Topics are stored in the `projects` table, so the column is `project_id`. It carries a title, outcome, why, `done_when[]`, a next action, a status, a priority and a blocker. Every content or state write supplies `expected_revision` and every write supplies a `request_id`, so a lost response is retried and a stale write is refused rather than merged. History is append-only in three shapes: a comment, a progress update and a handoff. Relationships are one parent and any number of dependencies, same scope only, cycle-checked in the database. Actionability is derived, never stored. Agents reach all of this through six intent-level MCP tools; the database keeps many narrow atomic functions behind them.
+A task belongs to exactly one scope: personal (`topic_id is null`) or one topic. It carries a title, outcome, why, `done_when[]`, a next action, a status, a priority and a blocker. Every content or state write supplies `expected_revision` and every write supplies a `request_id`, so a lost response is retried and a stale write is refused rather than merged. History is append-only in three shapes: a comment, a progress update and a handoff. Relationships are one parent and any number of dependencies, same scope only, cycle-checked in the database. Actionability is derived, never stored. Agents reach all of this through six intent-level MCP tools; the database keeps many narrow atomic functions behind them.
 
 ## Read this first, then route
 
@@ -36,7 +36,7 @@ Read `security` for the grant model and `satchel-topics` for what a scope is. Do
 
 **Actionability is derived.** `task_planning` computes it: ready or in progress, a non-empty next action, and no unfinished prerequisite. Closing one prerequisite changes every dependent task without rewriting any of them. Do not add an `actionable` column.
 
-**Scope is carried in the row, not inferred.** Every child row has `owner_id`, `project_id` and a generated `scope_key` (`'personal'` or the topic UUID text), and composite foreign keys bind child to parent on all three. That is what stops a policy defect from linking one person's handoff to another person's task.
+**Scope is carried in the row, not inferred.** Every child row has `owner_id`, `topic_id` and a generated `scope_key` (`'personal'` or the topic UUID text), and composite foreign keys bind child to parent on all three. That is what stops a policy defect from linking one person's handoff to another person's task.
 
 **Tasks and memory are separate permissions.** Personal-task access is not personal-memory access, and write is not upload. The grant row and `private.agent_can_access_tasks` decide, and `task-service.mjs` repeats the check early only so the denial is readable.
 

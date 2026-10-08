@@ -465,7 +465,7 @@ tasks / projects
   slug         text, required, unique per user
 ```
 
-Topics are stored in the `projects` table, so the column is `project_id`.
+This design predates D35. The table is `topics` and the column is `topic_id` now; the sketch above keeps the names it had.
 
 `band` is not a model decision. Auto-captured is `heard`, explicitly saved by the user is `said`. A `heard` memory becomes `said` when the user confirms it, and that is the whole promotion rule. There is no counting of announcements and no `promoted_by` column: an earlier design had both to enforce a distinction nobody had complained about.
 

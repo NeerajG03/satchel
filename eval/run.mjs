@@ -25,13 +25,13 @@ if(!Object.keys(vec).length){
   process.exit(2);
 }
 const CAP=5, BOOST=1.1;
-// The project a session is sitting in. Approximated by where this prompt's
+// The topic a session is sitting in. Approximated by where this prompt's
 // answers live, which is the best case for the boost; run.mjs reports the cost
 // of getting it wrong separately.
 const inScopeFor=pid=>{
   const c={};
   for(const id of gold(pid)){
-    const p=corpus.memories.find(m=>m.id===id).project??'personal';
+    const p=corpus.memories.find(m=>m.id===id).topic??'personal';
     c[p]=(c[p]??0)+1;
   }
   return Object.entries(c).sort((a,b)=>b[1]-a[1])[0]?.[0]??'personal';
@@ -111,7 +111,7 @@ if(args.has('--slices')){
   // writing rule is relevant by category of activity, not by topic, so no
   // similarity search can reach it. Session start loads all personal memories
   // precisely so it does not have to. This measures the size of that effect.
-  const personal=corpus.memories.filter(m=>m.project===null).map(m=>({id:m.id,score:1}));
+  const personal=corpus.memories.filter(m=>m.topic===null).map(m=>({id:m.id,score:1}));
   const styleIds=corpus.prompts.filter(p=>p.category==='style-only'&&gold(p.id).length).map(p=>p.id);
   const retrieved=pid=>systems[PRIMARY](pid);
   const withPersonal=pid=>[...personal,...retrieved(pid).filter(r=>!personal.some(x=>x.id===r.id))];

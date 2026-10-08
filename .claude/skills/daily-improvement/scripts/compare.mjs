@@ -44,7 +44,7 @@ const sum = (names, pick) => names.reduce((n, name) => n + pick(name), 0);
 const names = sessions.map(s => s.name);
 const scopeOf = Object.fromEntries(sessions.map(s => [s.name, s.scope]));
 const unlinked = names.filter(n => scopeOf[n] === 'personal');
-const inProject = c => c.scope && c.scope !== 'personal';
+const inTopic = c => c.scope && c.scope !== 'personal';
 const blindIn = c => c.memory_scope && c.memory_scope !== 'personal';
 
 const row = (label, p, b) => `| ${label} | ${p} | ${b} |`;
@@ -64,9 +64,9 @@ lines.push(row('sessions with any on both sides', count(names, n => pl(n).length
 const unanswered = names.filter(n => !(n in blind));
 lines.push(row('empty answers', count(names, n => !pl(n).length), count(names, n => n in blind && !bl(n).length)));
 lines.push(row('sessions with no blind answer', '', unanswered.length));
-lines.push(row('topic-scoped', sum(names, n => count(pl(n), inProject)), sum(names, n => count(bl(n), blindIn))));
+lines.push(row('topic-scoped', sum(names, n => count(pl(n), inTopic)), sum(names, n => count(bl(n), blindIn))));
 lines.push(row('topic-scoped from sessions with no topic',
-  sum(unlinked, n => count(pl(n), inProject)), sum(unlinked, n => count(bl(n), blindIn))));
+  sum(unlinked, n => count(pl(n), inTopic)), sum(unlinked, n => count(bl(n), blindIn))));
 lines.push(row(`sessions with no topic`, `${unlinked.length} of ${names.length}`, ''));
 for (const kind of kinds) lines.push(row(`${kind}s`, sum(names, n => count(pl(n), c => c.kind === kind)),
   sum(names, n => count(bl(n), c => c.kind === kind))));

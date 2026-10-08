@@ -1,6 +1,6 @@
 {
   "note": "Turns the router got wrong in production, the near misses around them, and the positives that must survive a fix. Every case marked `from` names the Langfuse observation it was copied out of; the rest are written to sit next to one, because a fix that only handles the exact sentence that failed has not been measured.",
-  "projects": [
+  "topics": [
     {
       "slug": "satchel",
       "brief": "Satchel keeps your memory, projects and tasks in one place and hands them to the agent"
@@ -17,17 +17,17 @@
   "tasks": [
     {
       "slug": "agent-session",
-      "project": "satchel",
+      "topic": "satchel",
       "title": "Make the agent session a thing Satchel holds, not a key it passes around"
     },
     {
       "slug": "scope-from-session",
-      "project": "satchel",
+      "topic": "satchel",
       "title": "Work out the project a memory belongs to, when the repository cannot say"
     },
     {
       "slug": "email-pacing-v1",
-      "project": "email-self-serve",
+      "topic": "email-self-serve",
       "title": "Ship the first pacing strategy"
     }
   ],
