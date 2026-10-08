@@ -84,7 +84,7 @@ hook_event_name:"Stop", stop_hook_active:s, last_assistant_message:_e
 
 ## Scope
 
-`resolve_agent_repository` maps the repository to a topic through `project_repositories`, inside the connection's grant. Topics are stored in the `projects` table, so their repository links live in `project_repositories`. Exactly one candidate is selected with no model involved. Several candidates selects nothing and names them instead, because a memory in a real topic that is the wrong topic is worse than a personal one, which is at least visibly unscoped. No candidates stays personal.
+`resolve_agent_repository` maps the repository to a topic through `topic_repositories`, inside the connection's grant. Exactly one candidate is selected with no model involved. Several candidates selects nothing and names them instead, because a memory in a real topic that is the wrong topic is worse than a personal one, which is at least visibly unscoped. No candidates stays personal.
 
 This replaced the `agent_repository_hints` table, which existed only because the old bootstrap could not authenticate: it POSTed the repository to an anonymous endpoint, which staged a row, which the authenticated hook later consumed after polling for it up to thirteen times. The table and its endpoint are kept for packages older than 0.3.0.
 

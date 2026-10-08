@@ -50,9 +50,9 @@ export const CONSOLIDATION_SCHEMA = z.object({
     statement: z.string().describe('The claim, written so it still makes sense in six weeks. Empty for retire and affirm.'),
     source: z.string().describe('The words the user actually typed that this came from.'),
     kind: z.enum(['fact', 'preference', 'intent']),
-    project: z.string().nullable().describe('A project slug, or null for personal.'),
+    topic: z.string().nullable().describe('A topic slug, or null for personal.'),
     new_topic: z.string().nullable().optional()
-      .describe('Only when project is a new slug you are naming: one line on what that topic covers. Otherwise null.'),
+      .describe('Only when topic is a new slug you are naming: one line on what that topic covers. Otherwise null.'),
     expires: z.string().nullable()
       .describe('An ISO date this stops being true, only when the user gave one. Otherwise null.'),
     why: z.string().describe('One short line for the person reading the history later.'),
@@ -91,7 +91,7 @@ export function buildReconsiderPrompt({proposed, existing, now = new Date()} = {
   const day = value => new Date(value).toISOString().slice(0, 10);
   const lines = [`today is ${day(now)}`, ''];
   lines.push('existing memory');
-  lines.push(`  [${existing.kind ?? 'fact'}, ${existing.project_slug ?? (existing.project_id ? 'project' : 'personal')}]  ${String(existing.statement).slice(0, 500)}`);
+  lines.push(`  [${existing.kind ?? 'fact'}, ${existing.topic_slug ?? (existing.topic_id ? 'topic' : 'personal')}]  ${String(existing.statement).slice(0, 500)}`);
   lines.push('');
   lines.push('proposed memory');
   lines.push(`  [${proposed.kind}]  ${String(proposed.statement).slice(0, 500)}`);
@@ -138,9 +138,9 @@ export async function askModel({provider, apiKey, baseURL, fetchImpl, model, thi
  *  Both roles of the conversation go in. The assistant's half is what makes
  *  "yes, do that one" readable at all. Only the user's half may supply a
  *  source, and validate() is where that is enforced rather than here. */
-export function buildConsolidationPrompt({project = null, projects = [], codebase = null,
+export function buildConsolidationPrompt({topic = null, topics = [], codebase = null,
   memories = [], turns = [], instructions = INSTRUCTIONS, now = new Date(), cap = 30,
-  churn = 25, newTopics = false} = {}) {
+  churn = 25, topicsAllowed = false} = {}) {
   const lines = [];
   // R7. Nothing had a temporal anchor of any kind, which is how "do not
   // include names of people who are not in the review list this time around"
@@ -152,25 +152,25 @@ export function buildConsolidationPrompt({project = null, projects = [], codebas
   const spoken = turns.length ? day(turns[0].created_at ?? now) : day(now);
   lines.push(`today is ${day(now)}. this conversation happened on ${spoken}`);
   lines.push('');
-  if (project) {
+  if (topic) {
     lines.push('this conversation');
-    lines.push(`  project  ${project.slug}  ${(project.brief ?? '').slice(0, 80)}`.trimEnd());
+    lines.push(`  topic  ${topic.slug}  ${(topic.brief ?? '').slice(0, 80)}`.trimEnd());
     lines.push('');
   } else {
     lines.push('this conversation');
-    lines.push('  project  none linked');
-    // Where the talk happened, and which listed projects own that codebase.
+    lines.push('  topic  none linked');
+    // Where the talk happened, and which listed topics own that codebase.
     // Several may, and none may: it narrows the choice, it does not make it.
     if (codebase) {
-      const owners = projects.filter(p => p.repositories?.includes(codebase)).map(p => p.slug);
+      const owners = topics.filter(p => p.repositories?.includes(codebase)).map(p => p.slug);
       lines.push(`  codebase  ${codebase}${owners.length ? `  (belongs to ${owners.join(', ')})` : ''}`);
     }
     lines.push('');
   }
-  const others = projects.filter(p => p.slug !== project?.slug);
+  const others = topics.filter(p => p.slug !== topic?.slug);
   if (others.length) {
-    lines.push(project ? 'other projects, only when the user names one'
-      : 'projects. If a memory is specific to one of these, use its slug');
+    lines.push(topic ? 'other topics, only when the user names one'
+      : 'topics. If a memory is specific to one of these, use its slug');
     for (const other of others) {
       const repos = other.repositories?.length ? `  repos ${other.repositories.join(', ')}` : '';
       lines.push(`  ${other.slug}  ${(other.brief ?? '').slice(0, 80)}${repos}`.trimEnd());
@@ -179,8 +179,8 @@ export function buildConsolidationPrompt({project = null, projects = [], codebas
   }
   // Said only when the pass may act on it, so a pass that cannot create a
   // topic is never told it can and then quietly filed into personal.
-  if (newTopics) {
-    lines.push('new topics are allowed. A fact about a subject of their work that none of the projects above covers can go under a new slug, with new_topic saying what it covers');
+  if (topicsAllowed) {
+    lines.push('new topics are allowed. A fact about a subject of their work that none of the topics above covers can go under a new slug, with new_topic saying what it covers');
     lines.push('');
   }
   // Numbered, and the numbers are the only handle the model gets. A model that
@@ -188,7 +188,7 @@ export function buildConsolidationPrompt({project = null, projects = [], codebas
   if (memories.length) {
     lines.push('memories that already exist. Use the number to change one');
     memories.forEach((memory, index) => {
-      const scope = memory.project_slug ?? 'personal';
+      const scope = memory.topic_slug ?? 'personal';
       const seen = memory.mentions > 1 ? `, said ${memory.mentions} times` : '';
       const last = memory.affirmed_at ?? memory.updated_at;
       const when = last ? `, last on ${day(last)}` : '';
@@ -207,9 +207,9 @@ export function buildConsolidationPrompt({project = null, projects = [], codebas
     // model can actually make, where the absolute one is what the old 2000
     // word prompt kept getting wrong.
     // Only what loads into this session counts against the block. A session
-    // with no project is shown every project's memories so it can file under
+    // with no topic is shown every topic's memories so it can file under
     // one, but only the personal ones load there.
-    const loaded = memories.filter(m => !m.project_slug || m.project_slug === project?.slug).length;
+    const loaded = memories.filter(m => !m.topic_slug || m.topic_slug === topic?.slug).length;
     if (loaded >= cap)
       lines.push(`the block holds ${cap} and there are already ${loaded}.`
         + ' Anything you add pushes the weakest line out of context, so add only what is worth'
@@ -268,13 +268,13 @@ function expiry(value, now) {
  *  A pass that occasionally changes nothing is the behaviour we already have.
  *  One that invents a memory, or ends one nobody was talking about, is a new
  *  failure and a worse one, because it is destructive. */
-export function validateConsolidation(payload, {turns = [], memories = [], project = null, projects = [], now = new Date(),
-  newTopics = false} = {}) {
+export function validateConsolidation(payload, {turns = [], memories = [], topic = null, topics = [], now = new Date(),
+  topicsAllowed = false} = {}) {
   // Only the user's half. The assistant's words are in the prompt so the model
   // can read the conversation, and a source drawn from them would be the model
   // quoting itself, which is exactly the fabrication this rule exists for.
   const haystack = turns.filter(t => t.role === 'user').map(t => t.content).join('\n').toLowerCase();
-  const slugs = new Set([...projects.map(p => p.slug), ...(project ? [project.slug] : [])]);
+  const slugs = new Set([...topics.map(p => p.slug), ...(topic ? [topic.slug] : [])]);
   const existing = new Set(memories.map(m => normalize(m.statement)));
   const changes = [];
   const dropped = [];
@@ -284,16 +284,16 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
   const touched = new Set();
   // New topics the model named, slug to one line. A slug it names twice is one
   // topic, and one that is a near spelling of a listed slug is that slug.
-  const topics = new Map();
+  const named = new Map();
   const place = (wanted, brief, otherwise) => {
     if (slugs.has(wanted)) return wanted;
-    if (!newTopics || typeof wanted !== 'string') return otherwise;
+    if (!topicsAllowed || typeof wanted !== 'string') return otherwise;
     const slug = wanted.trim().toLowerCase();
     const line = String(brief ?? '').trim();
     if (!SLUG.test(slug) || !line) return otherwise;
-    const near = nearSlug(slug, [...slugs, ...topics.keys()]);
+    const near = nearSlug(slug, [...slugs, ...named.keys()]);
     if (near) return near;
-    topics.set(slug, line.slice(0, 300));
+    named.set(slug, line.slice(0, 300));
     return slug;
   };
   for (const change of payload?.changes ?? []) {
@@ -322,7 +322,7 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
       if (existing.has(normalize(statement))) { drop('already remembered'); continue; }
       existing.add(normalize(statement));
       changes.push({action, statement, source, kind: change.kind, why: String(change.why ?? '').slice(0, 500),
-        project: place(change?.project, change?.new_topic, null), expires: expiry(change?.expires, now)});
+        topic: place(change?.topic, change?.new_topic, null), expires: expiry(change?.expires, now)});
       continue;
     }
     const target = memories[Number(change?.target) - 1];
@@ -337,14 +337,14 @@ export function validateConsolidation(payload, {turns = [], memories = [], proje
       statement: action === 'retire' || action === 'affirm' ? '' : statement, source, kind: change.kind,
       why: String(change.why ?? '').slice(0, 500),
       // A replacement stays where the claim it replaces lived unless the model
-      // names another project. An unlinked session answers null by default,
-      // and that must not move a project's fact into every session.
-      project: place(change?.project, change?.new_topic, target.project_slug ?? null)});
+      // names another topic. An unlinked session answers null by default,
+      // and that must not move a topic's fact into every session.
+      topic: place(change?.topic, change?.new_topic, target.topic_slug ?? null)});
   }
   // Only the topics a kept change still points at. One named by a change that
   // was then refused would be an empty topic with nothing in it.
-  const used = new Set(changes.map(c => c.project));
-  return {changes, dropped, topics: [...topics].filter(([slug]) => used.has(slug))
+  const used = new Set(changes.map(c => c.topic));
+  return {changes, dropped, named: [...named].filter(([slug]) => used.has(slug))
     .map(([slug, brief]) => ({slug, brief}))};
 }
 
@@ -452,7 +452,7 @@ export function createConsolidator({
         thinking: thinking || 'off',
         promptSource: instructions.source,
         promptVersion: instructions.version ?? 'file',
-        scope: input.project?.slug ?? 'personal',
+        scope: input.topic?.slug ?? 'personal',
         knownMemories: input.memories?.length ?? 0,
         turns: input.turns?.length ?? 0,
         characters: (input.turns ?? []).reduce((sum, t) => sum + String(t.content ?? '').length, 0),

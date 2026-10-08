@@ -72,7 +72,7 @@ async function instructionsFor(version) {
   return {text: body.prompt, source: 'langfuse', version: body.version};
 }
 
-const bySlug = new Map(suite.projects.map(p => [p.slug, p]));
+const bySlug = new Map(suite.topics.map(p => [p.slug, p]));
 const cases = suite.cases.filter(c => !ONLY || c.category === ONLY);
 // The date every case is read against, fixed so a run in March and a run in
 // December score the temporal case the same way.
@@ -83,11 +83,11 @@ function inputFor(item) {
   const working = bySlug.get(item.working) ?? null;
   return {
     now: NOW,
-    project: working,
-    projects: suite.projects.filter(p => p.slug !== working?.slug),
+    topic: working,
+    topics: suite.topics.filter(p => p.slug !== working?.slug),
     memories: (item.memories ?? []).map((m, i) => ({
       id: `m${i + 1}`, statement: m.statement, kind: m.kind,
-      project_slug: m.scope ?? null, revision: 1,
+      topic_slug: m.scope ?? null, revision: 1,
       mentions: m.mentions ?? 1, commits_since: m.commits_since ?? null,
       affirmed_at: '2026-09-15T09:00:00Z',
     })),

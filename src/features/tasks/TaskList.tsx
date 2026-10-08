@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useStores } from '../../app/stores';
 import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
-import { parseScope, scopeEyebrow, scopeName, scopeProjectIdOf, scopeQuery } from '../../app/scope';
+import { parseScope, scopeEyebrow, scopeName, scopeTopicIdOf, scopeQuery } from '../../app/scope';
 import { count } from '../../app/format';
 import type { TaskDraft, TaskSummary } from './model';
 import { ScopePicker } from '../../shell/ScopePicker';
@@ -37,19 +37,19 @@ export function TaskList() {
   const { announce } = useReadout();
   const [params, setParams] = useSearchParams();
   const scope = parseScope(params.get('scope'));
-  const projectId = scopeProjectIdOf(scope);
+  const topicId = scopeTopicIdOf(scope);
   const query = params.get('q') ?? '';
   const viewParam = params.get('view');
   const view = VIEWS.find(item => item.key === viewParam)?.key ?? null;
   const compose = params.get('compose') === '1';
 
-  const projects = useLoad(() => stores.projects.list(), [stores]);
-  const tasks = useLoad(() => stores.tasks.list(projectId), [stores, projectId]);
+  const topics = useLoad(() => stores.topics.list(), [stores]);
+  const tasks = useLoad(() => stores.tasks.list(topicId), [stores, topicId]);
   const action = useAction();
   const [showDone, setShowDone] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
 
-  const projectList = projects.data ?? [];
+  const topicList = topics.data ?? [];
   const all = tasks.data ?? [];
   const counts = Object.fromEntries(VIEWS.map(item => [item.key, all.filter(item.test).length])) as Record<View, number>;
   // The URL wins; otherwise fall back to the last state the user picked here, and to All before any pick.
@@ -59,7 +59,7 @@ export function TaskList() {
     .filter(task => !needle || `${task.title} ${task.next_action}`.toLowerCase().includes(needle));
   const hiddenDone = current === 'all' && !showDone ? filtered.filter(task => task.status === 'done').length : 0;
   const visible = hiddenDone ? filtered.filter(task => task.status !== 'done') : filtered;
-  const label = scopeName(scope, projectList);
+  const label = scopeName(scope, topicList);
 
   useFooter(`${count(all.length, 'task')} · ${counts.actionable} actionable · ${label}`);
 
@@ -69,7 +69,7 @@ export function TaskList() {
     setParams(next, { replace: key === 'q' });
   }
   async function capture(draft: TaskDraft): Promise<boolean> {
-    const created = await action.run(() => stores.tasks.create(projectId, crypto.randomUUID(), crypto.randomUUID(), draft));
+    const created = await action.run(() => stores.tasks.create(topicId, crypto.randomUUID(), crypto.randomUUID(), draft));
     if (!created) return false;
     tasks.reload();
     setComposeOpen(false);
@@ -78,19 +78,19 @@ export function TaskList() {
     return true;
   }
   async function exportScope() {
-    const files = await action.run(() => stores.tasks.exportProject(projectId));
+    const files = await action.run(() => stores.tasks.exportTopic(topicId));
     if (files !== undefined) announce(`Exported ${label} tasks${files ? ` + ${count(files, 'file')}` : ''}`);
   }
 
   return <>
     <div className="head">
       <div className="col">
-        <span className="eyebrow">{scopeEyebrow(scope, projectList)}</span>
+        <span className="eyebrow">{scopeEyebrow(scope, topicList)}</span>
         <h1>Continue.</h1>
         <p className="lede">Tasks hold the exact next action and the evidence a session leaves behind. They don’t need a repository, and they don’t need a topic.</p>
       </div>
       <div className="row wrap" style={{ alignItems: 'flex-start' }}>
-        <ScopePicker scope={scope} projects={projectList} onChange={next => navigate(`/tasks${scopeQuery(next)}`)} onNewProject={() => navigate('/topics/new')} />
+        <ScopePicker scope={scope} topics={topicList} onChange={next => navigate(`/tasks${scopeQuery(next)}`)} onNewTopic={() => navigate('/topics/new')} />
         <Button disabled={action.busy} onClick={() => void exportScope()}>Export</Button>
         <Button look="primary" onClick={() => setComposeOpen(true)}>+ Capture</Button>
       </div>
@@ -112,7 +112,7 @@ export function TaskList() {
       Once a task exists, agents can record progress and handoffs on it. This list then shows what is moving, what is blocked, and the next action for each.
     </Empty>}
     {tasks.data && all.length > 0 && visible.length === 0 && <Empty title="No matching tasks.">Clear a filter to see the rest of this scope.</Empty>}
-    <div>{visible.map(task => <TaskRow key={task.id} task={task} projects={projectList} parentTitle={all.find(item => item.id === task.parent_id)?.title} />)}</div>
+    <div>{visible.map(task => <TaskRow key={task.id} task={task} topics={topicList} parentTitle={all.find(item => item.id === task.parent_id)?.title} />)}</div>
     {hiddenDone > 0 && <p className="fine muted">{count(hiddenDone, 'done task is', 'done tasks are')} hidden. <Button look="link" onClick={() => setShowDone(true)}>Show done</Button></p>}
   </>;
 }

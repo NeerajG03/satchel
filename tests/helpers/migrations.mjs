@@ -29,7 +29,9 @@ create operator extensions.<=> (leftarg=real[], rightarg=real[], function=extens
  *  PGlite unshimmed and failed on a domain that cannot take a type modifier,
  *  which is a confusing way to learn that the helper needed updating. */
 export function shimVector(sql){
-  if(!sql.includes('extensions.vector'))return sql;
+  // The bare type is the domain itself and needs nothing. Only a type modifier
+  // or an hnsw index has to be rewritten, and those must not slip through.
+  if(!/extensions\.vector\(|_hnsw/.test(sql))return sql;
   let out=sql.includes(EXTENSION)?sql.replace(EXTENSION,()=>SHIM):sql;
   const before=out;
   // Function replacers throughout: `$$` in a replacement string is an escape

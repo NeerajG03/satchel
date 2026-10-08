@@ -1,12 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
-import { scopeProjectId, type ArchivedMemory, type Memory, type MemorySummary, type MemoryScope, type MemoryContent } from './model';
+import { scopeTopicId, type ArchivedMemory, type Memory, type MemorySummary, type MemoryScope, type MemoryContent } from './model';
 
 export function createMemoryRepository(db: SupabaseClient) {
   return {
     async list(scope: MemoryScope): Promise<MemorySummary[]> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('list_memories', {
-        p_project_id: scopeProjectId(scope),
+        p_topic_id: scopeTopicId(scope),
       }).abortSignal(signal));
       if (error) throw error;
       return data ?? [];
@@ -25,7 +25,7 @@ export function createMemoryRepository(db: SupabaseClient) {
     // the list already carries every statement in full.
     async read(memory: MemorySummary): Promise<Memory> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('read_memory', {
-        p_project_id: memory.project_id, p_id: memory.id,
+        p_topic_id: memory.topic_id, p_id: memory.id,
       }).abortSignal(signal).single<Memory>());
       if (error) throw error;
       if (!data) throw { code: 'P0002' };
@@ -33,7 +33,7 @@ export function createMemoryRepository(db: SupabaseClient) {
     },
     async save(scope: MemoryScope, id: string, content: MemoryContent): Promise<Memory> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('save_memory', {
-        p_id: id, p_project_id: scopeProjectId(scope), p_statement: content.statement.trim(),
+        p_id: id, p_topic_id: scopeTopicId(scope), p_statement: content.statement.trim(),
         // Written here, so the source is the user's own typing.
         p_source: content.statement.trim(), p_band: 'said',
         p_name: content.name.trim() || null, p_more_info: content.more_info,

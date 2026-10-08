@@ -2,30 +2,28 @@
 
 ## Repository links
 
-Topics are stored in the `projects` table, so the links, columns and routines below keep the word project.
-
-`project_repositories` is keyed `(owner_id, provider, repository)`, with a composite foreign key to `(owner_id, project_id)`. That key is the exclusivity rule: for one owner, a repository belongs to at most one topic. A topic may link as many repositories as it likes.
+`topic_repositories` is keyed `(owner_id, provider, repository)`, with a composite foreign key to `(owner_id, topic_id)`. That key is the exclusivity rule: for one owner, a repository belongs to at most one topic. A topic may link as many repositories as it likes.
 
 `repository` is stored lowercase and must match `^[a-z0-9_.-]+/[a-z0-9_.-]+$`, at most 201 characters. `provider` is lowercase; only `github` is used, and the MCP surface keeps the provider implicit because only the server-side table maps a repository to a topic.
 
-Two policies: the companion policy (`client_id is null`) can do everything with its own rows; the agent policy is `select` only, and only where `agent_can_access(project_id, false)`. So an agent can read a link into a topic it already has, and can never see a link into one it does not.
+Two policies: the companion policy (`client_id is null`) can do everything with its own rows; the agent policy is `select` only, and only where `agent_can_access(topic_id, false)`. So an agent can read a link into a topic it already has, and can never see a link into one it does not.
 
-`link_project_repository` inserts `on conflict do nothing`, re-reads, and raises `PT409` if the repository already belongs to a different topic. `unlink_project_repository` deletes. Both are `security invoker`, so RLS is the authority.
+`link_topic_repository` inserts `on conflict do nothing`, re-reads, and raises `PT409` if the repository already belongs to a different topic. `unlink_topic_repository` deletes. Both are `security invoker`, so RLS is the authority.
 
-`normalizeGitHubRepository` in `src/features/projects/githubRepository.ts` turns what a person pastes (a URL, an SSH remote, `owner/name`) into the normalized form. The bootstrap script does the same job independently on the host.
+`normalizeGitHubRepository` in `src/features/topics/githubRepository.ts` turns what a person pastes (a URL, an SSH remote, `owner/name`) into the normalized form. The bootstrap script does the same job independently on the host.
 
 ## Selecting a scope for one conversation
 
-`agent_session_scopes` is keyed `(owner_id, client_id, session_key)` and stores the `grant_id` and the chosen `project_id`. RLS is on and every grant revoked; only the two definer routines touch it.
+`agent_session_scopes` is keyed `(owner_id, client_id, session_key)` and stores the `grant_id` and the chosen `topic_id`. RLS is on and every grant revoked; only the two definer routines touch it.
 
-- `select_agent_project(session_key, project_id)` requires a live connection status and, for a non-null topic, `agent_can_access(project_id, false)`. It upserts the row with the current generation.
-- `agent_active_project(session_key)` returns the topic only when the stored generation still matches the JWT's and the connection still allows it. A rotated generation makes the selection disappear rather than linger.
+- `select_agent_topic(session_key, topic_id)` requires a live connection status and, for a non-null topic, `agent_can_access(topic_id, false)`. It upserts the row with the current generation.
+- `agent_active_topic(session_key)` returns the topic only when the stored generation still matches the JWT's and the connection still allows it. A rotated generation makes the selection disappear rather than linger.
 
 A selection changes this conversation and nothing else. It grants nothing.
 
 The `select_topic` MCP tool takes **exactly one** of `topic_id` (null meaning personal) or `repository`; both or neither is `PT400`. Personal scope on a connection without a personal grant is `42501`, a denial, not an empty index. After the scope is committed, it returns the combined index, and an index failure is reported as `index_error` alongside `selected: true` so a failed read never reads as a failed selection.
 
-`select_agent_repository(session_key, provider, repository)` looks up the link under RLS and calls `select_agent_project`. A miss raises `P0002`, which the MCP layer translates to `PT404` with a message that says to report topic memory as not loaded rather than guess a topic.
+`select_agent_repository(session_key, provider, repository)` looks up the link under RLS and calls `select_agent_topic`. A miss raises `P0002`, which the MCP layer translates to `PT404` with a message that says to report topic memory as not loaded rather than guess a topic.
 
 ## Resolving the repository
 
@@ -40,7 +38,7 @@ SessionStart
 
 What the script sends is the session id, the event name and a normalized `owner/name`. It reads no repository content and no transcript, and it never reads or forwards the host's credentials. It bails out on anything that is not `SessionStart` or `PostCompact`, on a session id that does not match `^[A-Za-z0-9_-]{1,200}$`, and on stdin over 64 KB. `SATCHEL_DISABLE_REPOSITORY_STAGING=1` turns the repository off.
 
-`resolve_agent_repository` returns every candidate topic with `selected` on the one it activated, and it activates only when there is exactly one. Two candidates selects nothing and names them by `project_id`, because filing a memory in a real topic that is the wrong topic is worse than leaving it personal, which is at least visibly unscoped.
+`resolve_agent_repository` returns every candidate topic with `selected` on the one it activated, and it activates only when there is exactly one. Two candidates selects nothing and names them by `topic_id`, because filing a memory in a real topic that is the wrong topic is worse than leaving it personal, which is at least visibly unscoped.
 
 ### The hint bridge it replaced
 
@@ -67,9 +65,9 @@ The polling loop exists because the two hooks race: Claude Code can start `Sessi
 
 ## Where scope shows up elsewhere
 
-- **Memory**: `project_id is null` is personal, and confirmed personal memories are loaded at session start, ranked and capped at `block_size`, rather than retrieved. Retrieval takes `in_scope` as a boost of 1.1, not a filter, so a first mention of an unrelated topic can still win on similarity. A memory has one scope and no task link (v2.5 R9a).
+- **Memory**: `topic_id is null` is personal, and confirmed personal memories are loaded at session start, ranked and capped at `block_size`, rather than retrieved. Retrieval takes `in_scope` as a boost of 1.1, not a filter, so a first mention of an unrelated topic can still win on similarity. A memory has one scope and no task link (v2.5 R9a).
 - **Documents**: the session's scope is written onto its document by whichever turn first resolves it, and never cleared, because the consolidation pass reads it hours later with no workspace to resolve from. A topic id the caller does not own is dropped rather than borrowed. When nothing scoped the session (no link, or a repository that names several topics) the end of the turn notes the repository on the document (`note_document_repository`), so the pass can see which topics own that codebase. It narrows the pass's choice and links nothing.
 - **Churn**: a linked repository's commit count lives in `repository_heads`, and a topic memory remembers where the repository was when it was last meant. That is how a merge, not a conversation, raises doubt about a topic memory.
 - **Tasks**: the same null, plus the generated `scope_key` of `'personal'` for composite foreign keys.
-- **Grants**: `personal`, `all_projects` and `project_ids` for memory; `task_personal`, `task_all_projects` and `agent_task_grants` rows for tasks. Four independent switches, not one.
-- **Companion UI**: `src/app/scope.ts` owns the `?scope=me|topic:<id>` query and its labels (the query string keeps the word project; the labels say topic).
+- **Grants**: `personal`, `all_topics` and `topic_ids` for memory; `task_personal`, `task_all_topics` and `agent_task_grants` rows for tasks. Four independent switches, not one.
+- **Companion UI**: `src/app/scope.ts` owns the `?scope=me|topic:<id>` query and its labels. The old `project:` form is still accepted so saved links keep working.

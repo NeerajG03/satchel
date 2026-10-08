@@ -3,7 +3,7 @@
 // consolidation_runs, router_runs and memory_injections each keep
 // conversation text. An agent token is `authenticated` with `sub` = the
 // owner, so an owner-only policy let any connected app read them with its own
-// token, whatever projects it was granted. These run the migrations in PGlite
+// token, whatever topics it was granted. These run the migrations in PGlite
 // and prove the browser still reads everything, the server can still write as
 // whoever called it, and an app reads back only the capture runs it wrote.
 import {test} from 'node:test';

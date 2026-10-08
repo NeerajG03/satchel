@@ -123,14 +123,14 @@
 <div class="frame" style="width:1280px; height:820px;">
   <header class="top">
   <div class="row" style="gap:0;"><span class="wordmark">satchel</span><span class="device">MacBook</span></div>
-  <div class="topmeta"><span>Wed 17 Sep</span><span class="row" style="gap:8px;"><span class="led green"></span>Synced</span><span>neerajg03</span></div>
+  <div class="topmeta"><span>Wed 17 Sep</span><span class="row" style="gap:8px;"><span class="led amber"></span>No tasks yet</span><span>neerajg03</span></div>
 </header>
   <div class="body">
     <nav class="rail" aria-label="Destinations">
-  <a href="Main.dc.html" aria-current="page"><span class="dot"></span>Left off</a>
+  <a href="Main.dc.html"><span class="dot"></span>Left off</a>
   <a href="Book.dc.html"><span class="dot"></span>Book</a>
-  <a href="Tasks.dc.html"><span class="dot"></span>Tasks</a>
-  <a href="Projects.dc.html"><span class="dot"></span>Topics</a>
+  <a href="Tasks.dc.html" aria-current="page"><span class="dot"></span>Tasks</a>
+  <a href="Topics.dc.html"><span class="dot"></span>Topics</a>
   <a href="Apps.dc.html"><span class="dot"></span>Apps</a>
   <a href="Settings.dc.html"><span class="dot"></span>Settings</a>
   <div class="spacer"></div>
@@ -138,36 +138,24 @@
 </nav>
     <main class="paper">
       
-  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Wednesday, 17 September</span><h1 class="h1">Where you left off.</h1></div>
-    <div class="row"><a href="Tasks.dc.html" class="btn quiet">All tasks</a><a href="Book.dc.html" class="btn">Write something down</a></div></div>
-  <div style="display:grid; grid-template-columns:minmax(0,1.5fr) 320px; gap:48px; margin-top:26px; flex-grow:1; min-height:0;">
-    <section class="col" style="gap:0;">
-      <span class="eyebrow" style="margin-bottom:6px;">Next actions · actionable now</span>
-      <article class="entry" style="gap:6px;">
-        <div class="between"><span class="row" style="gap:10px;"><strong style="font-size:14px;">Satchel</strong><span class="eyebrow">Personal</span></span><span class="chip progress">in progress</span></div>
-        <h2 class="h2" style="font-size:24px;">Next: Ship the skills packaging worktree and open the PR.</h2>
-        <div class="between"><span class="prov">Handoff · Claude Code · MacBook · today 09:41 · PR #41 reachable</span><a href="Task.dc.html" class="btn sm">Open task</a></div>
-      </article><article class="entry" style="gap:6px;">
-        <div class="between"><span class="row" style="gap:10px;"><strong style="font-size:14px;">Release workflow</strong><span class="eyebrow">Work</span></span><span class="chip ink">ready</span></div>
-        <h2 class="h2" style="font-size:24px;">Next: Open the sync PR against frontend.</h2>
-        <div class="between"><span class="prov">Progress update · Codex · desktop · Fri 17:06 · branch sync-v2 reachable</span><a href="Task.dc.html" class="btn sm">Open task</a></div>
-      </article><article class="entry" style="gap:6px;">
-        <div class="between"><span class="row" style="gap:10px;"><strong style="font-size:14px;">Reimbursements</strong><span class="eyebrow">Personal</span></span><span class="chip blocked">blocked</span></div>
-        <h2 class="h2" style="font-size:24px;">Next: Submit the August claim.</h2>
-        <div class="between"><span class="prov">Blocked: waiting on the finance portal login · Claude · phone · Thu 11:12 · No code attached</span><a href="Task.dc.html" class="btn sm">Open task</a></div>
-      </article>
-      <a href="Tasks.dc.html" class="muted fine" style="margin-top:12px; color:var(--muted);">4 more tasks are waiting on something. See them in Tasks <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-    </section>
-    <aside class="col" style="gap:26px;">
-      <div class="col" style="gap:8px;"><span class="eyebrow">Last thing saved</span>
-        <p class="serif" style="font-size:22px; line-height:1.3; margin:0;">“Satchel has no personas and no curator in the first version.”</p>
-        <span class="prov">Said on your phone · Topic / Satchel · today 09:18</span></div>
-      <div class="col" style="gap:8px;"><span class="eyebrow">Your apps</span>
-        <div class="between" style="padding:9px 0; border-bottom:1px solid var(--line);"><span class="row" style="gap:10px;"><span class="led green"></span><span style="font-weight:500;">Claude Code</span></span><span class="prov">reads and saves · verified today</span></div><div class="between" style="padding:9px 0; border-bottom:1px solid var(--line);"><span class="row" style="gap:10px;"><span class="led amber"></span><span style="font-weight:500;">Codex</span></span><span class="prov">reads only · last read Fri</span></div><div class="between" style="padding:9px 0; border-bottom:1px solid var(--line);"><span class="row" style="gap:10px;"><span class="led off"></span><span style="font-weight:500;">Claude (phone)</span></span><span class="prov">not connected</span></div>
-        <a href="Apps.dc.html" class="fine" style="margin-top:4px;">Manage apps <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-    </aside>
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">For me</span><h1 class="h1">Continue.</h1></div><div class="row"><button class="btn" style="gap:10px; padding-left:12px;"><span class="eyebrow" style="color:var(--muted);">In</span><strong style="font-weight:600;">For me</strong><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button></div></div>
+  <p class="lede" style="margin:12px 0 26px;">Tasks hold the exact next action and the evidence a session leaves behind. They don't need a repository, and they don't need a topic.</p>
+  <form class="panel" style="padding:22px 24px; display:flex; flex-direction:column; gap:14px; background:var(--paper); border-color:var(--ink);">
+    <span class="eyebrow">Capture a task · saving in For me</span>
+    <label class="f"><span>Title</span><input class="field serif" placeholder="Submit the August claim"></label>
+    <div style="display:grid; grid-template-columns:minmax(0,1fr) 160px; gap:14px;">
+      <label class="f"><span>Next action <span class="ph">· the one concrete thing to do first</span></span><input class="field" placeholder="Log in to the finance portal and attach receipts"></label>
+      <label class="f"><span>Priority</span><button type="button" class="btn" style="justify-content:space-between;">Medium <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button></label>
+    </div>
+    <details><summary class="fine" style="cursor:pointer; color:var(--accent); list-style:none;">Add outcome, why, and done-when <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></summary></details>
+    <div class="between"><span class="fine muted">Starts in Inbox. Move it to Ready when it has a next action.</span><button class="btn primary">Capture task</button></div>
+  </form>
+  <div class="empty" style="margin-top:44px;">
+    <h2 class="h2">Nothing to continue yet.</h2>
+    <p class="muted" style="margin:0;">Once a task exists, agents can record progress and handoffs on it. This list then shows what is moving, what is blocked, and the next action for each.</p>
+    <a href="Tasks.dc.html" class="fine">See how a filled list looks <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
   </div>
-      <div class="foot"><span>5 in the book · 3 tasks moving · 2 apps</span><span>Explicit saves only</span></div>
+      <div class="foot"><span>0 tasks · For me</span><span>Explicit saves only</span></div>
     </main>
   </div>
 </div>

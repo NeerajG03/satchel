@@ -104,8 +104,8 @@ const geminiLimit = (quotaId, retryDelay = '9s', seconds = '9.878146082') => jso
     {'@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay},
   ],
 }}, 429);
-const DAILY = 'EmbedContentRequestsPerDayPerProjectPerModel-FreeTier';
-const PER_MINUTE = 'EmbedContentRequestsPerMinutePerProjectPerModel-FreeTier';
+const DAILY = 'EmbedContentRequestsPerDayPerTopicPerModel-FreeTier';
+const PER_MINUTE = 'EmbedContentRequestsPerMinutePerTopicPerModel-FreeTier';
 
 test('a spent daily quota is not waited out, because waiting cannot fix it', async () => {
   // Google answers an exhausted per-day quota with a ~10 second retryDelay,
@@ -168,8 +168,8 @@ test('Retry-After in seconds and an epoch reset are both read', async () => {
 });
 
 test('a second key is tried for the same model, and only for the same model', async () => {
-  // Gemini's free embedding quota is per project per model, so a second
-  // project doubles it. The model is deliberately not configurable per route:
+  // Gemini's free embedding quota is per topic per model, so a second
+  // topic doubles it. The model is deliberately not configurable per route:
   // each row stores embedding_model beside its vector because two models'
   // vectors are not comparable, so a fallback answering with a different model
   // would turn a rate limit into quietly wrong matches.

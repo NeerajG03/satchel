@@ -92,7 +92,7 @@ There is no committed consolidation baseline yet. The only full run was on `gemi
 ## Files
 
 ```
-eval/corpus.json      memories, prompts, tasks, projects (the topics), with stable ids (m0000, p000)
+eval/corpus.json      memories, prompts, tasks, topics, with stable ids (m0000, p000)
 eval/labels.json      grade-2 and grade-1 judgements, keyed by prompt id
 eval/baseline.json    the committed numbers every run is compared against
 eval/embeddings/      one cache per index, id keyed and incremental

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { useStores } from '../../app/stores';
 import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
-import { projectScope, scopeName, scopeQuery } from '../../app/scope';
+import { topicScope, scopeName, scopeQuery } from '../../app/scope';
 import { actorLabel, count, fullDate, stateWord } from '../../app/format';
 import type { TaskDetail as Detail, TaskStatus, TaskSummary } from './model';
 import { Button, LinkButton } from '../../ui/Button';
@@ -29,7 +29,7 @@ function handoffText(task: Detail): string {
     block('Decisions', latest.decisions) + block('Remaining', latest.remaining) + block('Blockers', latest.blockers);
 }
 
-function Related({ title, tasks, scope }: { title: string; tasks: TaskSummary[]; scope: ReturnType<typeof projectScope> }) {
+function Related({ title, tasks, scope }: { title: string; tasks: TaskSummary[]; scope: ReturnType<typeof topicScope> }) {
   if (tasks.length === 0) return null;
   return <div className="stack-tight">
     <span className="eyebrow">{title}</span>
@@ -43,8 +43,8 @@ export function TaskDetail() {
   const navigate = useNavigate();
   const { announce } = useReadout();
   const page = useLoad(async () => {
-    const [task, projects, apps] = await Promise.all([stores.tasks.read(id), stores.projects.list(), stores.connections.list()]);
-    return { task, projects, apps };
+    const [task, topics, apps] = await Promise.all([stores.tasks.read(id), stores.topics.list(), stores.connections.list()]);
+    return { task, topics, apps };
   }, [stores, id]);
   const action = useAction();
   const move = useAction();
@@ -52,8 +52,8 @@ export function TaskDetail() {
   const [linkOpen, setLinkOpen] = useState(false);
 
   const task = page.data?.task;
-  const scope = projectScope(task?.project_id ?? null);
-  const label = scopeName(scope, page.data?.projects ?? []);
+  const scope = topicScope(task?.topic_id ?? null);
+  const label = scopeName(scope, page.data?.topics ?? []);
   useFooter(task ? `Task · ${label} · revision ${task.revision}` : '');
 
   async function refresh(message?: string) {
@@ -115,7 +115,7 @@ export function TaskDetail() {
   if (page.error) return <><LinkButton to="/tasks" look="quiet">← Tasks</LinkButton><LoadError what="This task" onReload={page.reload} /></>;
   if (!task || !page.data) return <><LinkButton to="/tasks" look="quiet">← Tasks</LinkButton><Skeleton rows={6} /></>;
 
-  const { projects, apps } = page.data;
+  const { topics, apps } = page.data;
   const parent = task.scope_tasks.find(item => item.id === task.parent_id);
   const children = task.scope_tasks.filter(item => item.parent_id === task.id);
   const dependencies = task.scope_tasks.filter(item => task.dependency_ids.includes(item.id));

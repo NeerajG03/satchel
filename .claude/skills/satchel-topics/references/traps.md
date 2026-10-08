@@ -1,8 +1,6 @@
 # Topic traps
 
-Topics are stored in the `projects` table, so the routines and grant columns below keep the word project.
-
-**"Every topic" used to mean "the topics that existed the moment you clicked."** The consent page built the grant with `projects.map(p => p.id)`, freezing a list of UUIDs. Make a topic the next day and the app you had just given everything to could not see it, with no error that explained why. `all_projects` is now a state of the grant instead of a list. Anything that re-derives a list from "all" reintroduces the bug.
+**"Every topic" used to mean "the topics that existed the moment you clicked."** The consent page built the grant with `projects.map(p => p.id)`, freezing a list of UUIDs. Make a topic the next day and the app you had just given everything to could not see it, with no error that explained why. `all_topics` is now a state of the grant instead of a list. Anything that re-derives a list from "all" reintroduces the bug.
 
 **Nothing was backfilled when that changed.** A connection granted "all" before the migration keeps its frozen list until the person authorizes again and sees what they are agreeing to. Widening an existing grant inside a migration would be the same bug pointing the other way.
 
@@ -14,13 +12,13 @@ Topics are stored in the `projects` table, so the routines and grant columns bel
 
 **A stale hint must not survive.** `activate_agent_repository_hint` consumes by deleting inside the same statement it reads. A "read then delete" rewrite creates a window where two sessions resolve the same hint.
 
-**A rotated grant generation must orphan the session selection.** `agent_active_project` compares the stored `grant_id` to the JWT claim. If you relax that comparison for convenience, a revoked-and-reconnected app silently resumes the old conversation's scope.
+**A rotated grant generation must orphan the session selection.** `agent_active_topic` compares the stored `grant_id` to the JWT claim. If you relax that comparison for convenience, a revoked-and-reconnected app silently resumes the old conversation's scope.
 
 **Unknown scope must never fall back to personal.** Personal is the null, and the null is also what an uninitialized variable looks like. Any new code path that resolves a scope has to fail loudly rather than default.
 
 **`select t.*` and `create or replace function` both freeze things.** See `satchel-tasks/references/traps.md`; the same two failures apply to any topic-side view or helper.
 
-**Deleting a topic takes memories, tasks and files with it.** The counts come back in the result for a reason. Show them. `ProjectDelete.tsx` asks first, and no agent path exists at all.
+**Deleting a topic takes memories, tasks and files with it.** The counts come back in the result for a reason. Show them. `TopicDelete.tsx` asks first, and no agent path exists at all.
 
 **Renaming must not orphan anything.** Everything references the stable UUID, and the slug is a handle. If you ever make something reference the name, renaming becomes a data-loss bug.
 

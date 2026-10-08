@@ -49,17 +49,17 @@ for (const [name, dir] of [['old', OLD], ['new', NEW]]) {
     promptResolver: async () => ({text, source: 'local', version: name})})};
 }
 
-const runs = (await sql(`select r.id, r.owner_id, r.document_id, r.through, r.created_at, r.duration_ms, d.project_id, d.session_key, d.turns
+const runs = (await sql(`select r.id, r.owner_id, r.document_id, r.through, r.created_at, r.duration_ms, d.topic_id, d.session_key, d.turns
   from public.consolidation_runs r join public.documents d on d.id = r.document_id
   where r.created_at >= ${lit(since)} and r.created_at < ${lit(until)} and r.error is null and r.through is not null
   order by r.created_at`)).filter(r => !ONLY || ONLY.includes(String(r.document_id).slice(0, 8)));
 
-const projectsOf = {};
-async function projects(owner) {
-  return projectsOf[owner] ??= await sql(`select p.id, p.slug, p.name, p.brief,
+const topicsOf = {};
+async function topics(owner) {
+  return topicsOf[owner] ??= await sql(`select p.id, p.slug, p.name, p.brief,
     coalesce((select json_agg(json_build_object('provider', r.provider, 'repository', r.repository))
-      from public.project_repositories r where r.project_id = p.id), '[]'::json) project_repositories
-    from public.projects p where p.owner_id = ${lit(owner)} order by p.name`);
+      from public.topic_repositories r where r.topic_id = p.id), '[]'::json) topic_repositories
+    from public.topics p where p.owner_id = ${lit(owner)} order by p.name`);
 }
 
 /** The service as it stood at `at`, read only. Writes are recorded. */
@@ -70,25 +70,25 @@ function serviceAt(run, list, writes) {
   return {
     documentTurns: (id, after) => sql(`select id, role, content, created_at from public.document_turns
       where document_id = ${lit(id)} and id > ${Number(after ?? 0)} and id <= ${Number(run.through)} order by id`),
-    memoriesInScope: async (projectId, limit = 60) => (await sql(`select m.id, m.project_id, m.kind, m.mentions, m.revision,
+    memoriesInScope: async (topicId, limit = 60) => (await sql(`select m.id, m.topic_id, m.kind, m.mentions, m.revision,
         m.affirmed_at, m.updated_at,
         coalesce((select e.before from public.memory_events e where e.memory_id = m.id
           and e.created_at >= ${lit(at)} and e.before is not null order by e.created_at limit 1), m.statement) statement
       from public.memories m where m.owner_id = ${lit(run.owner_id)} and m.created_at < ${lit(at)}
         and (m.ended_at is null or m.ended_at >= ${lit(at)})
         and (m.expires_at is null or m.expires_at > ${lit(at)})
-        and (m.project_id is null or m.project_id = ${lit(projectId)})
-      order by m.project_id nulls first, m.updated_at desc limit ${Number(limit)}`))
-      .map(m => (scopeOf[m.id] = m.project_id ? slugOf[m.project_id] : null,
-        {...m, project_slug: scopeOf[m.id], commits_since: null})),
-    captureMemory: async a => { writes.push({write: 'add', project: a.project, kind: a.kind, statement: a.statement}); return {id: `new${writes.length}`}; },
-    extendMemory: async a => { writes.push({write: 'extend', target: a.id, project: scopeOf[a.id], statement: a.statement}); return {id: a.id}; },
-    affirmMemory: async id => { writes.push({write: 'affirm', target: id, project: scopeOf[id]}); return {id}; },
+        and (m.topic_id is null or m.topic_id = ${lit(topicId)})
+      order by m.topic_id nulls first, m.updated_at desc limit ${Number(limit)}`))
+      .map(m => (scopeOf[m.id] = m.topic_id ? slugOf[m.topic_id] : null,
+        {...m, topic_slug: scopeOf[m.id], commits_since: null})),
+    captureMemory: async a => { writes.push({write: 'add', topic: a.topic, kind: a.kind, statement: a.statement}); return {id: `new${writes.length}`}; },
+    extendMemory: async a => { writes.push({write: 'extend', target: a.id, topic: scopeOf[a.id], statement: a.statement}); return {id: a.id}; },
+    affirmMemory: async id => { writes.push({write: 'affirm', target: id, topic: scopeOf[id]}); return {id}; },
     // A replace is one change: the add it wrote first becomes the replace.
     endMemory: async a => {
       const added = a.reason === 'replaced' && writes.findLast(w => w.write === 'add');
       if (added) Object.assign(added, {write: 'replace', target: a.id});
-      else writes.push({write: `end ${a.reason}`, target: a.id, project: scopeOf[a.id]});
+      else writes.push({write: `end ${a.reason}`, target: a.id, topic: scopeOf[a.id]});
       return {id: a.id};
     },
     markDocumentConsolidated: async () => {},
@@ -103,15 +103,15 @@ try {
   for (const run of runs) {
     const [prev] = await sql(`select max(through) m from public.consolidation_runs where document_id = ${lit(run.document_id)}
       and created_at < ${lit(run.created_at)} and through is not null and error is null`);
-    const list = await projects(run.owner_id);
-    const document = {id: run.document_id, session_key: run.session_key, project_id: run.project_id,
+    const list = await topics(run.owner_id);
+    const document = {id: run.document_id, session_key: run.session_key, topic_id: run.topic_id,
       turns: run.turns, consolidated_through: prev?.m ?? null};
-    const row = {document: String(run.document_id).slice(0, 8), scope: list.find(p => p.id === run.project_id)?.slug ?? 'personal'};
+    const row = {document: String(run.document_id).slice(0, 8), scope: list.find(p => p.id === run.topic_id)?.slug ?? 'personal'};
     for (const name of ['old', 'new']) {
       const writes = [];
       try {
         await sides[name].consolidateDocument(serviceAt(run, list, writes), sides[name].consolidator, document,
-          {projects: list, ownerId: run.owner_id});
+          {topics: list, ownerId: run.owner_id});
       } catch (error) { writes.push({write: 'error', error: String(error.message).slice(0, 200)}); }
       row[name] = writes;
       await new Promise(r => setTimeout(r, 1500));
@@ -126,7 +126,7 @@ try {
 const count = (name, f) => results.flatMap(r => r[name].filter(w => w.write !== "error").map(w => ({...w, scope: r.scope}))).filter(f).length;
 console.log(`\n${results.length} sessions · ${outFile}`);
 console.log('                              old  new');
-for (const [label, f] of [['changes', () => true], ['topic-scoped', w => w.project],
-  ['unlinked into a project', w => w.project && w.scope === 'personal'], ['extend / affirm / replace', w => ['extend', 'affirm', 'replace'].includes(w.write)],
+for (const [label, f] of [['changes', () => true], ['topic-scoped', w => w.topic],
+  ['unlinked into a topic', w => w.topic && w.scope === 'personal'], ['extend / affirm / replace', w => ['extend', 'affirm', 'replace'].includes(w.write)],
   ['errors', null]])
   console.log(`  ${label.padEnd(28)}${String(f ? count('old', f) : results.filter(r => r.old.some(w => w.write === 'error')).length).padStart(4)} ${String(f ? count('new', f) : results.filter(r => r.new.some(w => w.write === 'error')).length).padStart(4)}`);

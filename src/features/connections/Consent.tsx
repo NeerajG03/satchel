@@ -4,7 +4,7 @@ import type { OAuthAuthorizationDetails } from '@supabase/supabase-js';
 import { useStores } from '../../app/stores';
 import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter } from '../../app/readout';
-import type { Project } from '../projects/repository';
+import type { Topic } from '../topics/repository';
 import { partnerSlug } from './repository';
 import { rememberedClientId } from '../settings/consolidationConnect';
 import { Button } from '../../ui/Button';
@@ -14,13 +14,13 @@ import { LoadError, SaveError, Skeleton } from '../../ui/Notice';
 export const RETURN_URL_KEY = 'satchel-connected-return';
 
 // `all` is not a shortcut for ticking every box. It is its own state, and it
-// keeps being true about projects that do not exist yet. Ticking the boxes
+// keeps being true about topics that do not exist yet. Ticking the boxes
 // freezes a list, which is what this page used to do and what made a new
-// project invisible to an app you had already given everything to.
+// topic invisible to an app you had already given everything to.
 type Group = { personal: boolean; all: boolean; ids: string[] };
 const NONE: Group = { personal: false, all: false, ids: [] };
 
-function ScopeGroup({ title, hint, group, projects, disabled, onChange, extras }: { title: string; hint: string; group: Group; projects: Project[]; disabled: boolean; onChange: (group: Group) => void; extras: React.ReactNode }) {
+function ScopeGroup({ title, hint, group, topics, disabled, onChange, extras }: { title: string; hint: string; group: Group; topics: Topic[]; disabled: boolean; onChange: (group: Group) => void; extras: React.ReactNode }) {
   const summary = group.all ? `every topic${group.personal ? ' and you' : ''}` : group.personal ? 'you only' : 'nothing';
   return <fieldset className="panel" disabled={disabled} style={{ margin: 0 }}>
     <div className="between"><legend style={{ padding: 0 }}><h3>{title}</h3></legend><span className="eyebrow">{summary}</span></div>
@@ -28,7 +28,7 @@ function ScopeGroup({ title, hint, group, projects, disabled, onChange, extras }
       <span className="tools"><Button look="link" small onClick={() => onChange({ personal: true, all: true, ids: [] })}>Everything</Button><span className="muted">·</span><Button look="link" small onClick={() => onChange(NONE)}>None</Button></span></div>
     <div className="list">
       <CheckField label="For me" hint={`personal ${title.toLowerCase()}`} checked={group.personal} onChange={e => onChange({ ...group, personal: e.target.checked })} />
-      <CheckField label="Every topic" hint={`all ${projects.length}, and the ones made later`} checked={group.all}
+      <CheckField label="Every topic" hint={`all ${topics.length}, and the ones made later`} checked={group.all}
         onChange={e => onChange({ ...group, all: e.target.checked, ids: [] })} />
     </div>
     <hr className="hr" />
@@ -43,9 +43,9 @@ export function Consent() {
   const authorizationId = params.get('authorization_id') ?? '';
   const valid = /^[a-z0-9_-]{1,200}$/i.test(authorizationId);
   const page = useLoad(async () => {
-    const [projects, details] = await Promise.all([stores.projects.list(), stores.db.auth.oauth.getAuthorizationDetails(authorizationId)]);
+    const [topics, details] = await Promise.all([stores.topics.list(), stores.db.auth.oauth.getAuthorizationDetails(authorizationId)]);
     if (details.error) throw details.error;
-    return { projects, details: details.data };
+    return { topics, details: details.data };
   }, [stores, authorizationId]);
   const action = useAction();
   const [memory, setMemory] = useState<Group>(NONE);
@@ -64,7 +64,7 @@ export function Consent() {
   // The client name is whatever the app said it was, so a name is no reason to
   // suggest anything. The id this browser registered a minute ago in Settings is.
   const overnight = details !== null && rememberedClientId() === details.client.id;
-  const projects = page.data?.projects ?? [];
+  const topics = page.data?.topics ?? [];
   const anyMemory = memory.personal || memory.all || memory.ids.length > 0;
   const anyTasks = tasks.personal || tasks.all || tasks.ids.length > 0;
   const all = (): Group => ({ personal: true, all: true, ids: [] });
@@ -74,8 +74,8 @@ export function Consent() {
     if (!details) return;
     await action.run(async () => {
       if (approve) await stores.connections.grant({ clientId: details.client.id, label: details.client.name,
-        personal: memory.personal, allProjects: memory.all, projectIds: memory.ids, canWrite: memoryWrite,
-        taskPersonal: tasks.personal, taskAllProjects: tasks.all, taskProjectIds: tasks.ids,
+        personal: memory.personal, allTopics: memory.all, topicIds: memory.ids, canWrite: memoryWrite,
+        taskPersonal: tasks.personal, taskAllTopics: tasks.all, taskTopicIds: tasks.ids,
         taskCanWrite: taskWrite, taskCanUpload: taskUpload });
       const result = approve ? await stores.db.auth.oauth.approveAuthorization(authorizationId, { skipBrowserRedirect: true })
         : await stores.db.auth.oauth.denyAuthorization(authorizationId, { skipBrowserRedirect: true });
@@ -103,9 +103,9 @@ export function Consent() {
     </div>
     <div className="two">
       <div className="consent-groups">
-        <ScopeGroup title="Memory" hint="Scopes it can read" group={memory} projects={projects} disabled={action.busy} onChange={setMemory}
+        <ScopeGroup title="Memory" hint="Scopes it can read" group={memory} topics={topics} disabled={action.busy} onChange={setMemory}
           extras={<CheckField label="Also allow saves, corrections and forgets" hint="only when you ask it to, in that chat" checked={memoryWrite} disabled={!anyMemory} onChange={e => setMemoryWrite(e.target.checked)} />} />
-        <ScopeGroup title="Tasks" hint="Scopes it can read" group={tasks} projects={projects} disabled={action.busy} onChange={setTasks}
+        <ScopeGroup title="Tasks" hint="Scopes it can read" group={tasks} topics={topics} disabled={action.busy} onChange={setTasks}
           extras={<div className="stack-tight">
             <CheckField label="Also allow creating tasks, updates, moves and handoffs" checked={taskWrite} disabled={!anyTasks} onChange={e => setTaskWrite(e.target.checked)} />
             <CheckField label="Also allow file uploads to task storage" checked={taskUpload} disabled={!anyTasks} onChange={e => setTaskUpload(e.target.checked)} />

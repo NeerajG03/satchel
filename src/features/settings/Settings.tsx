@@ -16,7 +16,7 @@ export function Settings() {
   const { user, signOut, busy: authBusy } = useAuth();
   const stores = useStores();
   const { announce } = useReadout();
-  const projects = useLoad(() => stores.projects.list(), [stores]);
+  const topics = useLoad(() => stores.topics.list(), [stores]);
   const action = useAction();
   const dev = useDevMode();
   const [pick, setPick] = useState('');
@@ -24,16 +24,16 @@ export function Settings() {
 
   async function exportAll() {
     const total = await action.run(async () => {
-      let files = await stores.tasks.exportProject(null);
-      for (const project of projects.data ?? []) files += await stores.tasks.exportProject(project.id);
+      let files = await stores.tasks.exportTopic(null);
+      for (const topic of topics.data ?? []) files += await stores.tasks.exportTopic(topic.id);
       return files;
     });
-    if (total !== undefined) announce(`Exported ${1 + (projects.data?.length ?? 0)} manifests + ${count(total, 'file')} · no credentials included`);
+    if (total !== undefined) announce(`Exported ${1 + (topics.data?.length ?? 0)} manifests + ${count(total, 'file')} · no credentials included`);
   }
   async function exportOne() {
-    const project = projects.data?.find(p => p.id === pick);
-    const files = await action.run(() => stores.tasks.exportProject(pick || null));
-    if (files !== undefined) announce(`Exported ${project?.name ?? 'For me'} + ${count(files, 'file')}`);
+    const topic = topics.data?.find(p => p.id === pick);
+    const files = await action.run(() => stores.tasks.exportTopic(pick || null));
+    if (files !== undefined) announce(`Exported ${topic?.name ?? 'For me'} + ${count(files, 'file')}`);
   }
 
   return <>
@@ -52,9 +52,9 @@ export function Settings() {
         <div className="stack-tight">
           <p className="muted">Export everything as a portable manifest plus your verified task files. No credentials are included. Identifiers, sources and revision history are kept.</p>
           <div className="row wrap" style={{ alignItems: 'flex-end' }}>
-            <Button look="primary" disabled={action.busy || projects.loading} onClick={() => void exportAll()}>Export all</Button>
+            <Button look="primary" disabled={action.busy || topics.loading} onClick={() => void exportAll()}>Export all</Button>
             <SelectField label="Export one scope" value={pick} disabled={action.busy} onChange={e => setPick(e.target.value)}>
-              <option value="">For me</option>{(projects.data ?? []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              <option value="">For me</option>{(topics.data ?? []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </SelectField>
             <Button disabled={action.busy} onClick={() => void exportOne()}>Export this one</Button>
           </div>

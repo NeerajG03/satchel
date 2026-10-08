@@ -33,13 +33,13 @@ const since = new Date(until.getTime() - DAYS * 86400e3);
 
 // Every live memory, so a row in a span can be named and scoped. Ended rows
 // are kept too: a span from last week may name one that has since been ended.
-const memories = Object.fromEntries((await sql(`select m.id, m.statement, m.project_id, m.band, m.kind, m.ended_at, p.slug
-  from public.memories m left join public.projects p on p.id = m.project_id`)).map(m => [m.id, m]));
+const memories = Object.fromEntries((await sql(`select m.id, m.statement, m.topic_id, m.band, m.kind, m.ended_at, p.slug
+  from public.memories m left join public.topics p on p.id = m.topic_id`)).map(m => [m.id, m]));
 // What session start loads today: the personal rows, in the block's own order
 // and under its cap. The after-rule excludes exactly these.
 const settings = (await sql(`select block_size from public.memory_settings limit 1`))[0] ?? {block_size: 30};
 const personal = await sql(`select id, statement, band, mentions, affirmed_at, updated_at from public.memories
-  where project_id is null and ended_at is null order by mentions desc, affirmed_at desc, updated_at desc, id`);
+  where topic_id is null and ended_at is null order by mentions desc, affirmed_at desc, updated_at desc, id`);
 const load = personalLoad(personal, settings.block_size ?? 30);
 const loaded = new Set([...load.said, ...load.heard].map(m => m.id));
 
@@ -58,7 +58,7 @@ const count = (t, shown, machine) => {
   if (machine) t.slotsOnMachine += shown.length;
   for (const row of shown) {
     const id = row.id ?? row;
-    if (memories[id]?.project_id == null) t.personalSlots += 1;
+    if (memories[id]?.topic_id == null) t.personalSlots += 1;
     t.byMemory[id] = (t.byMemory[id] ?? 0) + 1;
   }
 };
@@ -95,7 +95,7 @@ for (const [label, t] of [['before', before], ['after', after]]) {
   console.log(`  most injected, ${label}:`);
   for (const [id, n] of top(t)) {
     const m = memories[id];
-    const where = m ? (m.project_id ? m.slug : 'personal') + (m.band === 'heard' ? ', picked up' : '') + (m.ended_at ? ', ended' : '') : 'unknown';
+    const where = m ? (m.topic_id ? m.slug : 'personal') + (m.band === 'heard' ? ', picked up' : '') + (m.ended_at ? ', ended' : '') : 'unknown';
     console.log(`    ${String(n).padStart(4)}  (${where})  ${String(m?.statement ?? id).slice(0, 90)}`);
   }
   console.log('');

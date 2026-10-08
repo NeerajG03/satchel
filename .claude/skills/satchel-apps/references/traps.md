@@ -4,7 +4,7 @@ Things that have already gone wrong here, or that are shaped so they will.
 
 **`create or replace function` silently reverts an earlier migration.** Both access helpers have been replaced from an older copy and lost a branch a later migration had added. Before you replace `public.agent_can_access` or `private.agent_can_access_tasks`, read every later migration that touched it and carry forward every branch. This codebase has had that failure.
 
-**A blanket grant has no rows.** `all_projects` and `task_all_projects` are flags; `project_ids` is empty and `agent_task_grants` has nothing in it. Any code that decides access by querying the list alone denies the connection that was given everything. Check the flag first, in the database helper and in the service, both. (Topics are stored in the `projects` table, which is why these names say project.)
+**A blanket grant has no rows.** `all_topics` and `task_all_topics` are flags; `topic_ids` is empty and `agent_task_grants` has nothing in it. Any code that decides access by querying the list alone denies the connection that was given everything. Check the flag first, in the database helper and in the service, both.
 
 **The old `authorize_agent` signatures hard-code the flags false, and that is deliberate.** Someone re-authorizing through an older client must come back without a blanket grant rather than keeping one. Do not "fix" the delegation to preserve the existing flags.
 

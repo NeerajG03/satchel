@@ -11,21 +11,21 @@ import {buildConsolidationPrompt, validateConsolidation, createConsolidator,
   CONSOLIDATION_SCHEMA, buildReconsiderPrompt, nearSlug} from '../server/consolidator.mjs';
 import {worthWaiting} from '../server/model-provider.mjs';
 
-const projects = [{slug: 'ledger', brief: 'Go payments ledger'}, {slug: 'sourdough', brief: 'Baking'}];
+const topics = [{slug: 'ledger', brief: 'Go payments ledger'}, {slug: 'sourdough', brief: 'Baking'}];
 const memories = [
-  {id: 'm1', statement: 'No em dashes.', kind: 'preference', project_slug: null, revision: 1, mentions: 2},
-  {id: 'm2', statement: 'I want entries to be append only.', kind: 'intent', project_slug: 'ledger', revision: 3, mentions: 1},
-  {id: 'm3', statement: 'Deploys go out on Tuesday mornings.', kind: 'fact', project_slug: 'ledger', revision: 1, mentions: 1},
+  {id: 'm1', statement: 'No em dashes.', kind: 'preference', topic_slug: null, revision: 1, mentions: 2},
+  {id: 'm2', statement: 'I want entries to be append only.', kind: 'intent', topic_slug: 'ledger', revision: 3, mentions: 1},
+  {id: 'm3', statement: 'Deploys go out on Tuesday mornings.', kind: 'fact', topic_slug: 'ledger', revision: 1, mentions: 1},
 ];
 const turns = [
   {role: 'user', content: 'done, entries are append only now'},
   {role: 'assistant', content: 'Good. I will treat the ledger as append only from here.'},
   {role: 'user', content: 'and no em dashes in commit messages either'},
 ];
-const context = {turns, memories, project: {slug: 'ledger', brief: 'Go payments ledger'}, projects};
+const context = {turns, memories, topic: {slug: 'ledger', brief: 'Go payments ledger'}, topics};
 
 const change = over => ({action: 'add', target: null, statement: 'A claim.', source: 'done, entries are append only',
-  kind: 'fact', project: null, expires: null, why: 'because', ...over});
+  kind: 'fact', topic: null, expires: null, why: 'because', ...over});
 
 test('the model is told what day it is, and how old each memory is', () => {
   // R7. Nothing had a temporal anchor, which is how "not in the review list
@@ -46,7 +46,7 @@ test('the model is shown numbers, never ids', () => {
   assert.match(prompt, /#1 {2}\[preference, personal, said 2 times\] {2}No em dashes\./);
   assert.match(prompt, /#2 {2}\[intent, ledger\] {2}I want entries to be append only\./);
   assert.doesNotMatch(prompt, /\bm1\b|\bm2\b/, 'a model that never sees an id cannot invent one');
-  assert.match(prompt, /this conversation\n {2}project {2}ledger/);
+  assert.match(prompt, /this conversation\n {2}topic {2}ledger/);
 });
 
 test('both halves of the conversation are shown, in the order they happened', () => {
@@ -214,13 +214,13 @@ test('a session too long for one call is split between turns, and one huge turn 
   assert.deepEqual(firstChunk(huge, 10).map(t => t.id), [0], 'a turn is never cut to fit');
 });
 
-test('an invented project falls back to personal, and a real one survives', () => {
+test('an invented topic falls back to personal, and a real one survives', () => {
   const out = validateConsolidation({changes: [
-    change({project: 'not-a-project', statement: 'One claim.', source: 'no em dashes in commit messages'}),
-    change({project: 'sourdough', statement: 'Another claim.', source: 'no em dashes in commit messages'}),
+    change({topic: 'not-a-topic', statement: 'One claim.', source: 'no em dashes in commit messages'}),
+    change({topic: 'sourdough', statement: 'Another claim.', source: 'no em dashes in commit messages'}),
   ]}, context);
-  assert.equal(out.changes[0].project, null, 'personal loads everywhere, which is the harmless miss');
-  assert.equal(out.changes[1].project, 'sourdough');
+  assert.equal(out.changes[0].topic, null, 'personal loads everywhere, which is the harmless miss');
+  assert.equal(out.changes[1].topic, 'sourdough');
 });
 
 test('a claim already in the set is not added again', () => {
@@ -256,7 +256,7 @@ const answers = changes => async () => json({
 test('a run comes back explainable, with the prompt, the reply and the wording it used', async () => {
   const consolidator = createConsolidator({apiKey: 'x', fetchImpl: answers([
     {action: 'retire', target: 2, statement: '', source: 'done, entries are append only',
-     kind: 'intent', project: 'ledger', expires: null, why: 'the user said it was done'}])});
+     kind: 'intent', topic: 'ledger', expires: null, why: 'the user said it was done'}])});
   const out = await consolidator.consolidate(context);
   assert.equal(out.changes.length, 1);
   assert.equal(out.changes[0].target, 'm2');
@@ -299,7 +299,7 @@ test('the schema the provider enforces is the five decisions and nothing else', 
   await consolidator.consolidate(context);
   const schema = sent.generationConfig.responseJsonSchema ?? sent.generationConfig.responseSchema;
   assert.deepEqual(Object.keys(schema.properties.changes.items.properties).sort(),
-    ['action', 'expires', 'kind', 'new_topic', 'project', 'source', 'statement', 'target', 'why']);
+    ['action', 'expires', 'kind', 'new_topic', 'source', 'statement', 'target', 'topic', 'why']);
   assert.deepEqual(CONSOLIDATION_SCHEMA.shape.changes.element.shape.action.options,
     ['add', 'extend', 'replace', 'retire', 'affirm']);
 });
@@ -330,7 +330,7 @@ test('a full block turns the question from absolute into comparative', () => {
   // here" is one a small model can answer, and it only exists once the set
   // has a size.
   const many = Array.from({length: 30}, (_, i) =>
-    ({id: `m${i}`, statement: `Claim ${i}.`, kind: 'fact', project_slug: null, revision: 1, mentions: 1}));
+    ({id: `m${i}`, statement: `Claim ${i}.`, kind: 'fact', topic_slug: null, revision: 1, mentions: 1}));
   const full = buildConsolidationPrompt({...context, memories: many, cap: 30}).prompt;
   assert.match(full, /the block holds 30 and there are already 30/);
   assert.match(full, /worth more than the weakest line above/);
@@ -339,35 +339,35 @@ test('a full block turns the question from absolute into comparative', () => {
   assert.doesNotMatch(roomy, /the block holds/, 'no pressure is invented when there is room');
 });
 
-test('a session with no project may still file under a listed one', () => {
-  // A repository linked to two projects starts the session with neither, and
+test('a session with no topic may still file under a listed one', () => {
+  // A repository linked to two topics starts the session with neither, and
   // the old header told the model to use null. The validator always took any
   // of the person's slugs; only the wording held it back.
-  const unlinked = {...context, project: null,
-    projects: [{slug: 'ledger', brief: 'Go payments ledger', repositories: ['acme/ledger']}, projects[1]]};
+  const unlinked = {...context, topic: null,
+    topics: [{slug: 'ledger', brief: 'Go payments ledger', repositories: ['acme/ledger']}, topics[1]]};
   const prompt = buildConsolidationPrompt(unlinked).prompt;
-  assert.match(prompt, /project {2}none linked\n/);
+  assert.match(prompt, /topic {2}none linked\n/);
   assert.doesNotMatch(prompt, /use null unless/);
   assert.match(prompt, /If a memory is specific to one of these, use its slug/);
   assert.match(prompt, /ledger {2}Go payments ledger {2}repos acme\/ledger/);
-  const {changes} = validateConsolidation({changes: [change({project: 'ledger'})]}, unlinked);
-  assert.equal(changes[0].project, 'ledger');
+  const {changes} = validateConsolidation({changes: [change({topic: 'ledger'})]}, unlinked);
+  assert.equal(changes[0].topic, 'ledger');
 
-  const replaced = validateConsolidation({changes: [change({action: 'replace', target: 3, project: null})]}, unlinked);
-  assert.equal(replaced.changes[0].project, 'ledger', 'a null answer does not move a project fact to personal');
+  const replaced = validateConsolidation({changes: [change({action: 'replace', target: 3, topic: null})]}, unlinked);
+  assert.equal(replaced.changes[0].topic, 'ledger', 'a null answer does not move a topic fact to personal');
 
   const linked = buildConsolidationPrompt(context).prompt;
-  assert.match(linked, /other projects, only when the user names one/, 'a linked session keeps its narrow rule');
+  assert.match(linked, /other topics, only when the user names one/, 'a linked session keeps its narrow rule');
 });
 
-test('project memories shown to an unlinked session do not count against its block', () => {
-  // Only personal memories load into a session with no project, so showing it
-  // every project's memories must not invent pressure it does not have.
+test('topic memories shown to an unlinked session do not count against its block', () => {
+  // Only personal memories load into a session with no topic, so showing it
+  // every topic's memories must not invent pressure it does not have.
   const personal = Array.from({length: 5}, (_, i) =>
-    ({id: `p${i}`, statement: `Personal ${i}.`, kind: 'preference', project_slug: null, revision: 1, mentions: 1}));
+    ({id: `p${i}`, statement: `Personal ${i}.`, kind: 'preference', topic_slug: null, revision: 1, mentions: 1}));
   const ledger = Array.from({length: 30}, (_, i) =>
-    ({id: `l${i}`, statement: `Ledger ${i}.`, kind: 'fact', project_slug: 'ledger', revision: 1, mentions: 1}));
-  const prompt = buildConsolidationPrompt({...context, project: null, memories: [...personal, ...ledger], cap: 30}).prompt;
+    ({id: `l${i}`, statement: `Ledger ${i}.`, kind: 'fact', topic_slug: 'ledger', revision: 1, mentions: 1}));
+  const prompt = buildConsolidationPrompt({...context, topic: null, memories: [...personal, ...ledger], cap: 30}).prompt;
   assert.doesNotMatch(prompt, /the block holds/);
 });
 
@@ -436,28 +436,28 @@ test('what is worth waiting for: an overloaded host and a burst limit, not a spe
 test('a source quoting a long paste is cut to what memories.source holds, not refused', () => {
   const paste = 'we deploy from main on fridays '.repeat(300);
   const out = validateConsolidation({changes: [{action: 'add', statement: 'Deploys go out on Fridays.',
-    source: paste, kind: 'fact', why: 'said so', project: null}]},
-    {turns: [{role: 'user', content: paste}], memories: [], projects: []});
+    source: paste, kind: 'fact', why: 'said so', topic: null}]},
+    {turns: [{role: 'user', content: paste}], memories: [], topics: []});
   assert.equal(out.changes.length, 1, JSON.stringify(out.dropped));
   assert.equal(out.changes[0].source.length, 4000);
 });
 
-test('an unlinked conversation is told which codebase it ran in and which projects own it', () => {
-  const unlinked = {turns, memories, project: null, codebase: 'acme/ledger', projects: [
+test('an unlinked conversation is told which codebase it ran in and which topics own it', () => {
+  const unlinked = {turns, memories, topic: null, codebase: 'acme/ledger', topics: [
     {slug: 'ledger', brief: 'Go ledger', repositories: ['acme/ledger']},
     {slug: 'audit', brief: 'Audit trail', repositories: ['acme/ledger', 'acme/audit']},
     {slug: 'sourdough', brief: 'Baking'}]};
   const {prompt} = buildConsolidationPrompt(unlinked);
-  assert.match(prompt, /project {2}none linked\n {2}codebase {2}acme\/ledger {2}\(belongs to ledger, audit\)/);
+  assert.match(prompt, /topic {2}none linked\n {2}codebase {2}acme\/ledger {2}\(belongs to ledger, audit\)/);
   const none = buildConsolidationPrompt({...unlinked, codebase: 'acme/else'}).prompt;
-  assert.match(none, /codebase {2}acme\/else\n/, 'a codebase no project owns is still named, with no owners');
+  assert.match(none, /codebase {2}acme\/else\n/, 'a codebase no topic owns is still named, with no owners');
   assert.doesNotMatch(buildConsolidationPrompt({...unlinked, codebase: null}).prompt, /codebase/);
 });
 
 test('the twin question carries both claims and the words that produced the new one', async () => {
   const {system, prompt} = buildReconsiderPrompt({
     proposed: {statement: 'Deploys go out on Thursday mornings.', source: 'deploys are thursdays now', kind: 'fact'},
-    existing: {statement: 'Deploys go out on Tuesday mornings.', kind: 'fact', project_slug: 'ledger'},
+    existing: {statement: 'Deploys go out on Tuesday mornings.', kind: 'fact', topic_slug: 'ledger'},
     now: new Date('2026-10-02T00:00:00Z')});
   assert.match(system, /replace: the new claim makes the existing one false/);
   assert.match(prompt, /existing memory\n {2}\[fact, ledger\] {2}Deploys go out on Tuesday mornings\./);
@@ -499,39 +499,39 @@ test('a 503 early in a 240 second step still gets its retry after the wait', asy
   assert.equal(asked.length, 2);
 });
 test('a new topic is only made when the pass is allowed to make one', () => {
-  const named = {changes: [change({source: 'and no em dashes in commit messages', project: 'infrastructure',
+  const named = {changes: [change({source: 'and no em dashes in commit messages', topic: 'infrastructure',
     new_topic: 'How the infra is set up'})]};
   const off = validateConsolidation(named, context);
-  assert.equal(off.changes[0].project, null);
-  assert.deepEqual(off.topics, []);
-  const on = validateConsolidation(named, {...context, newTopics: true});
-  assert.equal(on.changes[0].project, 'infrastructure');
-  assert.deepEqual(on.topics, [{slug: 'infrastructure', brief: 'How the infra is set up'}]);
+  assert.equal(off.changes[0].topic, null);
+  assert.deepEqual(off.named, []);
+  const on = validateConsolidation(named, {...context, topicsAllowed: true});
+  assert.equal(on.changes[0].topic, 'infrastructure');
+  assert.deepEqual(on.named, [{slug: 'infrastructure', brief: 'How the infra is set up'}]);
 });
 
 test('a new topic needs a slug the database accepts and a line saying what it covers', () => {
-  const allowed = {...context, newTopics: true};
-  const bare = validateConsolidation({changes: [change({project: 'infrastructure', new_topic: null})]}, allowed);
-  assert.equal(bare.changes[0].project, null);
-  const bad = validateConsolidation({changes: [change({project: 'Infra Stuff!', new_topic: 'infra'})]}, allowed);
-  assert.equal(bad.changes[0].project, null);
+  const allowed = {...context, topicsAllowed: true};
+  const bare = validateConsolidation({changes: [change({topic: 'infrastructure', new_topic: null})]}, allowed);
+  assert.equal(bare.changes[0].topic, null);
+  const bad = validateConsolidation({changes: [change({topic: 'Infra Stuff!', new_topic: 'infra'})]}, allowed);
+  assert.equal(bad.changes[0].topic, null);
 });
 
 test('a near spelling of a listed slug is that slug, and one topic named twice is one topic', () => {
-  const allowed = {...context, newTopics: true};
-  const near = validateConsolidation({changes: [change({project: 'ledger-api', new_topic: 'The ledger API'})]}, allowed);
-  assert.equal(near.changes[0].project, 'ledger');
-  assert.deepEqual(near.topics, []);
+  const allowed = {...context, topicsAllowed: true};
+  const near = validateConsolidation({changes: [change({topic: 'ledger-api', new_topic: 'The ledger API'})]}, allowed);
+  assert.equal(near.changes[0].topic, 'ledger');
+  assert.deepEqual(near.named, []);
   const twice = validateConsolidation({changes: [
-    change({statement: 'One.', project: 'infra', new_topic: 'Infra'}),
-    change({statement: 'Two.', project: 'infra-tooling', new_topic: 'Infra tools'})]}, allowed);
-  assert.deepEqual(twice.changes.map(c => c.project), ['infra', 'infra']);
-  assert.equal(twice.topics.length, 1);
+    change({statement: 'One.', topic: 'infra', new_topic: 'Infra'}),
+    change({statement: 'Two.', topic: 'infra-tooling', new_topic: 'Infra tools'})]}, allowed);
+  assert.deepEqual(twice.changes.map(c => c.topic), ['infra', 'infra']);
+  assert.equal(twice.named.length, 1);
 });
 
 test('the prompt says new topics are allowed only when they are', () => {
   assert.doesNotMatch(buildConsolidationPrompt(context).prompt, /new topics are allowed/);
-  assert.match(buildConsolidationPrompt({...context, newTopics: true}).prompt, /new topics are allowed/);
+  assert.match(buildConsolidationPrompt({...context, topicsAllowed: true}).prompt, /new topics are allowed/);
 });
 
 test('two subjects that only share a word stay two', () => {

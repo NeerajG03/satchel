@@ -17,7 +17,7 @@
 //              Please retry in 9.878146082s."
 //   details[] RetryInfo.retryDelay = "9s"
 //   details[] QuotaFailure.violations[0].quotaId =
-//               "EmbedContentRequestsPerDayPerProjectPerModel-FreeTier"
+//               "EmbedContentRequestsPerDayPerTopicPerModel-FreeTier"
 //             violations[0].quotaValue = "1000"
 //
 // OpenAI and OpenRouter answer with Retry-After or X-RateLimit-Reset and an

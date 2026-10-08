@@ -56,14 +56,14 @@ const embedder = {model: 'test-model',
 const baseSettings = {per_prompt_matches: 5, gate: 0.67, scope_boost: 1.1,
   session_budget_tokens: 15000, capture: true, capture_window: 5, capture_mode: 'turn'};
 
-const connected = {label: 'Test', personal: true, can_write: true, project_ids: []};
+const connected = {label: 'Test', personal: true, can_write: true, topic_ids: []};
 
 // What every fake service must answer now that scope is resolved rather than
 // guessed. resolveRepository replaced the staged-hint pair: the script that
 // knows the repository is authenticated, so it sends the name and gets the
 // answer, with no row staged in between and nothing to poll for.
 const scopeStubs = {
-  activeProject: async () => null,
+  activeTopic: async () => null,
   resolveRepository: async () => [],
   capturedThisSession: async () => [],
   markSessionClassified: async () => 1,
@@ -100,9 +100,9 @@ test('the turn is what has not been classified, and the scope is resolved not gu
   // overlapped by four. One sentence about a paid key got five chances and was
   // saved twice, thirty-six seconds apart, in two wordings.
   //
-  // And the router got a flat list of every project with nothing saying which
+  // And the router got a flat list of every topic with nothing saying which
   // one the conversation was in, so it inferred the scope from the words. The
-  // words said "vercel", not "satchel", so a memory about this project's own
+  // words said "vercel", not "satchel", so a memory about this topic's own
   // deployment key was filed under personal.
   const captured = [];
   const marked = [];
@@ -120,15 +120,15 @@ test('the turn is what has not been classified, and the scope is resolved not gu
     settings: async () => ({...baseSettings}),
     recordTurn: async (_key, role, content) => { recorded.push({role, content}); },
     sessionWindow: async () => window,
-    // Nothing selected the project, so the workspace's repository is what
+    // Nothing selected the topic, so the workspace's repository is what
     // resolves it. One candidate, so it is chosen with no model involved.
     resolveRepository: async (_session, _provider, repository) =>
       repository === 'acme/ledger'
-        ? [{project_id: 'p1', slug: 'ledger', name: 'Ledger', brief: 'The ledger', selected: true}] : [],
-    projects: async () => [
+        ? [{topic_id: 'p1', slug: 'ledger', name: 'Ledger', brief: 'The ledger', selected: true}] : [],
+    topics: async () => [
       {id: 'p1', slug: 'ledger', brief: 'The ledger',
-        project_repositories: [{provider: 'github', repository: 'acme/ledger'}]},
-      {id: 'p2', slug: 'sourdough', brief: 'Baking', project_repositories: []},
+        topic_repositories: [{provider: 'github', repository: 'acme/ledger'}]},
+      {id: 'p2', slug: 'sourdough', brief: 'Baking', topic_repositories: []},
     ],
     capturedThisSession: async () => ['Deploys go out on Tuesday mornings.'],
     markSessionClassified: async (key, through) => { marked.push({key, through}); return 1; },
@@ -152,10 +152,10 @@ test('the turn is what has not been classified, and the scope is resolved not gu
     'everything already classified is context, which may not supply a source');
 
   // Scope, resolved from the repository with no model involved.
-  assert.deepEqual(input.project, {slug: 'ledger', brief: 'The ledger'});
+  assert.deepEqual(input.topic, {slug: 'ledger', brief: 'The ledger'});
   assert.equal(input.codebase, 'acme/ledger');
-  assert.deepEqual(input.projects, [{slug: 'sourdough', brief: 'Baking'}],
-    'the active project is named on its own and not repeated among the others');
+  assert.deepEqual(input.topics, [{slug: 'sourdough', brief: 'Baking'}],
+    'the active topic is named on its own and not repeated among the others');
   assert.equal('tasks' in input, false,
     'a memory has one scope, so a list of open work is not the router\u2019s business');
   assert.deepEqual(input.saved, ['Deploys go out on Tuesday mornings.']);
@@ -176,7 +176,7 @@ test('a run that never reached the model leaves the turn for next time', async (
     settings: async () => ({...baseSettings}),
     recordTurn: async () => {},
     sessionWindow: async () => [{id: 9, role: 'user', content: 'never bump Go', classified_at: null}],
-    projects: async () => [],
+    topics: async () => [],
     markSessionClassified: async (key, through) => { marked.push({key, through}); return 1; },
     captureTurn: async () => ({memories: [], dropped: 0, failed: true}),
   }, {sessionKey: 's', assistant: 'Understood.'});
@@ -210,7 +210,7 @@ test('retrieval records the prompt whether or not it finds anything', async () =
     settings: async () => baseSettings,
     recordTurn: async (_k, role, content) => { recorded.push({role, content}); },
     search: async () => [],
-    projects: async () => [],
+    topics: async () => [],
   };
   const quiet = await retrieve(service, {sessionKey: 's', prompt: 'what did we decide about Go'});
   assert.deepEqual(recorded, [{role: 'user', content: 'what did we decide about Go'}]);
@@ -235,7 +235,7 @@ test('retrieval passes the prompt as the query and nothing else', async () => {
     settings: async () => baseSettings,
     recordTurn: async () => {},
     search: async args => { searched.push(args); return []; },
-    resolveRepository: async () => [{project_id: 'p1', slug: 'a', name: 'A', brief: '', selected: true}],
+    resolveRepository: async () => [{topic_id: 'p1', slug: 'a', name: 'A', brief: '', selected: true}],
   }, {sessionKey: 's', prompt: 'the release order', repository: 'acme/ledger'});
   assert.equal(searched.length, 1);
   assert.equal(searched[0].query, 'the release order');
@@ -293,7 +293,7 @@ test('a capture is announced and a quiet turn stays quiet, and neither injects',
     settings: async () => ({...baseSettings, capture_window: 1}),
     recordTurn: async () => {},
     sessionWindow: async () => [{id: 1, role: 'user', content: 'never bump Go until payouts ship', classified_at: null}],
-    projects: async () => [],
+    topics: async () => [],
     captureTurn: async () => ({memories: captured, dropped: 0, failed: false}),
   };
   const run = () => capture(service, {sessionKey: 's', assistant: 'Noted.'});
@@ -310,9 +310,9 @@ test('a capture is announced and a quiet turn stays quiet, and neither injects',
 });
 
 test('an ambiguous repository names the choice rather than picking one', async () => {
-  // A codebase can belong to several projects, so the repository stops being an
-  // identifier. Picking one would put a memory in a real project that is the
-  // wrong project, which is worse than personal: personal is at least visibly
+  // A codebase can belong to several topics, so the repository stops being an
+  // identifier. Picking one would put a memory in a real topic that is the
+  // wrong topic, which is worse than personal: personal is at least visibly
   // unscoped and loads everywhere.
   const result = await sessionStart({
     ...scopeStubs,
@@ -320,16 +320,16 @@ test('an ambiguous repository names the choice rather than picking one', async (
     settings: async () => baseSettings,
     // Two candidates, so resolve_agent_repository selects none of them.
     resolveRepository: async () => [
-      {project_id: 'p1', slug: 'email-self-serve', name: 'Email self serve', brief: '', selected: false},
-      {project_id: 'p2', slug: 'data-model-2-0', name: 'Data model 2.0', brief: '', selected: false},
+      {topic_id: 'p1', slug: 'email-self-serve', name: 'Email self serve', brief: '', selected: false},
+      {topic_id: 'p2', slug: 'data-model-2-0', name: 'Data model 2.0', brief: '', selected: false},
     ],
-    projects: async () => [],
+    topics: async () => [],
     personal: async () => [],
   }, {sessionKey: 's', repository: 'cbx1/backend'});
 
-  assert.equal(result.active_project, null);
+  assert.equal(result.active_topic, null);
   assert.match(result.context, /belongs to 2 topics/);
-  // By id, because that is what select_project takes. A slug it would have to
+  // By id, because that is what select_topic takes. A slug it would have to
   // look up is a second place to go wrong.
   assert.match(result.context, /email-self-serve \(p1\)/);
   assert.match(result.context, /data-model-2-0 \(p2\)/);
@@ -337,9 +337,9 @@ test('an ambiguous repository names the choice rather than picking one', async (
 });
 
 test('the linked set is read without changing a scope the person already chose', async () => {
-  // The session key survives a /clear, so an explicit select_project made
+  // The session key survives a /clear, so an explicit select_topic made
   // earlier is still active when the session-start hook runs again. The block
-  // still needs to know which projects belong to this codebase, so it asks,
+  // still needs to know which topics belong to this codebase, so it asks,
   // but read-only: re-resolving with selection on would quietly overwrite the
   // scope the person picked.
   const asked = [];
@@ -347,20 +347,20 @@ test('the linked set is read without changing a scope the person already chose',
     ...scopeStubs,
     status: async () => connected,
     settings: async () => baseSettings,
-    activeProject: async () => 'chosen-by-hand',
+    activeTopic: async () => 'chosen-by-hand',
     resolveRepository: async (_s, _p, repository, select) => {
       asked.push({repository, select});
-      return [{project_id: 'p1', slug: 'a', name: 'A', brief: '', selected: false},
-        {project_id: 'p2', slug: 'b', name: 'B', brief: '', selected: false}];
+      return [{topic_id: 'p1', slug: 'a', name: 'A', brief: '', selected: false},
+        {topic_id: 'p2', slug: 'b', name: 'B', brief: '', selected: false}];
     },
-    projects: async () => [
+    topics: async () => [
       {id: 'p1', slug: 'a', brief: ''}, {id: 'p2', slug: 'b', brief: ''}, {id: 'p3', slug: 'c', brief: ''}],
     personal: async () => [],
   };
   const result = await sessionStart(service, {sessionKey: 's', repository: 'acme/mono'});
   assert.deepEqual(asked, [{repository: 'acme/mono', select: false}],
     'asked, but told not to select');
-  assert.equal(result.active_project, 'chosen-by-hand', 'the chosen scope survives');
+  assert.equal(result.active_topic, 'chosen-by-hand', 'the chosen scope survives');
   assert.match(result.context, /topics in this codebase/);
   assert.match(result.context, /1 other topic not linked/, 'and the block still filters');
 });
@@ -371,16 +371,16 @@ test('with no scope chosen yet, resolving the repository is allowed to select', 
     ...scopeStubs,
     status: async () => connected,
     settings: async () => baseSettings,
-    activeProject: async () => null,
+    activeTopic: async () => null,
     resolveRepository: async (_s, _p, repository, select) => {
       asked.push({repository, select});
-      return [{project_id: 'p1', slug: 'a', name: 'A', brief: '', selected: true}];
+      return [{topic_id: 'p1', slug: 'a', name: 'A', brief: '', selected: true}];
     },
-    projects: async () => [{id: 'p1', slug: 'a', brief: ''}, {id: 'p2', slug: 'b', brief: ''}],
+    topics: async () => [{id: 'p1', slug: 'a', brief: ''}, {id: 'p2', slug: 'b', brief: ''}],
     personal: async () => [],
   }, {sessionKey: 's', repository: 'acme/one'});
   assert.deepEqual(asked, [{repository: 'acme/one', select: true}]);
-  assert.equal(result.active_project, 'p1');
+  assert.equal(result.active_topic, 'p1');
   assert.match(result.context, /1 other topic not linked/);
 });
 
@@ -392,14 +392,14 @@ test('picked-up memories load, and the log and the notice say so', async () => {
     ...scopeStubs,
     status: async () => connected,
     settings: async () => ({...baseSettings, block_size: 30}),
-    projects: async () => [],
+    topics: async () => [],
     personal: async () => [
       {id: 'aaaaaa11-0000-4000-8000-000000000001', statement: 'No em dashes.', band: 'said', kind: 'preference', mentions: 1},
       {id: 'cccccc33-0000-4000-8000-000000000003', statement: 'Comments only when needed.', band: 'heard', kind: 'preference', mentions: 3},
       {id: 'dddddd44-0000-4000-8000-000000000004', statement: 'Pros and cons.', band: 'heard', kind: 'preference', mentions: 1},
     ],
     logInjection: async entry => { logged.push(entry); },
-  }, {sessionKey: 's', project: null});
+  }, {sessionKey: 's', topic: null});
   assert.match(result.context, /cccccc {2}Comments only when needed\./);
   assert.match(result.context, /dddddd {2}Pros and cons\./);
   assert.deepEqual(logged[0].memory_ids, ['aaaaaa11-0000-4000-8000-000000000001',
@@ -422,7 +422,7 @@ test('a rate limit tells the person what actually happened', async () => {
     settings: async () => baseSettings,
     recordTurn: async () => {},
     sessionWindow: async () => [{id: 1, role: 'user', content: 'what did we decide', classified_at: null}],
-    projects: async () => [],
+    topics: async () => [],
     captureTurn: async () => { throw spent; },
   }, {sessionKey: 's', assistant: 'Here is what we decided.'});
 
@@ -437,7 +437,7 @@ test('retrieve_memory with no embedder configured says so, not that a write may 
   // to "Satchel request failed. Reload before retrying a write: it may have
   // completed." retrieve_memory is read-only, and no request was even sent to
   // an embedder, so every word of that fallback was wrong.
-  const db = recorder({agent_connection_status: {label: 'Test', personal: true, project_ids: []}});
+  const db = recorder({agent_connection_status: {label: 'Test', personal: true, topic_ids: []}});
   const server = createMemoryServer(memoryService(db, null));
   const client = new Client({name: 'test', version: '1'});
   const [left, right] = InMemoryTransport.createLinkedPair();
@@ -462,7 +462,7 @@ test('retrieve_memory with no embedder configured says so, not that a write may 
 //
 // Stubbing captureTurn, which is what the tests above do, cannot see this: the
 // bug lives underneath that stub.
-const writerRow = {id: 'm1', project_id: null, band: 'heard',
+const writerRow = {id: 'm1', topic_id: null, band: 'heard',
   statement: 'Customer cap lives in GrowthBook', source: 'customer cap can be stored in growthbook'};
 
 test('an automatically captured memory is embedded, exactly like a saved one', async () => {
@@ -470,7 +470,7 @@ test('an automatically captured memory is embedded, exactly like a saved one', a
   const service = memoryService(db, embedder, null);
 
   await service.captureMemory({id: 'm1', statement: writerRow.statement,
-    source: writerRow.source, project: 'ledger'});
+    source: writerRow.source, topic: 'ledger'});
   const captured = db.calls.update.find(call => call.table === 'memories');
   assert.ok(captured, 'capture must write the vector, not only the row');
   assert.ok(String(captured.values.embedding).startsWith('['), 'and it must be a vector literal');
@@ -478,7 +478,7 @@ test('an automatically captured memory is embedded, exactly like a saved one', a
     'the model is stamped, so two vector spaces stay distinguishable');
 
   db.calls.update.length = 0;
-  await service.save({id: 'm2', project_id: null, statement: writerRow.statement, source: writerRow.source});
+  await service.save({id: 'm2', topic_id: null, statement: writerRow.statement, source: writerRow.source});
   assert.equal(db.calls.update.length, 1, 'save embeds too, and this is the parity that was broken');
 });
 
@@ -490,7 +490,7 @@ test('a capture whose embedding fails is still written and still counted', async
   const failing = {...embedder, embedOne: async () => { throw new Error('quota spent'); }};
   const service = memoryService(db, failing, null);
   const row = await service.captureMemory({id: 'm1', statement: writerRow.statement,
-    source: writerRow.source, project: 'ledger'});
+    source: writerRow.source, topic: 'ledger'});
   assert.equal(row.id, 'm1', 'the caller still gets the row, so the turn counts it as kept');
 });
 
@@ -508,7 +508,7 @@ test('the user’s half is waited for, and its loss is reported without taking t
     settings: async () => baseSettings,
     recordTurn: async () => { await new Promise(r => setTimeout(r, 5)); settled = true; },
     search: async () => [],
-    projects: async () => [],
+    topics: async () => [],
   };
   await retrieve(service, {sessionKey: 's', prompt: 'never bump Go until payouts ship'});
   assert.equal(settled, true, 'retrieve must not return before the turn is on disk');
@@ -523,7 +523,7 @@ test('the user’s half is waited for, and its loss is reported without taking t
     'and they have to be told, because nothing later can reconstruct it');
 });
 
-test('the end of a turn tells the document which project it was', async () => {
+test('the end of a turn tells the document which topic it was', async () => {
   // A consolidation pass runs hours later from a cron with no workspace and no
   // git remote. If the end of the turn does not record the scope, nothing ever
   // can, and every document would consolidate into personal memory.
@@ -532,21 +532,21 @@ test('the end of a turn tells the document which project it was', async () => {
     ...scopeStubs,
     status: async () => connected,
     settings: async () => ({...baseSettings, capture_window: 1}),
-    recordTurn: async (_key, role, content, _keep, projectId) => { recorded.push({role, content, projectId}); },
+    recordTurn: async (_key, role, content, _keep, topicId) => { recorded.push({role, content, topicId}); },
     sessionWindow: async () => [{id: 1, role: 'user', content: 'keep the client on 4.1', classified_at: null}],
     resolveRepository: async (_session, _provider, repository) =>
-      repository === 'acme/ledger' ? [{project_id: 'p1', slug: 'ledger', selected: true}] : [],
-    projects: async () => [{id: 'p1', slug: 'ledger', brief: '', project_repositories: []}],
+      repository === 'acme/ledger' ? [{topic_id: 'p1', slug: 'ledger', selected: true}] : [],
+    topics: async () => [{id: 'p1', slug: 'ledger', brief: '', topic_repositories: []}],
     captureTurn: async () => ({memories: [], dropped: 0, failed: false}),
   };
   await capture(service, {sessionKey: 's', repository: 'acme/ledger', assistant: 'Understood.'});
-  assert.deepEqual(recorded, [{role: 'assistant', content: 'Understood.', projectId: 'p1'}]);
+  assert.deepEqual(recorded, [{role: 'assistant', content: 'Understood.', topicId: 'p1'}]);
 
   // Codex hands over no last_assistant_message. There is no turn to append, so
-  // the call exists only to say which project this was.
+  // the call exists only to say which topic this was.
   recorded.length = 0;
   await capture(service, {sessionKey: 's', repository: 'acme/ledger', assistant: ''});
-  assert.deepEqual(recorded, [{role: 'assistant', content: '', projectId: 'p1'}]);
+  assert.deepEqual(recorded, [{role: 'assistant', content: '', topicId: 'p1'}]);
 });
 
 test('with no router the conversation is still kept', async () => {
@@ -560,7 +560,7 @@ test('with no router the conversation is still kept', async () => {
     status: async () => connected,
     settings: async () => baseSettings,
     recordTurn: async (_key, role, content) => { recorded.push({role, content}); },
-    projects: async () => [],
+    topics: async () => [],
   }, {sessionKey: 's', assistant: 'Understood.'});
   assert.deepEqual(recorded, [{role: 'assistant', content: 'Understood.'}]);
   assert.equal(result.captured, 0);
@@ -576,7 +576,7 @@ test('a memory the router captured names the run that decided it', () => {
   const db = recorder({capture_memory: {id: 'm1', statement: 'A claim.'}});
   const service = memoryService(db, null, {
     model: 'test-model',
-    route: async () => ({memories: [{statement: 'A claim.', source: 'a claim', project: null}],
+    route: async () => ({memories: [{statement: 'A claim.', source: 'a claim', topic: null}],
       dropped: [], prompt: 'p', raw: '{}'}),
   });
   void captured;
@@ -603,7 +603,7 @@ test('the default is that nothing writes a memory without reading the conversati
     status: async () => connected,
     settings: async () => ({...baseSettings, capture_mode: 'session'}),
     recordTurn: async () => {},
-    projects: async () => [],
+    topics: async () => [],
     sessionWindow: async () => [{id: 1, role: 'user', content: 'something durable', classified_at: null}],
     captureTurn: async () => { routed = true; return {memories: [], dropped: 0, failed: false}; },
   }, {sessionKey: 's', assistant: 'Understood.'});
@@ -611,10 +611,10 @@ test('the default is that nothing writes a memory without reading the conversati
   assert.equal(result.captured, 0);
 });
 
-test('the codebase is noted on the document only when no project was chosen, and never fails the capture', async () => {
+test('the codebase is noted on the document only when no topic was chosen, and never fails the capture', async () => {
   const noted = [];
   const base = {...scopeStubs, status: async () => connected, settings: async () => ({...baseSettings}),
-    recordTurn: async () => {}, sessionWindow: async () => [], projects: async () => []};
+    recordTurn: async () => {}, sessionWindow: async () => [], topics: async () => []};
   await capture({...base, noteRepository: async (key, repo) => { noted.push([key, repo]); }},
     {sessionKey: 's', repository: 'acme/backend', assistant: 'Noted.'});
   assert.deepEqual(noted, [['s', 'acme/backend']]);
@@ -624,8 +624,8 @@ test('the codebase is noted on the document only when no project was chosen, and
     {sessionKey: 's', assistant: 'Noted.'});
   assert.equal(noted.length, 1, 'no repository, nothing to note');
   await capture({...base, noteRepository: async (key, repo) => { noted.push([key, repo]); }},
-    {sessionKey: 's', repository: 'acme/backend', project: 'p1', assistant: 'Noted.'});
-  assert.equal(noted.length, 1, 'a chosen project already says more than the codebase');
+    {sessionKey: 's', repository: 'acme/backend', topic: 'p1', assistant: 'Noted.'});
+  assert.equal(noted.length, 1, 'a chosen topic already says more than the codebase');
 });
 
 test('a machine message is noted in the document and never searched', async () => {
@@ -640,7 +640,7 @@ test('a machine message is noted in the document and never searched', async () =
     settings: async () => baseSettings,
     recordTurn: async (_k, role, content) => { recorded.push({role, content}); },
     search: async () => { searched += 1; return [{id: crypto.randomUUID(), statement: 'x', score: 0.9, matched: 1, in_scope: 1}]; },
-    projects: async () => [],
+    topics: async () => [],
     personal: async () => [],
   };
   const handback = 'Another Claude session sent a message:\n<agent-message from="a1">\n[Subagent hand-back] never bump Go';
@@ -663,12 +663,12 @@ test('what session start already loaded is excluded from retrieval, and rows say
     settings: async () => ({...baseSettings, block_size: 30}),
     recordTurn: async () => {},
     personal: async () => personal,
-    projects: async () => [{id: 'p1', slug: 'ledger', brief: ''}],
+    topics: async () => [{id: 'p1', slug: 'ledger', brief: ''}],
     search: async args => {
       searched.push(args);
       return [
-        {id: 'cccccccc-0000-4000-8000-000000000003', project_id: 'p1', band: 'said', statement: 'Payouts ship before Go moves.', score: 0.8, matched: 2, in_scope: 9},
-        {id: 'dddddddd-0000-4000-8000-000000000004', project_id: null, band: 'heard', statement: 'Comments only when needed.', score: 0.7, matched: 2, in_scope: 9},
+        {id: 'cccccccc-0000-4000-8000-000000000003', topic_id: 'p1', band: 'said', statement: 'Payouts ship before Go moves.', score: 0.8, matched: 2, in_scope: 9},
+        {id: 'dddddddd-0000-4000-8000-000000000004', topic_id: null, band: 'heard', statement: 'Comments only when needed.', score: 0.7, matched: 2, in_scope: 9},
       ];
     },
   };
@@ -689,53 +689,53 @@ test('a slash command searches for its arguments, not its wrapper', async () => 
     settings: async () => baseSettings,
     recordTurn: async (_k, _r, content) => { recorded.push(content); },
     search: async args => { searched.push(args.query); return []; },
-    projects: async () => [], personal: async () => [],
+    topics: async () => [], personal: async () => [],
   }, {sessionKey: 's', prompt: '<command-name>/plan</command-name>\n<command-args>the release order for payouts</command-args>'});
   assert.deepEqual(searched, ['the release order for payouts']);
   assert.deepEqual(recorded, ['the release order for payouts']);
 });
 
-test('session start loads the active project\'s own rules under their own cap', async () => {
-  // Project memories arrived only by topic, and a rule about how the work in
+test('session start loads the active topic\'s own rules under their own cap', async () => {
+  // Topic memories arrived only by topic, and a rule about how the work in
   // this codebase is done is relevant by activity, which is the measurement
   // that put personal memories in the block in the first place.
   const own = [
-    {id: 'f1000000-0000-4000-8000-000000000001', project_id: 'p1', kind: 'fact', band: 'heard', mentions: 1, statement: 'Deploys go through infra-configurations.'},
-    {id: 'f2000000-0000-4000-8000-000000000002', project_id: 'p1', kind: 'preference', band: 'said', mentions: 2, statement: 'One QA run per commit is enough.'},
-    {id: 'f3000000-0000-4000-8000-000000000003', project_id: null, kind: 'preference', band: 'said', mentions: 1, statement: 'A personal row memories_in_scope also answers.'},
+    {id: 'f1000000-0000-4000-8000-000000000001', topic_id: 'p1', kind: 'fact', band: 'heard', mentions: 1, statement: 'Deploys go through infra-configurations.'},
+    {id: 'f2000000-0000-4000-8000-000000000002', topic_id: 'p1', kind: 'preference', band: 'said', mentions: 2, statement: 'One QA run per commit is enough.'},
+    {id: 'f3000000-0000-4000-8000-000000000003', topic_id: null, kind: 'preference', band: 'said', mentions: 1, statement: 'A personal row memories_in_scope also answers.'},
   ];
   const logged = [];
   const result = await sessionStart({
     ...scopeStubs,
     status: async () => connected,
     settings: async () => baseSettings,
-    resolveRepository: async () => [{project_id: 'p1', slug: 'ledger', name: 'Ledger', brief: 'Payments', selected: true}],
-    projects: async () => [{id: 'p1', slug: 'ledger', brief: 'Payments'}],
+    resolveRepository: async () => [{topic_id: 'p1', slug: 'ledger', name: 'Ledger', brief: 'Payments', selected: true}],
+    topics: async () => [{id: 'p1', slug: 'ledger', brief: 'Payments'}],
     personal: async () => [],
-    index: async projectId => { assert.equal(projectId, 'p1'); return {memories: own, complete: true}; },
+    index: async topicId => { assert.equal(topicId, 'p1'); return {memories: own, complete: true}; },
     logInjection: async entry => { logged.push(entry); },
   }, {sessionKey: 's', repository: 'acme/ledger'});
   assert.match(result.context, /topic ledger, confirmed, applies to work in this codebase\n {2}f20000 {2}One QA run per commit is enough\./);
   assert.match(result.context, /topic ledger, picked up from what you said, use unless told otherwise\n {2}f10000 {2}Deploys go through infra-configurations\./);
-  assert.doesNotMatch(result.context, /A personal row memories_in_scope/, 'only the project\'s own rows go in its block');
-  assert.doesNotMatch(result.context, /personal, confirmed/, 'the personal block is empty here, and the project rows did not leak into it');
+  assert.doesNotMatch(result.context, /A personal row memories_in_scope/, 'only the topic\'s own rows go in its block');
+  assert.doesNotMatch(result.context, /personal, confirmed/, 'the personal block is empty here, and the topic rows did not leak into it');
   assert.match(result.notice, /2 topic memories/);
   assert.deepEqual(new Set(logged[0].memory_ids), new Set([own[0].id, own[1].id]), 'the log names what loaded');
 });
 
-test('with two candidate projects no project block loads', async () => {
+test('with two candidate topics no topic block loads', async () => {
   let asked = false;
   const result = await sessionStart({
     ...scopeStubs,
     status: async () => connected,
     settings: async () => baseSettings,
     resolveRepository: async () => [
-      {project_id: 'p1', slug: 'a', name: 'A', brief: '', selected: false},
-      {project_id: 'p2', slug: 'b', name: 'B', brief: '', selected: false}],
-    projects: async () => [{id: 'p1', slug: 'a', brief: ''}, {id: 'p2', slug: 'b', brief: ''}],
+      {topic_id: 'p1', slug: 'a', name: 'A', brief: '', selected: false},
+      {topic_id: 'p2', slug: 'b', name: 'B', brief: '', selected: false}],
+    topics: async () => [{id: 'p1', slug: 'a', brief: ''}, {id: 'p2', slug: 'b', brief: ''}],
     personal: async () => [],
     index: async () => { asked = true; return {memories: [], complete: true}; },
   }, {sessionKey: 's', repository: 'acme/mono'});
-  assert.equal(asked, false, 'nothing is scoped, so nothing project-scoped loads');
+  assert.equal(asked, false, 'nothing is scoped, so nothing topic-scoped loads');
   assert.doesNotMatch(result.context, /applies to work in this codebase/);
 });

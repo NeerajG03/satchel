@@ -34,7 +34,7 @@ export type ConsolidationRun = {
   error: string | null; created_at: string;
 };
 export type DocumentRow = {
-  id: string; session_key: string; project_id: string | null; project_slug: string | null;
+  id: string; session_key: string; topic_id: string | null; topic_slug: string | null;
   turns: number; chars: number; started_at: string; last_turn_at: string;
   consolidated_at: string | null; consolidated_through: number | null;
   truncated_at: string | null; expires_at: string;

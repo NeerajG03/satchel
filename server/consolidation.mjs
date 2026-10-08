@@ -24,8 +24,8 @@ const untraced = (_name, _options, run) => run(() => {}, () => {}, null);
  *  Each change is caught on its own. One memory that moved under us, or one
  *  row that will not write, must not cost the rest of the run: the alternative
  *  is a document that half applied and is then marked as read. */
-async function apply(service, change, {projects, trace, document, consolidator = null, deadline = null, now}) {
-  const slug = change.project ?? null;
+async function apply(service, change, {topics, trace, document, consolidator = null, deadline = null, now}) {
+  const slug = change.topic ?? null;
   if (change.action === 'add') {
     // Said before, in other words? The model's own check is an exact match,
     // so a paraphrase of a live memory reached the database as a second row
@@ -34,9 +34,9 @@ async function apply(service, change, {projects, trace, document, consolidator =
     // the model is asked what the pair means and the answer is applied: an
     // affirm, an extend, a replace, or the add after all. Never decided on the
     // similarity score, which rates a contradiction higher than a paraphrase.
-    // A twin in another project is left alone and the add goes through,
-    // because the same rule can hold in two projects without being one memory.
-    const twin = await sameClaim(service, change, projects);
+    // A twin in another topic is left alone and the add goes through,
+    // because the same rule can hold in two topics without being one memory.
+    const twin = await sameClaim(service, change, topics);
     if (twin && consolidator?.reconsider) {
       let verdict = null;
       try { verdict = await consolidator.reconsider({proposed: change, existing: twin, now}, {deadline}); }
@@ -56,17 +56,17 @@ async function apply(service, change, {projects, trace, document, consolidator =
       if (verdict?.action === 'replace') {
         // The successor lives where the claim it replaces lived. A personal
         // twin loads in every session, and a replace proposed from inside one
-        // project must not narrow it to that project: nobody said it should.
-        const where = twin.project_id ? projects.find(p => p.id === twin.project_id)?.slug ?? slug : null;
+        // topic must not narrow it to that topic: nobody said it should.
+        const where = twin.topic_id ? topics.find(p => p.id === twin.topic_id)?.slug ?? slug : null;
         const written = await service.captureMemory({id: crypto.randomUUID(), statement: verdict.statement,
-          source: change.source, project: where, kind: change.kind, expires: change.expires ?? null, trace, document});
+          source: change.source, topic: where, kind: change.kind, expires: change.expires ?? null, trace, document});
         await service.endMemory({id: twin.id, revision: twin.revision, reason: 'replaced', ended_by: written.id,
           note: verdict.why, trace, document});
         return {did: 'replaced', on: twin.id, why, asked};
       }
     }
     await service.captureMemory({id: crypto.randomUUID(), statement: change.statement,
-      source: change.source, project: slug, kind: change.kind,
+      source: change.source, topic: slug, kind: change.kind,
       expires: change.expires ?? null, trace, document});
     return 'added';
   }
@@ -92,7 +92,7 @@ async function apply(service, change, {projects, trace, document, consolidator =
     // both, which is untidy and true. The other order loses the claim
     // entirely and leaves nothing saying it was ever made.
     const written = await service.captureMemory({id: crypto.randomUUID(), statement: change.statement,
-      source: change.source, project: slug, kind: change.kind,
+      source: change.source, topic: slug, kind: change.kind,
       expires: change.expires ?? null, trace, document});
     await service.endMemory({id: change.target, revision: change.revision,
       reason: 'replaced', ended_by: written.id, note: change.why, trace, document});
@@ -103,45 +103,45 @@ async function apply(service, change, {projects, trace, document, consolidator =
 
 /** A live memory that already says what this add says, when the service can
  *  look. Optional, so a replay or a test without an embedder adds as before. */
-async function sameClaim(service, change, projects) {
+async function sameClaim(service, change, topics) {
   if (!service.nearest) return null;
   let near;
   try { near = await service.nearest(change.statement); } catch { return null; }
   if (!near) return null;
-  const target = change.project ? projects.find(p => p.slug === change.project)?.id ?? null : null;
-  return near.project_id == null || near.project_id === target ? near : null;
+  const target = change.topic ? topics.find(p => p.slug === change.topic)?.id ?? null : null;
+  return near.topic_id == null || near.topic_id === target ? near : null;
 }
 
 /** Whether this pass may make a topic of its own. Only on a connection that
- *  sees every project and may write: a topic made under a narrower grant is
+ *  sees every topic and may write: a topic made under a narrower grant is
  *  one the pass cannot see afterwards, so the next session would make it
  *  again. SATCHEL_NEW_TOPICS=off turns it off without a deploy of code. */
 async function mayMakeTopics(service) {
-  if (process.env.SATCHEL_NEW_TOPICS === 'off' || !service.status || !service.upsertProject) return false;
+  if (process.env.SATCHEL_NEW_TOPICS === 'off' || !service.status || !service.upsertTopic) return false;
   try {
     const status = await service.status();
-    return status?.all_projects === true && status?.can_write === true;
+    return status?.all_topics === true && status?.can_write === true;
   } catch { return false; }
 }
 
-/** Makes each new topic the model named, as a project, and adds it to the
+/** Makes each new topic the model named, as a topic, and adds it to the
  *  list the rest of the batch sees so the next session reuses it. */
-async function makeTopics(service, topics, projects) {
+async function makeTopics(service, named, topics) {
   const made = [];
   const failed = new Set();
-  for (const topic of topics) {
-    if (projects.some(p => p.slug === topic.slug)) continue;
+  for (const topic of named) {
+    if (topics.some(p => p.slug === topic.slug)) continue;
     try {
       const id = crypto.randomUUID();
       const name = topic.slug.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
-      const out = service.createTopic
-        ? await service.createTopic({request_id: crypto.randomUUID(), project_id: id, slug: topic.slug,
+      const out = service.createSatchelTopic
+        ? await service.createSatchelTopic({request_id: crypto.randomUUID(), topic_id: id, slug: topic.slug,
           name, brief: topic.brief})
-        : await service.upsertProject({request_id: crypto.randomUUID(), project_id: id, slug: topic.slug,
+        : await service.upsertTopic({request_id: crypto.randomUUID(), topic_id: id, slug: topic.slug,
           name, brief: topic.brief, repository_change: {kind: 'unchanged'}});
       if (out?.grant_required) { failed.add(topic.slug); continue; }
-      const row = {id: out?.project?.id ?? out?.id ?? id, slug: topic.slug, brief: topic.brief, project_repositories: []};
-      projects.push(row);
+      const row = {id: out?.topic?.id ?? out?.id ?? id, slug: topic.slug, brief: topic.brief, topic_repositories: []};
+      topics.push(row);
       made.push(row);
     } catch { failed.add(topic.slug); }
   }
@@ -161,14 +161,14 @@ export async function tidyTopics(service, tidier, {traced = untraced, ownerId, d
       const counts = {moved: 0, merged: 0, topics: 0, dropped: 0};
       const run = {document: 'tidy', session_key: 'personal', scope: 'tidy', ...counts, actions: []};
       try {
-        const projects = await service.projects();
-        const memories = (await service.memoriesInScope(null, 200)).filter(m => !m.project_id);
-        const made = projects.filter(p => p.made_by === 'satchel');
+        const listed = await service.topics();
+        const memories = (await service.memoriesInScope(null, 200)).filter(m => !m.topic_id);
+        const made = listed.filter(p => p.made_by === 'satchel');
         if (!memories.length && made.length < 2) return null;
-        const topics = projects.map(p => ({id: p.id, slug: p.slug, brief: p.brief, made_by: p.made_by ?? 'person'}));
+        const topics = listed.map(p => ({id: p.id, slug: p.slug, brief: p.brief, made_by: p.made_by ?? 'person'}));
         const outcome = await tidier.tidy({topics, memories}, {deadline});
         run.dropped = outcome.dropped.length;
-        const fresh = await makeTopics(service, outcome.topics, projects);
+        const fresh = await makeTopics(service, outcome.named, listed);
         for (const topic of fresh.made) {
           run.topics += 1;
           run.actions.push({did: 'made topic', on: topic.id, statement: topic.slug, why: topic.brief});
@@ -184,10 +184,10 @@ export async function tidyTopics(service, tidier, {traced = untraced, ownerId, d
           }
         }
         for (const move of outcome.moves) {
-          const target = projects.find(p => p.slug === move.slug);
+          const target = listed.find(p => p.slug === move.slug);
           if (!target || fresh.failed.has(move.slug)) continue;
           try {
-            await service.moveMemory({id: move.memory.id, revision: move.memory.revision, project_id: target.id,
+            await service.moveMemory({id: move.memory.id, revision: move.memory.revision, topic_id: target.id,
               note: move.why});
             run.moved += 1;
             run.actions.push({did: 'moved', on: move.memory.id, statement: `${move.memory.statement} → ${move.slug}`,
@@ -204,16 +204,16 @@ export async function tidyTopics(service, tidier, {traced = untraced, ownerId, d
     });
 }
 
-/** Personal memories and every project's own, once each. A session with no
- *  project can still be about one, and the pass cannot extend or affirm a
- *  project memory it was never shown, or tell that an add repeats one. */
-async function memoriesAcross(service, projects, limit = 60) {
-  // Each project call returns the personal rows first, so its limit is raised
-  // by that many or the personal ones would crowd the project's own out.
+/** Personal memories and every topic's own, once each. A session with no
+ *  topic can still be about one, and the pass cannot extend or affirm a
+ *  topic memory it was never shown, or tell that an add repeats one. */
+async function memoriesAcross(service, topics, limit = 60) {
+  // Each topic call returns the personal rows first, so its limit is raised
+  // by that many or the personal ones would crowd the topic's own out.
   const personal = await service.memoriesInScope(null, limit);
-  const own = await Promise.all(projects.map(project =>
-    service.memoriesInScope(project.id, limit + personal.length)));
-  return [...personal, ...own.flat().filter(memory => memory.project_id)];
+  const own = await Promise.all(topics.map(topic =>
+    service.memoriesInScope(topic.id, limit + personal.length)));
+  return [...personal, ...own.flat().filter(memory => memory.topic_id)];
 }
 
 /** One document. Read, decide, apply, and say so.
@@ -221,11 +221,11 @@ async function memoriesAcross(service, projects, limit = 60) {
  *  Returns what it did rather than throwing, because the caller is a loop over
  *  documents and one failure must not end the others. */
 export async function consolidateDocument(service, consolidator, document,
-  {projects = [], cap = 30, churn = 25, deadline = null, traced = untraced, ownerId, newTopics = false} = {}) {
+  {topics = [], cap = 30, churn = 25, deadline = null, traced = untraced, ownerId, topicsAllowed = false} = {}) {
   return traced('satchel.consolidate',
     {sessionId: document.session_key, userId: ownerId,
      metadata: {event: 'consolidate', document: document.id,
-       scope: document.project_id ?? 'personal', turns: document.turns},
+       scope: document.topic_id ?? 'personal', turns: document.turns},
      tags: ['satchel', 'consolidate'], input: null},
     async (setOutput, setInput, traceId) => {
       const runId = crypto.randomUUID();
@@ -247,20 +247,20 @@ export async function consolidateDocument(service, consolidator, document,
       const through = turns.at(-1)?.id ?? document.consolidated_through ?? null;
       if (!turns.length) return {...counts, document: document.id, session_key: document.session_key,
         skipped: 'nothing new'};
-      const memories = document.project_id || !projects.length
-        ? await service.memoriesInScope(document.project_id ?? null)
-        : await memoriesAcross(service, projects);
-      const project = projects.find(p => p.id === document.project_id) ?? null;
+      const memories = document.topic_id || !topics.length
+        ? await service.memoriesInScope(document.topic_id ?? null)
+        : await memoriesAcross(service, topics);
+      const topic = topics.find(p => p.id === document.topic_id) ?? null;
       setInput({turns: turns.length, memories: memories.length,
-        scope: project?.slug ?? 'personal'});
+        scope: topic?.slug ?? 'personal'});
       let outcome;
       try {
         outcome = await consolidator.consolidate({
-          project: project ? {slug: project.slug, brief: project.brief} : null,
-          projects: projects.filter(p => p.id !== document.project_id).map(p => ({slug: p.slug, brief: p.brief,
-            repositories: (p.project_repositories ?? []).map(r => r.repository)})),
-          codebase: project ? null : document.repository ?? null,
-          memories, turns, cap, churn, newTopics,
+          topic: topic ? {slug: topic.slug, brief: topic.brief} : null,
+          topics: topics.filter(p => p.id !== document.topic_id).map(p => ({slug: p.slug, brief: p.brief,
+            repositories: (p.topic_repositories ?? []).map(r => r.repository)})),
+          codebase: topic ? null : document.repository ?? null,
+          memories, turns, cap, churn, topicsAllowed,
         }, {deadline});
       } catch (error) {
         // The document is left pending. A run that never reached the model has
@@ -281,7 +281,7 @@ export async function consolidateDocument(service, consolidator, document,
       // R11. Every action taken and why, each naming the memory it touched,
       // and the ones validation refused with the reason it refused them.
       const actions = [];
-      const made = await makeTopics(service, outcome.topics ?? [], projects);
+      const made = await makeTopics(service, outcome.named ?? [], topics);
       for (const topic of made.made) {
         counts.topics += 1;
         actions.push({did: 'made topic', on: topic.id, statement: topic.slug, why: topic.brief});
@@ -289,9 +289,9 @@ export async function consolidateDocument(service, consolidator, document,
       for (const change of outcome.changes) {
         // A topic that could not be made leaves its memory where it would
         // have gone before topics existed, which is personal.
-        if (made.failed.has(change.project)) change.project = null;
+        if (made.failed.has(change.topic)) change.topic = null;
         try {
-          const out = await apply(service, change, {projects, trace: traceId, document: document.id,
+          const out = await apply(service, change, {topics, trace: traceId, document: document.id,
             consolidator, deadline, now: turns.at(-1)?.created_at});
           const did = typeof out === 'string' ? out : out?.did;
           if (did) {
@@ -318,11 +318,11 @@ export async function consolidateDocument(service, consolidator, document,
         output_tokens: outcome.usage?.outputTokens ?? null,
         duration_ms: Date.now() - started, error: null});
       const result = {...counts, document: document.id, session_key: document.session_key,
-        scope: project?.slug ?? 'personal', actions};
+        scope: topic?.slug ?? 'personal', actions};
       if (!rest) return result;
       const next = await consolidateDocument(service, consolidator,
         {...document, consolidated_through: through},
-        {projects, cap, churn, deadline, traced, ownerId, newTopics});
+        {topics, cap, churn, deadline, traced, ownerId, topicsAllowed});
       for (const key of Object.keys(counts)) result[key] += next[key] ?? 0;
       result.actions = [...actions, ...(next.actions ?? [])];
       if (next.failed) Object.assign(result, {failed: next.failed, spent: next.spent, later: next.later});
@@ -354,7 +354,7 @@ export async function consolidatePending(service, consolidator,
   // is by id here, not by repository: the workspace is long gone. The cap
   // comes from settings so the pass judges against the same number the
   // session start injects under.
-  const [projects, settings, newTopics] = await Promise.all([service.projects(), service.settings(),
+  const [topics, settings, topicsAllowed] = await Promise.all([service.topics(), service.settings(),
     mayMakeTopics(service)]);
   const runs = [];
   for (const document of documents) {
@@ -363,8 +363,8 @@ export async function consolidatePending(service, consolidator,
     // case is a document that gives up rather than one that is cut in half.
     if (Date.now() >= deadline) break;
     runs.push(await consolidateDocument(service, consolidator, document,
-      {projects, cap: settings.block_size, churn: settings.staleness_commits,
-       deadline, traced, ownerId, newTopics}));
+      {topics, cap: settings.block_size, churn: settings.staleness_commits,
+       deadline, traced, ownerId, topicsAllowed}));
   }
   return {documents: runs.length, remaining: documents.length - runs.length, runs};
 }
@@ -422,14 +422,14 @@ export async function consolidateStep(service, consolidator, job,
     return {job: current, more: false};
   };
   if (!waiting.length) return stop(tried.size ? 'Every waiting session was read.' : 'Nothing was waiting.');
-  const [projects, settings, newTopics] = await Promise.all([service.projects(), service.settings(),
+  const [topics, settings, topicsAllowed] = await Promise.all([service.topics(), service.settings(),
     mayMakeTopics(service)]);
   let failures = 0;
   let index = 0;
   for (; index < waiting.length && now() < deadline; index++) {
     const run = await consolidateDocument(service, consolidator, waiting[index],
-      {projects, cap: settings.block_size, churn: settings.staleness_commits,
-       deadline, traced, ownerId, newTopics});
+      {topics, cap: settings.block_size, churn: settings.staleness_commits,
+       deadline, traced, ownerId, topicsAllowed});
     // The model could not answer and this call had no room to wait for it.
     // The next step starts with a full clock, and this session is the first
     // one it will reach, because nothing about it was written to the row.

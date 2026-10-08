@@ -65,9 +65,9 @@ export const hybrid=(a,b,weightA,depth=100)=>pid=>{
     .map(id=>({id,score:weightA*(A.get(id)??0)+(1-weightA)*(B.get(id)??0)}))
     .sort((x,y)=>y.score-x.score);
 };
-/** Scope boost. `inScope` names the project the session is sitting in. */
+/** Scope boost. `inScope` names the topic the session is sitting in. */
 export const boost=(rank,inScope,mult)=>pid=>rank(pid)
-  .map(r=>({id:r.id,score:r.score*((memoryById.get(r.id).project??'personal')===inScope?mult:1)}))
+  .map(r=>({id:r.id,score:r.score*((memoryById.get(r.id).topic??'personal')===inScope?mult:1)}))
   .sort((a,b)=>b.score-a.score);
 
 export const gate=(rank,floor)=>pid=>rank(pid).filter(r=>r.score>=floor);

@@ -6,15 +6,15 @@ Things that have already gone wrong, or that are shaped so they will.
 
 **`create or replace function` silently reverts earlier migrations.** Recreating `private.agent_can_access_tasks` from an older version once dropped the personal-task scope a later migration had added. This codebase has had that failure. Before replacing a function, read every later migration that touched it and carry forward every branch.
 
-**Null never equals null in a composite foreign key.** This is why `scope_key` exists. A child table that keys on `project_id` directly stops enforcing anything the moment the row is personal. Copy the `(owner_id, scope_key, task_id)` shape. (Topics are stored in the `projects` table, so the column is `project_id`.)
+**Null never equals null in a composite foreign key.** This is why `scope_key` exists. A child table that keys on `topic_id` directly stops enforcing anything the moment the row is personal. Copy the `(owner_id, scope_key, task_id)` shape.
 
 **A comment must not take a revision.** If you add a revision check to `add_task_comment` for symmetry, you reintroduce the exact conflict the kind exists to avoid: someone typing a comment invalidates somebody else's open editor.
 
-**A blanket grant has no rows.** `task_all_projects` is a flag and `agent_task_grants` is empty for that connection. Code that decides access by querying the grant table alone denies the connection that was given everything. `task-service.mjs` checks the flag first; so does the database helper. Both.
+**A blanket grant has no rows.** `task_all_topics` is a flag and `agent_task_grants` is empty for that connection. Code that decides access by querying the grant table alone denies the connection that was given everything. `task-service.mjs` checks the flag first; so does the database helper. Both.
 
-**`project_ids` and `all_projects` are never both meaningful.** `authorize_agent_v3` stores an empty list alongside a blanket flag on purpose, so a stale snapshot can never sit next to the flag looking authoritative. Do not "helpfully" populate the list.
+**`topic_ids` and `all_topics` are never both meaningful.** `authorize_agent_v3` stores an empty list alongside a blanket flag on purpose, so a stale snapshot can never sit next to the flag looking authoritative. Do not "helpfully" populate the list.
 
-**Slug uniqueness is per table but the namespace is shared.** `projects_owner_slug` and `tasks_owner_slug` are two separate unique indexes, so nothing at the index level stops a task and a topic sharing a slug. The `default_slug` trigger checks both tables, and the MCP description tells the model the namespace is shared, but `set_slug` does not cross-check. If you rely on a slug being unambiguous across both kinds, verify it rather than assuming the database did.
+**Slug uniqueness is per table but the namespace is shared.** `topics_owner_slug` and `tasks_owner_slug` are two separate unique indexes, so nothing at the index level stops a task and a topic sharing a slug. The `default_slug` trigger checks both tables, and the MCP description tells the model the namespace is shared, but `set_slug` does not cross-check. If you rely on a slug being unambiguous across both kinds, verify it rather than assuming the database did.
 
 **`P0002` is deliberately ambiguous.** "Missing" and "you may not see it" return the same thing. Do not add a friendlier error that distinguishes them; that turns the error into an existence oracle.
 

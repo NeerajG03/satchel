@@ -5,8 +5,8 @@ import {applyMigrations, RETRIEVAL} from './helpers/migrations.mjs';
 
 const alice='10000000-0000-4000-8000-000000000001';
 const bob  ='10000000-0000-4000-8000-000000000002';
-const projectA='20000000-0000-4000-8000-00000000000a';
-const projectB='20000000-0000-4000-8000-00000000000b';
+const topicA='20000000-0000-4000-8000-00000000000a';
+const topicB='20000000-0000-4000-8000-00000000000b';
 
 // A tiny orthogonal basis keeps expected similarities obvious by inspection.
 const vec=(a,b,c)=>`{${[a,b,c,...Array(765).fill(0)].join(',')}}`;
@@ -35,13 +35,13 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
   `);
   assert.ok((await applyMigrations(db)).includes(RETRIEVAL),'retrieval migration is missing');
 
-  await as(alice,'select * from create_project($1,$2,$3)',[projectA,'Cardinal','Payments']);
-  await as(alice,'select * from create_project($1,$2,$3)',[projectB,'Parcelping','Shipments']);
-  await as(bob,  'select * from create_project($1,$2,$3)',['20000000-0000-4000-8000-0000000000bb','Other','Bob']);
+  await as(alice,'select * from create_topic($1,$2,$3)',[topicA,'Cardinal','Payments']);
+  await as(alice,'select * from create_topic($1,$2,$3)',[topicB,'Parcelping','Shipments']);
+  await as(bob,  'select * from create_topic($1,$2,$3)',['20000000-0000-4000-8000-0000000000bb','Other','Bob']);
 
   const rows=[
-    ['30000000-0000-4000-8000-000000000001',projectA,'Idempotency keys are scoped to merchant plus key.',vec(1,0,0)],
-    ['30000000-0000-4000-8000-000000000002',projectB,'The carrier API allows 50,000 lookups a month.',   vec(0,1,0)],
+    ['30000000-0000-4000-8000-000000000001',topicA,'Idempotency keys are scoped to merchant plus key.',vec(1,0,0)],
+    ['30000000-0000-4000-8000-000000000002',topicB,'The carrier API allows 50,000 lookups a month.',   vec(0,1,0)],
     ['30000000-0000-4000-8000-000000000003',null,    'Never use em dashes in anything written for me.',  vec(0,0,1)],
   ];
   for(const [id,scope,statement,embedding] of rows){
@@ -73,7 +73,7 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
     // A null boost would otherwise turn every in-scope score into NULL, which
     // drops exactly the rows the boost was meant to favour.
     const inScope=await as(alice,
-      `select * from search_memories($1::extensions.vector,$2,null,null,null,null)`,[vec(1,0,0),projectA]);
+      `select * from search_memories($1::extensions.vector,$2,null,null,null,null)`,[vec(1,0,0),topicA]);
     assert.equal(inScope.length,1,'a null boost must not erase the in-scope rows it applies to');
     assert.ok(inScope[0].score>=nulled[0].score,'and the default boost still favours the scope');
   });
@@ -90,17 +90,17 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
     assert.equal(r[0].in_scope,3,'in_scope counts everything searchable');
   });
 
-  await t.test('the in-scope project is boosted, and only that project', async () => {
+  await t.test('the in-scope topic is boosted, and only that topic', async () => {
     const q=vec(0.8,0.6,0.3);
     const byId=rows=>Object.fromEntries(rows.map(r=>[r.id,r.score]));
     const a='30000000-0000-4000-8000-000000000001';
     const b='30000000-0000-4000-8000-000000000002';
     const personal='30000000-0000-4000-8000-000000000003';
     const plain=byId(await search(alice,q,{gate:0,limit:50,boost:1}));
-    const boosted=byId(await search(alice,q,{gate:0,limit:50,boost:1.5,inScope:projectB}));
+    const boosted=byId(await search(alice,q,{gate:0,limit:50,boost:1.5,inScope:topicB}));
     assert.ok(plain[a]>plain[b],'without a boost the closer row scores higher');
     assert.ok(boosted[b]>boosted[a],'a boost is enough to reorder');
-    assert.equal(boosted[a],plain[a],'a row outside the boosted project is untouched');
+    assert.equal(boosted[a],plain[a],'a row outside the boosted topic is untouched');
     assert.equal(boosted[personal],plain[personal],'and so is a personal row');
     assert.ok(Math.abs(boosted[b]-plain[b]*1.5)<1e-5,'the boost is exactly the multiplier');
   });
@@ -113,7 +113,7 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
 
   await t.test('unembedded rows are invisible rather than wrong', async () => {
     const id='30000000-0000-4000-8000-00000000000f';
-    await as(alice,'select * from save_memory($1,$2,$3)',[id,projectA,'Not embedded yet.']);
+    await as(alice,'select * from save_memory($1,$2,$3)',[id,topicA,'Not embedded yet.']);
     const r=await search(alice,vec(1,0,0),{gate:0.1,limit:20});
     assert.ok(!r.some(x=>x.id===id),'a row without an embedding must not be returned');
     assert.equal(r[0].in_scope,3,'and must not inflate the in-scope count');
@@ -125,7 +125,7 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
 
   await t.test('an embedding cannot be stored without its model', async () => {
     const id='30000000-0000-4000-8000-0000000000aa';
-    await as(alice,'select * from save_memory($1,$2,$3)',[id,projectA,'Needs an embedding.']);
+    await as(alice,'select * from save_memory($1,$2,$3)',[id,topicA,'Needs an embedding.']);
     await assert.rejects(
       as(alice,`update memories set embedding=$2::extensions.vector where id=$1`,[id,vec(1,0,0)]),
       /memories_embedding_pairing/,'an embedding without its model must be refused');
@@ -142,7 +142,7 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
     // cannot explain, and re-embedding after a model change does that to the
     // whole corpus at once.
     const id='30000000-0000-4000-8000-0000000000bb';
-    await as(alice,'select * from save_memory($1,$2,$3)',[id,projectA,'Waiting to be embedded.']);
+    await as(alice,'select * from save_memory($1,$2,$3)',[id,topicA,'Waiting to be embedded.']);
     const [before]=await as(alice,'select revision, updated_at from memories where id=$1',[id]);
     await as(alice,`update memories set embedding=$2::extensions.vector,
       embedding_model='gemini-embedding-001', embedded_at=now() where id=$1`,[id,vec(0,1,0)]);
@@ -161,7 +161,7 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
     assert.equal(corrected.revision,before.revision+1,'changing the statement must still bump the revision');
   });
 
-  await t.test('personal_memories returns every personal row and no project row', async () => {
+  await t.test('personal_memories returns every personal row and no topic row', async () => {
     const r=await as(alice,'select * from personal_memories()');
     assert.equal(r.length,1);
     assert.equal(r[0].statement,'Never use em dashes in anything written for me.');
@@ -210,18 +210,18 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
 
   await t.test('a memory has one scope and no task to hang off', async () => {
     // The link is gone, and with it the only way a wrong task guess could move
-    // a memory into a project nobody mentioned. A memory is scoped by the
-    // project it is saved in and by nothing else.
+    // a memory into a topic nobody mentioned. A memory is scoped by the
+    // topic it is saved in and by nothing else.
     const taskId='40000000-0000-4000-8000-000000000001';
     await as(alice,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-      ['50000000-0000-4000-8000-000000000001',taskId,projectA,'Fix the consent page','','',[],'','medium']);
+      ['50000000-0000-4000-8000-000000000001',taskId,topicA,'Fix the consent page','','',[],'','medium']);
     const columns=await as(alice,
       `select column_name from information_schema.columns
        where table_schema='public' and table_name='memories' and column_name='task_id'`);
     assert.deepEqual(columns,[],'memories.task_id is gone, so nothing can quietly re-derive scope from it');
     const ok=await as(alice,'select * from save_memory($1,$2,$3,$4,$5)',
-      ['30000000-0000-4000-8000-0000000000cc',projectA,'Right scope.','','heard']);
-    assert.equal(ok[0].project_id,projectA);
+      ['30000000-0000-4000-8000-0000000000cc',topicA,'Right scope.','','heard']);
+    assert.equal(ok[0].topic_id,topicA);
     assert.equal(ok[0].band,'heard');
   });
 

@@ -29,37 +29,37 @@ const PACE_MS = Number(process.env.ROUTER_EVAL_PACE_MS ?? (GEMINI ? 4300 : 3200)
 // Two kinds of positive, sampled deliberately rather than in whatever
 // proportion they happen to occur.
 //
-// The router now defaults a memory to the project the conversation is in, which
-// is the fix for a deployment detail about this project landing in personal.
+// The router now defaults a memory to the topic the conversation is in, which
+// is the fix for a deployment detail about this topic landing in personal.
 // The thing that can regress is the opposite error: a universal preference
-// ("never use em dashes") swallowed into whichever project happened to be open.
+// ("never use em dashes") swallowed into whichever topic happened to be open.
 // Those are 19% of the corpus, so a proportional sample gave four or five of
 // them out of 24, which cannot measure a threshold. They get their own count.
 const SCOPED = 20;
 const PERSONAL = 20;
 const NEGATIVES = 16;
 
-const projects = corpus.projects.map(p => ({slug: p.slug, brief: p.brief}));
-const bySlug = new Map(projects.map(p => [p.slug, p]));
+const topics = corpus.topics.map(p => ({slug: p.slug, brief: p.brief}));
+const bySlug = new Map(topics.map(p => [p.slug, p]));
 
 // A deterministic spread rather than a random one, so two runs compare.
 const pick = (list, n) => list.filter((_, i) => i % Math.max(1, Math.floor(list.length / n)) === 0).slice(0, n);
 const eligible = corpus.memories.filter(m => m.source?.trim().length > 25);
-// Each turn is replayed as if the user were working in one project, because
+// Each turn is replayed as if the user were working in one topic, because
 // that is what production now does: the workspace's git remote resolves to a
-// project and the router is told which one.
+// topic and the router is told which one.
 //
-// A scoped memory is replayed inside its own project, where the right answer is
-// that project. A personal one is replayed inside a project too, rotated so no
-// single project's brief can explain the result, and the right answer is still
+// A scoped memory is replayed inside its own topic, where the right answer is
+// that topic. A personal one is replayed inside a topic too, rotated so no
+// single topic's brief can explain the result, and the right answer is still
 // null. That second group is the whole measurement: defaulting to the open
-// project is only an improvement if a universal preference still comes back
+// topic is only an improvement if a universal preference still comes back
 // null from inside one.
 const positives = [
-  ...pick(eligible.filter(m => m.project), SCOPED)
-    .map(m => ({memory: m, working: bySlug.get(m.project) ?? null, want: m.project})),
-  ...pick(eligible.filter(m => !m.project), PERSONAL)
-    .map((m, i) => ({memory: m, working: projects[i % projects.length], want: null})),
+  ...pick(eligible.filter(m => m.topic), SCOPED)
+    .map(m => ({memory: m, working: bySlug.get(m.topic) ?? null, want: m.topic})),
+  ...pick(eligible.filter(m => !m.topic), PERSONAL)
+    .map((m, i) => ({memory: m, working: topics[i % topics.length], want: null})),
 ];
 
 // Negatives have to be turns that genuinely contain nothing durable, which is
@@ -92,21 +92,21 @@ for (const model of MODELS) {
     quiet: 0, noisy: 0, failed: 0, items: [], latency: [], errors: []};
   console.log(`\n${model}${process.env.ROUTER_EVAL_NO_SCOPE === '1' ? '  (scope withheld: the shape before this change)' : ''}`);
 
-  // The same shape the Stop handler builds: one project named as the scope, the
+  // The same shape the Stop handler builds: one topic named as the scope, the
   // rest offered only for when the user names one.
   //
   // ROUTER_EVAL_NO_SCOPE=1 withholds the scope and hands over a flat list of
-  // every project instead, which is what the router was given before. It is the
+  // every topic instead, which is what the router was given before. It is the
   // counterfactual for the change, on the same sample and through the same
   // code: extraction and quiet numbers cannot be compared against an older run
   // on a different corpus, but they can be compared against this.
   const blind = process.env.ROUTER_EVAL_NO_SCOPE === '1';
   const asked = working => blind
-    ? {codebase: null, project: null, projects, context: [], saved: []}
+    ? {codebase: null, topic: null, topics, context: [], saved: []}
     : {
       codebase: working ? `acme/${working.slug}` : null,
-      project: working,
-      projects: projects.filter(p => p.slug !== working?.slug),
+      topic: working,
+      topics: topics.filter(p => p.slug !== working?.slug),
       context: [], saved: [],
     };
 
@@ -121,15 +121,15 @@ for (const model of MODELS) {
         const best = out.memories.map(m => overlap(m.statement, memory.statement))
           .sort((a, b) => b - a)[0];
         result.faithful.push(best);
-        const got = out.memories[0].project ?? null;
+        const got = out.memories[0].topic ?? null;
         if (want) {
           result.scopedTotal++;
-          if (out.memories.some(m => m.project === want)) result.scopedRight++;
+          if (out.memories.some(m => m.topic === want)) result.scopedRight++;
         } else {
           result.personalTotal++;
           if (got === null) result.personalRight++;
           // Named, not just counted. A preference swallowed into the open
-          // project is the regression this change could cause, and the
+          // topic is the regression this change could cause, and the
           // statement is what tells you whether the model had a point.
           else result.leaked.push({statement: memory.statement.slice(0, 70), into: got, working: working?.slug});
         }
@@ -140,11 +140,11 @@ for (const model of MODELS) {
   }
 
   for (const prompt of negatives) {
-    // A negative is replayed inside a project too, because a turn with nothing
-    // durable in it is the common case and an open project must not make the
+    // A negative is replayed inside a topic too, because a turn with nothing
+    // durable in it is the common case and an open topic must not make the
     // router start finding things in it.
     try {
-      const out = await router.route({...asked(projects[0]), turn: [prompt.text]});
+      const out = await router.route({...asked(topics[0]), turn: [prompt.text]});
       if (out.memories.length) result.noisy++; else result.quiet++;
     } catch (error) { result.failed++; result.errors.push(error.message); }
     await wait(PACE_MS);
@@ -153,8 +153,8 @@ for (const model of MODELS) {
   const pct = (a, b) => b ? `${Math.round(100 * a / b)}%` : '-';
   console.log(`  extracted a memory   ${result.extracted}/${positives.length}  ${pct(result.extracted, positives.length)}`);
   console.log(`  statement overlap    ${mean(result.faithful).toFixed(2)} mean word overlap with the real one`);
-  console.log(`  scope, in a project  ${result.scopedRight}/${result.scopedTotal}  ${pct(result.scopedRight, result.scopedTotal)}  (used the project it was working in)`);
-  console.log(`  scope, universal     ${result.personalRight}/${result.personalTotal}  ${pct(result.personalRight, result.personalTotal)}  (kept a preference out of the open project)`);
+  console.log(`  scope, in a topic  ${result.scopedRight}/${result.scopedTotal}  ${pct(result.scopedRight, result.scopedTotal)}  (used the topic it was working in)`);
+  console.log(`  scope, universal     ${result.personalRight}/${result.personalTotal}  ${pct(result.personalRight, result.personalTotal)}  (kept a preference out of the open topic)`);
   for (const leak of result.leaked.slice(0, 5))
     console.log(`    leaked into ${leak.into}: ${leak.statement}`);
   console.log(`  stayed quiet         ${result.quiet}/${negatives.length}  ${pct(result.quiet, negatives.length)}  (on turns with nothing to keep)`);

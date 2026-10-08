@@ -102,7 +102,7 @@ Every review answers all of these with numbers, even when the answer is "fine":
 
 ### 6. Find the cause
 
-For each gap, find the place that causes it and cite `file:line` under `$WORK`: a prompt section in `server/prompts/consolidate.md`; how the input is built in `server/consolidator.mjs`; which scope a session gets in `server/consolidation.mjs`, `documents.project_id` and the hooks' repository linking; or the eval coverage in `eval/consolidation-cases.json`. Topics are stored in the `projects` table, so the column is `project_id`. Read the code to confirm it. If you cannot confirm a cause, say it is a guess.
+For each gap, find the place that causes it and cite `file:line` under `$WORK`: a prompt section in `server/prompts/consolidate.md`; how the input is built in `server/consolidator.mjs`; which scope a session gets in `server/consolidation.mjs`, `documents.topic_id` and the hooks' repository linking; or the eval coverage in `eval/consolidation-cases.json`. Read the code to confirm it. If you cannot confirm a cause, say it is a guess.
 
 ### 7. Write the TODOs
 

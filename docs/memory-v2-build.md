@@ -33,7 +33,7 @@ description text not null, 1..280
 more_info   text default '', <= 40000
 ```
 
-Topics are stored in the `projects` table, so the column is `project_id`.
+This plan predates D35. The table is `topics` and the column is `topic_id` now; the snippets below keep the names they had when they were written.
 
 Things that matter for the migration and are easy to miss:
 
@@ -904,7 +904,7 @@ All three go in `integrations/shared/` and are copied into both packages by [scr
 | [features/memories/MemoryEditor.tsx](../src/features/memories/MemoryEditor.tsx) | name becomes optional and secondary, description becomes the single required statement field, `more_info` collapses behind a disclosure |
 | [features/memories/MemoryList.tsx](../src/features/memories/MemoryList.tsx) | show the handle, the band, and the task link; a `heard` row gets a **Confirm** button that is the whole promotion mechanism from [§9](memory-v2.md) |
 | [features/memories/repository.ts](../src/features/memories/repository.ts) | rename through, add `confirm`, add `search` |
-| [features/projects/ScopeSidebar.tsx](../src/features/projects/ScopeSidebar.tsx) | slug field on topic create, shown next to the name |
+| [features/topics/NewTopicSheet.tsx](../src/features/topics/NewTopicSheet.tsx) | slug field on topic create, shown next to the name |
 | [features/tasks/TaskWorkspace.tsx](../src/features/tasks/TaskWorkspace.tsx) | slug field on task create |
 | [Workspace.tsx](../src/Workspace.tsx) | a search box, because with automatic capture the list gets long enough that alphabetical browsing stops working |
 

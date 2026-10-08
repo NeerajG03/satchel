@@ -4,7 +4,7 @@ The direction is **a personal notebook with physical controls**. Paper is for wh
 
 ## The canvas
 
-The mockups are on the design canvas: <https://claude.ai/artifact/E37216htrsgRJFEVwhshDc>. Every artboard is a clickable prototype; rail items and buttons link between screens. The same artboards are checked in under [`canvas/project/`](canvas/project/) as `.dc.html` files, and [`canvas/gen.mjs`](canvas/gen.mjs) generates them, so a change to the shared CSS lands on every board at once.
+The mockups are on the design canvas: <https://claude.ai/artifact/E37216htrsgRJFEVwhshDc>. Every artboard is a clickable prototype; rail items and buttons link between screens. The same artboards are checked in under [`canvas/boards/`](canvas/boards/) as `.dc.html` files, and [`canvas/gen.mjs`](canvas/gen.mjs) generates them, so a change to the shared CSS lands on every board at once.
 
 Rows on the canvas, top to bottom:
 

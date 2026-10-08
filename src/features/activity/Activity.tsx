@@ -101,7 +101,7 @@ function Detail({ item, apps }: { item: Item; apps: { client_id: string; label: 
   if (item.kind === 'document') {
     const doc = item.detail;
     return <>
-      <Facts rows={[['session', doc.session_key], ['scope', doc.project_slug ?? 'personal'],
+      <Facts rows={[['session', doc.session_key], ['scope', doc.topic_slug ?? 'personal'],
         ['turns', doc.turns], ['characters', doc.chars.toLocaleString()],
         ['started', new Date(doc.started_at).toLocaleString()],
         ['consolidated', doc.consolidated_at ? `through turn ${doc.consolidated_through}` : 'not yet'],

@@ -9,7 +9,7 @@
 // Two halves that are kept apart on purpose:
 //
 //   blind/      what the pass was given: the memories in scope at that moment,
-//               the projects that exist, and the new turns, whole. Nothing the
+//               the topics that exist, and the new turns, whole. Nothing the
 //               pass produced. The blind readers see only this folder.
 //   pipeline/   what the pass did: the prompt it was actually sent, its raw
 //               answer, the changes that landed, the job's own report, and
@@ -78,10 +78,10 @@ const jobs = await sql(`select * from public.consolidation_jobs
   where started_at >= ${lit(since)} and started_at < ${lit(until)} order by started_at`);
 const runs = await sql(`select r.id, r.owner_id, r.document_id, r.trace_id, r.model, r.through, r.error,
     r.added, r.extended, r.replaced, r.retired, r.affirmed, r.dropped, r.duration_ms, r.created_at,
-    r.prompt, r.response, d.session_key, d.project_id, d.turns doc_turns, p.slug
+    r.prompt, r.response, d.session_key, d.topic_id, d.turns doc_turns, p.slug
   from public.consolidation_runs r
   left join public.documents d on d.id = r.document_id
-  left join public.projects p on p.id = d.project_id
+  left join public.topics p on p.id = d.topic_id
   where r.created_at >= ${lit(since)} and r.created_at < ${lit(until)}
   order by r.created_at`);
 
@@ -99,18 +99,18 @@ if (!runs.length) {
   process.exit(0);
 }
 
-const projectsOf = {};
+const topicsOf = {};
 const reposOf = {};
 for (const owner of owners) {
-  projectsOf[owner] = await sql(`select id, slug, name, brief from public.projects where owner_id = ${lit(owner)} order by slug`);
-  reposOf[owner] = await sql(`select project_id, repository from public.project_repositories where owner_id = ${lit(owner)}`);
+  topicsOf[owner] = await sql(`select id, slug, name, brief from public.topics where owner_id = ${lit(owner)} order by slug`);
+  reposOf[owner] = await sql(`select topic_id, repository from public.topic_repositories where owner_id = ${lit(owner)}`);
 }
-const slugOf = owner => Object.fromEntries(projectsOf[owner].map(p => [p.id, p.slug]));
+const slugOf = owner => Object.fromEntries(topicsOf[owner].map(p => [p.id, p.slug]));
 
 /** The memory set as it stood just before a run: rows that existed and were
  *  live then, worded as they were then. A later change's `before` is the
  *  wording the run saw. */
-const setAt = (owner, at) => sql(`select m.id, m.project_id, m.kind, m.band, m.mentions,
+const setAt = (owner, at) => sql(`select m.id, m.topic_id, m.kind, m.band, m.mentions,
     coalesce((select e.before from public.memory_events e
               where e.memory_id = m.id and e.created_at >= ${lit(at)} and e.before is not null
               order by e.created_at limit 1), m.statement) statement
@@ -118,7 +118,7 @@ const setAt = (owner, at) => sql(`select m.id, m.project_id, m.kind, m.band, m.m
   where m.owner_id = ${lit(owner)} and m.created_at < ${lit(at)}
     and (m.ended_at is null or m.ended_at >= ${lit(at)})
     and (m.expires_at is null or m.expires_at > ${lit(at)})
-  order by m.project_id nulls first, m.mentions desc`);
+  order by m.topic_id nulls first, m.mentions desc`);
 
 const jobRunFor = run => {
   for (const job of jobs) for (const entry of job.runs ?? [])
@@ -160,13 +160,13 @@ const index = (await pool(runs, 4, async run => {
 
   // What landed, matched on the trace the pass wrote with.
   const events = run.trace_id ? await sql(`select e.memory_id, e.action, e.before, e.after, e.reason,
-      e.actor, m.kind, m.project_id, m.band
+      e.actor, m.kind, m.topic_id, m.band
     from public.memory_events e left join public.memories m on m.id = e.memory_id
     where e.trace_id = ${lit(run.trace_id)} order by e.created_at`) : [];
   const job = jobRunFor(run);
   // The history cannot show everything the job did. Saying a confirmed memory
   // again only moves a counter, which is deliberately not an event, and a
-  // memory whose project was deleted since takes its events with it. So the
+  // memory whose topic was deleted since takes its events with it. So the
   // job's own report is set beside the history, or a good add reads as nothing.
   const actions = job?.entry?.actions ?? [];
   const affirms = actions.filter(a => a.did === 'affirmed');
@@ -177,7 +177,7 @@ const index = (await pool(runs, 4, async run => {
     `model ${run.model} · ${run.duration_ms ?? '?'} ms · error ${run.error ?? 'none'}`,
     `counts: added ${run.added} extended ${run.extended} replaced ${run.replaced} retired ${run.retired} affirmed ${run.affirmed} rejected ${run.dropped}`, '',
     '## What landed (memory_events on this trace)', '',
-    ...(events.length ? events.map(e => `- ${e.action} [${e.kind ?? '?'} · ${e.project_id ? slugs[e.project_id] ?? e.project_id : 'personal'} · ${e.band ?? '?'}] ${e.after ?? e.before ?? ''}${e.reason ? `  (reason: ${e.reason})` : ''}`) : ['- nothing']),
+    ...(events.length ? events.map(e => `- ${e.action} [${e.kind ?? '?'} · ${e.topic_id ? slugs[e.topic_id] ?? e.topic_id : 'personal'} · ${e.band ?? '?'}] ${e.after ?? e.before ?? ''}${e.reason ? `  (reason: ${e.reason})` : ''}`) : ['- nothing']),
     ...affirms.map(a => `- affirmed ${a.on ?? '?'} (from the job report: an affirm on a confirmed memory leaves no history row)`),
     ...(lost ? [`- ${lost} added in the job report with no row now: the memory, or the topic it was filed under, was deleted since`] : []), '',
     '## The job report entry', '',
@@ -199,35 +199,35 @@ const index = (await pool(runs, 4, async run => {
   // The row is written when the run ends, after its own adds exist, so the set
   // is read as of the moment the run began.
   const memories = await setAt(run.owner_id, runStart(run));
-  // The same set the pass was shown: a session with no project sees every
-  // project's memories (memoriesAcross in server/consolidation.mjs).
-  const inScope = run.project_id
-    ? memories.filter(m => m.project_id === null || m.project_id === run.project_id) : memories;
+  // The same set the pass was shown: a session with no topic sees every
+  // topic's memories (memoriesAcross in server/consolidation.mjs).
+  const inScope = run.topic_id
+    ? memories.filter(m => m.topic_id === null || m.topic_id === run.topic_id) : memories;
   const cut = turns.filter((t, i) => t.content.length > cutFor(turns, i));
   const repos = reposOf[run.owner_id];
-  // Projects deleted since the run are still in the prompt it was sent. Without
+  // Topics deleted since the run are still in the prompt it was sent. Without
   // them the blind side is answering a different question.
-  const known = new Set(projectsOf[run.owner_id].map(p => p.slug));
+  const known = new Set(topicsOf[run.owner_id].map(p => p.slug));
   const head = String(run.prompt ?? '').split('<conversation>')[0].split('\ntoday is ').at(-1);
-  // The brief is optional: a project with none is written as its slug alone.
-  const listedInPrompt = [...head.matchAll(/^ {2}(?:project {2})?([a-z0-9][a-z0-9-]*)(?: {2}(.*?))?(?: {2}repos .*)?$/gm)]
+  // The brief is optional: a topic with none is written as its slug alone.
+  const listedInPrompt = [...head.matchAll(/^ {2}(?:topic {2})?([a-z0-9][a-z0-9-]*)(?: {2}(.*?))?(?: {2}repos .*)?$/gm)]
     .filter(([line]) => !line.endsWith('none linked') && !/^ {2}codebase /.test(line));
   const gone = listedInPrompt.filter(([, slug]) => !known.has(slug))
     .map(([, slug, brief]) => ({slug, brief: brief ?? ''}));
-  // Only the projects the pass was shown (TODO 16): one made after the run is
+  // Only the topics the pass was shown (TODO 16): one made after the run is
   // not part of the question it answered. A run that never reached the model
-  // has no list, and then every project is shown.
+  // has no list, and then every topic is shown.
   const shown = listedInPrompt.length ? new Set(listedInPrompt.map(([, slug]) => slug)) : null;
   const codebase = head.match(/^ {2}codebase {2}(.+)$/m)?.[1] ?? null;
   write(`blind/${name}.md`, [
     `# Session ${name} · scope: ${scope}`, '',
     ...(codebase ? [`The conversation ran in the codebase ${codebase}`, ''] : []),
     '## Topics that exist', '',
-    ...projectsOf[run.owner_id].filter(p => !shown || shown.has(p.slug)).map(p => `- ${p.slug}: ${(p.brief ?? p.name ?? '').replace(/\s+/g, ' ')}`.slice(0, 220)
-      + (repos.some(r => r.project_id === p.id) ? ` (repos: ${repos.filter(r => r.project_id === p.id).map(r => r.repository).join(', ')})` : '')),
+    ...topicsOf[run.owner_id].filter(p => !shown || shown.has(p.slug)).map(p => `- ${p.slug}: ${(p.brief ?? p.name ?? '').replace(/\s+/g, ' ')}`.slice(0, 220)
+      + (repos.some(r => r.topic_id === p.id) ? ` (repos: ${repos.filter(r => r.topic_id === p.id).map(r => r.repository).join(', ')})` : '')),
     ...gone.map(p => `- ${p.slug}: ${p.brief}`.slice(0, 220)), '',
-    `## Memories that already existed before this pass (${run.project_id ? 'personal, plus this session\'s topic' : 'personal, plus every topic\'s'})`, '',
-    ...inScope.map((m, i) => `${i + 1}. [${m.kind} · ${m.project_id ? slugs[m.project_id] : 'personal'}${m.mentions > 1 ? ` · said ${m.mentions} times` : ''}] ${m.statement}`), '',
+    `## Memories that already existed before this pass (${run.topic_id ? 'personal, plus this session\'s topic' : 'personal, plus every topic\'s'})`, '',
+    ...inScope.map((m, i) => `${i + 1}. [${m.kind} · ${m.topic_id ? slugs[m.topic_id] : 'personal'}${m.mentions > 1 ? ` · said ${m.mentions} times` : ''}] ${m.statement}`), '',
     `## The new turns (${turns.length})`, '',
     ...turns.map(t => `### ${t.role} · ${t.created_at}\n\n${t.content}\n`),
   ].join('\n'));
@@ -260,15 +260,15 @@ const stats = {};
 for (const owner of owners) {
   stats[owner.slice(0, 8)] = {
     live: await sql(`select coalesce(p.slug, 'personal') scope, m.kind, m.band, count(*)::int n
-      from public.memories m left join public.projects p on p.id = m.project_id
+      from public.memories m left join public.topics p on p.id = m.topic_id
       where m.owner_id = ${lit(owner)} and m.ended_at is null and (m.expires_at is null or m.expires_at > now())
       group by 1, 2, 3 order by 1, 2, 3`),
     changed_in_window: await sql(`select e.action, coalesce(p.slug, 'personal') scope, m.kind, count(*)::int n
-      from public.memory_events e join public.memories m on m.id = e.memory_id left join public.projects p on p.id = m.project_id
+      from public.memory_events e join public.memories m on m.id = e.memory_id left join public.topics p on p.id = m.topic_id
       where e.owner_id = ${lit(owner)} and e.created_at >= ${lit(since)} and e.created_at < ${lit(until)}
       group by 1, 2, 3 order by 1, 2, 3`),
     documents_in_window: await sql(`select coalesce(p.slug, 'personal (no topic)') scope, count(*)::int n
-      from public.documents d left join public.projects p on p.id = d.project_id
+      from public.documents d left join public.topics p on p.id = d.topic_id
       where d.owner_id = ${lit(owner)} and d.last_turn_at >= ${lit(since)} and d.last_turn_at < ${lit(until)}
       group by 1 order by 2 desc`),
     waiting_now: (await sql(`select count(*)::int n from public.documents

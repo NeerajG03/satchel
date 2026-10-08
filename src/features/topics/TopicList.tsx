@@ -7,43 +7,43 @@ import { Button } from '../../ui/Button';
 import { Empty } from '../../ui/Empty';
 import { Chip } from '../../ui/Chip';
 import { LoadError, SaveError, Skeleton } from '../../ui/Notice';
-import { NewProjectSheet } from './NewProjectSheet';
+import { NewTopicSheet } from './NewTopicSheet';
 
-export function ProjectList() {
+export function TopicList() {
   const stores = useStores();
   const navigate = useNavigate();
   const location = useLocation();
   const { announce } = useReadout();
   const creating = location.pathname.endsWith('/new');
   const page = useLoad(async () => {
-    const [projects, memories, tasks, connections] = await Promise.all([stores.projects.list(), stores.memories.listAll(), stores.tasks.listAll(), stores.connections.list()]);
-    return { projects, memories, tasks, connections };
+    const [topics, memories, tasks, connections] = await Promise.all([stores.topics.list(), stores.memories.listAll(), stores.tasks.listAll(), stores.connections.list()]);
+    return { topics, memories, tasks, connections };
   }, [stores]);
   const action = useAction();
   const data = page.data;
-  const live = data?.projects.filter(p => !p.merged_into) ?? [];
-  const merged = data?.projects.filter(p => p.merged_into) ?? [];
+  const live = data?.topics.filter(p => !p.merged_into) ?? [];
+  const merged = data?.topics.filter(p => p.merged_into) ?? [];
   useFooter(data ? `${count(live.length, 'topic')}` : '');
 
   async function create(id: string, name: string, brief: string, slug: string) {
-    const created = await action.run(() => stores.projects.create(id, name, brief, slug));
+    const created = await action.run(() => stores.topics.create(id, name, brief, slug));
     if (!created) return;
     announce(`Topic created · ${created.name}`);
     navigate(`/topics/${created.id}`, { replace: true });
   }
   async function unmerge(id: string) {
-    const project = data?.projects.find(p => p.id === id);
-    if (!project) return;
-    const done = await action.run(async () => { await stores.projects.unmerge(project); return true; });
+    const topic = data?.topics.find(p => p.id === id);
+    if (!topic) return;
+    const done = await action.run(async () => { await stores.topics.unmerge(topic); return true; });
     if (!done) return;
-    announce(`Merge undone · ${project.name} is back`);
+    announce(`Merge undone · ${topic.name} is back`);
     page.reload();
   }
-  const stats = (projectId: string) => {
-    const memories = data?.memories.filter(m => m.project_id === projectId).length ?? 0;
-    const tasks = data?.tasks.filter(t => t.project_id === projectId && t.status !== 'done').length ?? 0;
-    const apps = data?.connections.filter(c => !c.revoked_at && (c.all_projects || c.task_all_projects || c.project_ids.includes(projectId) || c.agent_task_grants.some(g => g.project_id === projectId))).length ?? 0;
-    const latest = [...(data?.memories.filter(m => m.project_id === projectId).map(m => m.updated_at) ?? []), ...(data?.tasks.filter(t => t.project_id === projectId).map(t => t.last_activity_at) ?? [])].sort().at(-1);
+  const stats = (topicId: string) => {
+    const memories = data?.memories.filter(m => m.topic_id === topicId).length ?? 0;
+    const tasks = data?.tasks.filter(t => t.topic_id === topicId && t.status !== 'done').length ?? 0;
+    const apps = data?.connections.filter(c => !c.revoked_at && (c.all_topics || c.task_all_topics || c.topic_ids.includes(topicId) || c.agent_task_grants.some(g => g.topic_id === topicId))).length ?? 0;
+    const latest = [...(data?.memories.filter(m => m.topic_id === topicId).map(m => m.updated_at) ?? []), ...(data?.tasks.filter(t => t.topic_id === topicId).map(t => t.last_activity_at) ?? [])].sort().at(-1);
     return { memories, tasks, apps, latest };
   };
 
@@ -60,15 +60,15 @@ export function ProjectList() {
     </Empty>}
     {data && live.length > 0 && <table className="table">
       <thead><tr><th>Topic</th><th>Memories</th><th>Tasks</th><th>Apps with access</th><th>Last activity</th></tr></thead>
-      <tbody>{live.map(project => {
-        const s = stats(project.id);
+      <tbody>{live.map(topic => {
+        const s = stats(topic.id);
         const empty = s.memories === 0 && s.tasks === 0;
-        return <tr key={project.id}>
-          <td><Link to={`/topics/${project.id}`} className="serif" style={{ fontSize: 20, color: 'var(--ink)' }}>{project.name}</Link>
-            {project.made_by === 'satchel' && <> <Chip>made by Satchel</Chip></>}
-            <div className="fine muted">{empty ? 'Nothing saved here yet.' : project.brief || 'No brief yet.'}</div>
-            {project.project_repositories.length === 0 ? <div className="fine muted">No repositories linked</div>
-              : <div className="fine mono muted">{project.project_repositories.map(link => link.repository).join(' · ')}</div>}</td>
+        return <tr key={topic.id}>
+          <td><Link to={`/topics/${topic.id}`} className="serif" style={{ fontSize: 20, color: 'var(--ink)' }}>{topic.name}</Link>
+            {topic.made_by === 'satchel' && <> <Chip>made by Satchel</Chip></>}
+            <div className="fine muted">{empty ? 'Nothing saved here yet.' : topic.brief || 'No brief yet.'}</div>
+            {topic.topic_repositories.length === 0 ? <div className="fine muted">No repositories linked</div>
+              : <div className="fine mono muted">{topic.topic_repositories.map(link => link.repository).join(' · ')}</div>}</td>
           <td className="num">{s.memories}</td><td className="num">{s.tasks}</td><td className="num">{s.apps}</td>
           <td className="fine muted">{s.latest ? whenText(s.latest) : '—'}</td>
         </tr>;
@@ -77,14 +77,14 @@ export function ProjectList() {
     {merged.length > 0 && <section className="section">
       <div className="between"><h2>Merged</h2><span className="eyebrow">kept so you can undo</span></div>
       {action.error && !creating && <SaveError message={action.error} />}
-      {merged.map(project => {
-        const into = data?.projects.find(p => p.id === project.merged_into);
-        return <div className="between" key={project.id}>
-          <span>{project.name} <span className="muted fine">went into {into?.name ?? 'another topic'}</span></span>
-          <Button small disabled={action.busy} onClick={() => void unmerge(project.id)}>Undo merge</Button>
+      {merged.map(topic => {
+        const into = data?.topics.find(p => p.id === topic.merged_into);
+        return <div className="between" key={topic.id}>
+          <span>{topic.name} <span className="muted fine">went into {into?.name ?? 'another topic'}</span></span>
+          <Button small disabled={action.busy} onClick={() => void unmerge(topic.id)}>Undo merge</Button>
         </div>;
       })}
     </section>}
-    {creating && data && <NewProjectSheet projects={data.projects} busy={action.busy} error={action.error} onCancel={() => navigate('/topics')} onCreate={(id, name, brief, slug) => void create(id, name, brief, slug)} />}
+    {creating && data && <NewTopicSheet topics={data.topics} busy={action.busy} error={action.error} onCancel={() => navigate('/topics')} onCreate={(id, name, brief, slug) => void create(id, name, brief, slug)} />}
   </>;
 }

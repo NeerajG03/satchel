@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeGitHubRepository } from '../src/features/projects/githubRepository.ts';
+import { normalizeGitHubRepository } from '../src/features/topics/githubRepository.ts';
 
 test('accepts owner/repo in every common spelling', () => {
   for (const input of ['NeerajG03/satchel', 'NeerajG03/satchel/', 'NeerajG03/satchel.git', 'https://github.com/NeerajG03/satchel', 'https://github.com/NeerajG03/satchel/', 'git@github.com:NeerajG03/satchel.git'])

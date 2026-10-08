@@ -65,7 +65,7 @@ No key, no prompt text, no ranking logic and no routing logic ever lands on the 
 
 ### SessionStart
 
-Loads the topics list and the **personal block**: live personal memories ranked by `personal_memories` (most mentioned, then most recently affirmed) and cut at `block_size`, 30 by default, confirmed ones first and picked-up ones after them under their own header. When the workspace resolves to exactly one topic, the **topic block** follows: that topic's own memories from `memories_in_scope`, preferences first, then the most said, under a cap of 15 of their own (`PROJECT_BLOCK` in `lifecycle.mjs`, `projectLoad` in `injection-format.mjs`). A rule about how the work in a codebase is done is relevant by activity, not by subject, which is the measurement that put personal memories in the block. With two candidate topics nothing is scoped and no topic block loads.
+Loads the topics list and the **personal block**: live personal memories ranked by `personal_memories` (most mentioned, then most recently affirmed) and cut at `block_size`, 30 by default, confirmed ones first and picked-up ones after them under their own header. When the workspace resolves to exactly one topic, the **topic block** follows: that topic's own memories from `memories_in_scope`, preferences first, then the most said, under a cap of 15 of their own (`TOPIC_BLOCK` in `lifecycle.mjs`, `topicLoad` in `injection-format.mjs`). A rule about how the work in a codebase is done is relevant by activity, not by subject, which is the measurement that put personal memories in the block. With two candidate topics nothing is scoped and no topic block loads.
 
 Nothing past the cap is ended or hidden. It is simply not injected, and it is still retrievable per prompt.
 
@@ -75,7 +75,7 @@ If Satchel is unreachable, the injected text says memory was not loaded and tell
 
 ### UserPromptSubmit
 
-Three things happen before the search. The prompt is classified by `machine-prompt.mjs`: a subagent hand-back, task notification, CI event or system reminder is recorded as a short note and not searched, and a slash command's arguments become the query. The personal rows session start loaded are recomputed with `personalLoad` and sent as `exclude`, with whatever the hook sent, so a row already in context is not retrieved again. And `projects()` is read for the labels: every retrieved row is printed as `handle  (slug | personal[, picked up])  statement`.
+Three things happen before the search. The prompt is classified by `machine-prompt.mjs`: a subagent hand-back, task notification, CI event or system reminder is recorded as a short note and not searched, and a slash command's arguments become the query. The personal rows session start loaded are recomputed with `personalLoad` and sent as `exclude`, with whatever the hook sent, so a row already in context is not retrieved again. And `topics()` is read for the labels: every retrieved row is printed as `handle  (slug | personal[, picked up])  statement`.
 
 1. Record the user's half through `record_turn`, into both `session_messages` and the session's document, if `capture` is on. **Awaited**, in its own try/catch. It used to be fired with `void`, and a Vercel function freezes when it responds, so the user's half, the only half that can supply a source, could be lost. A failure here produces an "unrecorded" notice rather than failing retrieval.
 2. Embed the prompt.
@@ -109,7 +109,7 @@ POST {idle_minutes}   start_consolidation_job, or show the one already running
     pending_documents(idle, no count), minus the sessions this job already tried
     for each, while inside this call's four minutes and the job's 30:
     document_content(after consolidated_through)   only turns not yet read
-    memories_in_scope(project)                     topic + personal, integer labels
+    memories_in_scope(topic)                     topic + personal, integer labels
     consolidator.consolidate()                     one call, gemini-3.8-flash, thinking medium
     validate()                                     source must be in the user's words
     apply: capture_memory | extend_memory | end_memory | affirm_memory
@@ -160,7 +160,7 @@ Tools: `list_topics`, `upsert_topic`, `select_topic`, `memory_index`, `retrieve_
 
 ## Scope, which is never inferred
 
-Every memory lives in exactly one scope. Topics are stored in the `projects` table, so the column is `project_id`. `project_id = null` is personal; anything else is an explicit topic UUID. Scope is never chosen from a directory name or a similar-looking topic name.
+Every memory lives in exactly one scope. `topic_id = null` is personal; anything else is an explicit topic UUID. Scope is never chosen from a directory name or a similar-looking topic name.
 
 There is no task link. `memories.task_id` was removed in `20260922100000` (R9a), with the router field, the scope check in `save_memory` and the `[task closed, may be fixed]` hint. The doubt that hint was for now comes from the repository moving (R8).
 
@@ -170,7 +170,7 @@ A document has the same scope rule. It is set by whichever turn first knows it a
 
 A model copies an identifier and rewrites a title, so slugs exist. They are unique per user across topics and tasks together, supplied on create rather than derived, and the derived form exists only so no row can ever lack one.
 
-`create_task_with_slug` and `upsert_project_with_slug` are thin wrappers so a create and its slug are one round trip and one transaction. A slug collision rolls the create back rather than leaving a task named after its title.
+`create_task_with_slug` and `upsert_topic_with_slug` are thin wrappers so a create and its slug are one round trip and one transaction. A slug collision rolls the create back rather than leaving a task named after its title.
 
 ## Tracing
 

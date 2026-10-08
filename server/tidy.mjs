@@ -86,7 +86,7 @@ export function validateTidy(payload, {topics = [], memories = []} = {}) {
   }
   const used = new Set(moves.map(m => m.slug));
   return {moves, merges, dropped,
-    topics: [...fresh].filter(([slug]) => used.has(slug)).map(([slug, brief]) => ({slug, brief}))};
+    named: [...fresh].filter(([slug]) => used.has(slug)).map(([slug, brief]) => ({slug, brief}))};
 }
 
 export function createTidier({

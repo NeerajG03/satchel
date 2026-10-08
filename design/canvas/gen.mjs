@@ -1,6 +1,6 @@
 // Generates every artboard for the Satchel redesign canvas.
 import { writeFileSync, mkdirSync } from 'node:fs';
-const out = new URL('./project/', import.meta.url).pathname;
+const out = new URL('./boards/', import.meta.url).pathname;
 mkdirSync(out, { recursive: true });
 
 const FONTS = 'https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=Instrument+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&family=Caveat:wght@600&display=swap';
@@ -140,7 +140,7 @@ class Component extends DCLogic {
 </body>
 </html>`;
 
-const NAV = [['Left off', 'Main.dc.html'], ['Book', 'Book.dc.html'], ['Tasks', 'Tasks.dc.html'], ['Topics', 'Projects.dc.html'], ['Apps', 'Apps.dc.html'], ['Settings', 'Settings.dc.html']];
+const NAV = [['Left off', 'Main.dc.html'], ['Book', 'Book.dc.html'], ['Tasks', 'Tasks.dc.html'], ['Topics', 'Topics.dc.html'], ['Apps', 'Apps.dc.html'], ['Settings', 'Settings.dc.html']];
 const rail = (active) => `<nav class="rail" aria-label="Destinations">
   ${NAV.map(([l, f]) => `<a href="${f}"${l === active ? ' aria-current="page"' : ''}><span class="dot"></span>${l}</a>`).join('\n  ')}
   <div class="spacer"></div>
@@ -219,7 +219,7 @@ const leftOffEmpty = desktop({ active: 'Left off', topOpts: { status: 'amber', s
   <div class="panel" style="margin-top:28px; display:grid; grid-template-columns:auto 1fr auto; gap:18px; align-items:center;">
     <span class="led amber"></span>
     <div><strong>You have 2 topics but nothing in them yet.</strong><span class="muted"> Managed Agents and Satchel were created earlier. A topic with no memories or tasks is invisible to agents until you add something.</span></div>
-    <a href="Projects.dc.html" class="btn sm">View topics</a>
+    <a href="Topics.dc.html" class="btn sm">View topics</a>
   </div>` });
 
 // Left off, populated
@@ -328,23 +328,23 @@ const bookDark = desktop({ dark: true, active: 'Book', footL: 'Dark theme · sam
   ${memoryEntry({ name: 'plain-words', desc: 'Write UI copy in plain 8th-grade words. No jargon, no metaphors, no em dashes.', prov: 'Said on your MacBook · Fri 12 Sep · revision 3', rev: 3 })}` });
 
 // Topics list
-const projects = desktop({ active: 'Topics', footL: '3 topics', paper: `
-  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topics</span><h1 class="h1">Topics.</h1></div><a href="ProjectEmpty.dc.html" class="btn primary">${icon.plus} New topic</a></div>
+const topics = desktop({ active: 'Topics', footL: '3 topics', paper: `
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topics</span><h1 class="h1">Topics.</h1></div><a href="TopicEmpty.dc.html" class="btn primary">${icon.plus} New topic</a></div>
   <p class="lede" style="margin:12px 0 22px;">A topic is a subject your memories are about. Satchel makes one when a work fact fits none of these. You can also link a codebase or add tasks to it.</p>
   <div style="display:grid; grid-template-columns:minmax(0,2fr) 90px 90px 140px 120px; gap:16px; padding:8px 0; border-bottom:1px solid var(--ink);" class="eyebrow"><span>Topic</span><span>Memories</span><span>Tasks</span><span>Apps with access</span><span>Last activity</span></div>
   ${[
-    ['Satchel', 'Personal memory and task continuity across AI apps.', ['neerajg03/satchel'], 5, '3 moving · 1 blocked', 'Claude Code, Codex', 'today 09:41', 'Project.dc.html'],
-    ['Release workflow', 'Ship the monthly release without a war room.', ['acme/backend', 'acme/frontend'], 2, '2 ready', 'Codex', 'Fri 17:06', 'Project.dc.html'],
-    ['Reimbursements', 'Monthly claims and receipts. No code.', [], 1, '1 blocked', 'Claude', 'Thu 11:12', 'Project.dc.html'],
-    ['Managed Agents', 'Created 12 Sep. Nothing saved here yet.', [], 0, 'none', 'none', '—', 'ProjectEmpty.dc.html'],
+    ['Satchel', 'Personal memory and task continuity across AI apps.', ['neerajg03/satchel'], 5, '3 moving · 1 blocked', 'Claude Code, Codex', 'today 09:41', 'Topic.dc.html'],
+    ['Release workflow', 'Ship the monthly release without a war room.', ['acme/backend', 'acme/frontend'], 2, '2 ready', 'Codex', 'Fri 17:06', 'Topic.dc.html'],
+    ['Reimbursements', 'Monthly claims and receipts. No code.', [], 1, '1 blocked', 'Claude', 'Thu 11:12', 'Topic.dc.html'],
+    ['Managed Agents', 'Created 12 Sep. Nothing saved here yet.', [], 0, 'none', 'none', '—', 'TopicEmpty.dc.html'],
   ].map(([n, b, repos, m, t, a, when, href]) => `<a href="${href}" style="display:grid; grid-template-columns:minmax(0,2fr) 90px 90px 140px 120px; gap:16px; padding:18px 0; border-bottom:1px solid var(--line); color:var(--ink); align-items:start;">
       <div class="col" style="gap:4px;"><span class="h3">${n}</span><span class="muted" style="font-size:14px;">${b}</span>${repos.length ? `<span class="row" style="gap:6px; margin-top:4px; flex-wrap:wrap;">${repos.map(r => `<span class="chip" style="text-transform:none; letter-spacing:0;">${icon.github} ${r}</span>`).join('')}</span>` : `<span class="fine muted" style="margin-top:4px;">No repositories linked</span>`}</div>
       <span style="font-size:15px;">${m}</span><span style="font-size:14px;">${t}</span><span style="font-size:14px;">${a}</span><span class="prov">${when}</span>
     </a>`).join('')}` });
 
 // Topic detail
-const project = desktop({ active: 'Topics', footL: 'Topic / Satchel · created 10 Sep', paper: `
-  <a href="Projects.dc.html" class="fine muted" style="color:var(--muted);">← Topics</a>
+const topic = desktop({ active: 'Topics', footL: 'Topic / Satchel · created 10 Sep', paper: `
+  <a href="Topics.dc.html" class="fine muted" style="color:var(--muted);">← Topics</a>
   <div class="head" style="margin-top:8px;"><div class="col" style="gap:8px;"><span class="eyebrow">Topic</span><h1 class="h1">Satchel</h1></div>
     <div class="row"><a href="Book.dc.html" class="btn">Open its book</a><a href="Tasks.dc.html" class="btn">Open its tasks</a><button class="btn icon" aria-label="Topic actions">${icon.more}</button></div></div>
   <p class="serif" style="font-size:20px; line-height:1.45; margin:14px 0 22px; max-width:680px;">Personal memory and task continuity across AI apps. <a href="#" class="fine" style="font-family:'Instrument Sans',sans-serif;">Edit brief</a></p>
@@ -365,8 +365,8 @@ const project = desktop({ active: 'Topics', footL: 'Topic / Satchel · created 1
   </div>` });
 
 // Topic: brand new / empty
-const projectEmpty = desktop({ active: 'Topics', topOpts: { status: 'amber', statusText: 'Topic has nothing yet' }, footL: 'Topic / Managed Agents · created 12 Sep', paper: `
-  <a href="Projects.dc.html" class="fine muted" style="color:var(--muted);">← Topics</a>
+const topicEmpty = desktop({ active: 'Topics', topOpts: { status: 'amber', statusText: 'Topic has nothing yet' }, footL: 'Topic / Managed Agents · created 12 Sep', paper: `
+  <a href="Topics.dc.html" class="fine muted" style="color:var(--muted);">← Topics</a>
   <div class="head" style="margin-top:8px;"><div class="col" style="gap:8px;"><span class="eyebrow">Topic</span><h1 class="h1">Managed Agents</h1></div><button class="btn icon" aria-label="Topic actions">${icon.more}</button></div>
   <div class="panel" style="margin-top:18px; padding:16px 20px; display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:center;"><span class="led amber"></span><span><strong>Agents can't see this topic yet.</strong><span class="muted"> It has no brief, no memories and no tasks. Fill in the brief first so an agent can tell it apart from “Satchel”.</span></span></div>
   <form class="col" style="gap:14px; margin-top:22px; max-width:640px;">
@@ -411,7 +411,7 @@ const tasks = desktop({ active: 'Tasks', footL: '7 tasks · 3 actionable · Topi
     <label class="row" style="gap:8px; border:1px solid var(--line); border-radius:8px; padding:0 12px; height:40px; width:280px; background:var(--paper2);">${icon.search}<input class="field" placeholder="Title or next action" style="border:0; background:transparent; padding:0;"></label></div>
   ${taskRow({ t: 'Ship the skills packaging worktree', next: 'Next: open the PR from skills-packaging and request review.', s: 'in progress', cls: 'progress', prov: 'High · rev 9 · handoff by Claude Code · today 09:41 · PR #41' })}
   ${taskRow({ t: 'Write the plugin pilot design', next: 'Next: turn docs/plugin-pilot-design.md into three concrete milestones.', s: 'ready', cls: 'ink', prov: 'Medium · rev 3 · 2 children · updated Fri' })}
-  ${taskRow({ t: 'Add project upsert to the agent tools', next: 'Next: verify the upsert_project tool against a fresh project.', s: 'ready', cls: 'ink', prov: 'Medium · rev 2 · child of “Plugin pilot” · updated Tue' })}
+  ${taskRow({ t: 'Add topic upsert to the agent tools', next: 'Next: verify the upsert_topic tool against a fresh topic.', s: 'ready', cls: 'ink', prov: 'Medium · rev 2 · child of “Plugin pilot” · updated Tue' })}
   ${taskRow({ t: 'Decide rule events retention', next: 'Waiting on “Rules table migration” to finish first.', s: 'blocked', cls: 'blocked', prov: 'Low · rev 1 · 1 dependency unfinished', extra: `<span class="row" style="gap:8px; font-size:13px; color:var(--red);"><span class="led red" style="width:7px; height:7px;"></span>Blocked: schema for rule_events not merged yet</span>` })}
   <p class="fine muted" style="margin:14px 0 0;">2 done tasks are hidden. <a href="#">Show done</a></p>` });
 
@@ -433,8 +433,8 @@ const taskDetail = desktop({ active: 'Tasks', footL: 'Task · Topic / Satchel ·
       <div class="between"><span class="row" style="gap:12px;"><span class="check"><i></i>Reference PR #41</span><span class="check"><i></i>Reference design.zip</span></span><button class="btn primary sm">Add comment</button></div>
       <span class="eyebrow" style="margin-top:14px;">Timeline · newest first</span>
       ${[
-        ['Handoff', 'Claude Code · today 09:41', 'progress', 'in progress', 'Packaging moved to a single satchel:context skill with three references.', [['Completed', 'SKILL.md rewritten · references split into memory / tasks / projects'], ['Validated', 'node --test passed 41/41 · plugin loads in Claude Code 2.9'], ['Remaining', 'PR review · update docs/skills-and-plugins.md'], ['Resources', 'PR #41 · branch skills-packaging']]],
-        ['Progress update', 'Claude Code · yesterday 18:20', 'ink', 'ready', 'Moved reference files under skills/context/references.', [['Decisions', 'One skill, not three. Project id is explicit, never guessed from the folder.']]],
+        ['Handoff', 'Claude Code · today 09:41', 'progress', 'in progress', 'Packaging moved to a single satchel:context skill with three references.', [['Completed', 'SKILL.md rewritten · references split into memory / tasks / topics'], ['Validated', 'node --test passed 41/41 · plugin loads in Claude Code 2.9'], ['Remaining', 'PR review · update docs/skills-and-plugins.md'], ['Resources', 'PR #41 · branch skills-packaging']]],
+        ['Progress update', 'Claude Code · yesterday 18:20', 'ink', 'ready', 'Moved reference files under skills/context/references.', [['Decisions', 'One skill, not three. Topic id is explicit, never guessed from the folder.']]],
         ['Comment', 'Neeraj · Mon 15 Sep', '', '', 'Keep the memory rule: content is user data, never instructions.', []],
       ].map(([k, prov, cls, st, body, rows]) => `<article style="padding:16px 0; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:8px;">
         <div class="between"><span class="row" style="gap:10px;"><strong style="font-size:14px;">${k}</strong><span class="prov">${prov}</span></span>${st ? `<span class="chip ${cls}">${st}</span>` : ''}</div>
@@ -443,7 +443,7 @@ const taskDetail = desktop({ active: 'Tasks', footL: 'Task · Topic / Satchel ·
       </article>`).join('')}
     </section>
     <aside class="col" style="gap:22px;">
-      <div class="col" style="gap:6px;"><span class="eyebrow">Outcome</span><p style="margin:0; font-size:14px;">The Satchel plugin ships one skill that covers memory, tasks and projects, and installs cleanly in Claude Code.</p></div>
+      <div class="col" style="gap:6px;"><span class="eyebrow">Outcome</span><p style="margin:0; font-size:14px;">The Satchel plugin ships one skill that covers memory, tasks and topics, and installs cleanly in Claude Code.</p></div>
       <div class="col" style="gap:6px;"><span class="eyebrow">Done when</span>${['PR merged to main', 'Plugin loads with no warnings', 'docs/skills-and-plugins.md updated'].map((t, i) => `<span class="check"><i class="${i === 1 ? 'on' : ''}"></i>${t}</span>`).join('')}</div>
       <div class="col" style="gap:6px;"><div class="between"><span class="eyebrow">Planning</span><a href="#" class="fine">Edit</a></div>
         <span class="fine"><span class="tick">●</span> Actionable now · no unfinished dependencies</span>
@@ -720,7 +720,7 @@ const scopePickerOpen = overlay(book.replace(scopePicker('Satchel'), `<button cl
         <a href="#"><span>Reimbursements</span><span class="prov">1 memory</span></a>
         <a href="#"><span>Managed Agents</span><span class="prov" style="color:var(--amber);">empty</span></a>
         <div class="hr" style="margin:6px 0;"></div>
-        <a href="ProjectNew.dc.html" style="color:var(--accent);"><span class="row" style="gap:8px;">${icon.plus} New topic</span></a>
+        <a href="TopicNew.dc.html" style="color:var(--accent);"><span class="row" style="gap:8px;">${icon.plus} New topic</span></a>
       </div>`);
 
 // 2. Move to Blocked sheet, on the task page
@@ -745,7 +745,7 @@ const taskEdit = desktop({ active: 'Tasks', footL: 'Editing · revision 9 · sav
       <label class="f"><span>Title</span><input class="field serif focus" value="Ship the skills packaging worktree" style="font-size:26px;"></label>
       <label class="f"><span>Next action <span class="ph">· the one concrete thing to do first</span></span><input class="field" value="Open the PR from skills-packaging and request review."></label>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-        <label class="f"><span>Outcome <span class="ph">· what is true when this is done</span></span><textarea class="field" rows="3">The Satchel plugin ships one skill that covers memory, tasks and projects, and installs cleanly in Claude Code.</textarea></label>
+        <label class="f"><span>Outcome <span class="ph">· what is true when this is done</span></span><textarea class="field" rows="3">The Satchel plugin ships one skill that covers memory, tasks and topics, and installs cleanly in Claude Code.</textarea></label>
         <label class="f"><span>Why <span class="ph">· the reason it matters</span></span><textarea class="field" rows="3">Three separate skills confused the router and doubled the docs. One skill with references is easier to keep honest.</textarea></label>
       </div>
       <label class="f"><span>Done when <span class="ph">· one per line, each becomes a checkbox</span></span><textarea class="field" rows="3">PR merged to main
@@ -765,14 +765,14 @@ docs/skills-and-plugins.md updated</textarea></label>
   </div>` });
 
 // 4. New topic sheet, on Topics
-const projectNew = overlay(projects, `
+const topicNew = overlay(topics, `
       <div class="scrim"><form class="sheet">
         <div class="col" style="gap:6px;"><span class="eyebrow">New topic</span><h2 class="h2">Name the effort, not the repo.</h2>
           <p class="muted" style="margin:0; font-size:14px;">A topic can hold many repositories or none. You can link codebases on the next page.</p></div>
         <label class="f"><span>Name</span><input class="field serif focus" placeholder="Release workflow" value="Rules engine"></label>
         <label class="f"><span>Brief <span class="ph">· one or two lines an agent reads to tell this apart from your other topics</span></span><textarea class="field" rows="2" placeholder="What is this for, and what does done look like?">Declarative constraints Satchel enforces on agents, with an event log of what was blocked or overridden.</textarea></label>
         <span class="fine muted">A topic with the same name already exists? Satchel will ask before creating a second one.</span>
-        <div class="between"><span class="fine muted">Opens the new topic page</span><div class="row"><button type="button" class="btn quiet">Cancel</button><a href="ProjectEmpty.dc.html" class="btn primary">Create topic</a></div></div>
+        <div class="between"><span class="fine muted">Opens the new topic page</span><div class="row"><button type="button" class="btn quiet">Cancel</button><a href="TopicEmpty.dc.html" class="btn primary">Create topic</a></div></div>
       </form></div>`);
 
 // 5. Book search results
@@ -871,10 +871,10 @@ const files = {
   'Direction.dc.html': direction, 'Mark.dc.html': mark, 'Motion.dc.html': motion, 'Headings.dc.html': headings, 'Corners.dc.html': corners, 'ConnectedClaude.dc.html': connectedClaude, 'ConnectedCodex.dc.html': connectedCodex,
   'Welcome.dc.html': welcome, 'LeftOffEmpty.dc.html': leftOffEmpty, 'Main.dc.html': leftOff,
   'BookEmpty.dc.html': bookEmpty, 'Book.dc.html': book, 'BookCorrect.dc.html': bookCorrect, 'BookDark.dc.html': bookDark,
-  'Projects.dc.html': projects, 'Project.dc.html': project, 'ProjectEmpty.dc.html': projectEmpty,
+  'Topics.dc.html': topics, 'Topic.dc.html': topic, 'TopicEmpty.dc.html': topicEmpty,
   'TasksEmpty.dc.html': tasksEmpty, 'Tasks.dc.html': tasks, 'Task.dc.html': taskDetail,
   'AppsEmpty.dc.html': appsEmpty, 'Apps.dc.html': apps, 'Consent.dc.html': consent, 'Settings.dc.html': settings,
-  'ScopePicker.dc.html': scopePickerOpen, 'TaskBlocked.dc.html': taskBlocked, 'TaskEdit.dc.html': taskEdit, 'ProjectNew.dc.html': projectNew, 'BookSearch.dc.html': bookSearch, 'Errors.dc.html': errors, 'Components.dc.html': components,
+  'ScopePicker.dc.html': scopePickerOpen, 'TaskBlocked.dc.html': taskBlocked, 'TaskEdit.dc.html': taskEdit, 'TopicNew.dc.html': topicNew, 'BookSearch.dc.html': bookSearch, 'Errors.dc.html': errors, 'Components.dc.html': components,
   'PhoneLeftOff.dc.html': phoneLeftOff, 'PhoneBook.dc.html': phoneBook, 'PhoneTask.dc.html': phoneTask, 'PhoneConsent.dc.html': phoneConsent,
 };
 for (const [name, html] of Object.entries(files)) writeFileSync(out + name, html);
@@ -885,12 +885,12 @@ const rows = [
   ['Design system, the mark, motion, the corner fix, and the heading font question', ['Direction.dc.html', 'Mark.dc.html', 'Motion.dc.html', 'Corners.dc.html', 'Headings.dc.html']],
   ['Arrive: sign in, first run, then where you left off', ['Welcome.dc.html', 'LeftOffEmpty.dc.html', 'Main.dc.html']],
   ['The book: empty, filled, correcting and forgetting, dark theme', ['BookEmpty.dc.html', 'Book.dc.html', 'BookCorrect.dc.html', 'BookDark.dc.html']],
-  ['Topics: list, a full topic, a brand new one', ['Projects.dc.html', 'Project.dc.html', 'ProjectEmpty.dc.html']],
+  ['Topics: list, a full topic, a brand new one', ['Topics.dc.html', 'Topic.dc.html', 'TopicEmpty.dc.html']],
   ['Tasks: empty, list, task detail with timeline', ['TasksEmpty.dc.html', 'Tasks.dc.html', 'Task.dc.html']],
-  ['v1 details: the picker open, sheets, edit, search, errors, and component states', ['ScopePicker.dc.html', 'BookSearch.dc.html', 'ProjectNew.dc.html', 'TaskEdit.dc.html', 'TaskBlocked.dc.html', 'Errors.dc.html', 'Components.dc.html']],
+  ['v1 details: the picker open, sheets, edit, search, errors, and component states', ['ScopePicker.dc.html', 'BookSearch.dc.html', 'TopicNew.dc.html', 'TaskEdit.dc.html', 'TaskBlocked.dc.html', 'Errors.dc.html', 'Components.dc.html']],
   ['Apps and settings: empty, connected, consent request, settings', ['AppsEmpty.dc.html', 'Apps.dc.html', 'Consent.dc.html', 'ConnectedClaude.dc.html', 'ConnectedCodex.dc.html', 'Settings.dc.html']],
 ];
-const titles = { 'Direction.dc.html': 'Direction', 'Mark.dc.html': 'Mark · logo and wordmark', 'Welcome.dc.html': 'Welcome (signed out)', 'LeftOffEmpty.dc.html': 'Left off · first run', 'Main.dc.html': 'Left off', 'BookEmpty.dc.html': 'Book · empty', 'Book.dc.html': 'Book', 'BookCorrect.dc.html': 'Book · correcting + forget', 'BookDark.dc.html': 'Book · dark theme', 'Projects.dc.html': 'Topics', 'Project.dc.html': 'Topic', 'ProjectEmpty.dc.html': 'Topic · new and empty', 'TasksEmpty.dc.html': 'Tasks · empty', 'Tasks.dc.html': 'Tasks', 'Task.dc.html': 'Task detail', 'AppsEmpty.dc.html': 'Apps · none connected', 'Apps.dc.html': 'Apps', 'Consent.dc.html': 'Consent request', 'Settings.dc.html': 'Settings', 'ScopePicker.dc.html': 'Scope picker · open', 'BookSearch.dc.html': 'Book · search results', 'ProjectNew.dc.html': 'New topic sheet', 'TaskEdit.dc.html': 'Task · editing', 'TaskBlocked.dc.html': 'Task · move to Blocked', 'Errors.dc.html': 'Errors and conflicts', 'Components.dc.html': 'Components · focus and long content', 'Motion.dc.html': 'Motion', 'Headings.dc.html': 'Headings · serif vs handwriting', 'MainScript.dc.html': 'Left off · Caveat heading (option A)', 'Corners.dc.html': 'Corners · leak and fix', 'ConnectedClaude.dc.html': 'Satchel × Claude', 'ConnectedCodex.dc.html': 'Satchel × OpenAI', 'BookDark.dc.html': 'Book · dark theme (v2 reference)', 'PhoneLeftOff.dc.html': 'v2 Android ref · Left off', 'PhoneBook.dc.html': 'v2 Android ref · Book', 'PhoneTask.dc.html': 'v2 Android ref · Task', 'PhoneConsent.dc.html': 'v2 Android ref · More' };
+const titles = { 'Direction.dc.html': 'Direction', 'Mark.dc.html': 'Mark · logo and wordmark', 'Welcome.dc.html': 'Welcome (signed out)', 'LeftOffEmpty.dc.html': 'Left off · first run', 'Main.dc.html': 'Left off', 'BookEmpty.dc.html': 'Book · empty', 'Book.dc.html': 'Book', 'BookCorrect.dc.html': 'Book · correcting + forget', 'BookDark.dc.html': 'Book · dark theme', 'Topics.dc.html': 'Topics', 'Topic.dc.html': 'Topic', 'TopicEmpty.dc.html': 'Topic · new and empty', 'TasksEmpty.dc.html': 'Tasks · empty', 'Tasks.dc.html': 'Tasks', 'Task.dc.html': 'Task detail', 'AppsEmpty.dc.html': 'Apps · none connected', 'Apps.dc.html': 'Apps', 'Consent.dc.html': 'Consent request', 'Settings.dc.html': 'Settings', 'ScopePicker.dc.html': 'Scope picker · open', 'BookSearch.dc.html': 'Book · search results', 'TopicNew.dc.html': 'New topic sheet', 'TaskEdit.dc.html': 'Task · editing', 'TaskBlocked.dc.html': 'Task · move to Blocked', 'Errors.dc.html': 'Errors and conflicts', 'Components.dc.html': 'Components · focus and long content', 'Motion.dc.html': 'Motion', 'Headings.dc.html': 'Headings · serif vs handwriting', 'MainScript.dc.html': 'Left off · Caveat heading (option A)', 'Corners.dc.html': 'Corners · leak and fix', 'ConnectedClaude.dc.html': 'Satchel × Claude', 'ConnectedCodex.dc.html': 'Satchel × OpenAI', 'BookDark.dc.html': 'Book · dark theme (v2 reference)', 'PhoneLeftOff.dc.html': 'v2 Android ref · Left off', 'PhoneBook.dc.html': 'v2 Android ref · Book', 'PhoneTask.dc.html': 'v2 Android ref · Task', 'PhoneConsent.dc.html': 'v2 Android ref · More' };
 const boards = {}, order = [], notes = {};
 rows.forEach(([title, list], r) => {
   const y = r * ROW;

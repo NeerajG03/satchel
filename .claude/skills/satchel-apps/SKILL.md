@@ -32,7 +32,7 @@ An app registers through Supabase's OAuth server and sends the person to Satchel
 
 **Nothing is granted by default.** Consent has to select at least one memory or task scope or it raises `23514`. Write and upload are separate unchecked boxes, and they are forced off when no scope in that group is selected.
 
-**Memory and tasks are four independent switches, not one.** `personal`, `all_projects`/`project_ids`, `can_write` for memory; `task_personal`, `task_all_projects`/`agent_task_grants`, `task_can_write`, `task_can_upload` for tasks. Task permission is not memory permission in either direction. Topics are stored in the `projects` table, which is why these columns still say project.
+**Memory and tasks are four independent switches, not one.** `personal`, `all_topics`/`topic_ids`, `can_write` for memory; `task_personal`, `task_all_topics`/`agent_task_grants`, `task_can_write`, `task_can_upload` for tasks. Task permission is not memory permission in either direction.
 
 **"Every topic" keeps being true.** It is a flag, not a snapshot of names, so it covers topics that do not exist yet. A blanket grant stores an empty list beside the flag so a stale snapshot can never sit there looking authoritative.
 
@@ -49,7 +49,7 @@ An app registers through Supabase's OAuth server and sends the person to Satchel
 ```
 supabase/migrations/
   202609110003_agent_connections.sql     the table, authorize/revoke, access helpers, the token hook
-  20260920150000_all_projects_grant.sql  all_projects, task_all_projects, authorize_agent_v3
+  20260920150000_all_projects_grant.sql  all_topics, task_all_topics, authorize_agent_v3
   20260916070509_task_management.sql     agent_task_grants, private.agent_can_access_tasks
   20260922170000_consolidation_schedule.sql  the cron's own OAuth client, its Vault secret, rotation
 server/http-handler.mjs        the per-request client and the 401 challenge for /api/mcp

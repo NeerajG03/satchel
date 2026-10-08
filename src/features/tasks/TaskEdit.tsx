@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { useStores } from '../../app/stores';
 import { isConflict, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
-import { projectScope, scopeQuery } from '../../app/scope';
+import { topicScope, scopeQuery } from '../../app/scope';
 import { errorMessage } from '../../client';
 import { actorLabel, fullDate } from '../../app/format';
 import type { TaskDetail, TaskDraft } from './model';
@@ -38,7 +38,7 @@ export function TaskEdit() {
     setBase(task); setDraft(task); setDoneWhen(task.done_when.join('\n')); setParentId(task.parent_id); setDependencyIds(task.dependency_ids);
   }, [page.data, base]);
 
-  const scope = projectScope(base?.project_id ?? null);
+  const scope = topicScope(base?.topic_id ?? null);
   const back = `/tasks/${id}${scopeQuery(scope)}`;
   useFooter(base ? `Editing · revision ${base.revision} · save writes revision ${base.revision + 1}` : '');
 

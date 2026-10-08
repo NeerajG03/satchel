@@ -3,7 +3,7 @@
 //
 // A gold memory is found when some change the pass made states it: every
 // keyword appears in the statement (as a stem, so "subagent" finds
-// "subagents") and the project agrees. Keywords are the labeller's, chosen
+// "subagents") and the topic agrees. Keywords are the labeller's, chosen
 // without seeing what the pass wrote, so this is a check on meaning that costs
 // no model call. It undercounts when the pass words a real memory in a way the
 // keywords did not expect, which is why the changes that matched nothing are
@@ -21,14 +21,14 @@ export function found(gold, change) {
 }
 
 /** @returns per gold memory whether it was found and filed under the right
- *  project, and the pass's claims that matched no gold memory. */
+ *  topic, and the pass's claims that matched no gold memory. */
 export function scoreSession(goldMemories, changes) {
   const made = claims(changes);
   const used = new Set();
   const rows = goldMemories.map(gold => {
     const index = made.findIndex((c, i) => !used.has(i) && found(gold, c));
     if (index >= 0) used.add(index);
-    return {gold, found: index >= 0, project: index >= 0 && slug(made[index].project) === slug(gold.project)};
+    return {gold, found: index >= 0, topic: index >= 0 && slug(made[index].topic) === slug(gold.topic)};
   });
   return {rows, extra: made.filter((_, i) => !used.has(i))};
 }
@@ -46,7 +46,7 @@ export function applyMatches(result, pairs) {
     taken.add(claim);
     row.found = true;
     row.judged = true;
-    row.project = slug(change.project) === slug(row.gold.project);
+    row.topic = slug(change.topic) === slug(row.gold.topic);
   }
   return {rows, extra: result.extra.filter((_, i) => !taken.has(i))};
 }
@@ -60,7 +60,7 @@ export function summarise(sessions) {
   const quiet = sessions.filter(s => !s.rows.length);
   return {
     all: count(all), clear: count(clear),
-    project: {right: all.filter(r => r.found && r.project).length, of: all.filter(r => r.found).length},
+    topic: {right: all.filter(r => r.found && r.topic).length, of: all.filter(r => r.found).length},
     extra: sessions.reduce((sum, s) => sum + s.extra.length, 0),
     quiet: {noisy: quiet.filter(s => s.extra.length).length, total: quiet.length},
   };

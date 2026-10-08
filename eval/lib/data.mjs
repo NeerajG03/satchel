@@ -26,14 +26,14 @@ export function validate(){
     if(m.statement?.length>500) problems.push(`${m.id}: statement over 500 chars`);
     if(!['said','heard'].includes(m.band)) problems.push(`${m.id}: bad band ${m.band}`);
   }
-  const projects=new Set(corpus.projects.map(p=>p.slug));
+  const topics=new Set(corpus.topics.map(p=>p.slug));
   const tasks=new Map(corpus.tasks.map(t=>[t.slug,t]));
   for(const m of corpus.memories){
-    if(m.project!==null&&!projects.has(m.project)) problems.push(`${m.id}: unknown project ${m.project}`);
+    if(m.topic!==null&&!topics.has(m.topic)) problems.push(`${m.id}: unknown topic ${m.topic}`);
     if(m.task!==null){
       const t=tasks.get(m.task);
       if(!t) problems.push(`${m.id}: unknown task ${m.task}`);
-      else if(t.project!==m.project) problems.push(`${m.id}: scope disagrees with task ${m.task}`);
+      else if(t.topic!==m.topic) problems.push(`${m.id}: scope disagrees with task ${m.task}`);
     }
   }
   for(const t of corpus.tasks)

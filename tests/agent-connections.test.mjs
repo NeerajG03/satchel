@@ -16,7 +16,7 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
     }catch(e){await db.exec('rollback');throw e;}
   }
   const user={sub:owner};let codex,claude,taskAgent;
-  const authorize=(client,personal,projects,write)=>call(user,'select authorize_agent($1,$1,$2,$3,$4)',[client,personal,projects,write]);
+  const authorize=(client,personal,topics,write)=>call(user,'select authorize_agent($1,$1,$2,$3,$4)',[client,personal,topics,write]);
   async function claims(client) {
     const {rows}=await db.query('select satchel_access_token_hook($1) result',[
       {user_id:owner,client_id:client,claims:{sub:owner,client_id:client,aud:'authenticated'}}]);
@@ -30,8 +30,8 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       grant usage on schema auth,public to authenticated,anon;
       insert into auth.users values('${owner}'),('${other}');`);
     await applyMigrations(db);
-    for(const id of [a,b]) await call(user,'select create_project($1,$2,$3)',[id,id,'']);
-    await call(user,'select link_project_repository($1,$2,$3)',[a,'github','neerajg03/satchel']);
+    for(const id of [a,b]) await call(user,'select create_topic($1,$2,$3)',[id,id,'']);
+    await call(user,'select link_topic_repository($1,$2,$3)',[a,'github','neerajg03/satchel']);
     for(const id of [null,a,b]) await call(user,'select save_memory($1,$2,$3,$4,$5,$6,$7)',[crypto.randomUUID(),id,'Summary','','said','same-name','PRIVATE DETAILS']);
     await authorize(ca,true,[a],false);await authorize(cb,false,[b],true);
     codex=await claims(ca);claude=await claims(cb);
@@ -48,7 +48,7 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       assert.equal((await call(codex,'select * from list_memories(null)')).length,1);
       assert.equal((await call(codex,'select * from list_memories($1)',[a])).length,1);
       assert.deepEqual(await call(codex,'select * from list_memories($1)',[b]),[]);
-      assert.deepEqual((await call(codex,'select id from projects')).map(p=>p.id),[a]);
+      assert.deepEqual((await call(codex,'select id from topics')).map(p=>p.id),[a]);
       assert.ok(!('more_info' in (await call(codex,'select * from list_memories(null)'))[0]));
       assert.deepEqual(await call({...codex,sub:other},'select * from memories'),[]);
       assert.deepEqual(await call({...codex,satchel_grant_id:crypto.randomUUID()},'select * from memories'),[]);
@@ -76,58 +76,58 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       const id=crypto.randomUUID();const args=[id,b,'summary'];
       const first=await call(claude,'select * from save_memory($1,$2,$3)',args);
       assert.equal((await call(claude,'select * from save_memory($1,$2,$3)',args))[0].revision,1);
-      assert.equal(first[0].project_id,b);
+      assert.equal(first[0].topic_id,b);
       assert.equal((await call(claude,'select * from correct_memory($1,1,$2,$3,$4)',[id,'corrected','new','detail']))[0].revision,2);
       await assert.rejects(call(claude,'select correct_memory($1,1,$2,$3,$4)',[id,'stale','new','detail']),{code:'PT409'});
       assert.deepEqual(await call(claude,'delete from memories where id=$1 and revision=1 returning id',[id]),[]);
       assert.equal((await call(claude,'delete from memories where id=$1 and revision=2 returning id',[id])).length,1);
       await assert.rejects(call(claude,'select save_memory($1,null,$2)',[crypto.randomUUID(),'summary']),{code:'42501'});
     });
-    await t.test('project upserts create atomically without expanding grants and update only authorized projects',async()=>{
+    await t.test('topic upserts create atomically without expanding grants and update only authorized topics',async()=>{
       const createdId=crypto.randomUUID(),requestId=crypto.randomUUID();
-      await assert.rejects(call(codex,'select upsert_project($1,$2,null,$3,$4,$5,$6)',[
+      await assert.rejects(call(codex,'select upsert_topic($1,$2,null,$3,$4,$5,$6)',[
         crypto.randomUUID(),crypto.randomUUID(),'Denied','','unchanged',null]),{code:'42501'});
-      const created=(await call(claude,'select upsert_project($1,$2,null,$3,$4,$5,$6) result',[
-        requestId,createdId,'Agent project','Created atomically','link','agent/project']))[0].result;
-      assert.equal(created.project.id,createdId);
-      assert.equal(created.project.revision,1);
+      const created=(await call(claude,'select upsert_topic($1,$2,null,$3,$4,$5,$6) result',[
+        requestId,createdId,'Agent topic','Created atomically','link','agent/topic']))[0].result;
+      assert.equal(created.topic.id,createdId);
+      assert.equal(created.topic.revision,1);
       assert.equal(created.grant_required,true);
-      assert.deepEqual(created.repositories,[{provider:'github',repository:'agent/project'}]);
-      assert.deepEqual((await call(claude,'select id from projects where id=$1',[createdId])),[]);
-      assert.equal((await call(user,'select project_id from project_repositories where repository=$1',['agent/project']))[0].project_id,createdId);
-      assert.deepEqual((await call(claude,'select upsert_project($1,$2,null,$3,$4,$5,$6) result',[
-        requestId,createdId,'Agent project','Created atomically','link','agent/project']))[0].result,created);
-      await assert.rejects(call(claude,'select upsert_project($1,$2,null,$3,$4,$5,$6)',[
-        requestId,createdId,'Changed payload','Created atomically','link','agent/project']),{code:'PT409'});
+      assert.deepEqual(created.repositories,[{provider:'github',repository:'agent/topic'}]);
+      assert.deepEqual((await call(claude,'select id from topics where id=$1',[createdId])),[]);
+      assert.equal((await call(user,'select topic_id from topic_repositories where repository=$1',['agent/topic']))[0].topic_id,createdId);
+      assert.deepEqual((await call(claude,'select upsert_topic($1,$2,null,$3,$4,$5,$6) result',[
+        requestId,createdId,'Agent topic','Created atomically','link','agent/topic']))[0].result,created);
+      await assert.rejects(call(claude,'select upsert_topic($1,$2,null,$3,$4,$5,$6)',[
+        requestId,createdId,'Changed payload','Created atomically','link','agent/topic']),{code:'PT409'});
 
-      const updated=(await call(claude,'select upsert_project($1,$2,1,$3,$4,$5,$6) result',[
-        crypto.randomUUID(),b,'Renamed project','Updated safely','unchanged',null]))[0].result;
-      assert.equal(updated.project.revision,2);
-      assert.equal(updated.project.name,'Renamed project');
+      const updated=(await call(claude,'select upsert_topic($1,$2,1,$3,$4,$5,$6) result',[
+        crypto.randomUUID(),b,'Renamed topic','Updated safely','unchanged',null]))[0].result;
+      assert.equal(updated.topic.revision,2);
+      assert.equal(updated.topic.name,'Renamed topic');
       assert.equal(updated.grant_required,false);
-      await assert.rejects(call(claude,'select upsert_project($1,$2,1,$3,$4,$5,$6)',[
+      await assert.rejects(call(claude,'select upsert_topic($1,$2,1,$3,$4,$5,$6)',[
         crypto.randomUUID(),b,'Stale update','','unchanged',null]),{code:'PT409'});
-      await assert.rejects(call(claude,'select upsert_project($1,$2,1,$3,$4,$5,$6)',[
+      await assert.rejects(call(claude,'select upsert_topic($1,$2,1,$3,$4,$5,$6)',[
         crypto.randomUUID(),a,'Outside grant','','unchanged',null]),{code:'42501'});
-      const taskAuthorized=(await call(taskAgent,'select upsert_project($1,$2,1,$3,$4,$5,$6) result',[
-        crypto.randomUUID(),a,'Task-authorized project','','unchanged',null]))[0].result;
-      assert.equal(taskAuthorized.project.revision,2);
+      const taskAuthorized=(await call(taskAgent,'select upsert_topic($1,$2,1,$3,$4,$5,$6) result',[
+        crypto.randomUUID(),a,'Task-authorized topic','','unchanged',null]))[0].result;
+      assert.equal(taskAuthorized.topic.revision,2);
       assert.equal(taskAuthorized.grant_required,false);
     });
-    await t.test('active scopes belong to one client and conversation, never a global project',async()=>{
-      await call(codex,'select select_agent_project($1,$2)',['session-one',a]);
-      assert.equal((await call(codex,'select agent_active_project($1) id',['session-one']))[0].id,a);
-      assert.equal((await call(codex,'select agent_active_project($1) id',['session-two']))[0].id,null);
-      assert.equal((await call(claude,'select agent_active_project($1) id',['session-one']))[0].id,null);
-      await assert.rejects(call(codex,'select select_agent_project($1,$2)',['session-one',b]),{code:'42501'});
+    await t.test('active scopes belong to one client and conversation, never a global topic',async()=>{
+      await call(codex,'select select_agent_topic($1,$2)',['session-one',a]);
+      assert.equal((await call(codex,'select agent_active_topic($1) id',['session-one']))[0].id,a);
+      assert.equal((await call(codex,'select agent_active_topic($1) id',['session-two']))[0].id,null);
+      assert.equal((await call(claude,'select agent_active_topic($1) id',['session-one']))[0].id,null);
+      await assert.rejects(call(codex,'select select_agent_topic($1,$2)',['session-one',b]),{code:'42501'});
     });
-    await t.test('repository links activate only an already-authorized project',async()=>{
+    await t.test('repository links activate only an already-authorized topic',async()=>{
       assert.equal((await call(codex,'select select_agent_repository($1,$2,$3) id',
         ['repository-session','github','NeerajG03/Satchel']))[0].id,a);
-      assert.equal((await call(codex,'select agent_active_project($1) id',['repository-session']))[0].id,a);
+      assert.equal((await call(codex,'select agent_active_topic($1) id',['repository-session']))[0].id,a);
       await assert.rejects(call(claude,'select select_agent_repository($1,$2,$3)',
         ['repository-session','github','neerajg03/satchel']),{code:'P0002'});
-      await assert.rejects(call(codex,'select link_project_repository($1,$2,$3)',
+      await assert.rejects(call(codex,'select link_topic_repository($1,$2,$3)',
         [a,'github','other/repository']),{code:'42501'});
     });
     await t.test('anonymous lifecycle hints activate only through an authorized agent grant',async()=>{
@@ -141,7 +141,7 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       assert.equal((await call(codex,'select agent_repository_hint_exists($1) ready',[session]))[0].ready,true);
       assert.equal((await call(codex,'select activate_agent_repository_hint($1) id',[session]))[0].id,a);
       assert.equal((await call(codex,'select agent_repository_hint_exists($1) ready',[session]))[0].ready,false);
-      assert.equal((await call(codex,'select agent_active_project($1) id',[session]))[0].id,a);
+      assert.equal((await call(codex,'select agent_active_topic($1) id',[session]))[0].id,a);
       assert.equal((await call(codex,'select activate_agent_repository_hint($1) id',[session]))[0].id,null);
 
       const denied='40000000-0000-4000-8000-000000000002';
@@ -161,14 +161,14 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       }catch(e){await db.exec('rollback');throw e;}
     });
     // Deliberately after the hint tests above, which assume this repository
-    // names exactly one project. A project is a collection of context, so a
+    // names exactly one topic. A topic is a collection of context, so a
     // monorepo holds several and a codebase can belong to more than one. That
     // used to raise PT409.
-    await t.test('a repository may name several projects, and ambiguity is per connection',async()=>{
-      await call(user,'select link_project_repository($1,$2,$3)',[b,'github','neerajg03/satchel']);
+    await t.test('a repository may name several topics, and ambiguity is per connection',async()=>{
+      await call(user,'select link_topic_repository($1,$2,$3)',[b,'github','neerajg03/satchel']);
       assert.equal((await call(user,
-        'select count(*)::int n from project_repositories where repository=$1',
-        ['neerajg03/satchel']))[0].n,2,'a second project is a second row, not a refusal');
+        'select count(*)::int n from topic_repositories where repository=$1',
+        ['neerajg03/satchel']))[0].n,2,'a second topic is a second row, not a refusal');
 
       // The companion sees both links, so the repository stops being an
       // identifier and is refused. `select ... into` would have taken whichever
@@ -177,7 +177,7 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
         ['ambiguous-session','github','neerajg03/satchel']),{code:'PT300'});
 
       // Each grant still sees exactly one, because RLS exposes only the links
-      // whose project it may already read. Ambiguity belongs to the connection,
+      // whose topic it may already read. Ambiguity belongs to the connection,
       // not to the repository.
       assert.equal((await call(codex,'select select_agent_repository($1,$2,$3) id',
         ['codex-session','github','neerajg03/satchel']))[0].id,a);
@@ -185,7 +185,7 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
         ['claude-session','github','neerajg03/satchel']))[0].id,b);
 
       // A connection that can read both is the case the hook has to handle. It
-      // must not pick: a memory in a real project that is the wrong project is
+      // must not pick: a memory in a real topic that is the wrong topic is
       // worse than personal, which is at least visibly unscoped.
       const cc='both-fixture';
       await authorize(cc,false,[a,b],false);
@@ -200,17 +200,17 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
 
       assert.equal((await call(both,'select activate_agent_repository_hint($1) id',[session]))[0].id,null,
         'two candidates is not a scope');
-      assert.equal((await call(both,'select agent_active_project($1) id',[session]))[0].id,null,
+      assert.equal((await call(both,'select agent_active_topic($1) id',[session]))[0].id,null,
         'and nothing is selected on the way out');
       // The hint survives, which is the whole reason activation reads before it
       // deletes: a consumed hint cannot be read back, and the candidates are
       // still the useful thing to offer.
       assert.equal((await call(both,'select agent_repository_hint_exists($1) ready',[session]))[0].ready,true);
-      assert.deepEqual((await call(both,'select project_id from agent_repository_candidates($1)',[session]))
-        .map(r=>r.project_id).sort(),[a,b].sort());
+      assert.deepEqual((await call(both,'select topic_id from agent_repository_candidates($1)',[session]))
+        .map(r=>r.topic_id).sort(),[a,b].sort());
       // And it stays inside the grant: codex may read one of the two.
-      assert.deepEqual((await call(codex,'select project_id from agent_repository_candidates($1)',[session]))
-        .map(r=>r.project_id),[a]);
+      assert.deepEqual((await call(codex,'select topic_id from agent_repository_candidates($1)',[session]))
+        .map(r=>r.topic_id),[a]);
     });
     await t.test('the hook resolves its own scope, with no row staged in between',async()=>{
       // What replaced the hint table. The bootstrap could not authenticate, so
@@ -222,56 +222,56 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
 
       // One candidate inside the grant: selected, with nothing asked of anyone.
       const resolved=await call(codex,
-        'select project_id, slug, selected from resolve_agent_repository($1,$2,$3)',
+        'select topic_id, slug, selected from resolve_agent_repository($1,$2,$3)',
         [session,'github','neerajg03/satchel']);
       assert.equal(resolved.length,1);
-      assert.equal(resolved[0].project_id,a);
+      assert.equal(resolved[0].topic_id,a);
       assert.equal(resolved[0].selected,true);
-      assert.equal((await call(codex,'select agent_active_project($1) id',[session]))[0].id,a,
+      assert.equal((await call(codex,'select agent_active_topic($1) id',[session]))[0].id,a,
         'and the conversation is actually in that scope afterwards');
 
       // Two candidates: every one is offered and none is chosen. Picking would
-      // file a memory in a real project that is the wrong project.
+      // file a memory in a real topic that is the wrong topic.
       const ambiguous='40000000-0000-4000-8000-000000000005';
       const both=await claims('both-fixture');
       const candidates=await call(both,
-        'select project_id, selected from resolve_agent_repository($1,$2,$3)',
+        'select topic_id, selected from resolve_agent_repository($1,$2,$3)',
         [ambiguous,'github','neerajg03/satchel']);
       assert.equal(candidates.length,2);
-      assert.deepEqual(candidates.map(r=>r.project_id).sort(),[a,b].sort());
+      assert.deepEqual(candidates.map(r=>r.topic_id).sort(),[a,b].sort());
       assert.ok(candidates.every(r=>r.selected===false),'two candidates is not a scope');
-      assert.equal((await call(both,'select agent_active_project($1) id',[ambiguous]))[0].id,null,
+      assert.equal((await call(both,'select agent_active_topic($1) id',[ambiguous]))[0].id,null,
         'and nothing is selected on the way out');
 
       // A repository this connection has no link to is simply no scope, not an
       // error: an unlinked workspace is ordinary and stays personal.
-      assert.deepEqual(await call(codex,'select project_id from resolve_agent_repository($1,$2,$3)',
+      assert.deepEqual(await call(codex,'select topic_id from resolve_agent_repository($1,$2,$3)',
         ['40000000-0000-4000-8000-000000000006','github','someone/unlinked']),[]);
 
       // Normalized on the way in, the same as every other repository path.
-      assert.equal((await call(codex,'select project_id from resolve_agent_repository($1,$2,$3)',
-        ['40000000-0000-4000-8000-000000000007','GitHub','NeerajG03/Satchel']))[0].project_id,a);
+      assert.equal((await call(codex,'select topic_id from resolve_agent_repository($1,$2,$3)',
+        ['40000000-0000-4000-8000-000000000007','GitHub','NeerajG03/Satchel']))[0].topic_id,a);
 
-      // Read-only: which projects this repository is linked to, without
+      // Read-only: which topics this repository is linked to, without
       // touching the scope. The session-start block needs the linked set in
-      // order to stop listing projects that have nothing to do with the
+      // order to stop listing topics that have nothing to do with the
       // workspace, and the session key survives a /clear, so an explicit
-      // select_project made earlier must not be overwritten to get it.
+      // select_topic made earlier must not be overwritten to get it.
       //
-      // A repository linked to exactly one project is the case that proves it:
+      // A repository linked to exactly one topic is the case that proves it:
       // with selection on this would choose, so a scope that survives can only
       // be the flag working.
-      await call(user,'select link_project_repository($1,$2,$3)',[a,'github','acme/solo']);
+      await call(user,'select link_topic_repository($1,$2,$3)',[a,'github','acme/solo']);
       const both2=await claims('both-fixture');
       const untouched='40000000-0000-4000-8000-000000000008';
-      await call(both2,'select select_agent_project($1,$2)',[untouched,b]);
+      await call(both2,'select select_agent_topic($1,$2)',[untouched,b]);
 
       const read=await call(both2,
-        'select project_id, selected from resolve_agent_repository($1,$2,$3,false)',
+        'select topic_id, selected from resolve_agent_repository($1,$2,$3,false)',
         [untouched,'github','acme/solo']);
-      assert.deepEqual(read.map(r=>r.project_id),[a],'it still answers which project the repository belongs to');
+      assert.deepEqual(read.map(r=>r.topic_id),[a],'it still answers which topic the repository belongs to');
       assert.equal(read[0].selected,false,'and selects nothing');
-      assert.equal((await call(both2,'select agent_active_project($1) id',[untouched]))[0].id,b,
+      assert.equal((await call(both2,'select agent_active_topic($1) id',[untouched]))[0].id,b,
         'the scope chosen by hand is still the scope');
 
       // The contrast, on a session with nothing chosen: the same lookup with
@@ -279,7 +279,7 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       const fresh='40000000-0000-4000-8000-000000000009';
       assert.equal((await call(both2,'select selected from resolve_agent_repository($1,$2,$3)',
         [fresh,'github','acme/solo']))[0].selected,true);
-      assert.equal((await call(both2,'select agent_active_project($1) id',[fresh]))[0].id,a);
+      assert.equal((await call(both2,'select agent_active_topic($1) id',[fresh]))[0].id,a);
     });
     await t.test('revoke blocks an unexpired token immediately and re-consent cannot revive it',async()=>{
       await call(user,'select revoke_agent($1)',[ca]);
@@ -290,26 +290,26 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       assert.deepEqual(await call(codex,'select * from memories'),[]);
       assert.equal((await call(await claims(ca),'select * from list_memories(null)')).length,1);
     });
-    await t.test('a listed grant stays frozen: a project made later is not in it',async()=>{
+    await t.test('a listed grant stays frozen: a topic made later is not in it',async()=>{
       // This is the behaviour "select all" used to give everyone, and it is
-      // still the right behaviour when a person picks projects one by one.
+      // still the right behaviour when a person picks topics one by one.
       const later=crypto.randomUUID();
-      await call(user,'select create_project($1,$2,$3)',[later,'Made after the grant','']);
+      await call(user,'select create_topic($1,$2,$3)',[later,'Made after the grant','']);
       assert.equal((await call(codex,'select agent_can_access($1,false) ok',[later]))[0].ok,false);
-      assert.deepEqual(await call(codex,'select id from projects where id=$1',[later]),[]);
+      assert.deepEqual(await call(codex,'select id from topics where id=$1',[later]),[]);
     });
 
-    await t.test('a blanket grant covers a project that did not exist when it was given',async()=>{
+    await t.test('a blanket grant covers a topic that did not exist when it was given',async()=>{
       const blanket='blanket-fixture';
       await call(user,'select authorize_agent_v3($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
         [blanket,false,true,[],true,false,true,[],true,false]);
       const agent=await claims(blanket);
       const later=crypto.randomUUID();
-      await call(user,'select create_project($1,$2,$3)',[later,'Created after the blanket grant','']);
+      await call(user,'select create_topic($1,$2,$3)',[later,'Created after the blanket grant','']);
 
       assert.equal((await call(agent,'select agent_can_access($1,false) ok',[later]))[0].ok,true);
       assert.equal((await call(agent,'select agent_can_access($1,true) ok',[later]))[0].ok,true);
-      assert.equal((await call(agent,'select id from projects where id=$1',[later]))[0].id,later);
+      assert.equal((await call(agent,'select id from topics where id=$1',[later]))[0].id,later);
       // Tasks carry their capabilities per grant row, and a blanket grant has
       // no row, so the connection level flags have to answer instead.
       assert.equal((await call(agent,'select private.agent_can_access_tasks($1,$2) ok',[later,'read']))[0].ok,true);
@@ -317,23 +317,23 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       assert.equal((await call(agent,'select private.agent_can_access_tasks($1,$2) ok',[later,'upload']))[0].ok,false);
 
       const status=(await call(agent,'select agent_connection_status() s'))[0].s;
-      assert.equal(status.all_projects,true,'the agent has to be able to tell a blanket grant from a list');
-      assert.deepEqual(status.project_ids,[],'and a blanket grant keeps no stale list beside it');
+      assert.equal(status.all_topics,true,'the agent has to be able to tell a blanket grant from a list');
+      assert.deepEqual(status.topic_ids,[],'and a blanket grant keeps no stale list beside it');
 
       // Personal was not granted, so it is still a denial. Blanket means every
-      // project, not everything.
+      // topic, not everything.
       assert.equal((await call(agent,'select agent_can_access(null,false) ok'))[0].ok,false);
     });
 
     await t.test('a blanket grant is never handed out by a migration or an older client',async()=>{
       // Existing grants must not widen on their own. The column defaults to
       // false and the older signature has to keep meaning what it meant.
-      assert.equal((await call(user,'select all_projects from agent_connections where client_id=$1',[ca]))[0].all_projects,false);
+      assert.equal((await call(user,'select all_topics from agent_connections where client_id=$1',[ca]))[0].all_topics,false);
       await call(user,'select authorize_agent_v2($1,$1,false,$2,false,false,$3,true,false)',['blanket-fixture',[a],[a]]);
-      assert.equal((await call(user,'select all_projects from agent_connections where client_id=$1',['blanket-fixture']))[0].all_projects,false,
+      assert.equal((await call(user,'select all_topics from agent_connections where client_id=$1',['blanket-fixture']))[0].all_topics,false,
         're-authorizing through the older signature must clear a blanket grant, not keep it');
       const agent=await claims('blanket-fixture');
-      const later=(await call(user,'select id from projects where name=$1',['Created after the blanket grant']))[0].id;
+      const later=(await call(user,'select id from topics where name=$1',['Created after the blanket grant']))[0].id;
       assert.equal((await call(agent,'select agent_can_access($1,false) ok',[later]))[0].ok,false);
     });
 
@@ -349,13 +349,13 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
 
     await t.test('a blanket grant still cannot reach another owner',async()=>{
       const foreign=crypto.randomUUID();
-      await call({sub:other},'select create_project($1,$2,$3)',[foreign,'Someone else project','']);
+      await call({sub:other},'select create_topic($1,$2,$3)',[foreign,'Someone else topic','']);
       const agent=await claims('revoke-blanket');
       assert.equal((await call(agent,'select agent_can_access($1,false) ok',[foreign]))[0].ok,false);
-      assert.deepEqual(await call(agent,'select id from projects where id=$1',[foreign]),[]);
+      assert.deepEqual(await call(agent,'select id from topics where id=$1',[foreign]),[]);
     });
 
-    await t.test('grant creation cannot authorize a different owner project',async()=>{
+    await t.test('grant creation cannot authorize a different owner topic',async()=>{
       await assert.rejects(call({sub:other},'select authorize_agent($1,$1,false,$2,true)',[ca,[a]]),{code:'42501'});
     });
   }finally{await db.close();}

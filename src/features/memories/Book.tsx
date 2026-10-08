@@ -37,8 +37,8 @@ export function Book() {
   const searchAll = params.get('all') === '1';
   const composeParam = params.get('compose') === '1';
 
-  const projects = useLoad(() => stores.projects.list(), [stores]);
-  const memories = useLoad(() => searchAll ? stores.memories.listAll() : stores.memories.list(scope), [stores, scope.kind, scope.kind === 'project' ? scope.projectId : '', searchAll]);
+  const topics = useLoad(() => stores.topics.list(), [stores]);
+  const memories = useLoad(() => searchAll ? stores.memories.listAll() : stores.memories.list(scope), [stores, scope.kind, scope.kind === 'topic' ? scope.topicId : '', searchAll]);
   const counts = useLoad(() => stores.memories.listAll(), [stores]);
   const action = useAction();
 
@@ -53,15 +53,15 @@ export function Book() {
 
   const hasDraft = Boolean(content.statement || content.name || content.more_info);
   const open = composerOpen || composeParam || hasDraft;
-  const projectList = projects.data ?? [];
-  const label = scopeName(scope, projectList);
-  const project = scope.kind === 'project' ? projectList.find(p => p.id === scope.projectId) : undefined;
+  const topicList = topics.data ?? [];
+  const label = scopeName(scope, topicList);
+  const topic = scope.kind === 'topic' ? topicList.find(p => p.id === scope.topicId) : undefined;
   const memoryCounts = useMemo(() => {
     const result: Record<string, number> = {};
-    for (const memory of counts.data ?? []) if (memory.project_id) result[memory.project_id] = (result[memory.project_id] ?? 0) + 1;
-    for (const p of projectList) result[p.id] ??= 0;
+    for (const memory of counts.data ?? []) if (memory.topic_id) result[memory.topic_id] = (result[memory.topic_id] ?? 0) + 1;
+    for (const p of topicList) result[p.id] ??= 0;
     return result;
-  }, [counts.data, projectList]);
+  }, [counts.data, topicList]);
 
   const matches = matcher(query);
   const all = memories.data ?? [];
@@ -71,7 +71,7 @@ export function Book() {
   const visible = where === 'name' ? inName : where === 'statement' ? inStatement : searched;
 
   useFooter(query ? `${visible.length} of ${all.length} match “${query}”` : `${count(all.length, 'in the book', 'in the book')} · ${label}`,
-    !memories.loading && all.length === 0 && !query ? { light: 'amber', word: project ? 'Project has nothing yet' : 'Nothing saved yet' } : undefined);
+    !memories.loading && all.length === 0 && !query ? { light: 'amber', word: topic ? 'Topic has nothing yet' : 'Nothing saved yet' } : undefined);
 
   function setParam(key: string, value: string | null) {
     const next = new URLSearchParams(params);
@@ -120,15 +120,15 @@ export function Book() {
   return <>
     <div className="head">
       <div className="col">
-        <span className="eyebrow">{scopeEyebrow(scope, projectList)}</span>
+        <span className="eyebrow">{scopeEyebrow(scope, topicList)}</span>
         <h1>The book.</h1>
         <p className="lede">{scope.kind === 'personal'
           ? '“For me” holds preferences and details that apply across all your work. Pick a topic from the picker when something belongs to one subject only.'
-          : project?.brief || 'Decisions and details for this topic only.'}</p>
+          : topic?.brief || 'Decisions and details for this topic only.'}</p>
       </div>
       <div className="row wrap" style={{ alignItems: 'flex-start' }}>
-        <ScopePicker scope={scope} projects={projectList} counts={memoryCounts} locked={locked}
-          onChange={next => navigate(`/book${scopeQuery(next)}`)} onNewProject={() => navigate('/topics/new')} />
+        <ScopePicker scope={scope} topics={topicList} counts={memoryCounts} locked={locked}
+          onChange={next => navigate(`/book${scopeQuery(next)}`)} onNewTopic={() => navigate('/topics/new')} />
         <label className="search"><span aria-hidden="true">⌕</span>
           <input type="search" placeholder="Search this scope" aria-label="Search the book" value={query} onChange={event => setParam('q', event.target.value || null)} />
         </label>

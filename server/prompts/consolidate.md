@@ -4,10 +4,10 @@ Goal: the next assistant who works with this person should already know what the
 
 ## What is worth keeping
 
-Only what the person said in their own words. The assistant's half is there so you can read "yes, that one". A bare "yes" does not make the assistant's design theirs, but a decision or a premise they state themselves ("assume the old tool is going away") is a fact about the project.
+Only what the person said in their own words. The assistant's half is there so you can read "yes, that one". A bare "yes" does not make the assistant's design theirs, but a decision or a premise they state themselves ("assume the old tool is going away") is a fact about the topic.
 
 Three kinds:
-- **fact**: how something is, in their work, their projects, their setup.
+- **fact**: how something is, in their work, their topics, their setup.
 - **preference**: how they want things done, including how they want you to work with them and what they demand of the work ("contest me", "don't ask me for the key", "reproduce it first, then fix", "show me the old numbers next to the new ones", "it must not read like a machine wrote it").
 - **intent**: something they want that is not true yet, including room they ask the design to leave for later ("make it so a new report type can plug in without a rewrite"). It ends when it is built. A demand about how work is split, ordered or checked does not end, so it is a preference.
 
@@ -36,14 +36,14 @@ A memory marked with commits since it was confirmed is a reason to look, not to 
 
 ## Short choices and design decisions
 
-When the assistant offered ways to build something and they pick one ("let's go with option A"), the choice is a fact about the project even though the words are short: state the option they picked, with their words as the source. An instruction that states a lasting arrangement, like "it should deploy through the shared pipeline like every other codebase", says where deploys live and is more than a task. A design still being worked out is not settled until they say it is, but a limit or rule they state plainly inside it ("a plan over capacity gets a warning, not a block") is theirs. So is a goal they call the standing one ("whatever we build now must not box us in later, that is the point"). None of this applies to a claim they are arguing against.
+When the assistant offered ways to build something and they pick one ("let's go with option A"), the choice is a fact about the topic even though the words are short: state the option they picked, with their words as the source. An instruction that states a lasting arrangement, like "it should deploy through the shared pipeline like every other codebase", says where deploys live and is more than a task. A design still being worked out is not settled until they say it is, but a limit or rule they state plainly inside it ("a plan over capacity gets a warning, not a block") is theirs. So is a goal they call the standing one ("whatever we build now must not box us in later, that is the point"). None of this applies to a claim they are arguing against.
 
 ## Writing each change
 
 - **statement**: the claim in their words, tidied. Resolve pronouns and relative dates against the date at the top ("by Friday" needs the Friday). Add no reason they did not give. Empty for retire and affirm.
 - **source**: the user's own words, copied exactly, from one place in the conversation. No source, no change.
-- **project**: the slug it belongs to, or null when it holds everywhere (preferences mostly). When the conversation has a project, use it. When none is linked, the claim can still belong to a listed project: use that slug when it is plainly about it. The codebase they worked in, when shown, tells you which projects are likely. When the lines above say new topics are allowed and a fact belongs to a subject of their work that no listed project covers (a system they run, a tool family, the people they sell to), name a new topic rather than putting it in personal: a short lowercase slug, and **new_topic** saying in one line what it covers. Personal is for them: who they are, their role, what they use, and how they want things done. A topic is for facts about the things they work on. A topic is a subject, so name it broadly enough that the next fact about the same thing fits too.
-- **new_topic**: one line on what a new topic covers, only when **project** is a slug you are naming. Otherwise null.
+- **topic**: the slug it belongs to, or null when it holds everywhere (preferences mostly). When the conversation has a topic, use it. When none is linked, the claim can still belong to a listed topic: use that slug when it is plainly about it. The codebase they worked in, when shown, tells you which topics are likely. When the lines above say new topics are allowed and a fact belongs to a subject of their work that no listed topic covers (a system they run, a tool family, the people they sell to), name a new topic rather than putting it in personal: a short lowercase slug, and **new_topic** saying in one line what it covers. Personal is for them: who they are, their role, what they use, and how they want things done. A topic is for facts about the things they work on. A topic is a subject, so name the area a fact sits in rather than the one thing it mentions, broad enough that the next fact about the same area fits too (a rule about a payment provider's webhooks starts a payments topic, not a webhooks one), and put a fact under a listed topic it is part of rather than naming a narrower one beside it (an invoice rule goes under a listed billing topic).
+- **new_topic**: one line on what a new topic covers, only when **topic** is a slug you are naming. Otherwise null.
 - **expires**: only a date the user gave. Otherwise null.
 - **why**: one short line saying what changed.
 

@@ -34,13 +34,13 @@ export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25, sl
   if (!rows.length) return '';
   const lines = [`◪ retrieved · ${rows.length} shown · ${matched} matched · ${inScope} in scope`];
   // Where a row came from, and whether anyone confirmed it. Measured over a
-  // week of real prompts, rows from the wrong project were injected into
+  // week of real prompts, rows from the wrong topic were injected into
   // sessions about another one, and nothing in the line said so; and a
   // picked-up row read exactly like a confirmed one, so the agent could not
   // apply the rule the session-start header gives it. The label is the
-  // project's slug, or "personal", with "picked up" when it is still heard.
+  // topic's slug, or "personal", with "picked up" when it is still heard.
   const labelOf = row => {
-    const where = row.project_id ? slugs[row.project_id] ?? 'topic' : 'personal';
+    const where = row.topic_id ? slugs[row.topic_id] ?? 'topic' : 'personal';
     return row.band === 'heard' ? `${where}, picked up` : where;
   };
   // A `[task closed, may be fixed]` hint used to hang off rows whose task had
@@ -78,22 +78,22 @@ export function personalLoad(personal = [], cap = 30) {
   return {said, heard, past: personal.length - said.length - heard.length};
 }
 
-/** Which of the active project's memories the session block injects.
+/** Which of the active topic's memories the session block injects.
  *
- *  Project memories used to arrive only by topic, through retrieval, and the
+ *  Topic memories used to arrive only by topic, through retrieval, and the
  *  measurement that put personal memories in the block applies to them just
  *  as much: a rule about how the work in this codebase is done ("tickets move
  *  straight to Done", "one QA run per commit is enough") is relevant by kind
  *  of activity, and "fix this test" never searches for it. On the real
  *  sessions reviewed in September the shapes the pass caught best were
- *  project decisions, and they were the ones that never loaded.
+ *  topic decisions, and they were the ones that never loaded.
  *
- *  So when the workspace resolves to exactly one project, its preferences
+ *  So when the workspace resolves to exactly one topic, its preferences
  *  load, then its most-said facts and intents, under their own cap. Personal
  *  rows keep the main cap to themselves; this is a smaller second block, not a
- *  share of the first, so a busy project cannot push a standing personal rule
+ *  share of the first, so a busy topic cannot push a standing personal rule
  *  out. Confirmed rows fill it before picked-up ones, same as personal. */
-export function projectLoad(memories = [], cap = 15) {
+export function topicLoad(memories = [], cap = 15) {
   const room = Math.max(0, cap);
   const rank = m => (m.kind === 'preference' ? 0 : 1);
   const ordered = [...memories].sort((a, b) => rank(a) - rank(b)
@@ -104,31 +104,31 @@ export function projectLoad(memories = [], cap = 15) {
   return {said, heard, past: memories.length - said.length - heard.length};
 }
 
-/** Session start. What applies no matter what you do today: the projects
+/** Session start. What applies no matter what you do today: the topics
  *  that exist, every personal memory up to the cap, and, when the workspace
- *  is one project, that project's own rules under a smaller cap of their own.
+ *  is one topic, that topic's own rules under a smaller cap of their own.
  *
- *  `linked` is the projects this workspace's repository belongs to. When it is
+ *  `linked` is the topics this workspace's repository belongs to. When it is
  *  known, the others are counted rather than listed. A flat list of every
- *  project reads as though they all bear on the work in front of you: sitting
- *  in cbx1/backend and being shown `satchel` alongside the two projects that
+ *  topic reads as though they all bear on the work in front of you: sitting
+ *  in cbx1/backend and being shown `satchel` alongside the two topics that
  *  are actually linked there is three equal-looking options, two of which are
  *  right. The count keeps them discoverable without implying relevance, and
- *  list_projects still names them on request.
+ *  list_topics still names them on request.
  *
  *  With nothing linked, which is every non-Git and unlinked workspace, there is
  *  nothing to filter by and the full list is the honest answer. */
-export function sessionStartBlock({projects = [], personal = [], linked = [], cap = 30,
-  project = null, projectMemories = [], projectCap = 15} = {}) {
+export function sessionStartBlock({topics = [], personal = [], linked = [], cap = 30,
+  topic = null, topicMemories = [], topicCap = 15} = {}) {
   const lines = [];
   const ids = new Set(linked);
-  const here = ids.size ? projects.filter(p => ids.has(p.id)) : projects;
-  const elsewhere = ids.size ? projects.length - here.length : 0;
+  const here = ids.size ? topics.filter(p => ids.has(p.id)) : topics;
+  const elsewhere = ids.size ? topics.length - here.length : 0;
   if (here.length) {
     lines.push(ids.size ? 'topics in this codebase' : 'topics');
     const width = Math.max(...here.map(p => (p.slug ?? p.name ?? '').length));
-    for (const project of here)
-      lines.push(`  ${pad(project.slug ?? project.name ?? '', width)}  ${clip(project.brief, 70)}`.trimEnd());
+    for (const topic of here)
+      lines.push(`  ${pad(topic.slug ?? topic.name ?? '', width)}  ${clip(topic.brief, 70)}`.trimEnd());
   }
   // Inside the group, because that is where the reader is looking when the
   // question "is this all of them" occurs to them.
@@ -156,12 +156,12 @@ export function sessionStartBlock({projects = [], personal = [], linked = [], ca
     for (const memory of heard) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
   }
   if (past) lines.push(`  ${plural(past, 'older memory', 'older memories')} past the block, search satchel for them`);
-  // The active project's own block, after personal. Only when one project was
+  // The active topic's own block, after personal. Only when one topic was
   // resolved: with two candidates nothing is scoped, and loading either one's
-  // rules would be the guess the choose-a-project line exists to refuse.
-  if (project) {
-    const own = projectLoad(projectMemories, projectCap);
-    const slug = project.slug ?? project.name ?? 'topic';
+  // rules would be the guess the choose-a-topic line exists to refuse.
+  if (topic) {
+    const own = topicLoad(topicMemories, topicCap);
+    const slug = topic.slug ?? topic.name ?? 'topic';
     if (own.said.length) {
       if (lines.length) lines.push('');
       lines.push(`topic ${slug}, confirmed, applies to work in this codebase`);
@@ -191,8 +191,8 @@ export function sessionStartBlock({projects = [], personal = [], linked = [], ca
  *  something actually happened. Retrieval finding nothing is the common case
  *  and stays silent, because a line on every prompt is noise people learn to
  *  ignore, and Codex renders this as a warning. */
-export function noticeFor(event, {error, withheld, unrecorded, projects = 0, personal = 0,
-  projectMemories = 0, shown = 0, matched = 0, captured = 0} = {}) {
+export function noticeFor(event, {error, withheld, unrecorded, topics = 0, personal = 0,
+  topicMemories = 0, shown = 0, matched = 0, captured = 0} = {}) {
   if (error) return `Satchel memory unavailable · ${error}`;
   if (withheld) return `Satchel memory not loaded · ${withheld}`;
   // Not the same as memory being unavailable: the prompt was still answered
@@ -200,9 +200,9 @@ export function noticeFor(event, {error, withheld, unrecorded, projects = 0, per
   // was said, which nothing later can reconstruct.
   if (unrecorded) return `Satchel did not record this turn · ${unrecorded}`;
   if (event === 'SessionStart')
-    return projects || personal || projectMemories
-      ? `Satchel loaded · ${plural(projects, 'topic')}, ${plural(personal, 'personal memory', 'personal memories')}`
-        + (projectMemories ? `, ${plural(projectMemories, 'topic memory', 'topic memories')}` : '')
+    return topics || personal || topicMemories
+      ? `Satchel loaded · ${plural(topics, 'topic')}, ${plural(personal, 'personal memory', 'personal memories')}`
+        + (topicMemories ? `, ${plural(topicMemories, 'topic memory', 'topic memories')}` : '')
       : 'Satchel connected · nothing saved yet';
   // Counts, not just a number shown, because "2 of 9" and "2 of 2" mean very
   // different things about whether anything was left behind.

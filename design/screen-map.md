@@ -1,6 +1,6 @@
 # Screen map and routes
 
-17 September 2026. Six destinations, one rail, real URLs. Every board named here is on the [design canvas](https://claude.ai/artifact/E37216htrsgRJFEVwhshDc) and in [`canvas/project/`](canvas/project/).
+17 September 2026. Six destinations, one rail, real URLs. Every board named here is on the [design canvas](https://claude.ai/artifact/E37216htrsgRJFEVwhshDc) and in [`canvas/boards/`](canvas/boards/).
 
 ## Shell
 

@@ -8,18 +8,18 @@ import {verifyAgentToken,RESOURCE,SUPABASE_URL} from '../server/http-handler.mjs
 import {taskService} from '../server/task-service.mjs';
 
 test('MCP contracts separate index, detail, explicit writes and hook output',async()=>{
-  const id=crypto.randomUUID(),projectId=crypto.randomUUID();let revoked=false,writes=0,projectWrites=0,oversized=false,detailReads=0,activations=0,unlinked=false,personal=true;
+  const id=crypto.randomUUID(),topicId=crypto.randomUUID();let revoked=false,writes=0,topicWrites=0,oversized=false,detailReads=0,activations=0,unlinked=false,personal=true;
   const searches=[],logged=[];let retrieval=[];
-  const summary={id,project_id:null,name:'fixture',statement:'Read for fixture colour',band:'said',task_id:null,revision:1};
-  const projectSummary={...summary,id:crypto.randomUUID(),project_id:projectId,name:'project-fixture'};
-  const service={status:async()=>revoked?null:{label:'Test',personal,can_write:true,project_ids:[projectId]},
-    activeProject:async()=>null,
-    projects:async()=>[{id:projectId,name:'Fixture',brief:''}],
-    upsertProject:async a=>{projectWrites++;return {project:{id:a.project_id,name:a.name,brief:a.brief,revision:1},repositories:[],grant_required:true};},
+  const summary={id,topic_id:null,name:'fixture',statement:'Read for fixture colour',band:'said',task_id:null,revision:1};
+  const topicSummary={...summary,id:crypto.randomUUID(),topic_id:topicId,name:'topic-fixture'};
+  const service={status:async()=>revoked?null:{label:'Test',personal,can_write:true,topic_ids:[topicId]},
+    activeTopic:async()=>null,
+    topics:async()=>[{id:topicId,name:'Fixture',brief:''}],
+    upsertTopic:async a=>{topicWrites++;return {topic:{id:a.topic_id,name:a.name,brief:a.brief,revision:1},repositories:[],grant_required:true};},
     resolveRepository:async()=>[],
-    selectProject:async(_session,project)=>({project_id:project}),
-    selectRepository:async()=>{activations++;if(unlinked)throw {code:'P0002'};return {project_id:projectId};},
-    index:async project=>({memories:oversized?[{...summary,statement:'x'.repeat(8000)}]:[project?projectSummary:summary],complete:true}),
+    selectTopic:async(_session,topic)=>({topic_id:topic}),
+    selectRepository:async()=>{activations++;if(unlinked)throw {code:'P0002'};return {topic_id:topicId};},
+    index:async topic=>({memories:oversized?[{...summary,statement:'x'.repeat(8000)}]:[topic?topicSummary:summary],complete:true}),
     read:async()=>{detailReads++;return {...summary,more_info:'amber'};},
     settings:async()=>({gate:0.62,scope_boost:1.1,session_budget_tokens:oversized?1000:15000}),
     personal:async()=>oversized
@@ -47,7 +47,7 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.deepEqual(tools.map(t=>t.name).sort(),['confirm_memory','correct_memory','forget_memory','list_topics',
       'memory_index','read_memory','retrieve_memory','save_memory','select_topic','upsert_topic']);
     assert.equal(tools.find(t=>t.name==='retrieve_memory').annotations.readOnlyHint,true);
-    // The lifecycle path, reached through select_project's event argument.
+    // The lifecycle path, reached through select_topic's event argument.
     // That is the manual recovery route for a session whose hook could not run,
     // and it returns exactly what the hook endpoint would have injected.
     let result=await call('select_topic',{session_key:'one',event:'SessionStart',topic_id:null});
@@ -61,11 +61,11 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.equal(logged.at(-1).event,'SessionStart','what was injected is recorded');
 
     // Session start carries only what applies regardless of what you do today.
-    // A selected project is named; it does not drag that project's memories in,
+    // A selected topic is named; it does not drag that topic's memories in,
     // because loading them assumes you will touch it.
-    result=await call('select_topic',{session_key:'staged-session',event:'SessionStart',topic_id:projectId});
-    assert.match(result.content[0].text,new RegExp(projectId),'the active project is stated');
-    assert.doesNotMatch(result.content[0].text,/project-fixture/,'its memories are not preloaded');
+    result=await call('select_topic',{session_key:'staged-session',event:'SessionStart',topic_id:topicId});
+    assert.match(result.content[0].text,new RegExp(topicId),'the active topic is stated');
+    assert.doesNotMatch(result.content[0].text,/topic-fixture/,'its memories are not preloaded');
 
     // An oversized session block is withheld, never truncated: a partial block
     // that looks complete is worse than an honest absence.
@@ -78,38 +78,38 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     result=await call('list_topics',{});
     const connection=JSON.parse(result.content[0].text);
     assert.equal(connection.can_write,true);
-    assert.deepEqual(connection.topics,[{id:projectId,name:'Fixture',brief:''}]);
+    assert.deepEqual(connection.topics,[{id:topicId,name:'Fixture',brief:''}]);
     assert.equal(connection.topic_ids,undefined);
     result=await call('upsert_topic',{
       slug:'created-by-agent',name:'Created by agent',brief:'Fixture',
       repository_change:{kind:'link',repository:'NeerajG03/Satchel'}});
     assert.equal(JSON.parse(result.content[0].text).grant_required,true);
     assert.match(JSON.parse(result.content[0].text).topic.id,/^[0-9a-f-]{36}$/);
-    assert.equal(projectWrites,1);
-    assert.equal((await call('upsert_topic',{topic_id:projectId,
+    assert.equal(topicWrites,1);
+    assert.equal((await call('upsert_topic',{topic_id:topicId,
       slug:'invalid-revision',expected_revision:0,name:'Invalid revision'})).isError,true);
     // A slug is required, and a title-shaped one is rejected rather than
     // quietly slugified into something nobody would say.
     assert.equal((await call('upsert_topic',{name:'No slug'})).isError,true);
     assert.equal((await call('upsert_topic',{slug:'Not A Slug',name:'Bad slug'})).isError,true);
-    assert.equal(projectWrites,1);
+    assert.equal(topicWrites,1);
     // Selecting by repository returns the combined index without a follow-up memory_index call.
     result=await call('select_topic',{session_key:'one',repository:'neerajg03/satchel'});
     assert.equal(activations,1);
-    assert.match(result.content[0].text,/project-fixture/);
-    assert.match(result.content[0].text,new RegExp(projectId));
+    assert.match(result.content[0].text,/topic-fixture/);
+    assert.match(result.content[0].text,new RegExp(topicId));
     assert.equal(JSON.parse(result.content[0].text).complete,true);
-    // Personal scope must not leak the previously selected project's memories.
+    // Personal scope must not leak the previously selected topic's memories.
     result=await call('select_topic',{session_key:'one',topic_id:null});
     assert.equal(JSON.parse(result.content[0].text).active_topic,null);
     assert.match(result.content[0].text,/"name":"fixture"/);
-    assert.doesNotMatch(result.content[0].text,/project-fixture/);
+    assert.doesNotMatch(result.content[0].text,/topic-fixture/);
     assert.equal(activations,1);
     // Hosts that serialize unused optional arguments as null still reach personal scope.
     result=await call('select_topic',{session_key:'one',topic_id:null,repository:null});
     assert.ok(!result.isError);
     assert.equal(JSON.parse(result.content[0].text).active_topic,null);
-    for(const ambiguous of [{session_key:'one'},{session_key:'one',topic_id:projectId,repository:'neerajg03/satchel'}]) {
+    for(const ambiguous of [{session_key:'one'},{session_key:'one',topic_id:topicId,repository:'neerajg03/satchel'}]) {
       const rejected=await call('select_topic',ambiguous);
       assert.ok(rejected.isError);
       assert.match(rejected.content[0].text,/exactly one/);
@@ -171,13 +171,13 @@ test('OAuth token validation rejects wrong issuer/audience, expiry and missing g
 });
 
 test('MCP exposes revision-safe task operations without turning links into fetched content',async()=>{
-  const projectId=crypto.randomUUID(),taskId=crypto.randomUUID();
+  const topicId=crypto.randomUUID(),taskId=crypto.randomUUID();
   const calls=[];
   const service={
-    status:async()=>({personal:false,task_personal:true,task_project_ids:[projectId],task_can_write:true,task_can_upload:false}),
+    status:async()=>({personal:false,task_personal:true,task_topic_ids:[topicId],task_can_write:true,task_can_upload:false}),
     tasks:{
-      list:async(project,statuses)=>({tasks:[{id:taskId,project_id:project,title:'Fixture',status:statuses?.[0]??'ready',revision:1}],complete:true}),
-      read:async()=>({id:taskId,project_id:projectId,title:'Fixture',handoffs:[],updates:[],resources:[],update_resource_refs:[],events:[]}),
+      list:async(topic,statuses)=>({tasks:[{id:taskId,topic_id:topic,title:'Fixture',status:statuses?.[0]??'ready',revision:1}],complete:true}),
+      read:async()=>({id:taskId,topic_id:topicId,title:'Fixture',handoffs:[],updates:[],resources:[],update_resource_refs:[],events:[]}),
       create:async args=>{calls.push(['create',args]);return args;},
       update:async args=>{calls.push(['update',args]);return args;},
       transition:async args=>{calls.push(['transition',args]);return args;},
@@ -206,30 +206,30 @@ test('MCP exposes revision-safe task operations without turning links into fetch
     assert.deepEqual(tools.filter(tool=>tool.name.includes('task')).map(tool=>tool.name).sort(),[
       'add_task_resource','create_task','edit_task','list_tasks','read_task','record_task_update',
     ]);
-    const listed=await call('list_tasks',{topic_id:projectId,statuses:['ready']});
+    const listed=await call('list_tasks',{topic_id:topicId,statuses:['ready']});
     assert.match(listed.content[0].text,/Fixture/);
     assert.match((await call('list_tasks',{topic_id:null})).content[0].text,/Fixture/);
-    await call('create_task',{slug:'fixture-task',topic_id:projectId,title:'Fixture'});
+    await call('create_task',{slug:'fixture-task',topic_id:topicId,title:'Fixture'});
     await call('create_task',{slug:'personal-fixture',topic_id:null,title:'Personal fixture'});
     assert.equal((await call('create_task',{
-      topic_id:projectId,title:'No slug'})).isError,true,'a task cannot be created without a slug');
-    await call('edit_task',{id:taskId,topic_id:projectId,revision:1,
+      topic_id:topicId,title:'No slug'})).isError,true,'a task cannot be created without a slug');
+    await call('edit_task',{id:taskId,topic_id:topicId,revision:1,
       change:{kind:'state',status:'in_progress'}});
-    await call('record_task_update',{id:taskId,topic_id:projectId,
+    await call('record_task_update',{id:taskId,topic_id:topicId,
       entry:{kind:'handoff',revision:1,next_action:'Continue'}});
-    await call('record_task_update',{id:taskId,topic_id:projectId,
+    await call('record_task_update',{id:taskId,topic_id:topicId,
       entry:{kind:'comment',body:'Useful context'}});
-    await call('record_task_update',{id:taskId,topic_id:projectId,
+    await call('record_task_update',{id:taskId,topic_id:topicId,
       entry:{kind:'progress',revision:1,summary:'Implemented the next slice',next_action:'Verify it'}});
     const relatedId=crypto.randomUUID();
-    await call('edit_task',{id:taskId,topic_id:projectId,revision:1,
+    await call('edit_task',{id:taskId,topic_id:topicId,revision:1,
       change:{kind:'parent',parent_id:relatedId}});
-    await call('edit_task',{id:taskId,topic_id:projectId,revision:1,
+    await call('edit_task',{id:taskId,topic_id:topicId,revision:1,
       change:{kind:'add_dependency',depends_on_task_id:relatedId}});
-    await call('edit_task',{id:taskId,topic_id:projectId,revision:1,
+    await call('edit_task',{id:taskId,topic_id:topicId,revision:1,
       change:{kind:'remove_dependency',depends_on_task_id:relatedId}});
     await call('add_task_resource',{id:taskId,
-      topic_id:projectId,revision:1,label:'Docs',url:'https://example.com/doc'});
+      topic_id:topicId,revision:1,label:'Docs',url:'https://example.com/doc'});
     assert.deepEqual(calls.map(entry=>entry[0]),['create','create','transition','handoff','comment','progress','parent','add-dependency','remove-dependency','resource']);
     for(const [,args] of calls)
       assert.match(args.request_id,/^[0-9a-f-]{36}$/);
@@ -237,26 +237,26 @@ test('MCP exposes revision-safe task operations without turning links into fetch
     assert.match(calls.find(([kind])=>kind==='comment')[1].update_id,/^[0-9a-f-]{36}$/);
     assert.match(calls.find(([kind])=>kind==='resource')[1].resource_id,/^[0-9a-f-]{36}$/);
     const invalid=await call('add_task_resource',{id:taskId,
-      topic_id:projectId,revision:1,label:'Unsafe',url:'http://example.com'});
+      topic_id:topicId,revision:1,label:'Unsafe',url:'http://example.com'});
     assert.equal(invalid.isError,true);
   }finally{await client.close();await server.close();}
 });
 
-test('task service requires an explicit personal-task grant for project_id null',async()=>{
+test('task service requires an explicit personal-task grant for topic_id null',async()=>{
   let calls=0;
   const db={rpc:()=>{calls++;return {single:()=>({abortSignal:async()=>({data:{id:'ok'},error:null})})};}};
-  const args={project_id:null,request_id:crypto.randomUUID(),id:crypto.randomUUID(),title:'Personal',outcome:'',why:'',done_when:[],next_action:'',priority:'medium'};
-  const denied=taskService(db,async()=>({task_personal:false,task_project_ids:[],task_can_write:true}));
+  const args={topic_id:null,request_id:crypto.randomUUID(),id:crypto.randomUUID(),title:'Personal',outcome:'',why:'',done_when:[],next_action:'',priority:'medium'};
+  const denied=taskService(db,async()=>({task_personal:false,task_topic_ids:[],task_can_write:true}));
   await assert.rejects(denied.create(args),{code:'42501',message:'Personal tasks unavailable'});
   assert.equal(calls,0);
-  const allowed=taskService(db,async()=>({task_personal:true,task_project_ids:[],task_can_write:true}));
+  const allowed=taskService(db,async()=>({task_personal:true,task_topic_ids:[],task_can_write:true}));
   assert.equal((await allowed.create(args)).id,'ok');
   assert.equal(calls,1);
 });
 
 test('a refused tool call names the field or rule to change, never the whole row',async()=>{
   let refusal=null;
-  const service={status:async()=>({personal:true,task_personal:true,task_can_write:true,project_ids:[]}),
+  const service={status:async()=>({personal:true,task_personal:true,task_can_write:true,topic_ids:[]}),
     tasks:{create:async()=>{throw refusal;},transition:async()=>({}),setParent:async()=>({}),addDependency:async()=>({})}};
   const server=createMemoryServer(service);const client=new Client({name:'test',version:'1'});
   const [left,right]=InMemoryTransport.createLinkedPair();await server.connect(right);await client.connect(left);
@@ -316,9 +316,9 @@ test('a refused tool call names the field or rule to change, never the whole row
   }finally{await client.close();await server.close();}
 });
 
-test('a new project with an unlink is refused before the write, saying why',async()=>{
+test('a new topic with an unlink is refused before the write, saying why',async()=>{
   let writes=0;
-  const service={status:async()=>({personal:true,project_ids:[]}),upsertProject:async()=>{writes++;return {};}};
+  const service={status:async()=>({personal:true,topic_ids:[]}),upsertTopic:async()=>{writes++;return {};}};
   const server=createMemoryServer(service);const client=new Client({name:'test',version:'1'});
   const [left,right]=InMemoryTransport.createLinkedPair();await server.connect(right);await client.connect(left);
   try {

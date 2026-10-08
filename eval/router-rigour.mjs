@@ -70,8 +70,8 @@ function contains(got, want) {
 
 const wait = ms => new Promise(done => setTimeout(done, ms));
 const cases = suite.cases.filter(c => !ONLY || c.category === ONLY);
-const projects = suite.projects;
-const bySlug = new Map(projects.map(p => [p.slug, p]));
+const topics = suite.topics;
+const bySlug = new Map(topics.map(p => [p.slug, p]));
 
 for (const version of VERSIONS) {
   const instructions = await instructionsFor(version);
@@ -88,8 +88,8 @@ for (const version of VERSIONS) {
     try {
       out = await router.route({
         codebase: working ? `acme/${working.slug}` : null,
-        project: working,
-        projects: projects.filter(p => p.slug !== working?.slug),
+        topic: working,
+        topics: topics.filter(p => p.slug !== working?.slug),
         tasks: suite.tasks, context: [], saved: [], turn: item.turn,
       });
     } catch (error) {
@@ -118,12 +118,12 @@ for (const version of VERSIONS) {
       const forbidden = (item.forbid ?? []).find(bad =>
         kept.some(m => m.statement.toLowerCase().includes(bad.toLowerCase())));
       const best = Math.max(0, ...kept.map(m => contains(m.statement, item.want)));
-      const scope = kept.some(m => (m.project ?? null) === (item.wantProject ?? null));
+      const scope = kept.some(m => (m.topic ?? null) === (item.wantTopic ?? null));
       ok = kept.length > 0 && !forbidden && best >= 0.5 && scope;
       if (!kept.length) note = 'kept nothing';
       else if (forbidden) note = `kept the rejected premise: "${forbidden}"`;
       else if (best < 0.5) note = `drifted: "${kept[0].statement.slice(0, 64)}"`;
-      else if (!scope) note = `scope ${kept[0].project ?? 'null'}, wanted ${item.wantProject ?? 'null'}`;
+      else if (!scope) note = `scope ${kept[0].topic ?? 'null'}, wanted ${item.wantTopic ?? 'null'}`;
     }
     const row = tally.get(item.category) ?? {right: 0, total: 0};
     row.total++; if (ok) row.right++;

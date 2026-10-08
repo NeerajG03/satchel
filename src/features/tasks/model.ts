@@ -3,7 +3,7 @@ export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export type Task = {
   id: string;
-  project_id: string | null;
+  topic_id: string | null;
   title: string;
   outcome: string;
   why: string;
@@ -30,7 +30,7 @@ export type TaskPlanning = Task & {
 };
 
 export type TaskSummary = Pick<TaskPlanning,
-  'id' | 'project_id' | 'title' | 'status' | 'priority' | 'next_action' |
+  'id' | 'topic_id' | 'title' | 'status' | 'priority' | 'next_action' |
   'blocked_reason' | 'revision' | 'updated_at' | 'last_activity_at' | 'parent_id' |
   'dependency_ids' | 'blocked_by_ids' | 'child_count' | 'actionable'>;
 
@@ -113,8 +113,8 @@ export const EMPTY_TASK: TaskDraft = {
 };
 
 export function taskSummary(task: Task&Partial<TaskPlanning>,previous?:TaskSummary): TaskSummary {
-  const {id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at}=task;
-  return {id,project_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at,
+  const {id,topic_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at}=task;
+  return {id,topic_id,title,status,priority,next_action,blocked_reason,revision,updated_at,last_activity_at,
     parent_id:task.parent_id??previous?.parent_id??null,
     dependency_ids:task.dependency_ids??previous?.dependency_ids??[],
     blocked_by_ids:task.blocked_by_ids??previous?.blocked_by_ids??[],

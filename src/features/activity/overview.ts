@@ -6,7 +6,7 @@
 
 /** A session with turns no pass has read yet, as pending_documents gives it. */
 export type WaitingDoc = {
-  id: string; session_key: string; project_id: string | null; turns: number; chars: number;
+  id: string; session_key: string; topic_id: string | null; turns: number; chars: number;
   last_turn_at: string; consolidated_through: number | null;
 };
 /** The button reads a session once it has been quiet this long, which is the
@@ -62,11 +62,11 @@ export type ScheduleStatus = {
 };
 
 /** A live memory, just the columns the tally needs. */
-export type LiveMemory = { project_id: string | null; band: string; kind: string };
+export type LiveMemory = { topic_id: string | null; band: string; kind: string };
 export function memorySet(rows: LiveMemory[], slugs: Map<string, string>) {
   const scopes = new Map<string, number>();
   for (const row of rows) {
-    const scope = row.project_id === null ? 'personal' : slugs.get(row.project_id) ?? 'a topic';
+    const scope = row.topic_id === null ? 'personal' : slugs.get(row.topic_id) ?? 'a topic';
     scopes.set(scope, (scopes.get(scope) ?? 0) + 1);
   }
   return {

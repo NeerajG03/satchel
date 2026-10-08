@@ -33,18 +33,18 @@ test('topics: move, make, merge and undo, each inside the grant', async t => {
   const grant = (client, all, ids, write) => call(user,
     'select authorize_agent_v3($1,$1,true,$2,$3,$4,true,$2,$3,$4,false)', [client, all, ids, write]);
 
-  await call(user, 'select create_project($1,$2,$3)', [work, 'Work', 'the main project']);
+  await call(user, 'select create_topic($1,$2,$3)', [work, 'Work', 'the main topic']);
   await grant('pass', true, [], true);
   await grant('narrow', false, [work], true);
   await grant('reader', true, [], false);
   const pass = await claims('pass'), narrow = await claims('narrow'), reader = await claims('reader');
-  const save = async (project, statement) => (await call(user,
-    'select * from save_memory($1,$2,$3,$4,$5)', [crypto.randomUUID(), project, statement, '', 'said']))[0];
+  const save = async (topic, statement) => (await call(user,
+    'select * from save_memory($1,$2,$3,$4,$5)', [crypto.randomUUID(), topic, statement, '', 'said']))[0];
 
   await t.test('the pass can make a topic, and it is marked as made by Satchel', async () => {
-    await call(pass, 'select create_topic($1,$2,$3,$4,$5)', [crypto.randomUUID(), infra, 'infra', 'Infra', 'How infra is set up']);
-    await call(pass, 'select create_topic($1,$2,$3,$4,$5)', [crypto.randomUUID(), infraTools, 'infra-tools', 'Infra Tools', 'Infra tooling']);
-    const rows = await call(user, 'select slug, made_by from projects order by slug');
+    await call(pass, 'select create_satchel_topic($1,$2,$3,$4,$5)', [crypto.randomUUID(), infra, 'infra', 'Infra', 'How infra is set up']);
+    await call(pass, 'select create_satchel_topic($1,$2,$3,$4,$5)', [crypto.randomUUID(), infraTools, 'infra-tools', 'Infra Tools', 'Infra tooling']);
+    const rows = await call(user, 'select slug, made_by from topics order by slug');
     assert.deepEqual(rows, [{slug: 'infra', made_by: 'satchel'}, {slug: 'infra-tools', made_by: 'satchel'},
       {slug: 'work', made_by: 'person'}]);
   });
@@ -52,7 +52,7 @@ test('topics: move, make, merge and undo, each inside the grant', async t => {
   await t.test('moving a memory keeps its wording, band and count, and says where it was', async () => {
     const memory = await save(null, 'Grafana is gone, Oodle replaces it.');
     const [moved] = await call(pass, 'select * from move_memory($1,$2,$3,$4)', [memory.id, memory.revision, infra, 'a work fact']);
-    assert.equal(moved.project_id, infra);
+    assert.equal(moved.topic_id, infra);
     assert.equal(moved.statement, memory.statement);
     assert.equal(moved.band, 'said');
     assert.equal(moved.mentions, memory.mentions);
@@ -72,25 +72,25 @@ test('topics: move, make, merge and undo, each inside the grant', async t => {
     const first = await save(infraTools, 'Deploys go through infra-configurations.');
     const [merge] = await call(pass, 'select * from merge_topic($1,$2,$3)', [infraTools, infra, 'same subject']);
     assert.deepEqual(merge.memory_ids, [first.id]);
-    assert.equal((await call(user, 'select merged_into from projects where id=$1', [infraTools]))[0].merged_into, infra);
-    assert.equal((await call(user, 'select project_id from memories where id=$1', [first.id]))[0].project_id, infra);
+    assert.equal((await call(user, 'select merged_into from topics where id=$1', [infraTools]))[0].merged_into, infra);
+    assert.equal((await call(user, 'select topic_id from memories where id=$1', [first.id]))[0].topic_id, infra);
     const later = await save(infra, 'Infra tickets go straight to Done.');
     await assert.rejects(call(pass, 'select move_memory($1,$2,$3)', [later.id, later.revision, infraTools]), {code: '23514'});
     const [undone] = await call(user, 'select * from unmerge_topic($1)', [infraTools]);
     assert.ok(undone.undone_at);
-    assert.equal((await call(user, 'select project_id from memories where id=$1', [first.id]))[0].project_id, infraTools);
-    assert.equal((await call(user, 'select project_id from memories where id=$1', [later.id]))[0].project_id, infra);
-    assert.equal((await call(user, 'select merged_into from projects where id=$1', [infraTools]))[0].merged_into, null);
+    assert.equal((await call(user, 'select topic_id from memories where id=$1', [first.id]))[0].topic_id, infraTools);
+    assert.equal((await call(user, 'select topic_id from memories where id=$1', [later.id]))[0].topic_id, infra);
+    assert.equal((await call(user, 'select merged_into from topics where id=$1', [infraTools]))[0].merged_into, null);
   });
 
   await t.test('a topic with tasks or a repository is never merged', async () => {
-    await call(user, 'select link_project_repository($1,$2,$3)', [work, 'github', 'acme/work']);
+    await call(user, 'select link_topic_repository($1,$2,$3)', [work, 'github', 'acme/work']);
     await assert.rejects(call(pass, 'select merge_topic($1,$2)', [work, infra]), {code: '23514'});
   });
 
   await t.test('an app merges only topics Satchel made; the person may merge their own', async () => {
     const mine = crypto.randomUUID();
-    await call(user, 'select create_project($1,$2,$3)', [mine, 'Mine', 'a topic I made']);
+    await call(user, 'select create_topic($1,$2,$3)', [mine, 'Mine', 'a topic I made']);
     await assert.rejects(call(pass, 'select merge_topic($1,$2)', [mine, infra]), {code: '23514'});
     const [merge] = await call(user, 'select * from merge_topic($1,$2)', [mine, infra]);
     assert.equal(merge.from_id, mine);

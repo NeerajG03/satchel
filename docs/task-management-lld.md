@@ -57,7 +57,7 @@ Database writes are atomic with their events and idempotency receipt. Storage up
 
 ### `tasks`
 
-The canonical task row contains identity (`owner_id`, nullable `project_id`, `id`), content (`title`, `outcome`, `why`, `done_when[]`, `next_action`), planning (`status`, `priority`, `blocked_reason`), concurrency (`revision`) and audit fields (`created_by`, `updated_by`, timestamps). `project_id = null` is the personal **For me** scope. Topics are stored in the `projects` table, so the column is `project_id`.
+The canonical task row contains identity (`owner_id`, nullable `topic_id`, `id`), content (`title`, `outcome`, `why`, `done_when[]`, `next_action`), planning (`status`, `priority`, `blocked_reason`), concurrency (`revision`) and audit fields (`created_by`, `updated_by`, timestamps). `topic_id = null` is the personal **For me** scope.
 
 States are `inbox`, `ready`, `in_progress`, `blocked`, and `done`. A blocked task requires a blocker; other states must not retain one. A done task requires `closed_at`; reopening clears it.
 
@@ -106,7 +106,7 @@ Per-topic capability rows are bound to `(owner_id, client_id, grant_id)`, while 
 
 ## Ownership invariants
 
-Every child carries `owner_id`, nullable `project_id`, `task_id`, and an internal generated `scope_key`. The scope key is the topic UUID text or `personal`, allowing null-safe composite foreign keys without a fake topic:
+Every child carries `owner_id`, nullable `topic_id`, `task_id`, and an internal generated `scope_key`. The scope key is the topic UUID text or `personal`, allowing null-safe composite foreign keys without a fake topic:
 
 ```sql
 unique (owner_id, scope_key, id)
@@ -121,7 +121,7 @@ Handoff-resource references bind both sides to the same owner, scope and task. T
 
 All exposed tables have RLS enabled. The migration revokes defaults and grants only `SELECT` to `authenticated`; direct inserts, updates and deletes are unavailable. Mutations use narrowly scoped functions that derive the owner and actor from `auth.uid()` and trusted JWT claims.
 
-`private.agent_can_access_tasks(project_id, capability)` is a stable `SECURITY DEFINER` boolean helper in an unexposed schema. A null topic checks the explicit personal-task grant; a UUID checks its per-topic grant. `authenticated` receives `USAGE` on `private` and `EXECUTE` only on the narrow helpers so RLS policies can call them. The helper always checks caller owner, client, current connection generation, JWT generation, revocation and exact-scope capability.
+`private.agent_can_access_tasks(topic_id, capability)` is a stable `SECURITY DEFINER` boolean helper in an unexposed schema. A null topic checks the explicit personal-task grant; a UUID checks its per-topic grant. `authenticated` receives `USAGE` on `private` and `EXECUTE` only on the narrow helpers so RLS policies can call them. The helper always checks caller owner, client, current connection generation, JWT generation, revocation and exact-scope capability.
 
 Companion sessions are identified by the absence of an OAuth `client_id`; agent sessions require exact task grants. Task permissions do not grant memory access, and memory permissions do not grant task access.
 

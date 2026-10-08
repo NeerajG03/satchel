@@ -13,8 +13,8 @@ import {errorText,raisedText,raisedPatterns,GENERIC} from '../server/error-text.
 // tool whose refusals nobody checked.
 const TOOL_ROUTINES={
   list_topics:[],memory_index:['list_memories'],retrieve_memory:['search_memories'],read_memory:['read_memory'],
-  upsert_topic:['upsert_project_with_slug'],
-  select_topic:['select_agent_project','select_agent_repository','list_memories'],
+  upsert_topic:['upsert_topic_with_slug'],
+  select_topic:['select_agent_topic','select_agent_repository','list_memories'],
   save_memory:['save_memory'],correct_memory:['correct_memory'],confirm_memory:['confirm_memory'],forget_memory:['end_memory'],
   list_tasks:[],read_task:[],create_task:['create_task_with_slug'],
   edit_task:['update_task','transition_task','set_task_parent','add_task_dependency','remove_task_dependency'],

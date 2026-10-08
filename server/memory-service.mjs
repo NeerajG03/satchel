@@ -38,11 +38,11 @@ export function memoryService(db, embedder = null, router = null) {
   // One turn's worth of capture. Everything the router returns has already
   // been checked against what the user actually typed; this only resolves
   // scope and writes.
-  async function captureTurn(sessionKey, {codebase, project, projects, context, turn, saved, trace}) {
+  async function captureTurn(sessionKey, {codebase, topic, topics, context, turn, saved, trace}) {
     const runId = crypto.randomUUID();
     let outcome;
     try {
-      outcome = await router.route({codebase, project, projects, context, turn, saved});
+      outcome = await router.route({codebase, topic, topics, context, turn, saved});
     } catch (error) {
       await api.logRouterRun({id:runId, session_key:sessionKey, model:router.model,
         prompt:'(not sent)', response:null, kept:0, dropped:0, error:String(error.message ?? error)});
@@ -67,35 +67,35 @@ export function memoryService(db, embedder = null, router = null) {
       dropped:outcome.dropped.length, error:null});
     return {memories:written, dropped:outcome.dropped.length, failed:false};
   }
-  async function requireScope(projectId, write=false) {
-    if (!await result(db.rpc('agent_can_access',{p_project_id:projectId,p_write:write})))
+  async function requireScope(topicId, write=false) {
+    if (!await result(db.rpc('agent_can_access',{p_topic_id:topicId,p_write:write})))
       throw {code:'42501',message:write?'Memory write unavailable':'Memory read unavailable'};
   }
   const api = {
     status: () => result(db.rpc('agent_connection_status')),
     // A merged topic is kept for its undo and left out of everything else.
-    projects: () => result(db.from('projects')
-      .select('id,slug,name,brief,revision,updated_at,made_by,project_repositories(provider,repository)')
+    topics: () => result(db.from('topics')
+      .select('id,slug,name,brief,revision,updated_at,made_by,topic_repositories(provider,repository)')
       .is('merged_into', null).order('name')),
-    createTopic: args => result(db.rpc('create_topic', {p_request_id:args.request_id,
-      p_project_id:args.project_id, p_slug:args.slug, p_name:args.name, p_brief:args.brief})),
+    createSatchelTopic: args => result(db.rpc('create_satchel_topic', {p_request_id:args.request_id,
+      p_topic_id:args.topic_id, p_slug:args.slug, p_name:args.name, p_brief:args.brief})),
     moveMemory: args => result(db.rpc('move_memory', {p_id:args.id, p_revision:args.revision,
-      p_project_id:args.project_id ?? null, p_note:args.note ?? null, p_trace:args.trace ?? null,
+      p_topic_id:args.topic_id ?? null, p_note:args.note ?? null, p_trace:args.trace ?? null,
       p_document:args.document ?? null})),
     mergeTopic: args => result(db.rpc('merge_topic', {p_from:args.from, p_into:args.into,
       p_note:args.note ?? null, p_trace:args.trace ?? null})),
-    upsertProject: args => result(db.rpc('upsert_project_with_slug',{
+    upsertTopic: args => result(db.rpc('upsert_topic_with_slug',{
       p_slug:args.slug,
-      p_request_id:args.request_id,p_project_id:args.project_id,
+      p_request_id:args.request_id,p_topic_id:args.topic_id,
       p_expected_revision:args.expected_revision??null,p_name:args.name,p_brief:args.brief,
       p_repository_action:args.repository_change.kind,
       p_repository:args.repository_change.repository??null,
     })),
-    activeProject: session => result(db.rpc('agent_active_project',{p_session_key:session})),
+    activeTopic: session => result(db.rpc('agent_active_topic',{p_session_key:session})),
     repositoryHintExists: session => result(db.rpc('agent_repository_hint_exists',{p_session_key:session})),
     activateRepositoryHint: session => result(db.rpc('activate_agent_repository_hint',{p_session_key:session})),
     // Read only when activation declined to pick, which is when the workspace's
-    // repository names more than one project this connection may read. The hint
+    // repository names more than one topic this connection may read. The hint
     // is deliberately left staged in that case so this can still see it.
     repositoryCandidates: session =>
       result(db.rpc('agent_repository_candidates',{p_session_key:session})),
@@ -104,61 +104,61 @@ export function memoryService(db, embedder = null, router = null) {
     // caller that may resolve it: one authenticated call, no hint row, no
     // expiry, and no poll waiting for an anonymous POST to land.
     //
-    // Returns every candidate project, with `selected` true on the one it
+    // Returns every candidate topic, with `selected` true on the one it
     // activated. It only activates when there is exactly one.
-    // p_select false asks which projects the repository is linked to without
+    // p_select false asks which topics the repository is linked to without
     // touching the scope. That matters after a /clear, where the session key
-    // survives and an explicit select_project made earlier is still active.
+    // survives and an explicit select_topic made earlier is still active.
     resolveRepository: (session,provider,repository,select=true) =>
       result(db.rpc('resolve_agent_repository',
         {p_session_key:session,p_provider:provider,p_repository:repository,p_select:select})),
-    async selectProject(session,projectId) {
-      await result(db.rpc('select_agent_project',{p_session_key:session,p_project_id:projectId}));
-      return {project_id:projectId};
+    async selectTopic(session,topicId) {
+      await result(db.rpc('select_agent_topic',{p_session_key:session,p_topic_id:topicId}));
+      return {topic_id:topicId};
     },
     async selectRepository(session,provider,repository) {
-      const projectId=await result(db.rpc('select_agent_repository',{
+      const topicId=await result(db.rpc('select_agent_repository',{
         p_session_key:session,p_provider:provider,p_repository:repository,
       }));
-      return {project_id:projectId};
+      return {topic_id:topicId};
     },
-    async index(projectId) {
-      await requireScope(projectId);
+    async index(topicId) {
+      await requireScope(topicId);
       // A sentinel row detects PostgREST pagination instead of silently claiming completeness.
-      const {data:rows,error,count}=await db.rpc('list_memories',{p_project_id:projectId},{count:'exact'})
+      const {data:rows,error,count}=await db.rpc('list_memories',{p_topic_id:topicId},{count:'exact'})
         .range(0,500).abortSignal(AbortSignal.timeout(8000));
       if(error)throw error;
       return {memories:rows,complete:count!==null&&count===rows.length&&rows.length<501};
     },
-    async read(projectId,id) {
-      await requireScope(projectId);
-      const row=await result(db.rpc('read_memory',{p_project_id:projectId,p_id:id}));
+    async read(topicId,id) {
+      await requireScope(topicId);
+      const row=await result(db.rpc('read_memory',{p_topic_id:topicId,p_id:id}));
       if (!row) throw {code:'P0002',message:'Memory not found or unavailable'};
       return row;
     },
     async save(args) {
-      await requireScope(args.project_id,true);
-      const row=await result(db.rpc('save_memory',{p_id:args.id,p_project_id:args.project_id,
+      await requireScope(args.topic_id,true);
+      const row=await result(db.rpc('save_memory',{p_id:args.id,p_topic_id:args.topic_id,
         p_statement:args.statement,p_source:args.source??'',p_band:args.band??'said',
         p_name:args.name??null,p_more_info:args.more_info??''}));
       await embedRow(row);
       return row;
     },
     async correct(args) {
-      await requireScope(args.project_id,true);
-      const row=await result(db.from('memories').select('id,project_id').eq('id',args.id).maybeSingle());
-      if (!row || row.project_id!==args.project_id) throw {code:'P0002',message:'Memory not found or unavailable'};
+      await requireScope(args.topic_id,true);
+      const row=await result(db.from('memories').select('id,topic_id').eq('id',args.id).maybeSingle());
+      if (!row || row.topic_id!==args.topic_id) throw {code:'P0002',message:'Memory not found or unavailable'};
       const updated=await result(db.rpc('correct_memory',{p_id:args.id,p_revision:args.revision,
         p_statement:args.statement,p_name:args.name??null,p_more_info:args.more_info??''}));
       await embedRow(updated);
       return updated;
     },
     async confirm(args) {
-      await requireScope(args.project_id,true);
+      await requireScope(args.topic_id,true);
       return result(db.rpc('confirm_memory',{p_id:args.id,p_revision:args.revision}));
     },
     // Retrieval embeds the query and lets the database rank. Scope is a boost
-    // rather than a filter, so a first mention of an unrelated project still
+    // rather than a filter, so a first mention of an unrelated topic still
     // wins on similarity alone.
     async search(args) {
       if (!embedder) throw {code:'PT503',reason:'search is unavailable: no embedding model is configured for this connection'};
@@ -200,7 +200,7 @@ export function memoryService(db, embedder = null, router = null) {
       // No row, no twin. A twin without its revision would be extended or
       // replaced with a null revision, fail the conflict check, and take the
       // proposed add down with it; none is the answer that lets the add land.
-      const [row] = await result(db.from('memories').select('id,revision,kind,project_id,statement,band').eq('id', near.id).limit(1)) ?? [];
+      const [row] = await result(db.from('memories').select('id,revision,kind,topic_id,statement,band').eq('id', near.id).limit(1)) ?? [];
       return row ? {...near, ...row, score: near.score} : null;
     },
     // Rows saved while the embedder was down or out of quota. embedRow swallows
@@ -245,10 +245,10 @@ export function memoryService(db, embedder = null, router = null) {
     // An empty `content` is not a no-op. It still notes the scope, which is
     // the only thing the end of a turn has to offer on a host that hands us no
     // assistant message.
-    recordTurn: (sessionKey, role, content, keep = 12, projectId = null) =>
+    recordTurn: (sessionKey, role, content, keep = 12, topicId = null) =>
       result(db.rpc('record_turn',
         {p_session_key:sessionKey, p_role:role, p_content:content,
-         p_keep:keep, p_project_id:projectId})),
+         p_keep:keep, p_topic_id:topicId})),
     // The codebase a conversation ran in, for the pass that reads it later.
     noteRepository: (sessionKey, repository) =>
       result(db.rpc('note_document_repository', {p_session_key:sessionKey, p_repository:repository})),
@@ -294,12 +294,12 @@ export function memoryService(db, embedder = null, router = null) {
     markDocumentConsolidated: (documentId, through) =>
       result(db.rpc('mark_document_consolidated',
         {p_document_id:documentId, p_through:through})),
-    // The project's memories and the personal ones together, because a
-    // conversation inside a project still produces preferences that belong
+    // The topic's memories and the personal ones together, because a
+    // conversation inside a topic still produces preferences that belong
     // everywhere, and the pass cannot judge "is this already remembered"
     // against half the set.
-    memoriesInScope: (projectId = null, limit = 60) =>
-      result(db.rpc('memories_in_scope', {p_project_id:projectId, p_limit:limit})),
+    memoriesInScope: (topicId = null, limit = 60) =>
+      result(db.rpc('memories_in_scope', {p_topic_id:topicId, p_limit:limit})),
     // Ending and extending carry the revision, so a pass working from a list
     // it read a minute ago cannot overwrite something the person changed since.
     endMemory: args => result(db.rpc('end_memory', {
@@ -365,7 +365,7 @@ export function memoryService(db, embedder = null, router = null) {
       } catch { /* Losing the note is worse than nothing and still not worth failing the run. */ }
     },
     // Slug to UUID happens in the database, so the model never handles an id.
-    // One slug, because a memory has one scope and it is a project or
+    // One slug, because a memory has one scope and it is a topic or
     // personal. There is no task to resolve and nothing that can move the
     // scope after the caller chose it.
     //
@@ -378,7 +378,7 @@ export function memoryService(db, embedder = null, router = null) {
     async captureMemory(args) {
       const row = await result(db.rpc('capture_memory', {
         p_id:args.id, p_statement:args.statement, p_source:args.source,
-        p_project_slug:args.project ?? null, p_kind:args.kind ?? 'fact',
+        p_topic_slug:args.topic ?? null, p_kind:args.kind ?? 'fact',
         // Which run wrote this, and which conversation it came out of. Set
         // inside the same transaction as the write, so the event the trigger
         // raises carries them.
@@ -429,9 +429,9 @@ export function memoryService(db, embedder = null, router = null) {
     // delete is a person's. end_memory takes an id alone, so the select keeps
     // the scope the agent named authoritative rather than any scope it can write.
     async forget(args) {
-      await requireScope(args.project_id,true);
+      await requireScope(args.topic_id,true);
       let query=db.from('memories').select('id').eq('id',args.id);
-      query=args.project_id===null?query.is('project_id',null):query.eq('project_id',args.project_id);
+      query=args.topic_id===null?query.is('topic_id',null):query.eq('topic_id',args.topic_id);
       if (!(await result(query)).length) throw {code:'PT409',message:'Memory changed or unavailable'};
       const row=await api.endMemory({id:args.id,revision:args.revision,reason:'forgotten'});
       return {forgotten_id:row.id,revision:row.revision};

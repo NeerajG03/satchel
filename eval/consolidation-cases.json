@@ -1,6 +1,6 @@
 {
   "note": "Does the consolidation pass change the memory set correctly, given what is already in it. eval/router-rigour.mjs cannot measure this: the router has one output, insert or nothing, and every case here turns on a memory that already exists. Where a case came from a real run or a real production row it says so under `from`; the rest are written from the taxonomy in docs/memory-v2-5-scope.md R2a so that a wording which only handles the exact sentence that failed does not score.",
-  "projects": [
+  "topics": [
     {"slug": "satchel", "brief": "Satchel keeps your memory, projects and tasks in one place and hands them to the agent"},
     {"slug": "ledger", "brief": "A Go payments ledger with append-only entries", "repositories": ["acme/ledger"]},
     {"slug": "sourdough", "brief": "Baking notes, nothing to do with work"}

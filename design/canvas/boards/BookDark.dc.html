@@ -9,10 +9,10 @@
 <helmet>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=Instrument+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&family=Caveat:wght@600&display=swap">
   <style>
-  :root { --outer:#DED8CC; --hw:#26231F; --hw2:#332E28; --hw3:#3E3831; --hwtext:#EEE7DB; --hwmuted:#A79E90;
-    --paper:#F4F0E7; --paper2:#EDE7DB; --paper3:#E4DCCD;
-    --ink:#1F1B17; --muted:#6B6257; --line:#D9D1C4;
-    --accent:#B8451A; --orange:#E4571E; --red:#A82720; --green:#2E7A4A; --amber:#8A5E00;
+  :root { --outer:#171612; --hw:#26231F; --hw2:#332E28; --hw3:#3E3831; --hwtext:#EEE7DB; --hwmuted:#A79E90;
+    --paper:#26231F; --paper2:#2F2A24; --paper3:#3A342D;
+    --ink:#EEE7DB; --muted:#B4AA9B; --line:#484238;
+    --accent:#FF9A70; --orange:#E4571E; --red:#FFACA4; --green:#8FD3A6; --amber:#F1C25A;
     --led-green:#3E9E62; --led-amber:#E2A11E; --led-red:#C8442E; --led-off:#6E665C; }
   body { margin:0; background:var(--outer); color:var(--ink); font:15px/1.5 'Instrument Sans', system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
   a { color:var(--accent); text-decoration:none; } a:hover { color:var(--orange); text-decoration:underline; text-underline-offset:3px; }
@@ -128,9 +128,9 @@
   <div class="body">
     <nav class="rail" aria-label="Destinations">
   <a href="Main.dc.html"><span class="dot"></span>Left off</a>
-  <a href="Book.dc.html"><span class="dot"></span>Book</a>
+  <a href="Book.dc.html" aria-current="page"><span class="dot"></span>Book</a>
   <a href="Tasks.dc.html"><span class="dot"></span>Tasks</a>
-  <a href="Projects.dc.html" aria-current="page"><span class="dot"></span>Topics</a>
+  <a href="Topics.dc.html"><span class="dot"></span>Topics</a>
   <a href="Apps.dc.html"><span class="dot"></span>Apps</a>
   <a href="Settings.dc.html"><span class="dot"></span>Settings</a>
   <div class="spacer"></div>
@@ -138,26 +138,30 @@
 </nav>
     <main class="paper">
       
-  <a href="Projects.dc.html" class="fine muted" style="color:var(--muted);">← Topics</a>
-  <div class="head" style="margin-top:8px;"><div class="col" style="gap:8px;"><span class="eyebrow">Topic</span><h1 class="h1">Satchel</h1></div>
-    <div class="row"><a href="Book.dc.html" class="btn">Open its book</a><a href="Tasks.dc.html" class="btn">Open its tasks</a><button class="btn icon" aria-label="Topic actions"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
-  <p class="serif" style="font-size:20px; line-height:1.45; margin:14px 0 22px; max-width:680px;">Personal memory and task continuity across AI apps. <a href="#" class="fine" style="font-family:'Instrument Sans',sans-serif;">Edit brief</a></p>
-  <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:36px;">
-    <section class="col" style="gap:10px;"><div class="between"><span class="eyebrow">Linked codebases</span><a href="#" class="fine">Link another</a></div>
-      <div class="between" style="padding:10px 0; border-bottom:1px solid var(--line);"><span class="row" style="gap:8px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.3 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg><span class="mono" style="font-size:13px;">neerajg03/satchel</span></span><span class="fine muted">Unlink</span></div>
-      <p class="fine muted" style="margin:0;">A linked repository lets an agent pick this topic for a coding chat. It does not grant access by itself.</p></section>
-    <section class="col" style="gap:10px;"><div class="between"><span class="eyebrow">Apps that can see this topic</span><a href="Apps.dc.html" class="fine">Manage</a></div>
-      <div class="col" style="gap:2px; padding:10px 0; border-bottom:1px solid var(--line);"><span class="row" style="gap:8px;"><span class="led green"></span><strong style="font-size:14px;">Claude Code</strong></span><span class="prov">memory read/write · tasks read/write + uploads</span></div><div class="col" style="gap:2px; padding:10px 0; border-bottom:1px solid var(--line);"><span class="row" style="gap:8px;"><span class="led amber"></span><strong style="font-size:14px;">Codex</strong></span><span class="prov">memory read only · no task access</span></div></section>
-    <section class="col" style="gap:10px;"><span class="eyebrow">Activity</span>
-      <div class="col" style="gap:2px; padding:8px 0; border-bottom:1px solid var(--line);"><span style="font-size:14px;">Handoff on “Skills packaging” by Claude Code</span><span class="prov">today 09:41</span></div><div class="col" style="gap:2px; padding:8px 0; border-bottom:1px solid var(--line);"><span style="font-size:14px;">Memory “no-personas-v1” saved from phone</span><span class="prov">today 09:18</span></div><div class="col" style="gap:2px; padding:8px 0; border-bottom:1px solid var(--line);"><span style="font-size:14px;">Memory “task-authority” corrected (rev 2)</span><span class="prov">Tue 16 Sep</span></div><div class="col" style="gap:2px; padding:8px 0; border-bottom:1px solid var(--line);"><span style="font-size:14px;">Task “Add planning graph” moved to done</span><span class="prov">Mon 15 Sep</span></div></section>
-  </div>
-  <div style="display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:36px; margin-top:30px;">
-    <section class="col" style="gap:6px;"><div class="between"><span class="eyebrow">Tasks · 4</span><a href="Tasks.dc.html" class="fine">All tasks</a></div>
-      <a href="Task.dc.html" class="between" style="padding:11px 0; border-bottom:1px solid var(--line); color:var(--ink);"><span class="serif" style="font-size:18px;">Ship the skills packaging worktree</span><span class="chip progress">in progress</span></a><a href="Task.dc.html" class="between" style="padding:11px 0; border-bottom:1px solid var(--line); color:var(--ink);"><span class="serif" style="font-size:18px;">Write the plugin pilot design</span><span class="chip ink">ready</span></a><a href="Task.dc.html" class="between" style="padding:11px 0; border-bottom:1px solid var(--line); color:var(--ink);"><span class="serif" style="font-size:18px;">Decide rule events retention</span><span class="chip blocked">blocked</span></a></section>
-    <section class="col" style="gap:6px;"><div class="between"><span class="eyebrow">Memories · 5</span><a href="Book.dc.html" class="fine">Open the book</a></div>
-      <a href="Book.dc.html" class="between" style="padding:11px 0; border-bottom:1px solid var(--line); color:var(--ink);"><span class="serif" style="font-size:18px;">no-personas-v1</span><span class="prov"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a href="Book.dc.html" class="between" style="padding:11px 0; border-bottom:1px solid var(--line); color:var(--ink);"><span class="serif" style="font-size:18px;">task-authority</span><span class="prov"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a><a href="Book.dc.html" class="between" style="padding:11px 0; border-bottom:1px solid var(--line); color:var(--ink);"><span class="serif" style="font-size:18px;">plain-words</span><span class="prov"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a></section>
-  </div>
-      <div class="foot"><span>Topic / Satchel · created 10 Sep</span><span>Explicit saves only</span></div>
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topic · Satchel</span><h1 class="h1">The book.</h1></div>
+    <div class="row"><button class="btn" style="gap:10px; padding-left:12px;"><span class="eyebrow" style="color:var(--muted);">In</span><strong style="font-weight:600;">Satchel</strong><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><a href="#" class="btn icon" aria-label="Search the book"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></a></div></div>
+  <div class="between" style="margin:14px 0 6px;"><p class="lede" style="margin:0;">Continuity between the AI apps you already use. Decisions saved here are read by Claude Code and Codex.</p>
+    <a href="Book.dc.html" class="btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Write something down</a></div>
+  <div class="row" style="gap:8px; margin:12px 0 4px;"><span class="seg"><a href="#" aria-current="true">All 5</a><a href="#">Saved by me 3</a><a href="#">Saved by agents 2</a></span></div>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">no-personas-v1</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Satchel has no personas and no curator in the first version. Read before proposing agent roles.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  
+  <div class="between"><span class="prov">Said on your phone · today 09:18 · revision 1</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="false">Read more info</a></span></div>
+</article>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">task-authority</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Supabase is the only authority for task state. GitHub issues are attached references, never mirrors.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  <div class="serif" style="font-size:19px; line-height:1.5; white-space:pre-wrap; padding:10px 0 4px; max-width:680px;">Every write carries a request id and the current revision. A stale revision is a conflict, not an overwrite.</div>
+  <div class="between"><span class="prov">Saved by Claude Code · MacBook · Tue 16 Sep · revision 2</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="true">Hide more info</a><a href="#" class="fine muted" style="color:var(--muted);">2 revisions</a></span></div>
+</article>
+  <article class="entry">
+  <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><div class="row" style="gap:10px;"><h2 class="title serif">plain-words</h2></div><p style="margin:0; font-size:15px; max-width:640px;">Write UI copy in plain 8th-grade words. No jargon, no metaphors, no em dashes.</p></div>
+    <div class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><button class="btn quiet sm icon" aria-label="More actions" style="width:32px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div></div>
+  
+  <div class="between"><span class="prov">Said on your MacBook · Fri 12 Sep · revision 3</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="false">Read more info</a><a href="#" class="fine muted" style="color:var(--muted);">3 revisions</a></span></div>
+</article>
+      <div class="foot"><span>Dark theme · same tokens</span><span>Explicit saves only</span></div>
     </main>
   </div>
 </div>

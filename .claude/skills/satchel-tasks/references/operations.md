@@ -32,14 +32,14 @@ MCP tool (6 intent-level tools, Zod-validated)
 
 Each one keeps its transaction short and makes no network call while holding a row lock. That is why the file upload is deliberately two phases: object storage and Postgres cannot share a transaction.
 
-`private.agent_can_access_tasks(project_id, capability)` is the stable `SECURITY DEFINER` boolean every task policy calls. It lives in the unexposed `private` schema; `authenticated` gets `usage` on the schema and `execute` on the narrow helpers only.
+`private.agent_can_access_tasks(topic_id, capability)` is the stable `SECURITY DEFINER` boolean every task policy calls. It lives in the unexposed `private` schema; `authenticated` gets `usage` on the schema and `execute` on the narrow helpers only.
 
 ## `server/task-service.mjs`
 
-Request-scoped, built per request in `http-handler.mjs` and handed the same `connectionStatus` the memory service uses. Every method calls `requireScope(projectId, capability)` first:
+Request-scoped, built per request in `http-handler.mjs` and handed the same `connectionStatus` the memory service uses. Every method calls `requireScope(topicId, capability)` first:
 
 - no status at all is `42501`;
-- `task_all_projects` is checked **before** the `task_project_ids` list, because a blanket grant keeps no list and checking the list alone would deny the connection that was given everything;
+- `task_all_topics` is checked **before** the `task_topic_ids` list, because a blanket grant keeps no list and checking the list alone would deny the connection that was given everything;
 - `write` needs `task_can_write`, `upload` needs `task_can_upload`.
 
 This check is not the authority. The database enforces the same rule. It exists so the no is early and readable instead of arriving as a policy-shaped nothing.
@@ -61,7 +61,7 @@ This check is not the authority. The database enforces the same rule. It exists 
 
 Six tools is a ceiling on purpose. One tool per SQL function would be fifteen near-identical names for a model to choose between; one generic mutation endpoint would be untyped. The discriminated union keeps the database's narrow routines intact while giving the model one obvious choice per intent. Add a `kind`, not a tool.
 
-`topic_id: null` means personal. It is never a directory name and never guessed. Topics are stored in the `projects` table, so the database column is still `project_id`.
+`topic_id: null` means personal. It is never a directory name and never guessed. The database column is `topic_id` too.
 
 ## Slugs
 

@@ -39,7 +39,7 @@ export const ROUTER_SCHEMA = z.object({
   memories: z.array(z.object({
     statement: z.string().describe('The claim, written so it still makes sense in six weeks.'),
     source: z.string().describe('The words the user actually typed that this came from.'),
-    project: z.string().nullable().describe('A project slug from the list, or null for personal.'),
+    topic: z.string().nullable().describe('A topic slug from the list, or null for personal.'),
   })),
 });
 
@@ -54,7 +54,7 @@ export const INSTRUCTIONS = localText;
 
 /** Two messages, not one.
  *
- *  Everything was a single user message: the instructions, the project list,
+ *  Everything was a single user message: the instructions, the topic list,
  *  the earlier context and the user's own words, separated from the rules only
  *  by a <turn> tag. The stable half is identical on every call and
  *  the rest is different every time, so splitting them makes the boundary
@@ -63,7 +63,7 @@ export const INSTRUCTIONS = localText;
  *
  *  Context is for understanding only; only the turn being classified can supply
  *  a source. */
-export function buildPrompt({codebase = null, project = null, projects = [],
+export function buildPrompt({codebase = null, topic = null, topics = [],
   context = [], turn = [], saved = [],
   // The wording Langfuse is serving, when there is one. Defaulting to the
   // committed copy keeps this function synchronous and keeps every test
@@ -75,28 +75,28 @@ export function buildPrompt({codebase = null, project = null, projects = [],
     for (const row of rows) lines.push(`  ${String(row[first] ?? '').padEnd(width)}  ${row.detail}`.trimEnd());
   };
   // The one fact that was missing, and the whole reason a memory about this
-  // project's own deployment key landed in personal. The model had a flat list
-  // of every project and nothing saying which one the conversation was in, so
+  // topic's own deployment key landed in personal. The model had a flat list
+  // of every topic and nothing saying which one the conversation was in, so
   // it had to infer the scope from the words, and the words did not say.
-  if (codebase || project) {
+  if (codebase || topic) {
     lines.push('working on');
     if (codebase) lines.push(`  codebase  ${codebase}`);
-    // Named separately from the others so "the project this codebase belongs
-    // to" stays a narrower question than "one of all your projects". When a
-    // repository may belong to several projects this becomes two or three
+    // Named separately from the others so "the topic this codebase belongs
+    // to" stays a narrower question than "one of all your topics". When a
+    // repository may belong to several topics this becomes two or three
     // lines and nothing else about the prompt changes.
-    if (project) lines.push(`  project   ${project.slug}  ${(project.brief ?? '').slice(0, 80)}`.trimEnd());
-    else lines.push('  project   none selected, so use null unless the user names a project below');
+    if (topic) lines.push(`  topic   ${topic.slug}  ${(topic.brief ?? '').slice(0, 80)}`.trimEnd());
+    else lines.push('  topic   none selected, so use null unless the user names a topic below');
     lines.push('');
   }
-  const others = projects.filter(p => p.slug !== project?.slug);
+  const others = topics.filter(p => p.slug !== topic?.slug);
   if (others.length) {
-    lines.push('other projects, only when the user names one');
+    lines.push('other topics, only when the user names one');
     table(others.map(p => ({slug: p.slug, detail: (p.brief ?? '').slice(0, 80)})), 'slug');
     lines.push('');
   }
   // The open task list used to go here, because the model picked a task slug
-  // for each item. A memory has one scope now and it is a project or personal,
+  // for each item. A memory has one scope now and it is a topic or personal,
   // so there is nothing to pick, and a list of work in progress in front of a
   // model deciding what is durable pulls in exactly the wrong direction.
   // A second guard behind the turn boundary. The boundary stops the same
@@ -123,13 +123,13 @@ export function buildPrompt({codebase = null, project = null, projects = [],
 /** Everything the model returned that does not hold up is dropped here rather
  *  than reaching the database. A router that occasionally says nothing is the
  *  behaviour we already have; one that invents is a new failure. */
-export function validate(payload, {turn = [], project = null, projects = [], saved = []}) {
+export function validate(payload, {turn = [], topic = null, topics = [], saved = []}) {
   const haystack = turn.join('\n').toLowerCase();
-  // The active project is nameable too. It is not in `projects` when the caller
+  // The active topic is nameable too. It is not in `topics` when the caller
   // passes the others separately, and a model told to default to it would have
   // every item dropped back to personal by this check, which is the bug being
   // fixed wearing a different hat.
-  const projectSlugs = new Set([...projects.map(p => p.slug), ...(project ? [project.slug] : [])]);
+  const topicSlugs = new Set([...topics.map(p => p.slug), ...(topic ? [topic.slug] : [])]);
   const already = new Set(saved.map(normalizeStatement));
   const kept = [];
   const dropped = [];
@@ -153,9 +153,9 @@ export function validate(payload, {turn = [], project = null, projects = [], sav
       continue;
     }
     // One scope, and only one the caller already named. The line this
-    // replaced was `project: task ? taskProject : project`, so a wrong task
-    // guess silently moved a memory into another project.
-    kept.push({statement, source, project: projectSlugs.has(item?.project) ? item.project : null});
+    // replaced was `topic: task ? taskTopic : topic`, so a wrong task
+    // guess silently moved a memory into another topic.
+    kept.push({statement, source, topic: topicSlugs.has(item?.topic) ? item.topic : null});
   }
   return {memories: kept, dropped};
 }
@@ -249,8 +249,8 @@ export function createRouter({
         promptVersion: instructions.version ?? 'file',
         // The scope the router was handed, which is the thing to look at first
         // when something files itself in the wrong place.
-        workingOn: input.project?.slug ?? 'personal',
-        projects: input.projects?.length ?? 0,
+        workingOn: input.topic?.slug ?? 'personal',
+        topics: input.topics?.length ?? 0,
         alreadySaved: input.saved?.length ?? 0,
         contextMessages: input.context?.length ?? 0,
         turnMessages: input.turn?.length ?? 0,

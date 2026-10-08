@@ -54,7 +54,7 @@ for (;;) {
     // and it is also the one that looks most like a transient blip.
     if (error.code === 'EMB_LIMIT')
       console.error('The rows left are still unretrievable. Re-run once the quota resets, or set '
-        + 'SATCHEL_EMBEDDING_FALLBACK_KEY to a second project\'s key and re-run now.');
+        + 'SATCHEL_EMBEDDING_FALLBACK_KEY to a second topic\'s key and re-run now.');
     process.exit(1);
   }
 

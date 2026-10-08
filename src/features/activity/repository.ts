@@ -134,7 +134,7 @@ export function createActivityRepository(db: SupabaseClient) {
       const from = new Date(since).toISOString();
       const newest = (table: string) => rows<Omit<ModelCall, 'source'>>(signal => db.from(table)
         .select('model,error,created_at').order('created_at', { ascending: false }).limit(1).abortSignal(signal));
-      const [waiting, schedule, captures, consolidations, memories, projects, lastCapture, lastConsolidation] = await Promise.all([
+      const [waiting, schedule, captures, consolidations, memories, topics, lastCapture, lastConsolidation] = await Promise.all([
         rows<WaitingDoc>(signal => db.rpc('pending_documents', { p_idle_minutes: 0 }).abortSignal(signal)),
         rows<ScheduleStatus>(signal => db.rpc('consolidation_status').abortSignal(signal)),
         rows<Omit<ModelCall, 'source'>>(signal => db.from('router_runs').select('model,error,created_at')
@@ -142,7 +142,7 @@ export function createActivityRepository(db: SupabaseClient) {
         rows<Omit<ModelCall, 'source'>>(signal => db.from('consolidation_runs').select('model,error,created_at')
           .gte('created_at', from).order('created_at', { ascending: false }).limit(500).abortSignal(signal)),
         rows<LiveMemory>(signal => db.rpc('all_memories').abortSignal(signal)),
-        rows<{ id: string; slug: string }>(signal => db.from('projects').select('id,slug').abortSignal(signal)),
+        rows<{ id: string; slug: string }>(signal => db.from('topics').select('id,slug').abortSignal(signal)),
         newest('router_runs'), newest('consolidation_runs'),
       ]);
       const last = [
@@ -155,7 +155,7 @@ export function createActivityRepository(db: SupabaseClient) {
           ...captures.map(call => ({ ...call, source: 'capture' as const })),
           ...consolidations.map(call => ({ ...call, source: 'consolidation' as const })),
         ],
-        slugs: new Map(projects.map(project => [project.id, project.slug])),
+        slugs: new Map(topics.map(topic => [topic.id, topic.slug])),
       };
     },
 

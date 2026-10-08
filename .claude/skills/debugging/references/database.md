@@ -42,10 +42,10 @@ The application itself only ever holds the publishable key. RLS does the rest. I
 | Can this app read this scope at all? | `agent_connections` |
 | Did the bootstrap stage the repository? | `agent_repository_hints` |
 | Which topic is this session in? | `agent_session_scopes` |
-| Is this repo linked to a topic? | `project_repositories` |
+| Is this repo linked to a topic? | `topic_repositories` |
 | Per-owner retrieval tuning | `memory_settings` |
 
-Topics are stored in the `projects` table, so the column on memories, tasks and documents is `project_id`.
+The scope column on memories, tasks and documents is `topic_id`, and topics live in `topics`.
 
 Tasks have their own set: `tasks`, `task_events`, `task_updates`, `task_handoffs`, `task_dependencies`, `task_parent_edges`, `task_resources`.
 
@@ -83,8 +83,8 @@ select created_at, model, kept, dropped, error from router_runs order by created
 **Can this connection see anything?**
 
 ```sql
-select client_id, personal, all_projects, array_length(project_ids,1) as projects,
-       task_personal, task_all_projects, revoked_at
+select client_id, personal, all_topics, array_length(topic_ids,1) as topics,
+       task_personal, task_all_topics, revoked_at
 from agent_connections order by created_at desc limit 10;
 ```
 
@@ -113,7 +113,7 @@ All zeros with no error is the **usual** answer. `error` set and `prompt = '(not
 **Is a session recorded, and has the pass read it?**
 
 ```sql
-select session_key, project_id, turns, chars, last_turn_at,
+select session_key, topic_id, turns, chars, last_turn_at,
        consolidated_through, consolidated_at, truncated_at, expires_at
 from documents order by last_turn_at desc limit 10;
 ```
