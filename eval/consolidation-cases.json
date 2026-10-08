@@ -1,21 +1,9 @@
 {
   "note": "Does the consolidation pass change the memory set correctly, given what is already in it. eval/router-rigour.mjs cannot measure this: the router has one output, insert or nothing, and every case here turns on a memory that already exists. Where a case came from a real run or a real production row it says so under `from`; the rest are written from the taxonomy in docs/memory-v2-5-scope.md R2a so that a wording which only handles the exact sentence that failed does not score.",
   "topics": [
-    {
-      "slug": "satchel",
-      "brief": "Satchel keeps your memory, projects and tasks in one place and hands them to the agent"
-    },
-    {
-      "slug": "ledger",
-      "brief": "A Go payments ledger with append-only entries",
-      "repositories": [
-        "acme/ledger"
-      ]
-    },
-    {
-      "slug": "sourdough",
-      "brief": "Baking notes, nothing to do with work"
-    }
+    {"slug": "satchel", "brief": "Satchel keeps your memory, projects and tasks in one place and hands them to the agent"},
+    {"slug": "ledger", "brief": "A Go payments ledger with append-only entries", "repositories": ["acme/ledger"]},
+    {"slug": "sourdough", "brief": "Baking notes, nothing to do with work"}
   ],
   "cases": [
     {
@@ -23,32 +11,14 @@
       "category": "retire",
       "working": "ledger",
       "memories": [
-        {
-          "statement": "I want entries to be append only.",
-          "kind": "intent",
-          "scope": "ledger"
-        },
-        {
-          "statement": "No em dashes.",
-          "kind": "preference",
-          "scope": null,
-          "mentions": 2
-        }
+        {"statement": "I want entries to be append only.", "kind": "intent", "scope": "ledger"},
+        {"statement": "No em dashes.", "kind": "preference", "scope": null, "mentions": 2}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "done, entries are append only now"
-        },
-        {
-          "role": "assistant",
-          "content": "Good. I will treat the ledger as append only from here."
-        }
+        {"role": "user", "content": "done, entries are append only now"},
+        {"role": "assistant", "content": "Good. I will treat the ledger as append only from here."}
       ],
-      "expect": {
-        "action": "retire",
-        "target": 1
-      },
+      "expect": {"action": "retire", "target": 1},
       "why": "The only outcome nothing in the system has ever produced. An intent is spent the moment the thing it wanted exists, and the completion that spends it was previously thrown away as 'not a memory'."
     },
     {
@@ -56,22 +26,12 @@
       "category": "retire",
       "working": "satchel",
       "memories": [
-        {
-          "statement": "I want the hooks to be scripts instead of MCP tool calls.",
-          "kind": "intent",
-          "scope": "satchel"
-        }
+        {"statement": "I want the hooks to be scripts instead of MCP tool calls.", "kind": "intent", "scope": "satchel"}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "the hooks are all scripts now, that migration is finished"
-        }
+        {"role": "user", "content": "the hooks are all scripts now, that migration is finished"}
       ],
-      "expect": {
-        "action": "retire",
-        "target": 1
-      },
+      "expect": {"action": "retire", "target": 1},
       "from": "production memory 3762bd55, captured 21 September as a durable claim",
       "why": "A real captured intent that has since been fulfilled and is still live in production. This is the row the pass exists to clear."
     },
@@ -80,21 +40,12 @@
       "category": "retire-refused",
       "working": "ledger",
       "memories": [
-        {
-          "statement": "Deploys go out on Tuesday mornings.",
-          "kind": "fact",
-          "scope": "ledger"
-        }
+        {"statement": "Deploys go out on Tuesday mornings.", "kind": "fact", "scope": "ledger"}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "yep that deploy is done, went out fine this morning"
-        }
+        {"role": "user", "content": "yep that deploy is done, went out fine this morning"}
       ],
-      "expect": {
-        "action": "nothing"
-      },
+      "expect": {"action": "nothing"},
       "why": "A completion next to a standing fact. A fact is not a thing anyone finishes, and letting a 'that's done' retire one would quietly delete the most durable rows in the set. The destructive failure this whole bench exists for."
     },
     {
@@ -102,17 +53,10 @@
       "category": "retire-refused",
       "working": "satchel",
       "memories": [
-        {
-          "statement": "Never bump the Go version until payouts ship.",
-          "kind": "preference",
-          "scope": "satchel"
-        }
+        {"statement": "Never bump the Go version until payouts ship.", "kind": "preference", "scope": "satchel"}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "payouts shipped this morning"
-        }
+        {"role": "user", "content": "payouts shipped this morning"}
       ],
       "expect": "either",
       "why": "Defensible either way. The condition the rule named has happened, so retiring it is arguable, and so is leaving a standing rule alone until someone says to drop it. Printed rather than scored, because forcing a verdict here just moves the argument into the scoring."
@@ -122,23 +66,12 @@
       "category": "replace",
       "working": "satchel",
       "memories": [
-        {
-          "statement": "A repository can only be linked to one project.",
-          "kind": "fact",
-          "scope": "satchel"
-        }
+        {"statement": "A repository can only be linked to one project.", "kind": "fact", "scope": "satchel"}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "a repository can name several projects now, a monorepo holds more than one of them"
-        }
+        {"role": "user", "content": "a repository can name several projects now, a monorepo holds more than one of them"}
       ],
-      "expect": {
-        "action": "replace",
-        "target": 1,
-        "want": "repository can name several projects"
-      },
+      "expect": {"action": "replace", "target": 1, "want": "repository can name several projects"},
       "why": "The existing claim is now false, not merely thinner. Replacing keeps the old wording as history and stops it being used."
     },
     {
@@ -146,23 +79,12 @@
       "category": "replace",
       "working": "satchel",
       "memories": [
-        {
-          "statement": "Memories can be linked to a task as well as a project.",
-          "kind": "fact",
-          "scope": "satchel"
-        }
+        {"statement": "Memories can be linked to a task as well as a project.", "kind": "fact", "scope": "satchel"}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "I do not want linking memory to task btw! I only want project linkage and personal memory"
-        }
+        {"role": "user", "content": "I do not want linking memory to task btw! I only want project linkage and personal memory"}
       ],
-      "expect": {
-        "action": "replace",
-        "target": 1,
-        "want": "project"
-      },
+      "expect": {"action": "replace", "target": 1, "want": "project"},
       "from": "the user's own words on 22 September, which became production memory cae051f2",
       "why": "Real, and the shape that matters: the new claim contradicts the old one rather than adding to it."
     },
@@ -171,24 +93,12 @@
       "category": "extend",
       "working": null,
       "memories": [
-        {
-          "statement": "No em dashes.",
-          "kind": "preference",
-          "scope": null,
-          "mentions": 2
-        }
+        {"statement": "No em dashes.", "kind": "preference", "scope": null, "mentions": 2}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "and no em dashes in commit messages either, not just in prose"
-        }
+        {"role": "user", "content": "and no em dashes in commit messages either, not just in prose"}
       ],
-      "expect": {
-        "action": "extend",
-        "target": 1,
-        "want": "commit"
-      },
+      "expect": {"action": "extend", "target": 1, "want": "commit"},
       "why": "One claim getting more specific, and both readings stay true. Replacing here throws the detail away and adding produces two rows that say the same thing."
     },
     {
@@ -196,23 +106,12 @@
       "category": "extend",
       "working": "ledger",
       "memories": [
-        {
-          "statement": "Corrections are made with a reversing entry.",
-          "kind": "fact",
-          "scope": "ledger"
-        }
+        {"statement": "Corrections are made with a reversing entry.", "kind": "fact", "scope": "ledger"}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "a reversing entry always carries the id of the entry it reverses"
-        }
+        {"role": "user", "content": "a reversing entry always carries the id of the entry it reverses"}
       ],
-      "expect": {
-        "action": "extend",
-        "target": 1,
-        "want": "id"
-      },
+      "expect": {"action": "extend", "target": 1, "want": "id"},
       "why": "Detail added to a claim that stays true. The tell is that neither sentence contradicts the other."
     },
     {
@@ -220,23 +119,12 @@
       "category": "affirm",
       "working": null,
       "memories": [
-        {
-          "statement": "No em dashes.",
-          "kind": "preference",
-          "scope": null,
-          "mentions": 1
-        }
+        {"statement": "No em dashes.", "kind": "preference", "scope": null, "mentions": 1}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "reminder, no em dashes"
-        }
+        {"role": "user", "content": "reminder, no em dashes"}
       ],
-      "expect": {
-        "action": "affirm",
-        "target": 1
-      },
+      "expect": {"action": "affirm", "target": 1},
       "why": "Said again and nothing about it changed. Repetition is the strongest free signal there is and it used to produce either a duplicate row or nothing at all."
     },
     {
@@ -244,17 +132,10 @@
       "category": "already-remembered",
       "working": "ledger",
       "memories": [
-        {
-          "statement": "Entries are append only.",
-          "kind": "fact",
-          "scope": "ledger"
-        }
+        {"statement": "Entries are append only.", "kind": "fact", "scope": "ledger"}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "remember that an entry can never be edited once written"
-        }
+        {"role": "user", "content": "remember that an entry can never be edited once written"}
       ],
       "expect": "either",
       "why": "The same claim in different words. An affirm is right and so is nothing; an add is wrong and is caught by the duplicate check in validate rather than here."
@@ -264,23 +145,12 @@
       "category": "add",
       "working": "ledger",
       "memories": [
-        {
-          "statement": "No em dashes.",
-          "kind": "preference",
-          "scope": null
-        }
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "we settled on Postgres for the ledger rather than the event store"
-        }
+        {"role": "user", "content": "we settled on Postgres for the ledger rather than the event store"}
       ],
-      "expect": {
-        "action": "add",
-        "want": "Postgres",
-        "scope": "ledger"
-      },
+      "expect": {"action": "add", "want": "Postgres", "scope": "ledger"},
       "why": "Genuinely new, and about the thing being worked on, so it takes the project rather than personal."
     },
     {
@@ -289,16 +159,9 @@
       "working": "ledger",
       "memories": [],
       "turns": [
-        {
-          "role": "user",
-          "content": "give me one recommendation, not three options, every time"
-        }
+        {"role": "user", "content": "give me one recommendation, not three options, every time"}
       ],
-      "expect": {
-        "action": "add",
-        "want": "one recommendation",
-        "scope": null
-      },
+      "expect": {"action": "add", "want": "one recommendation", "scope": null},
       "why": "A preference about how they want to be worked with belongs everywhere, not to the project that happens to be open. Defaulting it to the project is the error that filed a deployment detail under everything."
     },
     {
@@ -307,16 +170,9 @@
       "working": "satchel",
       "memories": [],
       "turns": [
-        {
-          "role": "user",
-          "content": "the freeze is on until the 30th of October, nothing ships before that"
-        }
+        {"role": "user", "content": "the freeze is on until the 30th of October, nothing ships before that"}
       ],
-      "expect": {
-        "action": "add",
-        "want": "freeze",
-        "expires": true
-      },
+      "expect": {"action": "add", "want": "freeze", "expires": true},
       "why": "A claim with an end the user actually gave. An expiry invented because something feels temporary is worse than none, so this is the only shape that should carry one."
     },
     {
@@ -324,21 +180,12 @@
       "category": "work-order",
       "working": "satchel",
       "memories": [
-        {
-          "statement": "No em dashes.",
-          "kind": "preference",
-          "scope": null
-        }
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "fix the corner leak on the consent page"
-        }
+        {"role": "user", "content": "fix the corner leak on the consent page"}
       ],
-      "expect": {
-        "action": "nothing"
-      },
+      "expect": {"action": "nothing"},
       "why": "A job, not a claim. It will be done within the hour and then any memory of it is false. Neither 'the user wants it fixed' nor 'the page has a leak' is a correct reading."
     },
     {
@@ -347,14 +194,9 @@
       "working": "ledger",
       "memories": [],
       "turns": [
-        {
-          "role": "user",
-          "content": "bump the ledger client to 4.2 everywhere and regenerate the fixtures"
-        }
+        {"role": "user", "content": "bump the ledger client to 4.2 everywhere and regenerate the fixtures"}
       ],
-      "expect": {
-        "action": "nothing"
-      },
+      "expect": {"action": "nothing"},
       "why": "Names a version and a component, which is what makes a work order look durable. Specific is not the same as durable."
     },
     {
@@ -363,10 +205,7 @@
       "working": "satchel",
       "memories": [],
       "turns": [
-        {
-          "role": "user",
-          "content": "cron opt in seems odd a product user would never do it so lets not surface it out but avaulable for dev users"
-        }
+        {"role": "user", "content": "cron opt in seems odd a product user would never do it so lets not surface it out but avaulable for dev users"}
       ],
       "expect": "either",
       "from": "production memory b329db40, captured by the turn router on 22 September and judged low quality by the user",
@@ -378,14 +217,9 @@
       "working": "satchel",
       "memories": [],
       "turns": [
-        {
-          "role": "user",
-          "content": "I am hitting a rate limit on the embedder right now"
-        }
+        {"role": "user", "content": "I am hitting a rate limit on the embedder right now"}
       ],
-      "expect": {
-        "action": "nothing"
-      },
+      "expect": {"action": "nothing"},
       "why": "The state of things today. It will be false by tomorrow and nothing will notice."
     },
     {
@@ -393,21 +227,12 @@
       "category": "question",
       "working": "ledger",
       "memories": [
-        {
-          "statement": "Entries are append only.",
-          "kind": "fact",
-          "scope": "ledger"
-        }
+        {"statement": "Entries are append only.", "kind": "fact", "scope": "ledger"}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "so we cannot edit an entry once it is written right?"
-        }
+        {"role": "user", "content": "so we cannot edit an entry once it is written right?"}
       ],
-      "expect": {
-        "action": "nothing"
-      },
+      "expect": {"action": "nothing"},
       "why": "A sentence ending in 'right?' is usually someone checking, not telling. It also restates an existing memory, so the tempting wrong answer is an affirm off a question."
     },
     {
@@ -416,19 +241,10 @@
       "working": "ledger",
       "memories": [],
       "turns": [
-        {
-          "role": "user",
-          "content": "entries are immutable, this is the wrong way to think about it, a correction is a new reversing entry"
-        }
+        {"role": "user", "content": "entries are immutable, this is the wrong way to think about it, a correction is a new reversing entry"}
       ],
-      "expect": {
-        "action": "add",
-        "want": "reversing entry"
-      },
-      "forbid": [
-        "entries are immutable",
-        "immutable"
-      ],
+      "expect": {"action": "add", "want": "reversing entry"},
+      "forbid": ["entries are immutable", "immutable"],
       "why": "People quote a thing in order to argue with it. Keeping the first clause stores a belief the user rejected, which is the failure that made the router's own bench exist."
     },
     {
@@ -437,18 +253,10 @@
       "working": "ledger",
       "memories": [],
       "turns": [
-        {
-          "role": "user",
-          "content": "what do you reckon about the entry model"
-        },
-        {
-          "role": "assistant",
-          "content": "I would make entries append only and handle corrections with a reversing entry."
-        }
+        {"role": "user", "content": "what do you reckon about the entry model"},
+        {"role": "assistant", "content": "I would make entries append only and handle corrections with a reversing entry."}
       ],
-      "expect": {
-        "action": "nothing"
-      },
+      "expect": {"action": "nothing"},
       "why": "The assistant's half is in the prompt so the conversation reads, and it can never be a source. A change sourced from it is the model quoting itself back as evidence."
     },
     {
@@ -457,14 +265,8 @@
       "working": "ledger",
       "memories": [],
       "turns": [
-        {
-          "role": "user",
-          "content": "yeah do that one"
-        },
-        {
-          "role": "assistant",
-          "content": "So we will keep entries append only."
-        }
+        {"role": "user", "content": "yeah do that one"},
+        {"role": "assistant", "content": "So we will keep entries append only."}
       ],
       "expect": "either",
       "why": "The case the assistant half exists for: a bare agreement that only means something next to the reply above it. Whether 'yeah do that one' is enough to source a claim is a real argument, so it is printed rather than scored."
@@ -474,32 +276,14 @@
       "category": "wrong-target",
       "working": "ledger",
       "memories": [
-        {
-          "statement": "Deploys go out on Tuesday mornings.",
-          "kind": "fact",
-          "scope": "ledger"
-        },
-        {
-          "statement": "I want entries to be append only.",
-          "kind": "intent",
-          "scope": "ledger"
-        },
-        {
-          "statement": "No em dashes.",
-          "kind": "preference",
-          "scope": null
-        }
+        {"statement": "Deploys go out on Tuesday mornings.", "kind": "fact", "scope": "ledger"},
+        {"statement": "I want entries to be append only.", "kind": "intent", "scope": "ledger"},
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "the sourdough starter needs feeding twice a day in summer"
-        }
+        {"role": "user", "content": "the sourdough starter needs feeding twice a day in summer"}
       ],
-      "expect": {
-        "action": "add",
-        "want": "starter"
-      },
+      "expect": {"action": "add", "want": "starter"},
       "why": "Three memories in front of it and a conversation about none of them. Touching one is the destructive mistake that has nothing to do with what was said."
     },
     {
@@ -507,24 +291,12 @@
       "category": "churn",
       "working": "satchel",
       "memories": [
-        {
-          "statement": "The Stop hook reads the transcript from disk.",
-          "kind": "fact",
-          "scope": "satchel",
-          "commits_since": 140
-        }
+        {"statement": "The Stop hook reads the transcript from disk.", "kind": "fact", "scope": "satchel", "commits_since": 140}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "the Stop hook does not read the transcript, it gets last_assistant_message in the hook input"
-        }
+        {"role": "user", "content": "the Stop hook does not read the transcript, it gets last_assistant_message in the hook input"}
       ],
-      "expect": {
-        "action": "replace",
-        "target": 1,
-        "want": "last_assistant_message"
-      },
+      "expect": {"action": "replace", "target": 1, "want": "last_assistant_message"},
       "why": "A memory marked stale by repository churn, and a conversation that actually settles it. The marker is a reason to look, and here looking gives an answer."
     },
     {
@@ -532,22 +304,12 @@
       "category": "churn",
       "working": "satchel",
       "memories": [
-        {
-          "statement": "Retrieval embeds the prompt and lets the database rank.",
-          "kind": "fact",
-          "scope": "satchel",
-          "commits_since": 210
-        }
+        {"statement": "Retrieval embeds the prompt and lets the database rank.", "kind": "fact", "scope": "satchel", "commits_since": 210}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "lets get lunch, back in an hour"
-        }
+        {"role": "user", "content": "lets get lunch, back in an hour"}
       ],
-      "expect": {
-        "action": "nothing"
-      },
+      "expect": {"action": "nothing"},
       "why": "The same marker and nothing in the conversation about it. A repository moving is a reason to doubt a claim, never a reason to know it is false, and ending it here would delete a true memory for being old."
     },
     {
@@ -556,15 +318,9 @@
       "working": "satchel",
       "memories": [],
       "turns": [
-        {
-          "role": "user",
-          "content": "the review has to be in by next Friday"
-        }
+        {"role": "user", "content": "the review has to be in by next Friday"}
       ],
-      "expect": {
-        "action": "add",
-        "resolved": true
-      },
+      "expect": {"action": "add", "resolved": true},
       "why": "A relative reference frozen into a permanent claim is exactly how 'do not include names of people who are not in the review list this time around' became a personal memory. The date at the top of the prompt is there to be used."
     },
     {
@@ -572,25 +328,13 @@
       "category": "continuation",
       "working": "ledger",
       "memories": [
-        {
-          "statement": "Entries are append only.",
-          "kind": "fact",
-          "scope": "ledger"
-        }
+        {"statement": "Entries are append only.", "kind": "fact", "scope": "ledger"}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "go on"
-        },
-        {
-          "role": "assistant",
-          "content": "Next I will wire the reversing entry."
-        }
+        {"role": "user", "content": "go on"},
+        {"role": "assistant", "content": "Next I will wire the reversing entry."}
       ],
-      "expect": {
-        "action": "nothing"
-      },
+      "expect": {"action": "nothing"},
       "why": "No content at all. The floor case: a pass that changes something here changes something on anything."
     },
     {
@@ -598,24 +342,12 @@
       "category": "job-with-rule",
       "working": null,
       "memories": [
-        {
-          "statement": "Neeraj works at Different (different.ai), a startup, in an engineering-adjacent role spanning product, growth, and marketing operations.",
-          "kind": "fact",
-          "scope": null
-        }
+        {"statement": "Neeraj works at Different (different.ai), a startup, in an engineering-adjacent role spanning product, growth, and marketing operations.", "kind": "fact", "scope": null}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "The 2 comment i left do a check across the Pr and then fix it, ideally no comment should be in the Pr's code unless it is absolutely needed, no ticket number in the code's comment as well\n\n\nAlso the backcompat analysis to remove older flows, rather  add a TODO with my name and then we will address it later on when the frontend change has gone through"
-        }
+        {"role": "user", "content": "The 2 comment i left do a check across the Pr and then fix it, ideally no comment should be in the Pr's code unless it is absolutely needed, no ticket number in the code's comment as well\n\n\nAlso the backcompat analysis to remove older flows, rather  add a TODO with my name and then we will address it later on when the frontend change has gone through"}
       ],
-      "expect": {
-        "action": "add",
-        "want": "comments code",
-        "scope": null,
-        "most": 2
-      },
+      "expect": {"action": "add", "want": "comments code", "scope": null, "most": 2},
       "from": "document 44545cbe, turn 102, 22 September. Never read: the pass takes ten documents and this one was eleventh",
       "why": "A review job with a standing code rule inside it. The job is done within the hour; the rule applies to every pull request after it. Dropping the whole message as a work order loses the one line in the day most worth keeping."
     },
@@ -624,23 +356,12 @@
       "category": "job-with-rule",
       "working": null,
       "memories": [
-        {
-          "statement": "Neeraj works at Different (different.ai), a startup, in an engineering-adjacent role spanning product, growth, and marketing operations.",
-          "kind": "fact",
-          "scope": null
-        }
+        {"statement": "Neeraj works at Different (different.ai), a startup, in an engineering-adjacent role spanning product, growth, and marketing operations.", "kind": "fact", "scope": null}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "Can you deliver me a simple readable low level plan doc so i can read the same https://raw.githubusercontent.com/ayghri/i-have-adhd/refs/heads/main/skills/i-have-adhd/SKILL.md\nRefer to this and add visual elements in the markdown so i can easily understand it and can sign off on the same"
-        }
+        {"role": "user", "content": "Can you deliver me a simple readable low level plan doc so i can read the same https://raw.githubusercontent.com/ayghri/i-have-adhd/refs/heads/main/skills/i-have-adhd/SKILL.md\nRefer to this and add visual elements in the markdown so i can easily understand it and can sign off on the same"}
       ],
-      "expect": {
-        "action": "add",
-        "want": "visual",
-        "scope": null
-      },
+      "expect": {"action": "add", "want": "visual", "scope": null},
       "from": "document 44545cbe, turn 53, 22 September. The 12:31 pass on gemini-3.8-flash returned no changes",
       "why": "How they want plans written, attached to a request for one plan. \"So I can easily understand it\" is about them, not about this doc."
     },
@@ -649,25 +370,13 @@
       "category": "job-with-rule",
       "working": null,
       "memories": [
-        {
-          "statement": "Neeraj works at Different (different.ai), a startup, in an engineering-adjacent role spanning product, growth, and marketing operations.",
-          "kind": "fact",
-          "scope": null
-        }
+        {"statement": "Neeraj works at Different (different.ai), a startup, in an engineering-adjacent role spanning product, growth, and marketing operations.", "kind": "fact", "scope": null}
       ],
       "turns": [
-        {
-          "role": "assistant",
-          "content": "Tell me one of these and I will go:\n\n1. Those edits are yours, keep them. I will commit or stash them under your name first, then revert on top.\n2. Those edits are junk, throw them away.\n3. Another session owns them. I will leave the tree alone and hand you the exact commands instead."
-        },
-        {
-          "role": "user",
-          "content": "1,just work on the same branch on top should be fine"
-        }
+        {"role": "assistant", "content": "Tell me one of these and I will go:\n\n1. Those edits are yours, keep them. I will commit or stash them under your name first, then revert on top.\n2. Those edits are junk, throw them away.\n3. Another session owns them. I will leave the tree alone and hand you the exact commands instead."},
+        {"role": "user", "content": "1,just work on the same branch on top should be fine"}
       ],
-      "expect": {
-        "action": "nothing"
-      },
+      "expect": {"action": "nothing"},
       "from": "document 4ac2e5fd, turn 120, 22 September",
       "why": "A choice inside one job. The restraint side of the same category, so a wording that keeps every clause of an instruction cannot score."
     },
@@ -676,32 +385,14 @@
       "category": "job-with-rule",
       "working": "satchel",
       "memories": [
-        {
-          "statement": "The capture mode must be set to session, so memory is not captured via the turn router by default.",
-          "kind": "preference",
-          "scope": "satchel"
-        },
-        {
-          "statement": "Cron opt-in should not be surfaced to product users, but remain available for dev users",
-          "kind": "fact",
-          "scope": "satchel"
-        }
+        {"statement": "The capture mode must be set to session, so memory is not captured via the turn router by default.", "kind": "preference", "scope": "satchel"},
+        {"statement": "Cron opt-in should not be surfaced to product users, but remain available for dev users", "kind": "fact", "scope": "satchel"}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "Did you add these buttons, regardless of what the user says a memory is a memory please do not do this ui change. Memory is hands off the user should not worry about it and this button seems like user has to say yes for it to become memory"
-        },
-        {
-          "role": "assistant",
-          "content": "Removed and pushed. You are right, I built an approval gate into the one thing that is supposed to look after itself."
-        }
+        {"role": "user", "content": "Did you add these buttons, regardless of what the user says a memory is a memory please do not do this ui change. Memory is hands off the user should not worry about it and this button seems like user has to say yes for it to become memory"},
+        {"role": "assistant", "content": "Removed and pushed. You are right, I built an approval gate into the one thing that is supposed to look after itself."}
       ],
-      "expect": {
-        "action": "add",
-        "want": "hands off",
-        "scope": "satchel"
-      },
+      "expect": {"action": "add", "want": "hands off", "scope": "satchel"},
       "from": "document 70d53087, turn 83, 22 September. The 19:23 pass added it as memory 228e41, and this case keeps it that way",
       "why": "A question, an undo request and a product rule in one message. The rule is the only part still true next week."
     },
@@ -710,27 +401,13 @@
       "category": "project-unlinked",
       "working": null,
       "memories": [
-        {
-          "statement": "No em dashes.",
-          "kind": "preference",
-          "scope": null
-        }
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
       ],
       "turns": [
-        {
-          "role": "assistant",
-          "content": "In acme/ledger the accounts table has a currency column today. Do you want an account to hold several currencies?"
-        },
-        {
-          "role": "user",
-          "content": "for v1 we keep one currency per account, multi-currency can come later"
-        }
+        {"role": "assistant", "content": "In acme/ledger the accounts table has a currency column today. Do you want an account to hold several currencies?"},
+        {"role": "user", "content": "for v1 we keep one currency per account, multi-currency can come later"}
       ],
-      "expect": {
-        "action": "add",
-        "want": "currency",
-        "scope": "ledger"
-      },
+      "expect": {"action": "add", "want": "currency", "scope": "ledger"},
       "from": "25 September review: 10 real misses were project decisions in sessions with no project, e5e13f0b among them",
       "why": "A decision about how one listed project will work. The session has no project, but the claim plainly belongs to ledger, and the user did not need to type its name."
     },
@@ -739,27 +416,13 @@
       "category": "project-unlinked",
       "working": null,
       "memories": [
-        {
-          "statement": "No em dashes.",
-          "kind": "preference",
-          "scope": null
-        }
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
       ],
       "turns": [
-        {
-          "role": "assistant",
-          "content": "I renamed the helper in acme/ledger and pushed the commit."
-        },
-        {
-          "role": "user",
-          "content": "thanks. and no emojis in commit messages, ever"
-        }
+        {"role": "assistant", "content": "I renamed the helper in acme/ledger and pushed the commit."},
+        {"role": "user", "content": "thanks. and no emojis in commit messages, ever"}
       ],
-      "expect": {
-        "action": "add",
-        "want": "emojis",
-        "scope": null
-      },
+      "expect": {"action": "add", "want": "emojis", "scope": null},
       "why": "The other side of prj01. Being free to file under a project must not pull a general preference into one."
     },
     {
@@ -767,32 +430,14 @@
       "category": "project-unlinked",
       "working": null,
       "memories": [
-        {
-          "statement": "No em dashes.",
-          "kind": "preference",
-          "scope": null
-        },
-        {
-          "statement": "The ledger stores amounts as integers.",
-          "kind": "fact",
-          "scope": "ledger"
-        }
+        {"statement": "No em dashes.", "kind": "preference", "scope": null},
+        {"statement": "The ledger stores amounts as integers.", "kind": "fact", "scope": "ledger"}
       ],
       "turns": [
-        {
-          "role": "assistant",
-          "content": "The amount column in acme/ledger is a bigint. Should the API accept decimals?"
-        },
-        {
-          "role": "user",
-          "content": "amounts stay integers, in minor units, never floats"
-        }
+        {"role": "assistant", "content": "The amount column in acme/ledger is a bigint. Should the API accept decimals?"},
+        {"role": "user", "content": "amounts stay integers, in minor units, never floats"}
       ],
-      "expect": {
-        "action": "extend",
-        "target": 2,
-        "want": "minor units"
-      },
+      "expect": {"action": "extend", "target": 2, "want": "minor units"},
       "why": "An unlinked session is shown the project's own memories, so it can extend one instead of adding a copy it could not see."
     },
     {
@@ -800,28 +445,13 @@
       "category": "job-with-rule",
       "working": null,
       "memories": [
-        {
-          "statement": "Explain technical terms simply using grade-school English, avoiding industry jargon.",
-          "kind": "preference",
-          "scope": null,
-          "mentions": 3
-        }
+        {"statement": "Explain technical terms simply using grade-school English, avoiding industry jargon.", "kind": "preference", "scope": null, "mentions": 3}
       ],
       "turns": [
-        {
-          "role": "assistant",
-          "content": "Here is the follow-up message, rewritten so the race between the two helpers is easier to follow."
-        },
-        {
-          "role": "user",
-          "content": "Redo your current answer with this in mind. I keep reading it but if i find an issue i want to correct then you redo the same message until i am satisfied"
-        }
+        {"role": "assistant", "content": "Here is the follow-up message, rewritten so the race between the two helpers is easier to follow."},
+        {"role": "user", "content": "Redo your current answer with this in mind. I keep reading it but if i find an issue i want to correct then you redo the same message until i am satisfied"}
       ],
-      "expect": {
-        "action": "add",
-        "want": "satisfied",
-        "scope": null
-      },
+      "expect": {"action": "add", "want": "satisfied", "scope": null},
       "from": "28 September review: document fdb5b9a1, missed by the pass and kept by the blind read",
       "why": "It starts with a verb and sits inside a job, and it is still how they want every draft handled. The verb tell ate it."
     },
@@ -830,28 +460,13 @@
       "category": "affirm",
       "working": null,
       "memories": [
-        {
-          "statement": "Explain technical terms simply using grade-school English, avoiding industry jargon.",
-          "kind": "preference",
-          "scope": null,
-          "mentions": 3
-        },
-        {
-          "statement": "No em dashes.",
-          "kind": "preference",
-          "scope": null
-        }
+        {"statement": "Explain technical terms simply using grade-school English, avoiding industry jargon.", "kind": "preference", "scope": null, "mentions": 3},
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "Each of these ideas i want you to explore and come up with a simple and easy to understand explainer from system perspective and user perspective for the relevant answrr and straight answers for the rest."
-        }
+        {"role": "user", "content": "Each of these ideas i want you to explore and come up with a simple and easy to understand explainer from system perspective and user perspective for the relevant answrr and straight answers for the rest."}
       ],
-      "expect": {
-        "action": "affirm",
-        "target": 1
-      },
+      "expect": {"action": "affirm", "target": 1},
       "from": "28 September review: document 814e5dad. The same night the pass affirmed this memory in another session",
       "why": "A restatement tucked inside a longer request. An affirm costs nothing, and skipping it is how a rule said every week looks like one said once."
     },
@@ -860,31 +475,14 @@
       "category": "project-unlinked",
       "working": null,
       "memories": [
-        {
-          "statement": "No em dashes.",
-          "kind": "preference",
-          "scope": null
-        }
+        {"statement": "No em dashes.", "kind": "preference", "scope": null}
       ],
       "turns": [
-        {
-          "role": "user",
-          "content": "now explain the race to me properly"
-        },
-        {
-          "role": "assistant",
-          "content": "Two workers in acme/ledger can both read the balance before either writes it, so both think there is room."
-        },
-        {
-          "role": "user",
-          "content": "Only one worker per account is allowed to check and write the balance. That's the poster. It does one pass at a time, so no one can check while someone else is halfway through."
-        }
+        {"role": "user", "content": "now explain the race to me properly"},
+        {"role": "assistant", "content": "Two workers in acme/ledger can both read the balance before either writes it, so both think there is room."},
+        {"role": "user", "content": "Only one worker per account is allowed to check and write the balance. That's the poster. It does one pass at a time, so no one can check while someone else is halfway through."}
       ],
-      "expect": {
-        "action": "add",
-        "want": "one worker per account",
-        "scope": "ledger"
-      },
+      "expect": {"action": "add", "want": "one worker per account", "scope": "ledger"},
       "from": "28 September review: document fdb5b9a1, the same shape about another project. Twelve sessions of design talk made no project memory",
       "why": "A design decision in the user's own words, in a conversation that is otherwise questions. It is how the project works now."
     },
@@ -894,653 +492,37 @@
       "working": "ledger",
       "memories": [],
       "turns": [
-        {
-          "role": "assistant",
-          "content": "I suggest one worker per account checks and writes the balance, one pass at a time, so two writers can never both see room. Want me to go with that?"
-        },
-        {
-          "role": "user",
-          "content": "yes"
-        }
+        {"role": "assistant", "content": "I suggest one worker per account checks and writes the balance, one pass at a time, so two writers can never both see room. Want me to go with that?"},
+        {"role": "user", "content": "yes"}
       ],
-      "expect": {
-        "action": "nothing"
-      },
+      "expect": {"action": "nothing"},
       "why": "The other side of prj04. The design is the assistant's and a bare yes carries none of it, so there are no user words to source the claim from."
     },
-    {
-      "id": "long01",
-      "category": "long-turn",
-      "working": null,
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "Look at how the queue is drained. step 1: the worker read the queue and wrote the row. step 2: the worker read the queue and wrote the row. step 3: the worker read the queue and wrote the row. step 4: the worker read the queue and wrote the row. step 5: the worker read the queue and wrote the row. step 6: the worker read the queue and wrote the row. step 7: the worker read the queue and wrote the row. step 8: the worker read the queue and wrote the row. step 9: the worker read the queue and wrote the row. step 10: the worker read the queue and wrote the row. step 11: the worker read the queue and wrote the row. step 12: the worker read the queue and wrote the row. step 13: the worker read the queue and wrote the row. step 14: the worker read the queue and wrote the row. step 15: the worker read the queue and wrote the row. step 16: the worker read the queue and wrote the row. step 17: the worker read the queue and wrote the row. step 18: the worker read the queue and wrote the row. step 19: the worker read the queue and wrote the row. step 20: the worker read the queue and wrote the row. step 21: the worker read the queue and wrote the row. step 22: the worker read the queue and wrote the row. step 23: the worker read the queue and wrote the row. step 24: the worker read the queue and wrote the row. step 25: the worker read the queue and wrote the row. step 26: the worker read the queue and wrote the row. step 27: the worker read the queue and wrote the row. step 28: the worker read the queue and wrote the row. step 29: the worker read the queue and wrote the row. step 30: the worker read the queue and wrote the row. step 31: the worker read the queue and wrote the row. step 32: the worker read the queue and wrote the row. step 33: the worker read the queue and wrote the row. step 34: the worker read the queue and wrote the row. step 35: the worker read the queue and wrote the row. step 36: the worker read the queue and wrote the row. step 37: the worker read the queue and wrote the row. step 38: the worker read the queue and wrote the row. step 39: the worker read the queue and wrote the row. step 40: the worker read the queue and wrote the row. step 41: the worker read the queue and wrote the row. Using a subagent is helpful when the goal is different from just gaining context to help me, for example data heavy exploration, because the exploration would fill the main context. When I need full context kept, like planning or a design doc, stay in the main agent."
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "exploration",
-        "scope": null
-      },
-      "from": "29 September review: document 099d7e64, the rule began at character 1,956 of a 2,767 character turn and the model was sent 80 characters of it",
-      "why": "A rule about how to work, past the old 2000 character cut. Nothing may be cut."
-    },
-    {
-      "id": "paste01",
-      "category": "job-with-rule",
-      "working": null,
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "<pasted_content id=\"1a2b\">\nI want your help with this task. The ledger entry is used across the logic, but the service layer should expose the entry DTO. Go through the mapper wherever the entity is exposed.\n\nThe entity is used only inside the service that owns it. Anywhere outside that, use the mapped DTO, because ownership of the entity belongs to the owning service. That is the pattern we follow.\n</pasted_content id=\"1a2b\">"
-        },
-        {
-          "role": "assistant",
-          "content": "Waiting for the ledger and payments test runs to finish."
-        },
-        {
-          "role": "user",
-          "content": "yes commit and open the PR"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "owns",
-        "scope": "ledger"
-      },
-      "from": "29 September review: document 9bd85d5e, an ownership rule inside a pasted task brief the whole session worked from; the pass returned nothing",
-      "why": "The user worked from the brief and asked for a PR on it, so its rule is theirs."
-    },
-    {
-      "id": "ask01",
-      "category": "job-with-rule",
-      "working": null,
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "run the eval on the branch"
-        },
-        {
-          "role": "assistant",
-          "content": "I need the model API key to run it. Can you give me the key?"
-        },
-        {
-          "role": "user",
-          "content": "the key should be on the local env just use that do not ask me"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "ask",
-        "scope": null
-      },
-      "from": "29 September review: document 82c1e1c4, missed inside a 32 turn working session",
-      "why": "How they want the assistant to behave next time, said in a job."
-    },
-    {
-      "id": "flow01",
-      "category": "job-with-rule",
-      "working": null,
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "the nightly test is failing, sort it out"
-        },
-        {
-          "role": "assistant",
-          "content": "I can patch the retry and push."
-        },
-        {
-          "role": "user",
-          "content": "Replicate the failure first locally for a subset, fix it, then raise a PR. Not the other way round."
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "locally",
-        "scope": null
-      },
-      "from": "29 September review: document 6a8c1276, a workflow rule inside a 49 turn session",
-      "why": "How they want every fix to go, not a choice inside this one."
-    },
-    {
-      "id": "voice01",
-      "category": "job-with-rule",
-      "working": null,
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "draft the note to the team about the delay"
-        },
-        {
-          "role": "assistant",
-          "content": "Here is a formatted update with headings and three bullet points about the delay."
-        },
-        {
-          "role": "user",
-          "content": "type the message like how i am talking to you i will send it"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "messages",
-        "scope": null
-      },
-      "from": "30 September review: document 4545f91c, missed in a long personal session",
-      "why": "How they want drafts written for them, said in a job."
-    },
-    {
-      "id": "principle01",
-      "category": "decision",
-      "working": "ledger",
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "add the queue table for the ledger"
-        },
-        {
-          "role": "assistant",
-          "content": "Done. Priority lanes are out of scope for v1. Should I still leave room for them in the table?"
-        },
-        {
-          "role": "user",
-          "content": "A system that does not block us in the future is always the goal, so leave the room for them"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "block",
-        "most": 2
-      },
-      "from": "30 September review: document 8af4403e, a standing design principle said inside a design talk, missed on two nights",
-      "why": "A goal they call the standing one is a rule about how they want things built. It holds for this project or for all of them, so scope is not scored."
-    },
-    {
-      "id": "qol01",
-      "category": "job-with-rule",
-      "working": null,
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "review the diff"
-        },
-        {
-          "role": "assistant",
-          "content": "Two small things: an unused import and a misspelled variable. Want me to leave them for another PR?"
-        },
-        {
-          "role": "user",
-          "content": "if it is a minor change we should do these QoL changes in the same PR, not leave them"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "minor",
-        "scope": null
-      },
-      "from": "30 September review: document 56edc541, missed in a 75 turn session",
-      "why": "How they want small review findings handled next time too."
-    },
-    {
-      "id": "principle02",
-      "category": "decision",
-      "working": null,
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "set up the two regions for the ledger"
-        },
-        {
-          "role": "assistant",
-          "content": "I can hardcode both regions now, or read them from config. Which do you want?"
-        },
-        {
-          "role": "user",
-          "content": "Read them from config. Whatever we build in stages should never paint us into a corner for the next stage."
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "most": 2
-      },
-      "from": "30 September review: same shape as principle01 worded differently, so the prompt's own example is not what is being tested",
-      "why": "A standing goal said inside a choice. A case with different words from the prompt example shows the rule, not the phrase."
-    },
-    {
-      "id": "react01",
-      "category": "reaction",
-      "working": null,
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "add the metric push to the request handler"
-        },
-        {
-          "role": "assistant",
-          "content": "Done. The handler now pushes the metric before it returns the response."
-        },
-        {
-          "role": "user",
-          "content": "This should not be in the critical path, not pushing a metric is better than failing and blocking"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "critical",
-        "most": 2
-      },
-      "from": "1 October review: document 56edc541, a rule said as a reaction to the assistant's work",
-      "why": "A rule that arrives as a reaction to what was just built. It holds on the next piece of work, and nothing in the sentence is a command."
-    },
-    {
-      "id": "human01",
-      "category": "reaction",
-      "working": null,
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "write the ticket for the infra team"
-        },
-        {
-          "role": "assistant",
-          "content": "Here is the ticket with a summary, background and acceptance criteria."
-        },
-        {
-          "role": "user",
-          "content": "Ensure it does not sound AI written but a legitimate human has"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "AI",
-        "most": 2
-      },
-      "from": "1 October review: document b0b18cbe, a demand on how the result must read",
-      "why": "How a piece of writing must read, asked as a demand on the result. The same shape as voice01, worded differently."
-    },
-    {
-      "id": "proof01",
-      "category": "reaction",
-      "working": "ledger",
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "tighten the append check in the ledger"
-        },
-        {
-          "role": "assistant",
-          "content": "Done. The check now rejects a second write to the same entry."
-        },
-        {
-          "role": "user",
-          "content": "prove the before and after, and make sure the idea of the codebase and its ideals are not broken"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "before",
-        "most": 2
-      },
-      "from": "1 October review: document f3dcbc24, said by the person on two days",
-      "why": "A way of working they want every time, said inside a job."
-    },
-    {
-      "id": "premise01",
-      "category": "premise",
-      "working": null,
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "plan the command line tool for the cloud labs"
-        },
-        {
-          "role": "assistant",
-          "content": "Should the plan also cover the local tool?"
-        },
-        {
-          "role": "user",
-          "content": "Assume the local one is deprecated and the cloud hosted one is the path forward"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "deprecated",
-        "most": 2
-      },
-      "from": "1 October review: document 41d3d06b, a premise stated without an option list",
-      "why": "A premise they ask the assistant to work from. It is a fact about their setup and it will still hold."
-    },
-    {
-      "id": "decision01",
-      "category": "premise",
-      "working": "ledger",
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "the ledger service still uses the old package manager, what should we do"
-        },
-        {
-          "role": "assistant",
-          "content": "I can keep it, or move it."
-        },
-        {
-          "role": "user",
-          "content": "migrate completely to uv, we are not in production yet"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "uv",
-        "most": 2
-      },
-      "from": "1 October review: document b0b18cbe, a project decision with no options offered",
-      "why": "A decision about how the project is built, in their words."
-    },
-    {
-      "id": "applies01",
-      "category": "premise",
-      "working": "ledger",
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "do the paused journeys still respect send hours"
-        },
-        {
-          "role": "assistant",
-          "content": "Today they do, because the check runs before the pause."
-        },
-        {
-          "role": "user",
-          "content": "send hours is part of pacing, so if pacing is off then it does not follow them"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "pacing",
-        "most": 2
-      },
-      "from": "1 October review: documents 1ed58bb9 and da6e9c6a, said in two sessions",
-      "why": "A rule about what a setting applies to, said plainly after a question."
-    },
-    {
-      "id": "process01",
-      "category": "team-process",
-      "working": "ledger",
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "the qa run on my branch failed again, can you look"
-        },
-        {
-          "role": "assistant",
-          "content": "The failure is in the daily group. Should I rerun it?"
-        },
-        {
-          "role": "user",
-          "content": "no, the daily group tests have a run limit per day so never rerun them, just check yesterday's run and move on"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "daily run limit rerun",
-        "scope": "ledger"
-      },
-      "from": "live review of real sessions, 26 September: a team process rule said inside a job, never captured",
-      "why": "How often something may run is a fact about how the work runs. It holds for every future QA failure in this project."
-    },
-    {
-      "id": "state01",
-      "category": "situation",
-      "working": "ledger",
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "strip the ANYTIME option from the picker for now, it confuses the flow right now while the schedule work is half done"
-        }
-      ],
-      "expect": {
-        "action": "nothing"
-      },
-      "from": "live review, 29 September: \"right now\" dropped and the choice stored as a decision",
-      "why": "\"For now\" and \"right now\" mark the state of things. It is a choice for today's work, not a rule about the picker."
-    },
-    {
-      "id": "q02",
-      "category": "question",
-      "working": "ledger",
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "should the queue row store the audience type too? feels odd to me"
-        },
-        {
-          "role": "assistant",
-          "content": "It does not need to. The audience is resolved from the journey at send time, so the queue can stay narrow."
-        }
-      ],
-      "expect": {
-        "action": "nothing"
-      },
-      "from": "live review, 29 September: a question turned into \"the queue does not store audience type\"",
-      "why": "They asked. The answer is the assistant's. Nothing they said is a claim about how the queue is built."
-    },
-    {
-      "id": "intent02",
-      "category": "intent",
-      "working": "ledger",
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "ignore redis failure handling in this pass, we will make redis a cluster later and deal with it then"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "redis cluster later",
-        "kind": "intent",
-        "scope": "ledger"
-      },
-      "from": "2 October review: document aa797292, a future plan stored as a fact",
-      "why": "A plan for later is something they want that is not true yet. As an intent it can be retired when the cluster exists; as a fact it goes stale and nothing can end it."
-    },
-    {
-      "id": "ret05",
-      "category": "retire",
-      "working": "ledger",
-      "memories": [
-        {
-          "statement": "Redis failure handling waits until Redis becomes a cluster.",
-          "kind": "intent",
-          "scope": "ledger"
-        },
-        {
-          "statement": "Deploys go through the shared pipeline.",
-          "kind": "fact",
-          "scope": "ledger"
-        }
-      ],
-      "turns": [
-        {
-          "role": "user",
-          "content": "the redis cluster is up now, so lets add the failure handling we skipped"
-        }
-      ],
-      "expect": {
-        "action": "retire",
-        "target": 1
-      },
-      "from": "the other half of intent02: the plan is done",
-      "why": "The thing the intent waited for exists. Retire it; the new work is a job, not a memory."
-    },
-    {
-      "id": "sep01",
-      "category": "workstyle",
-      "working": null,
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "what is the plan for the cache rework"
-        },
-        {
-          "role": "assistant",
-          "content": "I would change the key format and the eviction code together in one go."
-        },
-        {
-          "role": "user",
-          "content": "No. I want the key format change and the eviction change kept apart, each planned, shipped and measured on its own."
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "shipped measured",
-        "kind": "preference",
-        "most": 2
-      },
-      "from": "6 October review: document 07b59679, a way of working said as an order inside a plan",
-      "why": "A demand about how the next piece of work is split, said while talking about this one. It holds next time without being repeated."
-    },
-    {
-      "id": "sep02",
-      "category": "work-order",
-      "working": "ledger",
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "keep this one fix in its own commit so I can revert it if needed"
-        }
-      ],
-      "expect": {
-        "action": "nothing"
-      },
-      "from": "6 October review: guard for sep01",
-      "why": "Steers this one change only. Guard against sep01 pulling in every instruction about splitting work."
-    },
-    {
-      "id": "grow01",
-      "category": "plans",
-      "working": "ledger",
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "add the export for monthly statements"
-        },
-        {
-          "role": "assistant",
-          "content": "Done. It writes CSV only for now."
-        },
-        {
-          "role": "user",
-          "content": "design it so it can take other formats later, we will want them"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "other formats",
-        "kind": "intent",
-        "most": 2
-      },
-      "from": "6 October review: document 96679c3f, a wish for the design said as a plan for later",
-      "why": "Something they want that is not true yet. Written as an intent it ends when it is built."
-    },
-    {
-      "id": "grow02",
-      "category": "plans",
-      "working": "ledger",
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "set up the batch job for reconciliation"
-        },
-        {
-          "role": "assistant",
-          "content": "It runs in one region."
-        },
-        {
-          "role": "user",
-          "content": "fine, but build it so a second region is easy to add down the road"
-        }
-      ],
-      "expect": {
-        "action": "add",
-        "want": "second region",
-        "kind": "intent",
-        "most": 2
-      },
-      "from": "6 October review: document 96679c3f, second wording of the same shape",
-      "why": "Same shape as grow01, worded differently so the pair does not teach one phrase."
-    },
-    {
-      "id": "open01",
-      "category": "decision",
-      "working": "ledger",
-      "memories": [
-        {
-          "statement": "The ledger entries reuse the existing Region enum on both the shared and the per-customer tables.",
-          "kind": "fact",
-          "scope": "ledger"
-        }
-      ],
-      "turns": [
-        {
-          "role": "user",
-          "content": "we don't need to reuse the Region enum, what we need now is to weigh enum against a couple of flags and see which one helps us more"
-        }
-      ],
-      "expect": {
-        "action": "replace",
-        "target": 1,
-        "want": "Region enum",
-        "most": 2
-      },
-      "forbid": [
-        "weigh",
-        "weighing",
-        "evaluating",
-        "whether",
-        "considering"
-      ],
-      "from": "7 October review: document 96679c3f, the pass wrote 'the system is evaluating whether to use a new scope enum or separate flags' as a fact and the next session replaced it",
-      "why": "One part is settled (the old enum is not reused) and one is still open (enum or flags). Keep the settled part and write nothing about the open one: a claim about what is being weighed is false by the next session."
-    },
-    {
-      "id": "open02",
-      "category": "question",
-      "working": "ledger",
-      "memories": [],
-      "turns": [
-        {
-          "role": "user",
-          "content": "I keep going back and forth on a queue table or a stream for the ledger, no idea yet, let me think about the tradeoffs first"
-        }
-      ],
-      "expect": {
-        "action": "nothing"
-      },
-      "from": "7 October review: same shape as open01 with nothing settled in it",
-      "why": "Guard. Thinking out loud with no choice made is not a memory, and a case that only tests the settled half could be passed by saving more."
-    }
+    {"id": "long01", "category": "long-turn", "working": null, "memories": [], "turns": [{"role": "user", "content": "Look at how the queue is drained. step 1: the worker read the queue and wrote the row. step 2: the worker read the queue and wrote the row. step 3: the worker read the queue and wrote the row. step 4: the worker read the queue and wrote the row. step 5: the worker read the queue and wrote the row. step 6: the worker read the queue and wrote the row. step 7: the worker read the queue and wrote the row. step 8: the worker read the queue and wrote the row. step 9: the worker read the queue and wrote the row. step 10: the worker read the queue and wrote the row. step 11: the worker read the queue and wrote the row. step 12: the worker read the queue and wrote the row. step 13: the worker read the queue and wrote the row. step 14: the worker read the queue and wrote the row. step 15: the worker read the queue and wrote the row. step 16: the worker read the queue and wrote the row. step 17: the worker read the queue and wrote the row. step 18: the worker read the queue and wrote the row. step 19: the worker read the queue and wrote the row. step 20: the worker read the queue and wrote the row. step 21: the worker read the queue and wrote the row. step 22: the worker read the queue and wrote the row. step 23: the worker read the queue and wrote the row. step 24: the worker read the queue and wrote the row. step 25: the worker read the queue and wrote the row. step 26: the worker read the queue and wrote the row. step 27: the worker read the queue and wrote the row. step 28: the worker read the queue and wrote the row. step 29: the worker read the queue and wrote the row. step 30: the worker read the queue and wrote the row. step 31: the worker read the queue and wrote the row. step 32: the worker read the queue and wrote the row. step 33: the worker read the queue and wrote the row. step 34: the worker read the queue and wrote the row. step 35: the worker read the queue and wrote the row. step 36: the worker read the queue and wrote the row. step 37: the worker read the queue and wrote the row. step 38: the worker read the queue and wrote the row. step 39: the worker read the queue and wrote the row. step 40: the worker read the queue and wrote the row. step 41: the worker read the queue and wrote the row. Using a subagent is helpful when the goal is different from just gaining context to help me, for example data heavy exploration, because the exploration would fill the main context. When I need full context kept, like planning or a design doc, stay in the main agent."}], "expect": {"action": "add", "want": "exploration", "scope": null}, "from": "29 September review: document 099d7e64, the rule began at character 1,956 of a 2,767 character turn and the model was sent 80 characters of it", "why": "A rule about how to work, past the old 2000 character cut. Nothing may be cut."},
+    {"id": "paste01", "category": "job-with-rule", "working": null, "memories": [], "turns": [{"role": "user", "content": "<pasted_content id=\"1a2b\">\nI want your help with this task. The ledger entry is used across the logic, but the service layer should expose the entry DTO. Go through the mapper wherever the entity is exposed.\n\nThe entity is used only inside the service that owns it. Anywhere outside that, use the mapped DTO, because ownership of the entity belongs to the owning service. That is the pattern we follow.\n</pasted_content id=\"1a2b\">"}, {"role": "assistant", "content": "Waiting for the ledger and payments test runs to finish."}, {"role": "user", "content": "yes commit and open the PR"}], "expect": {"action": "add", "want": "owns", "scope": "ledger"}, "from": "29 September review: document 9bd85d5e, an ownership rule inside a pasted task brief the whole session worked from; the pass returned nothing", "why": "The user worked from the brief and asked for a PR on it, so its rule is theirs."},
+    {"id": "ask01", "category": "job-with-rule", "working": null, "memories": [], "turns": [{"role": "user", "content": "run the eval on the branch"}, {"role": "assistant", "content": "I need the model API key to run it. Can you give me the key?"}, {"role": "user", "content": "the key should be on the local env just use that do not ask me"}], "expect": {"action": "add", "want": "ask", "scope": null}, "from": "29 September review: document 82c1e1c4, missed inside a 32 turn working session", "why": "How they want the assistant to behave next time, said in a job."},
+    {"id": "flow01", "category": "job-with-rule", "working": null, "memories": [], "turns": [{"role": "user", "content": "the nightly test is failing, sort it out"}, {"role": "assistant", "content": "I can patch the retry and push."}, {"role": "user", "content": "Replicate the failure first locally for a subset, fix it, then raise a PR. Not the other way round."}], "expect": {"action": "add", "want": "locally", "scope": null}, "from": "29 September review: document 6a8c1276, a workflow rule inside a 49 turn session", "why": "How they want every fix to go, not a choice inside this one."},
+    {"id": "voice01", "category": "job-with-rule", "working": null, "memories": [], "turns": [{"role": "user", "content": "draft the note to the team about the delay"}, {"role": "assistant", "content": "Here is a formatted update with headings and three bullet points about the delay."}, {"role": "user", "content": "type the message like how i am talking to you i will send it"}], "expect": {"action": "add", "want": "messages", "scope": null}, "from": "30 September review: document 4545f91c, missed in a long personal session", "why": "How they want drafts written for them, said in a job."},
+    {"id": "principle01", "category": "decision", "working": "ledger", "memories": [], "turns": [{"role": "user", "content": "add the queue table for the ledger"}, {"role": "assistant", "content": "Done. Priority lanes are out of scope for v1. Should I still leave room for them in the table?"}, {"role": "user", "content": "A system that does not block us in the future is always the goal, so leave the room for them"}], "expect": {"action": "add", "want": "block", "most": 2}, "from": "30 September review: document 8af4403e, a standing design principle said inside a design talk, missed on two nights", "why": "A goal they call the standing one is a rule about how they want things built. It holds for this project or for all of them, so scope is not scored."},
+    {"id": "qol01", "category": "job-with-rule", "working": null, "memories": [], "turns": [{"role": "user", "content": "review the diff"}, {"role": "assistant", "content": "Two small things: an unused import and a misspelled variable. Want me to leave them for another PR?"}, {"role": "user", "content": "if it is a minor change we should do these QoL changes in the same PR, not leave them"}], "expect": {"action": "add", "want": "minor", "scope": null}, "from": "30 September review: document 56edc541, missed in a 75 turn session", "why": "How they want small review findings handled next time too."},
+    {"id": "principle02", "category": "decision", "working": null, "memories": [], "turns": [{"role": "user", "content": "set up the two regions for the ledger"}, {"role": "assistant", "content": "I can hardcode both regions now, or read them from config. Which do you want?"}, {"role": "user", "content": "Read them from config. Whatever we build in stages should never paint us into a corner for the next stage."}], "expect": {"action": "add", "most": 2}, "from": "30 September review: same shape as principle01 worded differently, so the prompt's own example is not what is being tested", "why": "A standing goal said inside a choice. A case with different words from the prompt example shows the rule, not the phrase."},
+    {"id": "react01", "category": "reaction", "working": null, "memories": [], "turns": [{"role": "user", "content": "add the metric push to the request handler"}, {"role": "assistant", "content": "Done. The handler now pushes the metric before it returns the response."}, {"role": "user", "content": "This should not be in the critical path, not pushing a metric is better than failing and blocking"}], "expect": {"action": "add", "want": "critical", "most": 2}, "from": "1 October review: document 56edc541, a rule said as a reaction to the assistant's work", "why": "A rule that arrives as a reaction to what was just built. It holds on the next piece of work, and nothing in the sentence is a command."},
+    {"id": "human01", "category": "reaction", "working": null, "memories": [], "turns": [{"role": "user", "content": "write the ticket for the infra team"}, {"role": "assistant", "content": "Here is the ticket with a summary, background and acceptance criteria."}, {"role": "user", "content": "Ensure it does not sound AI written but a legitimate human has"}], "expect": {"action": "add", "want": "AI", "most": 2}, "from": "1 October review: document b0b18cbe, a demand on how the result must read", "why": "How a piece of writing must read, asked as a demand on the result. The same shape as voice01, worded differently."},
+    {"id": "proof01", "category": "reaction", "working": "ledger", "memories": [], "turns": [{"role": "user", "content": "tighten the append check in the ledger"}, {"role": "assistant", "content": "Done. The check now rejects a second write to the same entry."}, {"role": "user", "content": "prove the before and after, and make sure the idea of the codebase and its ideals are not broken"}], "expect": {"action": "add", "want": "before", "most": 2}, "from": "1 October review: document f3dcbc24, said by the person on two days", "why": "A way of working they want every time, said inside a job."},
+    {"id": "premise01", "category": "premise", "working": null, "memories": [], "turns": [{"role": "user", "content": "plan the command line tool for the cloud labs"}, {"role": "assistant", "content": "Should the plan also cover the local tool?"}, {"role": "user", "content": "Assume the local one is deprecated and the cloud hosted one is the path forward"}], "expect": {"action": "add", "want": "deprecated", "most": 2}, "from": "1 October review: document 41d3d06b, a premise stated without an option list", "why": "A premise they ask the assistant to work from. It is a fact about their setup and it will still hold."},
+    {"id": "decision01", "category": "premise", "working": "ledger", "memories": [], "turns": [{"role": "user", "content": "the ledger service still uses the old package manager, what should we do"}, {"role": "assistant", "content": "I can keep it, or move it."}, {"role": "user", "content": "migrate completely to uv, we are not in production yet"}], "expect": {"action": "add", "want": "uv", "most": 2}, "from": "1 October review: document b0b18cbe, a project decision with no options offered", "why": "A decision about how the project is built, in their words."},
+    {"id": "applies01", "category": "premise", "working": "ledger", "memories": [], "turns": [{"role": "user", "content": "do the paused journeys still respect send hours"}, {"role": "assistant", "content": "Today they do, because the check runs before the pause."}, {"role": "user", "content": "send hours is part of pacing, so if pacing is off then it does not follow them"}], "expect": {"action": "add", "want": "pacing", "most": 2}, "from": "1 October review: documents 1ed58bb9 and da6e9c6a, said in two sessions", "why": "A rule about what a setting applies to, said plainly after a question."},
+    {"id": "process01", "category": "team-process", "working": "ledger", "memories": [], "turns": [{"role": "user", "content": "the qa run on my branch failed again, can you look"},{"role": "assistant", "content": "The failure is in the daily group. Should I rerun it?"},{"role": "user", "content": "no, the daily group tests have a run limit per day so never rerun them, just check yesterday's run and move on"}], "expect": {"action": "add", "want": "daily run limit rerun", "scope": "ledger"}, "from": "live review of real sessions, 26 September: a team process rule said inside a job, never captured", "why": "How often something may run is a fact about how the work runs. It holds for every future QA failure in this project."},
+    {"id": "state01", "category": "situation", "working": "ledger", "memories": [], "turns": [{"role": "user", "content": "strip the ANYTIME option from the picker for now, it confuses the flow right now while the schedule work is half done"}], "expect": {"action": "nothing"}, "from": "live review, 29 September: \"right now\" dropped and the choice stored as a decision", "why": "\"For now\" and \"right now\" mark the state of things. It is a choice for today's work, not a rule about the picker."},
+    {"id": "q02", "category": "question", "working": "ledger", "memories": [], "turns": [{"role": "user", "content": "should the queue row store the audience type too? feels odd to me"},{"role": "assistant", "content": "It does not need to. The audience is resolved from the journey at send time, so the queue can stay narrow."}], "expect": {"action": "nothing"}, "from": "live review, 29 September: a question turned into \"the queue does not store audience type\"", "why": "They asked. The answer is the assistant's. Nothing they said is a claim about how the queue is built."},
+    {"id": "intent02", "category": "intent", "working": "ledger", "memories": [], "turns": [{"role": "user", "content": "ignore redis failure handling in this pass, we will make redis a cluster later and deal with it then"}], "expect": {"action": "add", "want": "redis cluster later", "kind": "intent", "scope": "ledger"}, "from": "2 October review: document aa797292, a future plan stored as a fact", "why": "A plan for later is something they want that is not true yet. As an intent it can be retired when the cluster exists; as a fact it goes stale and nothing can end it."},
+    {"id": "ret05", "category": "retire", "working": "ledger", "memories": [{"statement": "Redis failure handling waits until Redis becomes a cluster.", "kind": "intent", "scope": "ledger"},{"statement": "Deploys go through the shared pipeline.", "kind": "fact", "scope": "ledger"}], "turns": [{"role": "user", "content": "the redis cluster is up now, so lets add the failure handling we skipped"}], "expect": {"action": "retire", "target": 1}, "from": "the other half of intent02: the plan is done", "why": "The thing the intent waited for exists. Retire it; the new work is a job, not a memory."},
+    {"id": "sep01", "category": "workstyle", "working": null, "memories": [], "turns": [{"role": "user", "content": "what is the plan for the cache rework"}, {"role": "assistant", "content": "I would change the key format and the eviction code together in one go."}, {"role": "user", "content": "No. I want the key format change and the eviction change kept apart, each planned, shipped and measured on its own."}], "expect": {"action": "add", "want": "shipped measured", "kind": "preference", "most": 2}, "from": "6 October review: document 07b59679, a way of working said as an order inside a plan", "why": "A demand about how the next piece of work is split, said while talking about this one. It holds next time without being repeated."},
+    {"id": "sep02", "category": "work-order", "working": "ledger", "memories": [], "turns": [{"role": "user", "content": "keep this one fix in its own commit so I can revert it if needed"}], "expect": {"action": "nothing"}, "from": "6 October review: guard for sep01", "why": "Steers this one change only. Guard against sep01 pulling in every instruction about splitting work."},
+    {"id": "grow01", "category": "plans", "working": "ledger", "memories": [], "turns": [{"role": "user", "content": "add the export for monthly statements"}, {"role": "assistant", "content": "Done. It writes CSV only for now."}, {"role": "user", "content": "design it so it can take other formats later, we will want them"}], "expect": {"action": "add", "want": "other formats", "kind": "intent", "most": 2}, "from": "6 October review: document 96679c3f, a wish for the design said as a plan for later", "why": "Something they want that is not true yet. Written as an intent it ends when it is built."},
+    {"id": "grow02", "category": "plans", "working": "ledger", "memories": [], "turns": [{"role": "user", "content": "set up the batch job for reconciliation"}, {"role": "assistant", "content": "It runs in one region."}, {"role": "user", "content": "fine, but build it so a second region is easy to add down the road"}], "expect": {"action": "add", "want": "second region", "kind": "intent", "most": 2}, "from": "6 October review: document 96679c3f, second wording of the same shape", "why": "Same shape as grow01, worded differently so the pair does not teach one phrase."},
+    {"id": "open01", "category": "decision", "working": "ledger", "memories": [{"statement": "The ledger entries reuse the existing Region enum on both the shared and the per-customer tables.", "kind": "fact", "scope": "ledger"}], "turns": [{"role": "user", "content": "we don't need to reuse the Region enum, what we need now is to weigh enum against a couple of flags and see which one helps us more"}], "expect": {"action": "replace", "target": 1, "want": "Region enum", "most": 2}, "forbid": ["weigh", "weighing", "evaluating", "whether", "considering"], "from": "7 October review: document 96679c3f, the pass wrote 'the system is evaluating whether to use a new scope enum or separate flags' as a fact and the next session replaced it", "why": "One part is settled (the old enum is not reused) and one is still open (enum or flags). Keep the settled part and write nothing about the open one: a claim about what is being weighed is false by the next session."},
+    {"id": "open02", "category": "question", "working": "ledger", "memories": [], "turns": [{"role": "user", "content": "I keep going back and forth on a queue table or a stream for the ledger, no idea yet, let me think about the tradeoffs first"}], "expect": {"action": "nothing"}, "from": "7 October review: same shape as open01 with nothing settled in it", "why": "Guard. Thinking out loud with no choice made is not a memory, and a case that only tests the settled half could be passed by saving more."},
+    {"id": "rule01", "category": "rule-in-job", "working": "ledger", "memories": [], "turns": [{"role": "user", "content": "Right now the nightly export is a script I run by hand, I want it on the settings page instead. Check the design system before touching any screen."}], "expect": {"action": "add", "want": "design system", "kind": "preference", "most": 2}, "from": "8 October review: document 0baf3fb0, the pass kept the settings page decision and dropped the rule about the design system", "why": "A job and a rule in one message. Drop the job, keep the rule: they would want it on the next screen without saying it again."}
   ]
 }
