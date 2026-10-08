@@ -131,7 +131,7 @@ node eval/router-rigour.mjs --prompt 1 --prompt production
 
 ## What a trace can tell you that nothing else can
 
-- **What the router actually saw.** The whole prompt is the span input on purpose, including the projects and open tasks it had to choose from. A capture is only explicable if you can see the menu it was choosing from.
+- **What the router actually saw.** The whole prompt is the span input on purpose, including the topics and open tasks it had to choose from. A capture is only explicable if you can see the menu it was choosing from.
 - **Kept and dropped, separately.** A router being silently filtered by `validate()` looks identical to one being conservative. Both lists are recorded.
 - **Why a call failed.** The `reason` on the error is a plain sentence, not a status code.
 - **Where the time went.** `latency` per observation, so a slow turn resolves into embed, lookup or model.

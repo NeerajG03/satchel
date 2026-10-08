@@ -8,7 +8,7 @@ updated: 2026-09-11
 
 ## Goal
 
-Deliver a hosted companion and native AI integrations that let a person carry useful, explicitly saved context, projects, tasks, and reusable workflows between supported apps and devices.
+Deliver a hosted companion and native AI integrations that let a person carry useful, explicitly saved context, topics, tasks, and reusable workflows between supported apps and devices.
 
 This is a proposed roadmap and decision checklist, not a finalized stack, delivery commitment, or claim that integrations have been tested. It adds an implementation sequence to the existing product documents. It does not change agreed scope. Checklist completion means the named decision or evidence exists; it does not mean a mockup control has been built.
 
@@ -18,7 +18,7 @@ This is a proposed roadmap and decision checklist, not a finalized stack, delive
 
 **Implementation update, 11 September:** the web pilot uses React/Vite on Vercel and Supabase for auth/PostgreSQL. Native OAuth MCP and scoped explicit writes are implemented as Vercel Node functions; Fastify and a separate container were not needed. Both host packages are installed locally. [Agent setup](agent-setup.md) and [native runtime evidence](checkpoints/native-agent-pilot.md) supersede earlier unselected-provider and pending-integration statements below. The remaining tables retain the broader product roadmap, not a claim that all listed features exist.
 
-Start with a small, real continuity experiment. Save a project decision in one connected AI app, retrieve it in a fresh conversation in another, correct it through Satchel on a phone, and retrieve the corrected version. Run the service independently of the laptop. Then revoke one connection and verify it loses access.
+Start with a small, real continuity experiment. Save a topic decision in one connected AI app, retrieve it in a fresh conversation in another, correct it through Satchel on a phone, and retrieve the corrected version. Run the service independently of the laptop. Then revoke one connection and verify it loses access.
 
 This proves the product's central value and exposes the most consequential uncertainties: platform access, authentication, retrieval behavior, and memory correctness. A complete dashboard would not answer those questions.
 
@@ -32,7 +32,7 @@ We should settle enough to build this experiment, then make larger commitments f
 | Explicit saves and corrections; no personas or initial curator | Agreed boundary | [D05–D06](decisions.md) |
 | Supabase is the V1 task authority; external objects are typed references and source plugins come later | Agreed boundary | [D17–D18](decisions.md), [Task model](tasks-and-handoffs.md) |
 | Preserve the visual direction, implement both themes, vet broad visual changes | Agreed boundary | [D09–D11](decisions.md), [Design review](../design/review-notes.md) |
-| Projects, skills, installation and access are distinct concepts | Working model to specify | [Projects](projects.md), [Skills](skills-and-plugins.md) |
+| Topics, skills, installation and access are distinct concepts | Working model to specify | [Topics](topics.md), [Skills](skills-and-plugins.md) |
 | TypeScript, React, one backend and PostgreSQL | New recommendation for evaluation | Stack rationale below; not a user-approved selection |
 | Web companion first; native Android deferred | Agreed initial scope | [D13](decisions.md) |
 
@@ -46,10 +46,10 @@ I recommend one code repository, one small application service, and one managed 
 | Companion | React + Vite, responsive layouts, installable web app where supported | Actual Android install, authentication return, draft handling and accessibility; [Vite supports a React/TypeScript starting template](https://vite.dev/guide/) |
 | UI implementation | Reusable components and CSS design tokens derived from the existing visual direction | Accessible primitives, final component choices, full light/dark behavior; framework defaults do not establish the design |
 | Backend | Node.js + Fastify; HTTP API and remote MCP transport calling the same application services | SDK/framework fit, request limits, connection lifecycle and host compatibility; [Fastify documentation](https://fastify.dev/docs/latest/) |
-| Canonical application data | Managed PostgreSQL for accounts, grants, project catalog, explicit memory and revisions, skill references | Validate the schema, access isolation, correction transactions, deletion and restoration before adopting it |
+| Canonical application data | Managed PostgreSQL for accounts, grants, topic catalog, explicit memory and revisions, skill references | Validate the schema, access isolation, correction transactions, deletion and restoration before adopting it |
 | Retrieval | Scoped lookups and PostgreSQL full-text search as the first measured baseline | Recall for ordinary language; introduce semantic retrieval only if measured misses justify it; [PostgreSQL text search](https://www.postgresql.org/docs/current/textsearch-intro.html) |
 | Identity | Established authentication implementation plus a compatible OAuth authorization server for AI connections | Select a provider/library only after the MCP authorization experiment; website login alone does not implement agent authorization |
-| Tasks | Supabase Postgres functions behind TaskService; personal/project scopes; comments/progress/handoffs; hierarchy/dependencies; private Storage for files | Work timeline and planning graph are live; cleanup scheduling, export/restore drill and broader browser mutation evidence remain |
+| Tasks | Supabase Postgres functions behind TaskService; personal/topic scopes; comments/progress/handoffs; hierarchy/dependencies; private Storage for files | Work timeline and planning graph are live; cleanup scheduling, export/restore drill and broader browser mutation evidence remain |
 | Skill sources | Versioned existing source repositories/packages; Satchel stores references and configuration intent | Private source access, install paths, version pinning and evidence per target |
 | Hosting | Evaluate a complete free-tier deployment; Vercel and Firebase are candidates raised by the user | Web/API/MCP/auth/storage fit, usage limits, region, billing requirements and recovery; no purchase or deployment selected yet |
 | Delivery | GitHub CI checks, reproducible container build, staging before production, separately versioned native packages | Release promotion, schema compatibility, rollback and plugin review/update delays |
@@ -86,18 +86,18 @@ Each item needs a short written decision, an accountable owner when scheduled, a
 |---|---|---|---|
 | S01 | V1 contract | Who is the first user? Which everyday jobs must work? What counts as continuity? Which capabilities can wait? | A release scope with a few concrete scenarios, exclusions and success criteria |
 | S02 | Platform support | Which exact Codex, ChatGPT, Claude Code and Claude chat surfaces? Desktop, CLI, browser, Android? Which account/policy requirements? | Capability matrix with evidence, dates and tested versions; unknown is an allowed state |
-| S03 | Domain model | How do accounts, projects, repositories, memories, skill sources, installations, connections, tasks and handoffs relate? | Entity diagram and worked examples for a non-code project and a multi-repo project |
+| S03 | Domain model | How do accounts, topics, repositories, memories, skill sources, installations, connections, tasks and handoffs relate? | Entity diagram and worked examples for a non-code topic and a multi-repo topic |
 | S04 | Identity | How does a person sign up, recover access, link identities and use several devices? What happens with personal and work accounts? | Chosen login mechanism and account lifecycle; linking cannot silently merge private data |
 | S05 | Agent authorization | Which app can read/write what? Are grants per connection or device? How do consent, expiry, refresh and revocation work? | Auth flow verified in two hosts; companion and agent permissions independently enforced |
 | S06 | Storage and lifecycle | Which store owns each record? How do IDs, revisions, retries, conflicting changes, archive and deletion work? | Storage decision, schema, transaction examples and tested recovery/export format |
-| S07 | Retrieval | How is a project selected? Which rules are always available? How are scope, relevance, freshness and token budget handled? | Context assembly contract and a small evaluation set including missed and irrelevant records |
+| S07 | Retrieval | How is a topic selected? Which rules are always available? How are scope, relevance, freshness and token budget handled? | Context assembly contract and a small evaluation set including missed and irrelevant records |
 | S08 | Memory writes | What counts as an explicit save? How does an agent show the statement and scope? How are duplicates and corrections handled? | Save/correct/forget contracts with provenance and acknowledgement; brainstorming does not become memory |
 | S09 | API and MCP | Which minimal tools exist? How do errors, pagination, size limits, compatibility and retries work? | Versioned contracts and real tool traces, including denied and ambiguous requests |
-| S10 | Task backend | Which task operations and planning relationships are necessary? How do personal/project routing, conflicts, resources and unavailable files behave? | Supabase task contract, composite-scope constraints, MCP/UI operations and failure tests |
+| S10 | Task backend | Which task operations and planning relationships are necessary? How do personal/topic routing, conflicts, resources and unavailable files behave? | Supabase task contract, composite-scope constraints, MCP/UI operations and failure tests |
 | S11 | Skill delivery | Who owns each package? How is private content accessed? What gets installed on which machine, at what version and scope? | One instructions-only skill and one dependency-bearing skill installed and verified on appropriate targets |
 | S12 | Deployment | Which provider, region, environments, domains, secrets and database plan? What runs while the laptop is off? | Reproducible staging deploy and a costed production proposal |
 | S13 | Reliability | What latency/freshness targets? Which operations retry? Do webhook or indexing workloads need durable jobs? | Timeout/retry rules, stale-state UI and recovery tests; add jobs only for required workloads |
-| S14 | Data protection | How are tenant/project boundaries enforced in queries, indexes and caches? What do logs, backups and exports contain? | Access tests, credential separation, log redaction, deletion/retention behavior and explicit hosting trust model |
+| S14 | Data protection | How are tenant/topic boundaries enforced in queries, indexes and caches? What do logs, backups and exports contain? | Access tests, credential separation, log redaction, deletion/retention behavior and explicit hosting trust model |
 | S15 | Engineering workflow | Repository layout, migrations, environments, fixture data, test coverage, dependency updates and release versions? | Repeatable setup, CI gates and compatible application/plugin releases |
 | S16 | Operations and economics | Who handles failed connections, incidents and restores? What costs grow per user? What usage limits are enforced? | Operating runbook, restore drill, cost model and alerts that expose actionable failures |
 
@@ -109,7 +109,7 @@ For S10, evaluate a GitHub App first because GitHub documents targeted permissio
 
 ## User journey: download, install, onboard and use
 
-The proposed hosted experience is: **open Satchel → sign in → save something useful → connect an AI app → prove it can retrieve it → add projects, tasks and skills as needed.** A hosted user should not have to deploy a server or configure a database.
+The proposed hosted experience is: **open Satchel → sign in → save something useful → connect an AI app → prove it can retrieve it → add topics, tasks and skills as needed.** A hosted user should not have to deploy a server or configure a database.
 
 Installation has three separate meanings:
 
@@ -133,7 +133,7 @@ Do not require the third step to achieve the first useful memory handoff. Do not
 ### U02 — Account setup and recovery
 
 - [ ] Choose sign-in options, recovery, account deletion and account-switching behavior.
-- [ ] Decide whether a new user starts with personal context only or is asked to create a project.
+- [ ] Decide whether a new user starts with personal context only or is asked to create a topic.
 - [ ] Allow a memory-only start without connecting GitHub or installing a skill.
 - [ ] Preserve progress if authorization opens another window, is declined, or expires.
 
@@ -151,27 +151,27 @@ Do not require the third step to achieve the first useful memory handoff. Do not
 
 OpenAI documents testing the MCP connection before the complete packaged plugin, with account/workspace-dependent developer mode and a public HTTPS endpoint for submission. Claude Code documents marketplace installation with user, project and local scopes. These are distinct flows; neither establishes every mobile surface. [OpenAI testing](https://developers.openai.com/plugins/deploy/connect-chatgpt), [Claude Code installation](https://code.claude.com/docs/en/discover-plugins).
 
-### U04 — First project
+### U04 — First topic
 
 - [ ] Choose required fields, naming, aliases, archive behavior and how ambiguity is resolved.
-- [ ] Support a project with no repository and one with several repositories.
+- [ ] Support a topic with no repository and one with several repositories.
 - [ ] Link resources deliberately; adding a URL must not silently ingest or authorize the source.
 - [ ] Make task destination selection separate from code repository and native app project association.
 
-**Output:** create/edit/archive flows and matching domain examples. See [Projects](projects.md).
+**Output:** create/edit/archive flows and matching domain examples. See [Topics](topics.md).
 
 ### U05 — Daily memory use
 
 - [ ] Design direct save, agent-mediated explicit save, search, inspect, correct and forget.
 - [ ] Show the relevant scope, source and current revision without making routine use technical.
-- [ ] Explain what to do when an agent fails to retrieve something, retrieves the wrong project, or cites stale context.
+- [ ] Explain what to do when an agent fails to retrieve something, retrieves the wrong topic, or cites stale context.
 - [ ] Decide whether reminders of unsaved work are needed; do not introduce automatic capture through onboarding copy.
 
 **Output:** ordinary and failure journeys tied to retrieval tests, not just CRUD screens.
 
 ### U06 — Tasks and handoffs
 
-- [x] Support personal and project task scopes without requiring a repository.
+- [x] Support personal and topic task scopes without requiring a repository.
 - [x] Define create/find/update/complete/reopen flows and deliberate scope routing.
 - [x] Add comments, structured progress, hierarchy, dependencies and derived actionability.
 - [ ] Define a handoff that includes work completed, validation actually performed, blockers, next action and accessible code references.
@@ -215,7 +215,7 @@ Web installation varies by platform/browser and is separate from app-store distr
 
 - [ ] Resolve navigation and information hierarchy against these workflows.
 - [ ] Specify actual light/dark tokens, typography, controls, focus states and responsive layouts.
-- [ ] Include keyboard/touch use, long names, many projects, empty/loading/error/offline states and large text.
+- [ ] Include keyboard/touch use, long names, many topics, empty/loading/error/offline states and large text.
 - [ ] Research and obtain user vetting for broad visual changes before applying them across the app.
 
 **Output:** reviewed screen/state specifications using the existing design direction. Existing mockup behavior remains illustrative.
@@ -240,7 +240,7 @@ These phases express dependency order. Their checkboxes track future work; writi
 ### Phase 1: Define and test feasibility [IN PROGRESS]
 
 - [x] 1.1 Choose the first app pair, actual devices and continuity scenarios: Codex, Claude Code and the web companion for the initial experiment.
-- [ ] 1.2 Fill the support matrix from current documentation and account access; choose a bounded memory/project contract.
+- [ ] 1.2 Fill the support matrix from current documentation and account access; choose a bounded memory/topic contract.
 - [ ] **1.3 Build a throwaway or reusable authenticated service experiment with synthetic records and a provisional store; exercise consent, save, retrieve, correction and revocation.** ← CURRENT
 - [ ] 1.4 Run fresh-chat tests across the two hosts and the phone companion with the laptop off; record failed ordinary retrieval separately from tool errors.
 - [ ] 1.5 Record storage/auth/hosting choices from the results and define the first release contract.
@@ -256,7 +256,7 @@ Named-memory follow-up (`gig-27f1.1`): name, description and optional More info 
 ### Phase 2: Build the durable service [PENDING]
 
 - [ ] 2.1 Scaffold the selected stack and local/staging environments with repeatable setup and CI.
-- [ ] 2.2 Implement account isolation, grants, project identities, memory revisions and shared HTTP/MCP application services.
+- [ ] 2.2 Implement account isolation, grants, topic identities, memory revisions and shared HTTP/MCP application services.
 - [ ] 2.3 Implement bounded retrieval, retry/concurrency handling, deletion and export/recovery.
 - [ ] 2.4 Test access through search/caches, expired authorization, duplicate writes and restore behavior.
 
@@ -265,7 +265,7 @@ Named-memory follow-up (`gig-27f1.1`): name, description and optional More info 
 ### Phase 3: Deliver the companion and supported integrations [PENDING]
 
 - [ ] 3.1 Resolve the first-use flows and review necessary design changes with the user.
-- [ ] 3.2 Implement responsive companion screens, both themes, onboarding, memory/project management and connection diagnostics.
+- [ ] 3.2 Implement responsive companion screens, both themes, onboarding, memory/topic management and connection diagnostics.
 - [ ] 3.3 Package and version the native integrations, document prerequisites and verify fresh installs.
 - [ ] 3.4 Test web-on-phone delivery, new-device setup, recovery and offboarding.
 
@@ -273,18 +273,18 @@ Named-memory follow-up (`gig-27f1.1`): name, description and optional More info 
 
 ### Phase 4: Add tasks and skill portability [PENDING]
 
-- [x] 4.1 Add the Supabase task authority and internal TaskService; verify personal/project operations and planning relationships.
+- [x] 4.1 Add the Supabase task authority and internal TaskService; verify personal/topic operations and planning relationships.
 - [ ] 4.2 Implement portable handoffs and test continuation with accessible code across hosts.
 - [ ] 4.3 Add skill source/catalog management and platform-specific installation guidance/status.
 - [ ] 4.4 Verify private skill access, version changes and a dependency-bearing skill on a second machine.
 
-**Deliverable:** feature-complete V1 candidate covering memory, projects, tasks, skills and connections. **Exit:** one ordinary project can continue across apps with current context, a real task and a usable workflow. The source-extension seam exists internally; no Satchel plugin loader or marketplace ships.
+**Deliverable:** feature-complete V1 candidate covering memory, topics, tasks, skills and connections. **Exit:** one ordinary topic can continue across apps with current context, a real task and a usable workflow. The source-extension seam exists internally; no Satchel plugin loader or marketplace ships.
 
 ### Phase 5: Pilot, harden and migrate selectively [PENDING]
 
 - [ ] 5.1 Use the product for real daily work and measure setup time, retrieval misses, stale context, failed saves and maintenance burden.
 - [ ] 5.2 Complete release-relevant recovery, access, performance, accessibility and compatibility checks.
-- [ ] 5.3 Validate selected JEFF imports and an explicit per-project task cutover with backups and source-ID mapping.
+- [ ] 5.3 Validate selected JEFF imports and an explicit per-topic task cutover with backups and source-ID mapping.
 - [ ] 5.4 Fix evidence-backed problems and decide whether the product has earned wider release.
 
 **Deliverable:** pilot report, operating runbook and migration evidence. **Exit:** reliable daily continuity and a recoverable service; existing JEFF components retire only after their replacements are proven. [Detailed acceptance scenarios](migration-and-validation.md).
@@ -302,7 +302,7 @@ Named-memory follow-up (`gig-27f1.1`): name, description and optional More info 
 | Before the first experiment | Before the private alpha | Before wider release | Deferred unless required |
 |---|---|---|---|
 | First user jobs and app/device pair | Final storage and auth choices | Public distribution path | Satchel source-plugin SDK/loader |
-| Minimal record/project contract | Full project/grant schema | Support and privacy documentation | Built-in Notion or other task adapters |
+| Minimal record/topic contract | Full topic/grant schema | Support and privacy documentation | Built-in Notion or other task adapters |
 | Supported connection path | Correct/delete/export semantics | Cost limits and any billing | Collaborative memory/workspaces |
 | Synthetic fixture and pass/fail tests | Reviewed first-use UX and both themes | Proven restore/incident process | Self-host installation product |
 | Provisional auth/hosting under the zero-cost pilot target | Web-on-phone acceptance | Selected migration/cutover | Native Android packaging; remote execution and worker fleets |

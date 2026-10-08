@@ -50,18 +50,18 @@ This check is not the authority. The database enforces the same rule. It exists 
 
 | Tool | Shape |
 | --- | --- |
-| `list_tasks` | `project_id`, optional `statuses[]` |
-| `read_task` | `project_id`, `id` |
-| `create_task` | `slug`, `project_id`, content; Satchel assigns the ID |
+| `list_tasks` | `topic_id`, optional `statuses[]` |
+| `read_task` | `topic_id`, `id` |
+| `create_task` | `slug`, `topic_id`, content; Satchel assigns the ID |
 | `edit_task` | identity, `revision`, `change` |
-| `record_task_update` | `project_id`, `id`, `entry`; Satchel assigns the entry ID |
+| `record_task_update` | `topic_id`, `id`, `entry`; Satchel assigns the entry ID |
 | `add_task_resource` | identity, `revision`, `label`, HTTPS `url`, type, provider; Satchel assigns the resource ID |
 
 `change.kind` is `content`, `state`, `parent`, `add_dependency` or `remove_dependency`. `entry.kind` is `comment`, `progress` or `handoff`. Both are Zod discriminated unions, so an agent gets a typed error rather than a half-valid payload.
 
 Six tools is a ceiling on purpose. One tool per SQL function would be fifteen near-identical names for a model to choose between; one generic mutation endpoint would be untyped. The discriminated union keeps the database's narrow routines intact while giving the model one obvious choice per intent. Add a `kind`, not a tool.
 
-`project_id: null` means personal. It is never a directory name and never guessed.
+`topic_id: null` means personal. It is never a directory name and never guessed. Topics are stored in the `projects` table, so the database column is still `project_id`.
 
 ## Slugs
 
@@ -73,7 +73,7 @@ A `default_slug` trigger fills the column when nothing supplies one, so no row c
 
 ## Capture and retrieval touchpoints
 
-None, since v2.5. A memory used to be able to hang off a task (`memories.task_id`), and the router was fed the open tasks so it could attach one. `20260922100000_one_scope_per_memory.sql` removed the column, the router field, the scope check and the `[task closed, may be fixed]` hint, because the link produced one hint and cost three ways to put a memory in the wrong scope. A memory is personal or one project, nothing else.
+None, since v2.5. A memory used to be able to hang off a task (`memories.task_id`), and the router was fed the open tasks so it could attach one. `20260922100000_one_scope_per_memory.sql` removed the column, the router field, the scope check and the `[task closed, may be fixed]` hint, because the link produced one hint and cost three ways to put a memory in the wrong scope. A memory is personal or one topic, nothing else.
 
 Whether a directive the user gives should become a task instead of being dropped is an open decision (decision 7 in `docs/memory-v2-5-scope.md`). Nothing does that today.
 

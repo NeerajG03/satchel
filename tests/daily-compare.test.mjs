@@ -40,7 +40,7 @@ test('the numbers are counted, and an affirm shown twice counts once', () => {
   assert.match(out, /\| changes \| 2 \| 2 \|/);
   assert.match(out, /\| sessions with any \| 1 \| 1 \|/);
   assert.match(out, /\| empty answers \| 1 \| 1 \|/);
-  assert.match(out, /\| project-scoped from sessions with no project \| 1 \| 1 \|/);
+  assert.match(out, /\| topic-scoped from sessions with no topic \| 1 \| 1 \|/);
   assert.match(out, /\| add \/ extend \/ replace \/ retire \/ affirm \| 1 \/ 0 \/ 0 \/ 0 \/ 1 \| 1 \/ 0 \/ 0 \/ 0 \/ 1 \|/);
   assert.match(out, /\| rejected by the checks \| 1 \| {2}\|/);
   assert.match(out, /same on all 2 sessions/);

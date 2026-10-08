@@ -37,7 +37,7 @@ A prompt that keeps growing is a sign that each fix was written as a new instruc
 ## Before you edit
 
 1. **Start from evidence, not a feeling.** The daily review (`daily-improvement`) gives session ids and the user's words for each miss. A change without a quote is a guess.
-2. **Name the cause.** Is the prompt wrong, or is it the input (a turn cut short, a project not shown), a validator, or noise from the model? `daily-improvement` step 6 says how to tell. A prompt edit cannot fix a missing input. On 1 October the same two rules the pass missed overnight were caught by the old prompt on replay, so that miss was noise, and no edit was needed.
+2. **Name the cause.** Is the prompt wrong, or is it the input (a turn cut short, a topic not shown), a validator, or noise from the model? `daily-improvement` step 6 says how to tell. A prompt edit cannot fix a missing input. On 1 October the same two rules the pass missed overnight were caught by the old prompt on replay, so that miss was noise, and no edit was needed.
 3. **Run the case on the current prompt first.** If it already passes in isolation, the miss is about a long or busy session, and a new sentence will not help. Say so and look at the input or the model setting instead.
 4. **Read the whole prompt**, not only the section you mean to touch. Find the sentence that already owns the idea and change that one.
 
@@ -45,7 +45,7 @@ A prompt that keeps growing is a sign that each fix was written as a new instruc
 
 - Add the smallest thing that covers the shape, not the sentence. "A reaction to what you just built counts the same way" covers a shape. A rule about metrics covers one sentence.
 - **Examples must not equal an eval case.** If the prompt says "prove the before and after" and the case says the same, the case tests memory of the prompt, not the rule. Word the prompt example differently ("show me it works before and after").
-- An example list can pull in the wrong thing. A list in the project rule once made a rejected claim come back as a fact (`rej01`, 14 of 14 on main, 6 of 9 with the list). Run the guarding cases after adding any list.
+- An example list can pull in the wrong thing. A list in the topic rule once made a rejected claim come back as a fact (`rej01`, 14 of 14 on main, 6 of 9 with the list). Run the guarding cases after adding any list.
 - Keep the user's own word for a thing in the prompt only when the model has to match it.
 - No ticket numbers, dates or names of people in a prompt.
 

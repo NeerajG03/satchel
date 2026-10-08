@@ -9,7 +9,7 @@ Start here for any change. Then read the `design` skill for anything visible and
 
 ## What Satchel is
 
-A hosted home for a person's memory, projects and tasks, handed to the AI coding apps they use through a plugin. Agents write only when asked. Satchel may add memories itself from recorded conversations, always unconfirmed, always with a record that can be undone. Every app sees only what it was allowed to see. `README.md` and `docs/product.md` say more. `docs/decisions.md` is the product ledger and `design/decisions.md` is the design ledger. Read the relevant rows before proposing something that looks like it was already settled.
+A hosted home for a person's memory, topics and tasks, handed to the AI coding apps they use through a plugin. Agents write only when asked. Satchel may add memories itself from recorded conversations, always unconfirmed, always with a record that can be undone. Every app sees only what it was allowed to see. `README.md` and `docs/product.md` say more. `docs/decisions.md` is the product ledger and `design/decisions.md` is the design ledger. Read the relevant rows before proposing something that looks like it was already settled.
 
 ## Layout
 

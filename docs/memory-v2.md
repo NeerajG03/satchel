@@ -103,7 +103,7 @@ A small model call at the end of each turn. It is not an agent: no tools, no abi
 ```
 system
   [fixed instructions]
-  projects:   satchel, reimbursement, cbx-backend
+  topics:     satchel, reimbursement, cbx-backend
   open tasks: fix-consent-layout  — Fix the corner leak on the consent page
               add-abuse-limits    — Add rate limiting before the pseudo-launch
 
@@ -142,7 +142,7 @@ you › ok so no personas in v1, and don't use em dashes anywhere.
 
   { statement: "don't use em dashes anywhere",
     source:    "don't use em dashes anywhere" },
-    // no project = personal, loads everywhere
+    // no topic = personal, loads everywhere
 
   { statement: "the consent page has a corner leak on .paper",
     source:    "the consent page still has that corner leak on .paper",
@@ -151,7 +151,7 @@ you › ok so no personas in v1, and don't use em dashes anywhere.
 ]
 ```
 
-Three shapes from one turn: a project decision, a personal rule belonging to no project, and a problem linked to the open task. Any design that cannot express all three is wrong, and several earlier ones could not.
+Three shapes from one turn: a topic decision, a personal rule belonging to no topic, and a problem linked to the open task. Any design that cannot express all three is wrong, and several earlier ones could not.
 
 ### 4.3 Statement versus source
 
@@ -206,7 +206,7 @@ Slugs are **supplied on create, not derived**. Deriving produces `fix-the-corner
 
 - `slug` is a required argument on `create_task` and `create_project`
 - validated server-side against `^[a-z0-9]+(-[a-z0-9]+)*$`, 3 to 40 characters
-- unique **per user**, not per project, so the model gets one thing right instead of two
+- unique **per user**, not per topic, so the model gets one thing right instead of two
 - `23505` on collision, the agent picks another and retries
 - `slugify()` is written once, only to backfill existing rows
 
@@ -226,7 +226,7 @@ The router's return type contains exactly the things that needed judgment. Every
 | no `task`, or no match | `task_id` null |
 | `task` matches an open slug | that UUID |
 
-No fuzzy matching. The defaults point at the harmless failure: personal scope loads everywhere, so a missed project flag is visible noise the user deletes, while the reverse traps a personal rule in one repo where its absence is never noticed.
+No fuzzy matching. The defaults point at the harmless failure: personal scope loads everywhere, so a missed topic flag is visible noise the user deletes, while the reverse traps a personal rule in one repo where its absence is never noticed.
 
 ## 5. Injection policy
 
@@ -234,7 +234,7 @@ No fuzzy matching. The defaults point at the harmless failure: personal scope lo
 
 ### 5.1 Why load-everything does not work
 
-[Projects](projects.md) states that a repository "can belong to one or more efforts." One codebase can carry ten projects, and ten projects at a hundred memories each is a thousand rows. Deriving the active project from a git remote was never valid, because a git remote identifies a repository and a repository maps to many projects.
+[Product](product.md) states that a repository "can belong to one or more efforts." One codebase can carry ten topics, and ten topics at a hundred memories each is a thousand rows. Deriving the active topic from a git remote was never valid, because a git remote identifies a repository and a repository maps to many topics.
 
 Tasks will also grow epics and subtasks. Loading a whole task tree does not scale.
 
@@ -255,12 +255,12 @@ That memory is relevant to every writing task and semantically similar to none o
 | What | When | Size |
 |---|---|---|
 | All personal memories | always | ~40 rows, ~1.4k tok |
-| The projects list, slug and one-line brief | always | ~20 rows, ~400 tok |
+| The topics list, slug and one-line brief | always | ~20 rows, ~400 tok |
 | Everything else in authorized scope | retrieved per prompt | ~300 tok, falling |
 
-Personal rules pass the test: "don't use em dashes" is true whatever you open today. The projects list passes: you need to know what exists in order to scope a save, and that is true regardless. Project memories and task memories fail, because loading them assumes you will touch that project or task.
+Personal rules pass the test: "don't use em dashes" is true whatever you open today. The topics list passes: you need to know what exists in order to scope a save, and that is true regardless. Topic memories and task memories fail, because loading them assumes you will touch that topic or task.
 
-Nothing scoped to a project or a task is injected at session start.
+Nothing scoped to a topic or a task is injected at session start.
 
 An earlier draft had a middle tier that always loaded the open task's memories, behind a setting defaulting to on. It is cut. `in_progress` is a status on a row, not a statement about the current session, and [the tasks reference](../integrations/shared/context/references/tasks.md) says so directly: "`in_progress` is a coordination signal, not a lock." A task can sit in that state for days. The weak-prompt case it was meant to cover ("ok continue", which matches nothing on its own) is already handled by the topic terms the `Stop` hook caches, so the query searches against the previous turn's vocabulary.
 
@@ -274,13 +274,13 @@ Retrieval searches everything the connection is authorized for, and weights by w
 
 ```
 score = similarity
-        × 1.1   project touched this session   -- saved to, read from, or already
+        × 1.1   topic touched this session     -- saved to, read from, or already
                                                   returned a hit this session
-        × 1.1   project linked to this repo    -- deterministic, from the git remote
+        × 1.1   topic linked to this repo      -- deterministic, from the git remote
         × 1.0   everything else
 ```
 
-Weights were measured, not guessed, in the [build plan](memory-v2-build.md) section 4.9. An earlier draft used 3.0 and 2.0 with a 0.7 demotion for closed tasks. All three were wrong. A multiplier acts on a score in [0,1], so 3.0 reorders everything globally: it gains +0.073 when it points at the project you are asking about and loses 0.493 when it does not, which needs 87% of a session's prompts to be about that one project just to break even. 1.1 gains +0.077, the same benefit, and loses 0.022. The closed-task demotion is contradicted outright: memories hanging off closed tasks are 8.5% of the corpus and 11.4% of what human labelling calls relevant. The shape is the point: **a project earns its boost by being used, not by being guessed at.** The first mention of an unrelated project wins on text alone, and from then on it ranks higher because it has actually been touched.
+Weights were measured, not guessed, in the [build plan](memory-v2-build.md) section 4.9. An earlier draft used 3.0 and 2.0 with a 0.7 demotion for closed tasks. All three were wrong. A multiplier acts on a score in [0,1], so 3.0 reorders everything globally: it gains +0.073 when it points at the topic you are asking about and loses 0.493 when it does not, which needs 87% of a session's prompts to be about that one topic just to break even. 1.1 gains +0.077, the same benefit, and loses 0.022. The closed-task demotion is contradicted outright: memories hanging off closed tasks are 8.5% of the corpus and 11.4% of what human labelling calls relevant. The shape is the point: **a topic earns its boost by being used, not by being guessed at.** The first mention of an unrelated topic wins on text alone, and from then on it ranks higher because it has actually been touched.
 
 ### 5.5 Use cases, traced
 
@@ -289,18 +289,18 @@ Weights were measured, not guessed, in the [build plan](memory-v2-build.md) sect
 | Fresh session, "let's fix the consent page layout" | FTS on the prompt; satchel boosted 2x from the remote | works |
 | Fresh session, "what was I doing" | Matches no memory. It is a task question, so the agent calls `list_tasks`. | works, via tasks |
 | Mid-session, "ok continue" | Prompt matches nothing; the query also uses the terms `Stop` cached last turn | works |
-| "actually let me look at the reimbursement thing" | "reimbursement" is distinctive and wins on text; that project is now touched and boosted 3x afterwards | works |
+| "actually let me look at the reimbursement thing" | "reimbursement" is distinctive and wins on text; that topic is now touched and boosted 3x afterwards | works |
 | "write up the plan", where the em-dash rule must apply | Already loaded. This is why personal is always-on. | works |
-| "for reimbursement, always convert at the RBI rate", typed inside the satchel repo | The router sees the projects list and returns `project: "reimbursement"` | works |
+| "for reimbursement, always convert at the RBI rate", typed inside the satchel repo | The router sees the topics list and returns `project: "reimbursement"` | works |
 | "no, that's wrong, it's X" | The memory is in context, personal or retrieved this turn; corrected by handle | works |
 | "forget the serif headings thing" | Retrieval finds it on the text, then it is deletable | works |
 | A memory whose task has closed surfaces | Returned with `[fix-consent-layout · closed 20 Sep]`; the agent announces the doubt | works |
-| Repo with no linked project | Projects list still loads, no boost, pure text ranking, saves default to personal | degraded, sensible |
+| Repo with no linked topic | Topics list still loads, no boost, pure text ranking, saves default to personal | degraded, sensible |
 | Phone or companion with no repo at all | Same as above | works |
 
 ### 5.6 The case that breaks
 
-A project rule about **how you work** that you never lexically mention.
+A topic rule about **how you work** that you never lexically mention.
 
 ```
 memory:  "always run the tests before pushing in satchel"
@@ -308,12 +308,12 @@ prompt:  "push that up"
 FTS:     almost no overlap. probably misses.
 ```
 
-Identical to the failure that makes personal memories always-loaded, except this one is project-scoped so it is not.
+Identical to the failure that makes personal memories always-loaded, except this one is topic-scoped so it is not.
 
 Two ways out, in order of preference:
 
-1. **It is probably a personal memory.** A rule about your habits that happens to name a project belongs in personal scope, where it loads everywhere, which is correct because you would want it in any repo. The router should lean personal when a statement is about the user's habits rather than the project's state.
-2. **If that proves wrong, add a pin.** One boolean, set by the user and never by a model, meaning "load this whenever its project is in play." Off by default, so nothing is preemptively injected unless it was asked for. **Build when:** the injection log shows a specific rule repeatedly missed.
+1. **It is probably a personal memory.** A rule about your habits that happens to name a topic belongs in personal scope, where it loads everywhere, which is correct because you would want it in any repo. The router should lean personal when a statement is about the user's habits rather than the topic's state.
+2. **If that proves wrong, add a pin.** One boolean, set by the user and never by a model, meaning "load this whenever its topic is in play." Off by default, so nothing is preemptively injected unless it was asked for. **Build when:** the injection log shows a specific rule repeatedly missed.
 
 Ship without the pin and find out, rather than adding a flag for a case that cannot yet be pointed at.
 
@@ -321,7 +321,7 @@ Ship without the pin and find out, rather than adding a flag for a case that can
 
 | Observed in Supermemory | This design |
 |---|---|
-| `0.55` cosine over everything | narrow to this repo's projects first, rank inside that. 1000 candidates becomes ~100. |
+| `0.55` cosine over everything | narrow to this repo's topics first, rank inside that. 1000 candidates becomes ~100. |
 | top 5, silently truncated | print counts: `4 shown · 11 matched · 130 in scope` |
 | model cannot tell "no rule" from "did not score" | the same line fixes it |
 | 4s round trip to a remote API | own Postgres, ~100ms, 500ms timeout, fail open |
@@ -340,7 +340,7 @@ A turn is the user's message plus the agent's entire response including all tool
 
 | Hook | Does | Cost | On failure |
 |---|---|---|---|
-| `SessionStart`, compaction | projects with briefs, all personal memories | ~1.8k tok, once | say so; never claim memory loaded when it was not |
+| `SessionStart`, compaction | topics with briefs, all personal memories | ~1.8k tok, once | say so; never claim memory loaded when it was not |
 | `UserPromptSubmit` | one FTS query on prompt + cached terms, minus already-injected IDs | ~300 tok, falling | personal is still present; degraded, not broken |
 | `Stop` | router captures; caches ~10 topic terms | ~1.3k tok in, async | nothing captured; explicit saves still work |
 
@@ -352,7 +352,7 @@ The two hosts do not support the same hooks, and the differences change the desi
 
 ```
 <satchel>
-projects
+topics
   satchel         Context that follows you across AI apps
   reimbursement   Monthly RazorpayX claims from bills and statements
   cbx-backend     Content pipeline work
@@ -422,7 +422,7 @@ There is no lifetime enum, no condition flag, no trigger and no deletion. A memo
 ```
 What Claude Code sees in this session
 
-  projects              20 rows     400 tok
+  topics                20 rows     400 tok
   personal              38 rows   1,340 tok
   ─────────────────────────────────────────
   session start                   1,740 tok
@@ -444,7 +444,7 @@ Two requirements keep it honest:
 | Per-prompt matches | 5, `0` disables | too noisy, or too thin |
 | Session-start budget | 15k tokens | over it, the load reports `complete: false` and names the overflowing scope |
 
-Two, down from three; the open-task toggle went with the tier it configured. Personal memory has no toggle. Per-project overrides are possible later since per-project config already exists as a concept.
+Two, down from three; the open-task toggle went with the tier it configured. Personal memory has no toggle. Per-topic overrides are possible later since per-topic config already exists as a concept.
 
 Settings live in Supabase and the hook reads them in the same call that fetches the index, costing no extra round trip.
 
@@ -464,6 +464,8 @@ memories
 tasks / projects
   slug         text, required, unique per user
 ```
+
+Topics are stored in the `projects` table, so the column is `project_id`.
 
 `band` is not a model decision. Auto-captured is `heard`, explicitly saved by the user is `said`. A `heard` memory becomes `said` when the user confirms it, and that is the whole promotion rule. There is no counting of announcements and no `promoted_by` column: an earlier design had both to enforce a distinction nobody had complained about.
 
@@ -486,8 +488,8 @@ One new tool.
 
 1. **One sentence in `SKILL.md`.** "If a memory is unconfirmed, say it out loud before relying on it." No model, no migration, no dependency. Today a shaky note and a hard decision arrive as identical flat text. Independent of everything below.
 2. **Collapse the memory shape.** `description` becomes `statement`; add `source`, `band`, `task_id`; `name` nullable; `more_info` a flag.
-3. **Slugs on tasks and projects.** Required on create, validated, unique per user, backfilled once. Useful on its own.
-4. **Rewrite the `SessionStart` injection.** Per 6.1. Projects and personal memories only.
+3. **Slugs on tasks and topics.** Required on create, validated, unique per user, backfilled once. Useful on its own.
+4. **Rewrite the `SessionStart` injection.** Per 6.1. Topics and personal memories only.
 5. **`tsvector` + GIN, and the per-prompt hook.** Retrieval with the scope boost of 5.4, the counts of 6.2, and the already-injected exclusion of 5.7.
 6. **The `Stop` hook.** Router capture plus topic-term caching.
 7. **The context panel.** Per section 8. This is what proves whether any of the above works.
@@ -497,7 +499,7 @@ One new tool.
 | Item | Build when |
 |---|---|
 | pgvector and embeddings | the injection log shows FTS missing things that can be pointed at |
-| A per-memory pin, loading a project rule whenever its project is in play | the log shows a specific project rule repeatedly missed, and moving it to personal scope did not fix it (5.6) |
+| A per-memory pin, loading a topic rule whenever its topic is in play | the log shows a specific topic rule repeatedly missed, and moving it to personal scope did not fix it (5.6) |
 | `injected` / `cited` counters | retrieval quality becomes the complaint rather than capture quality |
 | Capture rules learned from rejections | the same category has been rejected three times |
 | Few-shot keeps and deletes in the router prompt | the log has enough rows to matter; it does nothing on day one |
@@ -521,7 +523,7 @@ Recorded so they are not re-litigated. Each was proposed in discussion and aband
 |---|---|
 | Build retrieval improvements first | Supermemory has a working per-prompt retrieval reflex and still surfaced "Satchel memory plugin is working" into a design conversation. Retrieval can only pick the least-bad row available. Capture is the bottleneck. |
 | A router on the read side, choosing which memories to inject each prompt | The index is already in context. Paying a model to choose from something already present is the waste being removed. |
-| Loading the whole index at session start, zero cost per prompt | A repository maps to many projects, so the scope is unbounded. Held only at toy scale. |
+| Loading the whole index at session start, zero cost per prompt | A repository maps to many topics, so the scope is unbounded. Held only at toy scale. |
 | Cutting the task link entirely to shrink the schema | Would have tagged permanent personal rules to whatever task happened to be open, then flagged them stale when it closed. The most valuable memories would have been the most damaged. |
 | A `lifetime` enum of standing / conditional / transient | `transient` is not a lifetime, it is the absence of a memory, and it disappears once the output is a list. `conditional` collapsed into the presence of a task link. |
 | Deleting conditional memories when their task closes | Silent data loss from a model's guess, and a task reaching done is not proof the problem is fixed. |

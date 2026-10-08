@@ -72,10 +72,10 @@ export async function resolveScope(service, {sessionKey, repository}) {
  *  Named by slug, chosen by project_id, because the id is what select_project
  *  takes and a slug it had to look up is a second place to go wrong. */
 const chooseProjectLine = candidates => candidates.length < 2 ? ''
-  : `\nThis workspace's repository belongs to ${candidates.length} projects: `
+  : `\nThis workspace's repository belongs to ${candidates.length} topics: `
     + candidates.map(c => `${c.slug} (${c.project_id})`).join(', ')
-    + `. Nothing is scoped to a project until you call select_project with one of those project_id values.`
-    + ` Do not guess, and do not treat memory as project-scoped before then.`;
+    + `. Nothing is scoped to a topic until you call select_topic with one of those topic_id values.`
+    + ` Do not guess, and do not treat memory as topic-scoped before then.`;
 
 /** Session start, after compaction, and after a clear.
  *
@@ -140,7 +140,7 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
           logged = {query: null, memory_ids: loaded.map(m => m.id), matched: loaded.length,
             in_scope: loaded.length, tokens};
         }
-        if (active) context += `\nactive project: ${active}`;
+        if (active) context += `\nactive topic: ${active}`;
         else context += chooseProjectLine(scope.candidates);
       } catch (error) {
         context = 'Satchel memory unavailable. ' + errorText(error) + ' Do not claim that memory loaded.';

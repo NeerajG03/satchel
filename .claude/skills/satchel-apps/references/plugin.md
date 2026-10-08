@@ -26,12 +26,12 @@ Substitution stopped mattering in 0.3.0. No hook is an `mcp_tool` any more, so t
 
 All `command` scripts. None goes through MCP.
 
-- **SessionStart**, matching `^(startup|clear|compact|resume)$`, running `session-start.mjs`, timeout 10s. It fetches the index itself over `POST /api/hook-index`. `resume` is included: a resumed session may be days old and is the case that needs the projects list most.
+- **SessionStart**, matching `^(startup|clear|compact|resume)$`, running `session-start.mjs`, timeout 10s. It fetches the index itself over `POST /api/hook-index`. `resume` is included: a resumed session may be days old and is the case that needs the topics list most.
 - **Stop**, running `capture.mjs`, timeout 25s. It posts the reply and, when there is a repository, `commits` (`git rev-list --count HEAD`, a count and nothing else) to `/api/hook-capture`. The server records the repository head and the assistant's half of the document. With `capture_mode = 'session'`, the default, that is all: no model call and no memory. Only in `turn` mode does it also run the router, which is what the 25s is sized for. Without this hook the assistant's half of every document and the churn signal are both missing, and before that the whole capture path shipped once with nothing calling it.
 
 **No hook runs the consolidation pass.** A version of Stop that spawned it detached was built and reverted on 22 September: a hook that quietly spends a model call on every session end is the wrong default. The pass runs from the developer cron or the web app's button.
 
-**Why they stopped being `mcp_tool` hooks**, which is the load-bearing fact: an `mcp_tool` hook runs only once the session's MCP servers are available to hooks, and `SessionStart` at launch fires before that. The host skips the event and logs `mcp_tool hooks are not available for the 'SessionStart' hook event (no MCP client context)`. `--continue` and `--resume` are launch too. So memory never loaded on any way a session actually begins, and the fallback was a paragraph asking the model to call `select_project`, which it could ignore. That is not fixable from our side; it needed the hook to hold its own credential.
+**Why they stopped being `mcp_tool` hooks**, which is the load-bearing fact: an `mcp_tool` hook runs only once the session's MCP servers are available to hooks, and `SessionStart` at launch fires before that. The host skips the event and logs `mcp_tool hooks are not available for the 'SessionStart' hook event (no MCP client context)`. `--continue` and `--resume` are launch too. So memory never loaded on any way a session actually begins, and the fallback was a paragraph asking the model to call `select_topic`, which it could ignore. That is not fixable from our side; it needed the hook to hold its own credential.
 
 - **UserPromptSubmit**, running `retrieve.mjs`, timeout 5s. It embeds the prompt, searches by similarity and injects the matches with counts. It is also the only thing recording what the person said, into the session window and the 30-day document. The server awaits that write now. Deleting this hook once silently deleted capture too, and today it would silently empty every document of the only half that can supply a source.
 
@@ -69,10 +69,10 @@ What is stored is a Supabase refresh token, which does not age out. That is what
 
 ## The shipped skill
 
-`integrations/shared/context/` is a skill for the agent using Satchel, not for the person building it. `SKILL.md` plus `references/memory.md`, `tasks.md`, `projects.md`, disclosed progressively. Its load-bearing claims:
+`integrations/shared/context/` is a skill for the agent using Satchel, not for the person building it. `SKILL.md` plus `references/memory.md`, `tasks.md`, `topics.md`, disclosed progressively. Its load-bearing claims:
 
-- Scope is explicit, never inferred from a directory name or a similar-looking project name.
-- Grants are independently denied: memory is not tasks, read is not write, personal is not project.
+- Scope is explicit, never inferred from a directory name or a similar-looking topic name.
+- Grants are independently denied: memory is not tasks, read is not write, personal is not topic.
 - Context arrives on its own, so no per-turn freshness checks and no re-reading a scope already given.
 - `0 matched` is a real answer and is not the same as something being withheld.
 - Every write carries a fresh `request_id`; content and state writes carry the current `revision`; a timeout is an uncertain outcome, not a success.

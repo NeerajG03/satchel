@@ -23,7 +23,7 @@ Every hook is a `command` script in `integrations/shared/` that holds its own cr
 
 ```
 SessionStart      matcher ^(startup|clear|compact|resume)$   timeout 10s
-  session-start.mjs  ──▶ POST /api/hook-index      projects list and the personal block
+  session-start.mjs  ──▶ POST /api/hook-index      topics list and the personal block
 
 UserPromptSubmit  timeout 10s
   retrieve.mjs       ──▶ POST /api/hook-retrieve   record the user's half, then search
@@ -37,7 +37,7 @@ nothing in a hook
 
 Every script reads the host's JSON on stdin, where both hosts agree on the field names: `prompt` on `UserPromptSubmit`, `last_assistant_message` on `Stop` (Claude only). The repository is read from `git config --get remote.origin.url` and sent as a normalized `owner/repo`, and Stop also sends `git rev-list --count HEAD` as `commits`. A count and nothing else, no sha and no path.
 
-`resume` is included because a resumed session may be days old and needs the projects list most. With the block capped it is small.
+`resume` is included because a resumed session may be days old and needs the topics list most. With the block capped it is small.
 
 `UserPromptSubmit` has a deliberately short timeout: a hook that delays the prompt is worse than a hook that misses one.
 
@@ -65,7 +65,7 @@ No key, no prompt text, no ranking logic and no routing logic ever lands on the 
 
 ### SessionStart
 
-Loads the projects list and the **personal block**: live personal memories ranked by `personal_memories` (most mentioned, then most recently affirmed) and cut at `block_size`, 30 by default, confirmed ones first and picked-up ones after them under their own header. When the workspace resolves to exactly one project, the **project block** follows: that project's own memories from `memories_in_scope`, preferences first, then the most said, under a cap of 15 of their own (`PROJECT_BLOCK` in `lifecycle.mjs`, `projectLoad` in `injection-format.mjs`). A rule about how the work in a codebase is done is relevant by activity, not topic, which is the measurement that put personal memories in the block. With two candidate projects nothing is scoped and no project block loads.
+Loads the topics list and the **personal block**: live personal memories ranked by `personal_memories` (most mentioned, then most recently affirmed) and cut at `block_size`, 30 by default, confirmed ones first and picked-up ones after them under their own header. When the workspace resolves to exactly one topic, the **topic block** follows: that topic's own memories from `memories_in_scope`, preferences first, then the most said, under a cap of 15 of their own (`PROJECT_BLOCK` in `lifecycle.mjs`, `projectLoad` in `injection-format.mjs`). A rule about how the work in a codebase is done is relevant by activity, not by subject, which is the measurement that put personal memories in the block. With two candidate topics nothing is scoped and no topic block loads.
 
 Nothing past the cap is ended or hidden. It is simply not injected, and it is still retrievable per prompt.
 
@@ -80,7 +80,7 @@ Three things happen before the search. The prompt is classified by `machine-prom
 1. Record the user's half through `record_turn`, into both `session_messages` and the session's document, if `capture` is on. **Awaited**, in its own try/catch. It used to be fired with `void`, and a Vercel function freezes when it responds, so the user's half, the only half that can supply a source, could be lost. A failure here produces an "unrecorded" notice rather than failing retrieval.
 2. Embed the prompt.
 3. `search_memories` with the user's gate, boost and cap.
-4. Format the block, which carries counts: `retrieved · N shown · M matched · K in scope`. The counts are the point. They let the agent tell "there is no rule about this" from "nothing scored high enough", which is the failure a silently truncated top five causes. A project memory whose repository has moved `staleness_commits` or more since it was last meant carries a doubt marker saying how far.
+4. Format the block, which carries counts: `retrieved · N shown · M matched · K in scope`. The counts are the point. They let the agent tell "there is no rule about this" from "nothing scored high enough", which is the failure a silently truncated top five causes. A topic memory whose repository has moved `staleness_commits` or more since it was last meant carries a doubt marker saying how far.
 5. Log the injection. A failure to log never fails the injection it was recording.
 
 Returning nothing is a real answer and keeps the per-prompt cost at zero on turns that need nothing.
@@ -109,7 +109,7 @@ POST {idle_minutes}   start_consolidation_job, or show the one already running
     pending_documents(idle, no count), minus the sessions this job already tried
     for each, while inside this call's four minutes and the job's 30:
     document_content(after consolidated_through)   only turns not yet read
-    memories_in_scope(project)                     project + personal, integer labels
+    memories_in_scope(project)                     topic + personal, integer labels
     consolidator.consolidate()                     one call, gemini-3.8-flash, thinking medium
     validate()                                     source must be in the user's words
     apply: capture_memory | extend_memory | end_memory | affirm_memory
@@ -132,7 +132,7 @@ It accepts three credentials, all under RLS as the owner: the hook scripts' agen
 
 **`server/mcp-server.mjs`** owns the tool surface. It does not format hook JSON any more; the hook endpoints do, through `hook-handler.mjs`.
 
-Tools: `list_projects`, `upsert_project`, `select_project`, `memory_index`, `retrieve_memory`, `read_memory`, `save_memory`, `correct_memory`, `confirm_memory`, `forget_memory`, plus the task tools when the grant allows. `select_project` with an `event` is the recovery path for a session whose hook could not run, and returns what the hook would have injected.
+Tools: `list_topics`, `upsert_topic`, `select_topic`, `memory_index`, `retrieve_memory`, `read_memory`, `save_memory`, `correct_memory`, `confirm_memory`, `forget_memory`, plus the task tools when the grant allows. `select_topic` with an `event` is the recovery path for a session whose hook could not run, and returns what the hook would have injected.
 
 `forget_memory` ends the row as `forgotten` through `end_memory`, the same call the web app's Forget makes, after checking the memory is in the scope the agent named. No tool deletes a memory. It used to be `delete_memory` and ran a real `DELETE`.
 
@@ -160,15 +160,15 @@ Tools: `list_projects`, `upsert_project`, `select_project`, `memory_index`, `ret
 
 ## Scope, which is never inferred
 
-Every memory lives in exactly one scope. `project_id = null` is personal; anything else is an explicit project UUID. Scope is never chosen from a directory name or a similar-looking project name.
+Every memory lives in exactly one scope. Topics are stored in the `projects` table, so the column is `project_id`. `project_id = null` is personal; anything else is an explicit topic UUID. Scope is never chosen from a directory name or a similar-looking topic name.
 
 There is no task link. `memories.task_id` was removed in `20260922100000` (R9a), with the router field, the scope check in `save_memory` and the `[task closed, may be fixed]` hint. The doubt that hint was for now comes from the repository moving (R8).
 
-A document has the same scope rule. It is set by whichever turn first knows it and never cleared, and a project id the caller does not own is dropped rather than borrowed. The pass writes into the document's scope, except that a preference said inside a project may still land in personal, which is why it is shown both.
+A document has the same scope rule. It is set by whichever turn first knows it and never cleared, and a topic id the caller does not own is dropped rather than borrowed. The pass writes into the document's scope, except that a preference said inside a topic may still land in personal, which is why it is shown both.
 
 ## Slugs
 
-A model copies an identifier and rewrites a title, so slugs exist. They are unique per user across projects and tasks together, supplied on create rather than derived, and the derived form exists only so no row can ever lack one.
+A model copies an identifier and rewrites a title, so slugs exist. They are unique per user across topics and tasks together, supplied on create rather than derived, and the derived form exists only so no row can ever lack one.
 
 `create_task_with_slug` and `upsert_project_with_slug` are thin wrappers so a create and its slug are one round trip and one transaction. A slug collision rolls the create back rather than leaving a task named after its title.
 
@@ -189,6 +189,6 @@ GENERATION    consolidate            model=gemini-3.8-flash  usage={input,output
 
 A consolidation trace answers R11 without the database: which document and how many turns, which memories it was shown, the prompt and its version, the raw reply, and every action taken **and** every one validation refused, each naming the memory it touched. Every `memory_events` row it causes carries the same trace id, so a row and the reasoning behind it are one click apart.
 
-The router's full prompt is the input on purpose. A capture is only explicable if you can see what the router was looking at, including which projects and open tasks it had to choose from. Kept **and** dropped items are both recorded, because a router being silently filtered looks identical to one being conservative.
+The router's full prompt is the input on purpose. A capture is only explicable if you can see what the router was looking at, including which topics and open tasks it had to choose from. Kept **and** dropped items are both recorded, because a router being silently filtered looks identical to one being conservative.
 
 Spans are flushed before the handler returns, because a serverless function can freeze the moment it responds.

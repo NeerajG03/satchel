@@ -140,7 +140,7 @@ class Component extends DCLogic {
 </body>
 </html>`;
 
-const NAV = [['Left off', 'Main.dc.html'], ['Book', 'Book.dc.html'], ['Tasks', 'Tasks.dc.html'], ['Projects', 'Projects.dc.html'], ['Apps', 'Apps.dc.html'], ['Settings', 'Settings.dc.html']];
+const NAV = [['Left off', 'Main.dc.html'], ['Book', 'Book.dc.html'], ['Tasks', 'Tasks.dc.html'], ['Topics', 'Projects.dc.html'], ['Apps', 'Apps.dc.html'], ['Settings', 'Settings.dc.html']];
 const rail = (active) => `<nav class="rail" aria-label="Destinations">
   ${NAV.map(([l, f]) => `<a href="${f}"${l === active ? ' aria-current="page"' : ''}><span class="dot"></span>${l}</a>`).join('\n  ')}
   <div class="spacer"></div>
@@ -181,7 +181,7 @@ const icon = {
   github: '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.3 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg>',
 };
 
-// Scope picker: replaces the chip-per-project pattern. A search field that lists For me + projects.
+// Scope picker: replaces the chip-per-topic pattern. A search field that lists For me + topics.
 const scopePicker = (label, extra = '') => `<button class="btn" style="gap:10px; padding-left:12px;"><span class="eyebrow" style="color:var(--muted);">In</span><strong style="font-weight:600;">${label}</strong>${icon.chev}</button>${extra}`;
 
 /* ---------------- Screens ---------------- */
@@ -193,7 +193,7 @@ const welcome = page({ w: 1280, h: 820, body: `<div class="frame" style="width:1
     <div class="col" style="gap:26px; max-width:560px;">
       <span class="eyebrow">Your work, with you</span>
       <h1 class="h1" style="font-size:60px;">A place for what you want to remember.</h1>
-      <p style="font-size:18px; line-height:1.65; margin:0; color:var(--ink);">Keep the decisions, preferences and next steps that make a project yours. Write them once. Every connected AI app can read them.</p>
+      <p style="font-size:18px; line-height:1.65; margin:0; color:var(--ink);">Keep the decisions, preferences and next steps that make your work yours. Write them once. Every connected AI app can read them.</p>
       <div class="col" style="gap:12px; align-items:flex-start;">
         <a href="LeftOffEmpty.dc.html" class="btn primary" style="min-height:48px; padding:0 22px; font-size:15px;">${icon.github} Continue with GitHub</a>
         <span class="muted fine">GitHub is only used to sign you in. Satchel never asks for repository access here.</span>
@@ -201,7 +201,7 @@ const welcome = page({ w: 1280, h: 820, body: `<div class="frame" style="width:1
     </div>
     <aside class="col" style="gap:14px; padding-top:26px;">
       <span class="eyebrow">What lives in a Satchel</span>
-      ${[['The book', 'Preferences and decisions you chose to save. Names and short descriptions form an index agents read first.'], ['Tasks and handoffs', 'The exact next action and the evidence the last session left behind.'], ['Projects', 'One effort, its repositories and the apps allowed to see it.'], ['Apps', 'Each connected agent gets only the scopes you grant. Revoke any time.']].map(([t, d]) => `<div style="padding:14px 0; border-top:1px solid var(--line); display:grid; grid-template-columns:150px 1fr; gap:18px;"><span class="h3">${t}</span><span class="muted" style="font-size:14px;">${d}</span></div>`).join('')}
+      ${[['The book', 'Preferences and decisions you chose to save. Names and short descriptions form an index agents read first.'], ['Tasks and handoffs', 'The exact next action and the evidence the last session left behind.'], ['Topics', 'One subject, its repositories and the apps allowed to see it.'], ['Apps', 'Each connected agent gets only the scopes you grant. Revoke any time.']].map(([t, d]) => `<div style="padding:14px 0; border-top:1px solid var(--line); display:grid; grid-template-columns:150px 1fr; gap:18px;"><span class="h3">${t}</span><span class="muted" style="font-size:14px;">${d}</span></div>`).join('')}
       <div class="hr"></div>
     </aside>
     <div class="foot" style="grid-column:1/-1;"><span>Satchel · Private pilot</span><span>A little less repeating yourself</span></div>
@@ -212,14 +212,14 @@ const leftOffEmpty = desktop({ active: 'Left off', topOpts: { status: 'amber', s
   <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Wednesday, 17 September</span><h1 class="h1">Welcome, Neeraj.</h1></div></div>
   <p class="lede" style="margin:14px 0 30px; max-width:620px;">Your Satchel is empty, which is the right place to start. Do any one of these three and this page turns into “Where you left off”.</p>
   <div class="steps">
-    <div class="step"><span class="n">01 · TWO MINUTES</span><h2 class="h3">Write the first thing down</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">A preference about how you like to work. It applies everywhere, no project needed.</p><a href="BookEmpty.dc.html" class="btn primary" style="align-self:flex-start;">Open the book ${icon.arrow}</a></div>
+    <div class="step"><span class="n">01 · TWO MINUTES</span><h2 class="h3">Write the first thing down</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">A preference about how you like to work. It applies everywhere, no topic needed.</p><a href="BookEmpty.dc.html" class="btn primary" style="align-self:flex-start;">Open the book ${icon.arrow}</a></div>
     <div class="step"><span class="n">02 · FIVE MINUTES</span><h2 class="h3">Connect an AI app</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">Install the Satchel plugin in Claude Code or Codex, then sign in from its connection settings. You choose what it can read.</p><a href="AppsEmpty.dc.html" class="btn" style="align-self:flex-start;">See the steps ${icon.arrow}</a></div>
     <div class="step"><span class="n">03 · WHEN YOU HAVE ONE</span><h2 class="h3">Capture a task</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">A title and the next action. Later, a handoff makes it resumable from any device.</p><a href="TasksEmpty.dc.html" class="btn" style="align-self:flex-start;">Capture a task ${icon.arrow}</a></div>
   </div>
   <div class="panel" style="margin-top:28px; display:grid; grid-template-columns:auto 1fr auto; gap:18px; align-items:center;">
     <span class="led amber"></span>
-    <div><strong>You have 2 projects but nothing in them yet.</strong><span class="muted"> Managed Agents and Satchel were created earlier. A project with no memories or tasks is invisible to agents until you add something.</span></div>
-    <a href="Projects.dc.html" class="btn sm">View projects</a>
+    <div><strong>You have 2 topics but nothing in them yet.</strong><span class="muted"> Managed Agents and Satchel were created earlier. A topic with no memories or tasks is invisible to agents until you add something.</span></div>
+    <a href="Projects.dc.html" class="btn sm">View topics</a>
   </div>` });
 
 // Left off, populated
@@ -243,7 +243,7 @@ const leftOffWith = (extraCss) => desktop({ extraCss, active: 'Left off', footL:
     <aside class="col" style="gap:26px;">
       <div class="col" style="gap:8px;"><span class="eyebrow">Last thing saved</span>
         <p class="serif" style="font-size:22px; line-height:1.3; margin:0;">“Satchel has no personas and no curator in the first version.”</p>
-        <span class="prov">Said on your phone · Project / Satchel · today 09:18</span></div>
+        <span class="prov">Said on your phone · Topic / Satchel · today 09:18</span></div>
       <div class="col" style="gap:8px;"><span class="eyebrow">Your apps</span>
         ${[['green', 'Claude Code', 'reads and saves · verified today'], ['amber', 'Codex', 'reads only · last read Fri'], ['off', 'Claude (phone)', 'not connected']].map(([l, n, d]) => `<div class="between" style="padding:9px 0; border-bottom:1px solid var(--line);"><span class="row" style="gap:10px;"><span class="led ${l}"></span><span style="font-weight:500;">${n}</span></span><span class="prov">${d}</span></div>`).join('')}
         <a href="Apps.dc.html" class="fine" style="margin-top:4px;">Manage apps ${icon.arrow}</a></div>
@@ -257,7 +257,7 @@ const leftOffScript = leftOffWith(SCRIPT);
 const bookEmpty = desktop({ active: 'Book', topOpts: { status: 'amber', statusText: 'Nothing saved yet' }, footL: '0 in the book', paper: `
   <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Wednesday, 17 September</span><h1 class="h1">The book.</h1></div>
     <div class="row">${scopePicker('For me')}<a href="#" class="btn icon" aria-label="Search the book">${icon.search}</a></div></div>
-  <p class="lede" style="margin:12px 0 26px;">“For me” holds preferences and details that apply across all your work. Pick a project from the picker when something belongs to one effort only.</p>
+  <p class="lede" style="margin:12px 0 26px;">“For me” holds preferences and details that apply across all your work. Pick a topic from the picker when something belongs to one subject only.</p>
   <form class="panel" style="padding:22px 24px; display:flex; flex-direction:column; gap:14px; background:var(--paper); border-color:var(--ink);">
     <div class="between"><span class="eyebrow">Write something down · saving in For me</span><span class="fine muted">Explicit saves only</span></div>
     <label class="f"><span>Name <span class="ph">· short, how an agent will find it</span></span><input class="field serif" placeholder="writing-style" value=""></label>
@@ -280,8 +280,8 @@ const memoryEntry = ({ name, desc, prov, rev, expanded = false, body = '', scope
   <div class="between"><span class="prov">${prov}</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="${expanded}">${expanded ? 'Hide more info' : 'Read more info'}</a>${rev > 1 ? `<a href="#" class="fine muted" style="color:var(--muted);">${rev} revisions</a>` : ''}</span></div>
 </article>`;
 
-const book = desktop({ active: 'Book', footL: '5 in the book · Project / Satchel', paper: `
-  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Project · Satchel</span><h1 class="h1">The book.</h1></div>
+const book = desktop({ active: 'Book', footL: '5 in the book · Topic / Satchel', paper: `
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topic · Satchel</span><h1 class="h1">The book.</h1></div>
     <div class="row">${scopePicker('Satchel')}<a href="#" class="btn icon" aria-label="Search the book">${icon.search}</a></div></div>
   <div class="between" style="margin:14px 0 6px;"><p class="lede" style="margin:0;">Continuity between the AI apps you already use. Decisions saved here are read by Claude Code and Codex.</p>
     <a href="Book.dc.html" class="btn">${icon.plus} Write something down</a></div>
@@ -292,8 +292,8 @@ const book = desktop({ active: 'Book', footL: '5 in the book · Project / Satche
   ${memoryEntry({ name: 'memory-index-shape', desc: 'Hooks read only names and descriptions. More info is fetched by name when needed.', prov: 'Saved by Codex · desktop · Thu 11 Sep · revision 1', rev: 1 })}` });
 
 // Book: correcting one entry + forget confirm on another
-const bookCorrect = desktop({ active: 'Book', footL: '5 in the book · Project / Satchel · draft open', paper: `
-  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Project · Satchel</span><h1 class="h1">The book.</h1></div>
+const bookCorrect = desktop({ active: 'Book', footL: '5 in the book · Topic / Satchel · draft open', paper: `
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topic · Satchel</span><h1 class="h1">The book.</h1></div>
     <div class="row"><button class="btn" disabled style="opacity:.55; gap:10px; padding-left:12px;"><span class="eyebrow">In</span><strong style="font-weight:600;">Satchel</strong>${icon.chev}</button><a href="#" class="btn icon" aria-label="Search the book">${icon.search}</a></div></div>
   <p class="fine muted" style="margin:10px 0 18px;">Finish or discard the correction to switch scope.</p>
   <article class="entry" style="border:1px solid var(--ink); border-radius:12px; padding:20px 22px; margin-bottom:8px; background:var(--paper);">
@@ -301,7 +301,7 @@ const bookCorrect = desktop({ active: 'Book', footL: '5 in the book · Project /
     <label class="f"><span>Name</span><input class="field serif" value="plain-words"></label>
     <label class="f"><span>Description</span><textarea class="field" rows="2">Write UI copy in plain 8th-grade words. No jargon, no metaphors, no em dashes. Sentences may start with But or And.</textarea></label>
     <label class="f"><span>More info <span class="ph">· optional</span></span><textarea class="field" rows="3">Hedge naturally with “I feel” or “seems to be”. Repeat a word for emphasis instead of a fancier one. Leave it slightly unpolished.</textarea></label>
-    <div class="between"><span class="fine muted">Saving in Project / Satchel · 148 / 40000</span><div class="row"><button class="btn quiet">Discard changes</button><button class="btn primary">Save correction</button></div></div>
+    <div class="between"><span class="fine muted">Saving in Topic / Satchel · 148 / 40000</span><div class="row"><button class="btn quiet">Discard changes</button><button class="btn primary">Save correction</button></div></div>
   </article>
   <article class="entry">
     <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><h2 class="title serif">memory-index-shape</h2><p style="margin:0; font-size:15px; max-width:640px;">Hooks read only names and descriptions. More info is fetched by name when needed.</p></div></div>
@@ -318,7 +318,7 @@ const bookCorrect = desktop({ active: 'Book', footL: '5 in the book · Project /
 
 // Book: dark theme (same content as Book)
 const bookDark = desktop({ dark: true, active: 'Book', footL: 'Dark theme · same tokens', paper: `
-  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Project · Satchel</span><h1 class="h1">The book.</h1></div>
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topic · Satchel</span><h1 class="h1">The book.</h1></div>
     <div class="row">${scopePicker('Satchel')}<a href="#" class="btn icon" aria-label="Search the book">${icon.search}</a></div></div>
   <div class="between" style="margin:14px 0 6px;"><p class="lede" style="margin:0;">Continuity between the AI apps you already use. Decisions saved here are read by Claude Code and Codex.</p>
     <a href="Book.dc.html" class="btn">${icon.plus} Write something down</a></div>
@@ -327,11 +327,11 @@ const bookDark = desktop({ dark: true, active: 'Book', footL: 'Dark theme · sam
   ${memoryEntry({ name: 'task-authority', desc: 'Supabase is the only authority for task state. GitHub issues are attached references, never mirrors.', prov: 'Saved by Claude Code · MacBook · Tue 16 Sep · revision 2', rev: 2, expanded: true, body: 'Every write carries a request id and the current revision. A stale revision is a conflict, not an overwrite.' })}
   ${memoryEntry({ name: 'plain-words', desc: 'Write UI copy in plain 8th-grade words. No jargon, no metaphors, no em dashes.', prov: 'Said on your MacBook · Fri 12 Sep · revision 3', rev: 3 })}` });
 
-// Projects list
-const projects = desktop({ active: 'Projects', footL: '3 projects', paper: `
-  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Your efforts</span><h1 class="h1">Projects.</h1></div><a href="ProjectEmpty.dc.html" class="btn primary">${icon.plus} New project</a></div>
-  <p class="lede" style="margin:12px 0 22px;">A project is an ongoing effort, not a repository. Link as many codebases as it needs, or none at all.</p>
-  <div style="display:grid; grid-template-columns:minmax(0,2fr) 90px 90px 140px 120px; gap:16px; padding:8px 0; border-bottom:1px solid var(--ink);" class="eyebrow"><span>Project</span><span>Memories</span><span>Tasks</span><span>Apps with access</span><span>Last activity</span></div>
+// Topics list
+const projects = desktop({ active: 'Topics', footL: '3 topics', paper: `
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topics</span><h1 class="h1">Topics.</h1></div><a href="ProjectEmpty.dc.html" class="btn primary">${icon.plus} New topic</a></div>
+  <p class="lede" style="margin:12px 0 22px;">A topic is a subject your memories are about. Satchel makes one when a work fact fits none of these. You can also link a codebase or add tasks to it.</p>
+  <div style="display:grid; grid-template-columns:minmax(0,2fr) 90px 90px 140px 120px; gap:16px; padding:8px 0; border-bottom:1px solid var(--ink);" class="eyebrow"><span>Topic</span><span>Memories</span><span>Tasks</span><span>Apps with access</span><span>Last activity</span></div>
   ${[
     ['Satchel', 'Personal memory and task continuity across AI apps.', ['neerajg03/satchel'], 5, '3 moving · 1 blocked', 'Claude Code, Codex', 'today 09:41', 'Project.dc.html'],
     ['Release workflow', 'Ship the monthly release without a war room.', ['acme/backend', 'acme/frontend'], 2, '2 ready', 'Codex', 'Fri 17:06', 'Project.dc.html'],
@@ -342,17 +342,17 @@ const projects = desktop({ active: 'Projects', footL: '3 projects', paper: `
       <span style="font-size:15px;">${m}</span><span style="font-size:14px;">${t}</span><span style="font-size:14px;">${a}</span><span class="prov">${when}</span>
     </a>`).join('')}` });
 
-// Project detail
-const project = desktop({ active: 'Projects', footL: 'Project / Satchel · created 10 Sep', paper: `
-  <a href="Projects.dc.html" class="fine muted" style="color:var(--muted);">← Projects</a>
-  <div class="head" style="margin-top:8px;"><div class="col" style="gap:8px;"><span class="eyebrow">Project</span><h1 class="h1">Satchel</h1></div>
-    <div class="row"><a href="Book.dc.html" class="btn">Open its book</a><a href="Tasks.dc.html" class="btn">Open its tasks</a><button class="btn icon" aria-label="Project actions">${icon.more}</button></div></div>
+// Topic detail
+const project = desktop({ active: 'Topics', footL: 'Topic / Satchel · created 10 Sep', paper: `
+  <a href="Projects.dc.html" class="fine muted" style="color:var(--muted);">← Topics</a>
+  <div class="head" style="margin-top:8px;"><div class="col" style="gap:8px;"><span class="eyebrow">Topic</span><h1 class="h1">Satchel</h1></div>
+    <div class="row"><a href="Book.dc.html" class="btn">Open its book</a><a href="Tasks.dc.html" class="btn">Open its tasks</a><button class="btn icon" aria-label="Topic actions">${icon.more}</button></div></div>
   <p class="serif" style="font-size:20px; line-height:1.45; margin:14px 0 22px; max-width:680px;">Personal memory and task continuity across AI apps. <a href="#" class="fine" style="font-family:'Instrument Sans',sans-serif;">Edit brief</a></p>
   <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:36px;">
     <section class="col" style="gap:10px;"><div class="between"><span class="eyebrow">Linked codebases</span><a href="#" class="fine">Link another</a></div>
       <div class="between" style="padding:10px 0; border-bottom:1px solid var(--line);"><span class="row" style="gap:8px;">${icon.github}<span class="mono" style="font-size:13px;">neerajg03/satchel</span></span><span class="fine muted">Unlink</span></div>
-      <p class="fine muted" style="margin:0;">A linked repository lets an agent pick this project for a coding chat. It does not grant access by itself.</p></section>
-    <section class="col" style="gap:10px;"><div class="between"><span class="eyebrow">Apps that can see this project</span><a href="Apps.dc.html" class="fine">Manage</a></div>
+      <p class="fine muted" style="margin:0;">A linked repository lets an agent pick this topic for a coding chat. It does not grant access by itself.</p></section>
+    <section class="col" style="gap:10px;"><div class="between"><span class="eyebrow">Apps that can see this topic</span><a href="Apps.dc.html" class="fine">Manage</a></div>
       ${[['green', 'Claude Code', 'memory read/write · tasks read/write + uploads'], ['amber', 'Codex', 'memory read only · no task access']].map(([l, n, d]) => `<div class="col" style="gap:2px; padding:10px 0; border-bottom:1px solid var(--line);"><span class="row" style="gap:8px;"><span class="led ${l}"></span><strong style="font-size:14px;">${n}</strong></span><span class="prov">${d}</span></div>`).join('')}</section>
     <section class="col" style="gap:10px;"><span class="eyebrow">Activity</span>
       ${[['today 09:41', 'Handoff on “Skills packaging” by Claude Code'], ['today 09:18', 'Memory “no-personas-v1” saved from phone'], ['Tue 16 Sep', 'Memory “task-authority” corrected (rev 2)'], ['Mon 15 Sep', 'Task “Add planning graph” moved to done']].map(([w, t]) => `<div class="col" style="gap:2px; padding:8px 0; border-bottom:1px solid var(--line);"><span style="font-size:14px;">${t}</span><span class="prov">${w}</span></div>`).join('')}</section>
@@ -364,25 +364,25 @@ const project = desktop({ active: 'Projects', footL: 'Project / Satchel · creat
       ${['no-personas-v1', 'task-authority', 'plain-words'].map(t => `<a href="Book.dc.html" class="between" style="padding:11px 0; border-bottom:1px solid var(--line); color:var(--ink);"><span class="serif" style="font-size:18px;">${t}</span><span class="prov">${icon.arrow}</span></a>`).join('')}</section>
   </div>` });
 
-// Project: brand new / empty
-const projectEmpty = desktop({ active: 'Projects', topOpts: { status: 'amber', statusText: 'Project has nothing yet' }, footL: 'Project / Managed Agents · created 12 Sep', paper: `
-  <a href="Projects.dc.html" class="fine muted" style="color:var(--muted);">← Projects</a>
-  <div class="head" style="margin-top:8px;"><div class="col" style="gap:8px;"><span class="eyebrow">Project</span><h1 class="h1">Managed Agents</h1></div><button class="btn icon" aria-label="Project actions">${icon.more}</button></div>
-  <div class="panel" style="margin-top:18px; padding:16px 20px; display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:center;"><span class="led amber"></span><span><strong>Agents can't see this project yet.</strong><span class="muted"> It has no brief, no memories and no tasks. Fill in the brief first so an agent can tell it apart from “Satchel”.</span></span></div>
+// Topic: brand new / empty
+const projectEmpty = desktop({ active: 'Topics', topOpts: { status: 'amber', statusText: 'Topic has nothing yet' }, footL: 'Topic / Managed Agents · created 12 Sep', paper: `
+  <a href="Projects.dc.html" class="fine muted" style="color:var(--muted);">← Topics</a>
+  <div class="head" style="margin-top:8px;"><div class="col" style="gap:8px;"><span class="eyebrow">Topic</span><h1 class="h1">Managed Agents</h1></div><button class="btn icon" aria-label="Topic actions">${icon.more}</button></div>
+  <div class="panel" style="margin-top:18px; padding:16px 20px; display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:center;"><span class="led amber"></span><span><strong>Agents can't see this topic yet.</strong><span class="muted"> It has no brief, no memories and no tasks. Fill in the brief first so an agent can tell it apart from “Satchel”.</span></span></div>
   <form class="col" style="gap:14px; margin-top:22px; max-width:640px;">
-    <label class="f"><span>Brief <span class="ph">· one or two lines an agent reads to know what this effort is</span></span><textarea class="field serif" rows="2" placeholder="What is this project for, and what does “done” look like?"></textarea></label>
+    <label class="f"><span>Brief <span class="ph">· one or two lines an agent reads to know what this effort is</span></span><textarea class="field serif" rows="2" placeholder="What is this topic for, and what does “done” look like?"></textarea></label>
     <div class="row" style="gap:10px;"><button class="btn primary">Save brief</button><span class="fine muted">You can change it any time.</span></div>
   </form>
   <div class="steps" style="margin-top:34px; grid-template-columns:repeat(3, minmax(0,1fr));">
-    <div class="step"><span class="n">CODEBASES</span><h2 class="h3">Link a repository</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">Optional. Lets a coding agent select this project when it opens that repo.</p><div class="row" style="gap:8px;"><input class="field" placeholder="owner/repository" style="flex-grow:1;"><button class="btn sm">Link</button></div></div>
-    <div class="step"><span class="n">BOOK</span><h2 class="h3">Save a first decision</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">Something agents should know before working here.</p><a href="BookEmpty.dc.html" class="btn sm" style="align-self:flex-start;">Write in this project's book</a></div>
+    <div class="step"><span class="n">CODEBASES</span><h2 class="h3">Link a repository</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">Optional. Lets a coding agent select this topic when it opens that repo.</p><div class="row" style="gap:8px;"><input class="field" placeholder="owner/repository" style="flex-grow:1;"><button class="btn sm">Link</button></div></div>
+    <div class="step"><span class="n">BOOK</span><h2 class="h3">Save a first decision</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">Something agents should know before working here.</p><a href="BookEmpty.dc.html" class="btn sm" style="align-self:flex-start;">Write in this topic's book</a></div>
     <div class="step"><span class="n">TASKS</span><h2 class="h3">Capture the next thing</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">A title and next action is enough to start.</p><a href="TasksEmpty.dc.html" class="btn sm" style="align-self:flex-start;">Capture a task</a></div>
   </div>` });
 
 // Tasks: empty
 const tasksEmpty = desktop({ active: 'Tasks', topOpts: { status: 'amber', statusText: 'No tasks yet' }, footL: '0 tasks · For me', paper: `
   <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">For me</span><h1 class="h1">Continue.</h1></div><div class="row">${scopePicker('For me')}</div></div>
-  <p class="lede" style="margin:12px 0 26px;">Tasks hold the exact next action and the evidence a session leaves behind. They don't need a repository, and they don't need a project.</p>
+  <p class="lede" style="margin:12px 0 26px;">Tasks hold the exact next action and the evidence a session leaves behind. They don't need a repository, and they don't need a topic.</p>
   <form class="panel" style="padding:22px 24px; display:flex; flex-direction:column; gap:14px; background:var(--paper); border-color:var(--ink);">
     <span class="eyebrow">Capture a task · saving in For me</span>
     <label class="f"><span>Title</span><input class="field serif" placeholder="Submit the August claim"></label>
@@ -404,8 +404,8 @@ const taskRow = ({ t, next, s, cls, prov, extra = '', href = 'Task.dc.html' }) =
   <div class="between"><span class="serif" style="font-size:21px; line-height:1.25;">${t}</span><span class="chip ${cls}">${s}</span></div>
   <span style="font-size:15px;">${next}</span>${extra}
   <span class="prov">${prov}</span></a>`;
-const tasks = desktop({ active: 'Tasks', footL: '7 tasks · 3 actionable · Project / Satchel', paper: `
-  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Project · Satchel</span><h1 class="h1">Continue.</h1></div>
+const tasks = desktop({ active: 'Tasks', footL: '7 tasks · 3 actionable · Topic / Satchel', paper: `
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topic · Satchel</span><h1 class="h1">Continue.</h1></div>
     <div class="row">${scopePicker('Satchel')}<a href="#" class="btn">Export</a><a href="TasksEmpty.dc.html" class="btn primary">${icon.plus} Capture</a></div></div>
   <div class="between" style="margin:16px 0 4px;"><span class="seg"><a href="#" aria-current="true">Actionable 3</a><a href="#">Moving 4</a><a href="#">Blocked 1</a><a href="#">Done 2</a><a href="#">All 7</a></span>
     <label class="row" style="gap:8px; border:1px solid var(--line); border-radius:8px; padding:0 12px; height:40px; width:280px; background:var(--paper2);">${icon.search}<input class="field" placeholder="Title or next action" style="border:0; background:transparent; padding:0;"></label></div>
@@ -416,7 +416,7 @@ const tasks = desktop({ active: 'Tasks', footL: '7 tasks · 3 actionable · Proj
   <p class="fine muted" style="margin:14px 0 0;">2 done tasks are hidden. <a href="#">Show done</a></p>` });
 
 // Task detail
-const taskDetail = desktop({ active: 'Tasks', footL: 'Task · Project / Satchel · revision 9', paper: `
+const taskDetail = desktop({ active: 'Tasks', footL: 'Task · Topic / Satchel · revision 9', paper: `
   <a href="Tasks.dc.html" class="fine muted" style="color:var(--muted);">← Tasks · Satchel</a>
   <div class="head" style="margin-top:8px; align-items:flex-start;"><div class="col" style="gap:10px; max-width:720px;">
       <div class="stepper" aria-label="State"><span class="past">Inbox</span><span class="past">Ready</span><span class="on">In progress</span><span>Blocked</span><span>Done</span></div>
@@ -504,7 +504,7 @@ const consent = page({ w: 1280, h: 820, body: `<div class="frame" style="width:1
         <span class="check"><i class="on"></i>Also allow creating tasks, updates, moves and handoffs</span><span class="check"><i></i>Also allow file uploads to task storage</span>
       </fieldset>
       </div>
-      <span class="fine muted">Projects you create later are not included. Add them from Apps.</span>
+      <span class="fine muted">Topics made later are not included. Add them from Apps.</span>
       <div class="row" style="gap:10px; margin-top:6px;"><a href="ConnectedCodex.dc.html" class="btn primary" style="min-height:46px; padding:0 22px;">Allow this access</a><button class="btn" style="min-height:46px;">Deny</button><span class="fine muted" style="margin-left:8px;">You can change or revoke this later in Apps.</span></div>
     </div>
     <aside class="col" style="gap:14px; padding-top:44px;">
@@ -522,7 +522,7 @@ const settings = desktop({ active: 'Settings', footL: 'Account · neerajg03 · G
   <div style="display:grid; grid-template-columns:200px 1fr; gap:10px 40px; margin-top:26px; max-width:900px; align-items:start;">
     ${[
       ['Account', `<div class="between" style="max-width:560px;"><span class="row" style="gap:10px;">${icon.github}<span><strong>neerajg03</strong> <span class="muted">· neeraj@different.ai</span></span></span><button class="btn sm">Sign out</button></div><span class="fine muted">GitHub is used only to sign you in.</span>`],
-      ['Take it with you', `<div class="col" style="gap:10px; max-width:560px;"><p style="margin:0; font-size:14px;">Export everything as a portable manifest plus your verified task files. No credentials are included. Identifiers, sources and revision history are kept.</p><div class="row"><button class="btn">Export all</button><button class="btn quiet">Export one project…</button></div></div>`],
+      ['Take it with you', `<div class="col" style="gap:10px; max-width:560px;"><p style="margin:0; font-size:14px;">Export everything as a portable manifest plus your verified task files. No credentials are included. Identifiers, sources and revision history are kept.</p><div class="row"><button class="btn">Export all</button><button class="btn quiet">Export one scope…</button></div></div>`],
       ['Overnight pass', `<div class="col" style="gap:10px; max-width:560px;"><p class="muted" style="margin:0; font-size:14px;">While you are away, Satchel reads the conversations that have gone quiet and updates your memory from them. It signs in as its own connection, listed in Apps as Satchel consolidation, and you can revoke it there. It is off until you switch it on.</p><label class="check"><i class="on"></i><span>Run overnight</span></label><label class="f" style="max-width:200px;">How often<select class="field"><option>Twice a day</option></select></label><div class="row" style="gap:16px;"><label class="f">First run<input class="field" value="02:00" style="width:120px;"></label><label class="f">Second run<input class="field" value="14:00" style="width:120px;"></label></div><div class="col" style="gap:6px;"><span style="font-size:13px; font-weight:500;">On these days</span><div class="row" style="gap:6px 18px; flex-wrap:wrap;">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => `<label class="check"><i class="on"></i><span>${d}</span></label>`).join('')}</div><span class="fine" style="color:var(--accent);">Every day · Weekdays</span></div><span class="fine muted">Times are in Asia/Kolkata, this browser's time zone. A pass only runs when there is a conversation that has been quiet for 30 minutes, so a night with nothing new costs nothing.</span><div class="row"><button class="btn primary">Save schedule</button></div><div class="row" style="gap:12px;"><span class="light green"><span class="led"></span><span class="word">working</span></span><span class="fine">Every day at 02:00 and 14:00</span></div></div>`],
       ['Forgetting', `<div class="col" style="gap:6px; max-width:560px;"><p style="margin:0; font-size:14px;">Forget removes a record from active retrieval right away. Satchel cannot delete copies from earlier chats, exports, or an app's own memory.</p><a href="#" class="fine">Read how retention works ${icon.arrow}</a></div>`],
     ].map(([k, v]) => `<span class="h3" style="padding:18px 0; border-top:1px solid var(--line);">${k}</span><div style="padding:18px 0; border-top:1px solid var(--line);">${v}</div>`).join('')}
@@ -565,7 +565,7 @@ const phoneConsent = phone({ active: 'More', paper: `
     <span class="check"><i class="on"></i>For me</span><span class="check"><i class="on"></i>Satchel</span><span class="check"><i></i>Release workflow</span><span class="check"><i></i>Reimbursements</span>
     <button class="btn primary" style="margin-top:4px;">Allow saves</button></div>
   <span class="eyebrow" style="margin:22px 0 6px;">More</span>
-  ${[['Projects', 'PhoneBook.dc.html'], ['Apps', 'PhoneLeftOff.dc.html'], ['Settings', 'PhoneLeftOff.dc.html']].map(([l, h]) => `<a href="${h}" class="between" style="padding:14px 0; border-bottom:1px solid var(--line); color:var(--ink); font-size:16px; font-weight:500;">${l}${icon.arrow}</a>`).join('')}` });
+  ${[['Topics', 'PhoneBook.dc.html'], ['Apps', 'PhoneLeftOff.dc.html'], ['Settings', 'PhoneLeftOff.dc.html']].map(([l, h]) => `<a href="${h}" class="between" style="padding:14px 0; border-bottom:1px solid var(--line); color:var(--ink); font-size:16px; font-weight:500;">${l}${icon.arrow}</a>`).join('')}` });
 
 /* ---------------- Direction board ---------------- */
 const direction = page({ w: 1280, h: 820, body: `<div style="width:1280px; height:820px; background:#F4F0E7; color:#1F1B17; padding:44px 52px; display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); gap:26px; align-content:start; box-sizing:border-box;">
@@ -591,7 +591,7 @@ const direction = page({ w: 1280, h: 820, body: `<div style="width:1280px; heigh
     <div class="stepper" style="margin-top:10px;"><span class="past">Inbox</span><span class="on">Ready</span><span>Done</span></div>
   </section>
   <section style="grid-column:1/-1; display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:26px; border-top:1px solid #D9D1C4; padding-top:18px;">
-    ${[['Every empty state answers three things', 'What this place is for, the one action that fills it, and a way to see what it looks like full. Never a lonely sentence.'], ['Provenance on every record', 'Who saved it, from where, when, and its revision. History is disclosed on demand, not struck through in the list.'], ['Scope is a picker, not chips', 'For me plus a searchable project list. Works for 3 projects and for 40. Locked while a draft is open, with the reason shown.'], ['Lights always come with words', 'An LED never stands alone. Green “verified today”, amber “reads only”, off “not connected”.']].map(([t, d]) => `<div class="col" style="gap:6px;"><strong style="font-size:15px;">${t}</strong><span class="muted" style="font-size:13.5px;">${d}</span></div>`).join('')}
+    ${[['Every empty state answers three things', 'What this place is for, the one action that fills it, and a way to see what it looks like full. Never a lonely sentence.'], ['Provenance on every record', 'Who saved it, from where, when, and its revision. History is disclosed on demand, not struck through in the list.'], ['Scope is a picker, not chips', 'For me plus a searchable topic list. Works for 3 topics and for 40. Locked while a draft is open, with the reason shown.'], ['Lights always come with words', 'An LED never stands alone. Green “verified today”, amber “reads only”, off “not connected”.']].map(([t, d]) => `<div class="col" style="gap:6px;"><strong style="font-size:15px;">${t}</strong><span class="muted" style="font-size:13.5px;">${d}</span></div>`).join('')}
   </section>
 </div>` });
 
@@ -693,7 +693,7 @@ const headings = page({ w: 1280, h: 820, extraCss: `@import url('${HANDS}');`, b
     <span class="muted" style="font-size:12.5px; line-height:1.5;">${note}</span></div>`).join('')}
   <div style="grid-column:1/-1; display:grid; grid-template-columns:1fr 1fr 1fr; gap:18px; border-top:1px solid #C9C1B3; padding-top:18px; margin-top:6px;">
     <div class="col" style="gap:8px;"><span class="eyebrow">Option A · script H1 everywhere · rejected</span>
-      <div style="background:#F4F0E7; border-radius:10px; padding:16px 18px; display:flex; flex-direction:column; gap:6px;"><span class="eyebrow">Project · Satchel</span><span style="font-family:'Caveat',cursive; font-weight:600; font-size:44px; line-height:.95;">The book.</span><span style="font-family:'Caveat',cursive; font-weight:600; font-size:44px; line-height:.95;">Continue.</span><span style="font-family:'Caveat',cursive; font-weight:600; font-size:44px; line-height:.95;">Codex wants to read your Satchel.</span></div>
+      <div style="background:#F4F0E7; border-radius:10px; padding:16px 18px; display:flex; flex-direction:column; gap:6px;"><span class="eyebrow">Topic · Satchel</span><span style="font-family:'Caveat',cursive; font-weight:600; font-size:44px; line-height:.95;">The book.</span><span style="font-family:'Caveat',cursive; font-weight:600; font-size:44px; line-height:.95;">Continue.</span><span style="font-family:'Caveat',cursive; font-weight:600; font-size:44px; line-height:.95;">Codex wants to read your Satchel.</span></div>
       <span class="muted" style="font-size:12.5px;">Works on one-word pages. The consent heading is where it starts to feel wrong: a permission request written in marker. </span></div>
     <div class="col" style="gap:8px;"><span class="eyebrow">Option B · handwriting as the margin note · considered</span>
       <div style="background:#F4F0E7; border-radius:10px; padding:16px 18px; display:flex; flex-direction:column; gap:4px;"><span style="font-family:'Caveat',cursive; font-weight:500; font-size:22px; color:#B8451A; line-height:1;">Wednesday, 17 Sep</span><span class="serif" style="font-size:38px; letter-spacing:-.02em; line-height:1.05;">Where you left off.</span><span style="font-family:'Caveat',cursive; font-weight:500; font-size:20px; color:#6B6257; margin-top:8px;">said on your phone, 09:18</span></div>
@@ -712,15 +712,15 @@ const swapFoot = (html, text) => html.replace(/<div class="foot"><span>[^<]*<\/s
 // 1. Scope picker, open, on the Book
 const scopePickerOpen = overlay(book.replace(scopePicker('Satchel'), `<button class="btn focus" style="gap:10px; padding-left:12px; background:var(--paper3);" aria-expanded="true"><span class="eyebrow" style="color:var(--muted);">In</span><strong style="font-weight:600;">Satchel</strong>${icon.chev}</button>`), `
       <div class="drop" role="listbox" aria-label="Choose a scope">
-        <label class="row" style="gap:8px; border:1px solid var(--line); border-radius:8px; padding:0 12px; height:40px; background:var(--paper2); margin-bottom:6px;">${icon.search}<input class="field" placeholder="Find a project" style="border:0; background:transparent; padding:0;"></label>
+        <label class="row" style="gap:8px; border:1px solid var(--line); border-radius:8px; padding:0 12px; height:40px; background:var(--paper2); margin-bottom:6px;">${icon.search}<input class="field" placeholder="Find a topic" style="border:0; background:transparent; padding:0;"></label>
         <a href="BookEmpty.dc.html"><span>For me</span><span class="prov">applies everywhere</span></a>
-        <span class="eyebrow" style="padding:10px 12px 4px;">Projects · 4</span>
+        <span class="eyebrow" style="padding:10px 12px 4px;">Topics · 4</span>
         <a href="Book.dc.html" aria-current="true"><span>Satchel</span><span class="prov">5 memories</span></a>
         <a href="#"><span>Release workflow</span><span class="prov">2 memories</span></a>
         <a href="#"><span>Reimbursements</span><span class="prov">1 memory</span></a>
         <a href="#"><span>Managed Agents</span><span class="prov" style="color:var(--amber);">empty</span></a>
         <div class="hr" style="margin:6px 0;"></div>
-        <a href="ProjectNew.dc.html" style="color:var(--accent);"><span class="row" style="gap:8px;">${icon.plus} New project</span></a>
+        <a href="ProjectNew.dc.html" style="color:var(--accent);"><span class="row" style="gap:8px;">${icon.plus} New topic</span></a>
       </div>`);
 
 // 2. Move to Blocked sheet, on the task page
@@ -764,26 +764,26 @@ docs/skills-and-plugins.md updated</textarea></label>
     </aside>
   </div>` });
 
-// 4. New project sheet, on Projects
+// 4. New topic sheet, on Topics
 const projectNew = overlay(projects, `
       <div class="scrim"><form class="sheet">
-        <div class="col" style="gap:6px;"><span class="eyebrow">New project</span><h2 class="h2">Name the effort, not the repo.</h2>
-          <p class="muted" style="margin:0; font-size:14px;">A project can hold many repositories or none. You can link codebases on the next page.</p></div>
+        <div class="col" style="gap:6px;"><span class="eyebrow">New topic</span><h2 class="h2">Name the effort, not the repo.</h2>
+          <p class="muted" style="margin:0; font-size:14px;">A topic can hold many repositories or none. You can link codebases on the next page.</p></div>
         <label class="f"><span>Name</span><input class="field serif focus" placeholder="Release workflow" value="Rules engine"></label>
-        <label class="f"><span>Brief <span class="ph">· one or two lines an agent reads to tell this apart from your other projects</span></span><textarea class="field" rows="2" placeholder="What is this for, and what does done look like?">Declarative constraints Satchel enforces on agents, with an event log of what was blocked or overridden.</textarea></label>
-        <span class="fine muted">A project with the same name already exists? Satchel will ask before creating a second one.</span>
-        <div class="between"><span class="fine muted">Opens the new project page</span><div class="row"><button type="button" class="btn quiet">Cancel</button><a href="ProjectEmpty.dc.html" class="btn primary">Create project</a></div></div>
+        <label class="f"><span>Brief <span class="ph">· one or two lines an agent reads to tell this apart from your other topics</span></span><textarea class="field" rows="2" placeholder="What is this for, and what does done look like?">Declarative constraints Satchel enforces on agents, with an event log of what was blocked or overridden.</textarea></label>
+        <span class="fine muted">A topic with the same name already exists? Satchel will ask before creating a second one.</span>
+        <div class="between"><span class="fine muted">Opens the new topic page</span><div class="row"><button type="button" class="btn quiet">Cancel</button><a href="ProjectEmpty.dc.html" class="btn primary">Create topic</a></div></div>
       </form></div>`);
 
 // 5. Book search results
-const bookSearch = desktop({ active: 'Book', footL: '2 of 5 match “authority” · Project / Satchel', paper: `
-  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Project · Satchel</span><h1 class="h1">The book.</h1></div>
+const bookSearch = desktop({ active: 'Book', footL: '2 of 5 match “authority” · Topic / Satchel', paper: `
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topic · Satchel</span><h1 class="h1">The book.</h1></div>
     <div class="row">${scopePicker('Satchel')}<label class="row focus" style="gap:8px; border:1px solid var(--ink); border-radius:8px; padding:0 12px; height:40px; width:320px; background:var(--paper);">${icon.search}<input class="field" value="authority" style="border:0; background:transparent; padding:0;"><a href="Book.dc.html" class="fine muted" aria-label="Clear search" style="color:var(--muted);">Clear</a></label></div></div>
   <div class="between" style="margin:14px 0 6px;"><p class="lede" style="margin:0;">Searching names, descriptions and more info in this scope. <a href="#" class="fine">Search all scopes instead</a></p></div>
   <div class="row" style="gap:8px; margin:12px 0 4px;"><span class="seg"><a href="#" aria-current="true">Matches 2</a><a href="#">In name 1</a><a href="#">In more info 1</a></span></div>
   ${memoryEntry({ name: 'task-<mark>authority</mark>', desc: 'Supabase is the only <mark>authority</mark> for task state. GitHub issues are attached references, never mirrors.', prov: 'Saved by Claude Code · MacBook · Tue 16 Sep · revision 2 · matched in name and description', rev: 2 })}
   ${memoryEntry({ name: 'memory-index-shape', desc: 'Hooks read only names and descriptions. More info is fetched by name when needed.', prov: 'Saved by Codex · desktop · Thu 11 Sep · revision 1 · matched in more info', rev: 1, expanded: true, body: '…the index is not the <mark>authority</mark> on content, only on what exists. Fetch More info by name before acting on a memory.' })}
-  <div class="empty" style="margin-top:28px; gap:6px;"><span class="fine muted">Not here? Memories saved in “For me” and other projects are not searched unless you widen the scope above.</span></div>` });
+  <div class="empty" style="margin-top:28px; gap:6px;"><span class="fine muted">Not here? Memories saved in “For me” and other topics are not searched unless you widen the scope above.</span></div>` });
 
 // 6. Errors and conflicts: four in-place states plus the footer readouts
 const mini = (title, inner) => `<div class="col" style="gap:8px; min-height:0;"><span class="eyebrow">${title}</span><div style="background:var(--paper); border-radius:12px; padding:22px 24px; box-shadow:inset 0 0 0 1px #0000000d; flex-grow:1; display:flex; flex-direction:column; gap:12px; overflow:hidden;">${inner}</div></div>`;
@@ -814,11 +814,11 @@ const components = page({ w: 1280, h: 820, body: `<div style="width:1280px; heig
     <div class="row" style="gap:16px;"><span class="check"><i class="focus" style="outline-offset:2px;"></i>Checkbox</span><a href="#" class="fine focus" style="outline-offset:2px;">Text link</a><span class="seg"><a href="#" aria-current="true" class="focus" style="outline-offset:-3px;">Segment</a><a href="#">Other</a></span></div>
     <span class="fine muted">On hardware the ring is orange. On paper it is accent red-orange. Never a blue browser default. Never removed.</span>`)}
   ${mini('Long names · rail and picker', `<div style="background:#26231F; border-radius:12px; padding:12px; display:flex; gap:12px;"><nav class="rail" style="width:154px; padding:0;"><a href="#" aria-current="page"><span class="dot"></span>Left off</a><a href="#"><span class="dot"></span>Book</a><a href="#" title="Tasks · 7 moving"><span class="dot"></span><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tasks · 7 moving</span></a></nav>
-      <div class="col" style="gap:4px; color:#EEE7DB; font-size:12.5px; padding-top:4px;"><span>The rail never shows project names. Six fixed destinations, so nothing there can grow.</span></div></div>
+      <div class="col" style="gap:4px; color:#EEE7DB; font-size:12.5px; padding-top:4px;"><span>The rail never shows topic names. Six fixed destinations, so nothing there can grow.</span></div></div>
     <div class="drop" style="position:static; width:auto; max-height:220px; overflow:hidden; box-shadow:none;"><label class="row" style="gap:8px; border:1px solid var(--line); border-radius:8px; padding:0 12px; height:36px; background:var(--paper2);">${icon.search}<input class="field" value="re" style="border:0; background:transparent; padding:0;"></label>
-      <span class="eyebrow" style="padding:8px 12px 2px;">Projects · 3 of 41 match</span>
+      <span class="eyebrow" style="padding:8px 12px 2px;">Topics · 3 of 41 match</span>
       <a href="#"><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Release workflow</span><span class="prov">2</span></a><a href="#"><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Reimbursements for the Bengaluru office move, FY26 and the two vendor…</span><span class="prov">1</span></a><a href="#"><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Rules engine</span><span class="prov" style="color:var(--amber);">empty</span></a></div>
-    <span class="fine muted">Picker rows truncate to one line with the full name on hover. Search filters as you type. Forty projects is a list, not a wall of chips.</span>`)}
+    <span class="fine muted">Picker rows truncate to one line with the full name on hover. Search filters as you type. Forty topics is a list, not a wall of chips.</span>`)}
   ${mini('Long titles · wrap, never clip', `<a href="#" class="entry" style="color:var(--ink); gap:5px; padding:12px 0;"><div class="between" style="align-items:flex-start;"><span class="serif" style="font-size:21px; line-height:1.25; max-width:360px;">Migrate every rule_events consumer off the nightly export and onto the streaming view before the retention change lands in October</span><span class="chip ink">ready</span></div><span style="font-size:14px;">Next: list the consumers in a comment on this task.</span><span class="prov">Medium · rev 1 · title 132 / 200</span></a>
     <article class="entry" style="padding:12px 0;"><h2 class="title serif" style="font-size:20px; overflow-wrap:anywhere;">how-i-want-answers-written-when-the-question-is-about-code-review-and-not-about-architecture</h2><p style="margin:0; font-size:14px;">Memory names wrap on hyphens. Field limit 120, shown as a counter while typing.</p><span class="prov">Name 92 / 120</span></article>
     <span class="fine muted">Chips and readouts stay on one line and never wrap. Titles and descriptions wrap as far as they need. Over-tall beats clipped.</span>`)}
@@ -885,12 +885,12 @@ const rows = [
   ['Design system, the mark, motion, the corner fix, and the heading font question', ['Direction.dc.html', 'Mark.dc.html', 'Motion.dc.html', 'Corners.dc.html', 'Headings.dc.html']],
   ['Arrive: sign in, first run, then where you left off', ['Welcome.dc.html', 'LeftOffEmpty.dc.html', 'Main.dc.html']],
   ['The book: empty, filled, correcting and forgetting, dark theme', ['BookEmpty.dc.html', 'Book.dc.html', 'BookCorrect.dc.html', 'BookDark.dc.html']],
-  ['Projects: list, a full project, a brand new one', ['Projects.dc.html', 'Project.dc.html', 'ProjectEmpty.dc.html']],
+  ['Topics: list, a full topic, a brand new one', ['Projects.dc.html', 'Project.dc.html', 'ProjectEmpty.dc.html']],
   ['Tasks: empty, list, task detail with timeline', ['TasksEmpty.dc.html', 'Tasks.dc.html', 'Task.dc.html']],
   ['v1 details: the picker open, sheets, edit, search, errors, and component states', ['ScopePicker.dc.html', 'BookSearch.dc.html', 'ProjectNew.dc.html', 'TaskEdit.dc.html', 'TaskBlocked.dc.html', 'Errors.dc.html', 'Components.dc.html']],
   ['Apps and settings: empty, connected, consent request, settings', ['AppsEmpty.dc.html', 'Apps.dc.html', 'Consent.dc.html', 'ConnectedClaude.dc.html', 'ConnectedCodex.dc.html', 'Settings.dc.html']],
 ];
-const titles = { 'Direction.dc.html': 'Direction', 'Mark.dc.html': 'Mark · logo and wordmark', 'Welcome.dc.html': 'Welcome (signed out)', 'LeftOffEmpty.dc.html': 'Left off · first run', 'Main.dc.html': 'Left off', 'BookEmpty.dc.html': 'Book · empty', 'Book.dc.html': 'Book', 'BookCorrect.dc.html': 'Book · correcting + forget', 'BookDark.dc.html': 'Book · dark theme', 'Projects.dc.html': 'Projects', 'Project.dc.html': 'Project', 'ProjectEmpty.dc.html': 'Project · new and empty', 'TasksEmpty.dc.html': 'Tasks · empty', 'Tasks.dc.html': 'Tasks', 'Task.dc.html': 'Task detail', 'AppsEmpty.dc.html': 'Apps · none connected', 'Apps.dc.html': 'Apps', 'Consent.dc.html': 'Consent request', 'Settings.dc.html': 'Settings', 'ScopePicker.dc.html': 'Scope picker · open', 'BookSearch.dc.html': 'Book · search results', 'ProjectNew.dc.html': 'New project sheet', 'TaskEdit.dc.html': 'Task · editing', 'TaskBlocked.dc.html': 'Task · move to Blocked', 'Errors.dc.html': 'Errors and conflicts', 'Components.dc.html': 'Components · focus and long content', 'Motion.dc.html': 'Motion', 'Headings.dc.html': 'Headings · serif vs handwriting', 'MainScript.dc.html': 'Left off · Caveat heading (option A)', 'Corners.dc.html': 'Corners · leak and fix', 'ConnectedClaude.dc.html': 'Satchel × Claude', 'ConnectedCodex.dc.html': 'Satchel × OpenAI', 'BookDark.dc.html': 'Book · dark theme (v2 reference)', 'PhoneLeftOff.dc.html': 'v2 Android ref · Left off', 'PhoneBook.dc.html': 'v2 Android ref · Book', 'PhoneTask.dc.html': 'v2 Android ref · Task', 'PhoneConsent.dc.html': 'v2 Android ref · More' };
+const titles = { 'Direction.dc.html': 'Direction', 'Mark.dc.html': 'Mark · logo and wordmark', 'Welcome.dc.html': 'Welcome (signed out)', 'LeftOffEmpty.dc.html': 'Left off · first run', 'Main.dc.html': 'Left off', 'BookEmpty.dc.html': 'Book · empty', 'Book.dc.html': 'Book', 'BookCorrect.dc.html': 'Book · correcting + forget', 'BookDark.dc.html': 'Book · dark theme', 'Projects.dc.html': 'Topics', 'Project.dc.html': 'Topic', 'ProjectEmpty.dc.html': 'Topic · new and empty', 'TasksEmpty.dc.html': 'Tasks · empty', 'Tasks.dc.html': 'Tasks', 'Task.dc.html': 'Task detail', 'AppsEmpty.dc.html': 'Apps · none connected', 'Apps.dc.html': 'Apps', 'Consent.dc.html': 'Consent request', 'Settings.dc.html': 'Settings', 'ScopePicker.dc.html': 'Scope picker · open', 'BookSearch.dc.html': 'Book · search results', 'ProjectNew.dc.html': 'New topic sheet', 'TaskEdit.dc.html': 'Task · editing', 'TaskBlocked.dc.html': 'Task · move to Blocked', 'Errors.dc.html': 'Errors and conflicts', 'Components.dc.html': 'Components · focus and long content', 'Motion.dc.html': 'Motion', 'Headings.dc.html': 'Headings · serif vs handwriting', 'MainScript.dc.html': 'Left off · Caveat heading (option A)', 'Corners.dc.html': 'Corners · leak and fix', 'ConnectedClaude.dc.html': 'Satchel × Claude', 'ConnectedCodex.dc.html': 'Satchel × OpenAI', 'BookDark.dc.html': 'Book · dark theme (v2 reference)', 'PhoneLeftOff.dc.html': 'v2 Android ref · Left off', 'PhoneBook.dc.html': 'v2 Android ref · Book', 'PhoneTask.dc.html': 'v2 Android ref · Task', 'PhoneConsent.dc.html': 'v2 Android ref · More' };
 const boards = {}, order = [], notes = {};
 rows.forEach(([title, list], r) => {
   const y = r * ROW;
@@ -902,7 +902,7 @@ const py = rows.length * ROW;
 notes.rowPhone = { x: 0, y: py - 240, text: 'v2 reference only: phone becomes a native Android app with app intents', kind: 'title1', maxW: 4 * (390 + GX) - GX + 800 };
 ['PhoneLeftOff.dc.html', 'PhoneBook.dc.html', 'PhoneTask.dc.html', 'PhoneConsent.dc.html'].forEach((f, i) => { boards[f] = { x: i * (390 + GX), y: py, w: 390, h: 844, title: titles[f], is_interactive: true }; order.push(f); });
 notes.stickyEmpty = { x: 3 * (W + GX) + 40, y: 1 * ROW, w: 420, text: 'Empty states follow one rule: say what the place is for, give the single action that fills it, and offer a look at the full version. The first-run Left off page is the strongest example.', color: 'orange', size: 'm' };
-notes.stickyScope = { x: 4 * (W + GX) + 40, y: 2 * ROW, w: 420, text: 'Scope picker replaces the project chips and the sidebar list. Same control on Book and Tasks. It locks while a draft is open and says why.', color: 'orange', size: 'm' };
+notes.stickyScope = { x: 4 * (W + GX) + 40, y: 2 * ROW, w: 420, text: 'Scope picker replaces the topic chips and the sidebar list. Same control on Book and Tasks. It locks while a draft is open and says why.', color: 'orange', size: 'm' };
 notes.stickyTask = { x: 3 * (W + GX) + 40, y: 4 * ROW, w: 420, text: 'The task page puts the next action first, then one composer with three modes (comment, progress, handoff) instead of three long forms. Everything else moves to the right column.', color: 'orange', size: 'm' };
 
 const canvas = { v: 3, attachments: {}, createdOnFiles: { v: 1, at: '2026-09-17T07:06:50.427Z' }, title: 'Satchel UI Redesign', launch: { view: 'canvas' }, pages: [], boards, order, notes, designSystems: [] };

@@ -14,7 +14,7 @@ Langfuse: <n> of <n> runs traced · <n> waited · <n> errors · cost $<x>
 |-------------------------|---------:|------:|-----:|
 | changes                 |          |       |      |
 | sessions with any       |          |       |      |
-| project-scoped          |          |       |      |
+| topic-scoped            |          |       |      |
 | intents                 |          |       |      |
 | affirm / extend / replace / retire |  |    |      |
 

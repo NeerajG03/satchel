@@ -33,6 +33,8 @@ description text not null, 1..280
 more_info   text default '', <= 40000
 ```
 
+Topics are stored in the `projects` table, so the column is `project_id`.
+
 Things that matter for the migration and are easy to miss:
 
 - `memories_scope_name` and `memories_personal_name` are **unique indexes on `lower(btrim(name))`**. Making `name` nullable does not remove them, and a partial index is needed so many NULL-named rows can coexist.
@@ -40,7 +42,7 @@ Things that matter for the migration and are easy to miss:
 - `stamp_memory_revision` is a `before update` trigger that bumps `revision` and sets `updated_at`. Any new write path inherits it for free.
 - RLS for agents is `agent_memory_read/insert/update/delete` in [202609110003_agent_connections.sql](../supabase/migrations/202609110003_agent_connections.sql), all gated on `public.agent_can_access(project_id, write)`.
 
-`tasks` is in [20260916070509_task_management.sql:99](../supabase/migrations/20260916070509_task_management.sql), made scope-nullable by [20260916154226_personal_tasks.sql](../supabase/migrations/20260916154226_personal_tasks.sql) using a generated `scope_key` column rather than a synthetic project row.
+`tasks` is in [20260916070509_task_management.sql:99](../supabase/migrations/20260916070509_task_management.sql), made scope-nullable by [20260916154226_personal_tasks.sql](../supabase/migrations/20260916154226_personal_tasks.sql) using a generated `scope_key` column rather than a synthetic topic row.
 
 ### 2.2 What is simply absent
 
@@ -54,7 +56,7 @@ $ grep -rniE "tsvector|pg_trgm|vector|embedding|websearch_to_tsquery" supabase/ 
 
 So slugs, full text search, and any vector work are all new. There is also no settings table, no injection log, and no context preview anywhere in `src/`.
 
-Projects have **no uniqueness constraint on `name`** either. `projects` is `unique (owner_id, id)` only. The design's "unique per user" slug is a new constraint, not a rename of an existing one.
+Topics have **no uniqueness constraint on `name`** either. `projects` is `unique (owner_id, id)` only. The design's "unique per user" slug is a new constraint, not a rename of an existing one.
 
 ### 2.3 The current injection path
 
@@ -278,7 +280,7 @@ Four of these are load-bearing evidence for decisions the design already made on
 
 ### 4.6 Measured against a corpus I did not write
 
-Everything above is five rows I wrote myself, which proves the SQL runs and proves nothing about whether retrieval is any good. So a separate agent generated a corpus with no knowledge of the query design: one person's accumulated context across 17 projects, 99 tasks, **413 memories** and **75 realistic prompts**. Domains run from a Go payments ledger to sourdough, knee rehab, a Schengen visa and a wedding. The prompts were written as things a person would type, not as queries designed to hit anything.
+Everything above is five rows I wrote myself, which proves the SQL runs and proves nothing about whether retrieval is any good. So a separate agent generated a corpus with no knowledge of the query design: one person's accumulated context across 17 topics, 99 tasks, **413 memories** and **75 realistic prompts**. Domains run from a Go payments ledger to sourdough, knee rehab, a Schengen visa and a wedding. The prompts were written as things a person would type, not as queries designed to hit anything.
 
 **Result 1. The AND form is not slightly wrong, it is unusable.**
 
@@ -467,7 +469,7 @@ Measured on this machine over 488 texts. `all-minilm` ranks slightly better and 
 
 Hybrid is the destination, not a deferred maybe. The build order does not change, because step 7 still ships FTS and FTS still works standalone with no model and no embedding call in front of every prompt. But the framing does: FTS is step one because it is independent, not because it is sufficient. Step 8 adds `vector`, the embedding call, and the cosine gate.
 
-It also has to be pgvector **inside Supabase**, not a separate vector service. The scope multipliers in [§5.4](memory-v2.md) have to be applied inside the ranking, not after it. A separate service can only return top-K on raw similarity, so a memory that ranked 51st but would have won after a 3x touched-project boost is already discarded before the boost can run. One database, one round trip, one set of grants.
+It also has to be pgvector **inside Supabase**, not a separate vector service. The scope multipliers in [§5.4](memory-v2.md) have to be applied inside the ranking, not after it. A separate service can only return top-K on raw similarity, so a memory that ranked 51st but would have won after a 3x touched-topic boost is already discarded before the boost can run. One database, one round trip, one set of grants.
 
 ### 4.9 Final numbers, with intervals
 
@@ -496,7 +498,7 @@ That simplifies the build considerably. No fusion, no `lexeme_df` materialized v
 
 **The scope multipliers are far too aggressive, and the big ones buy nothing.**
 
-A boost multiplies a score in [0,1], so it reorders globally rather than nudging. Measured against a session sitting in one repo, once where the boosted project is the one being asked about and once where it is not:
+A boost multiplies a score in [0,1], so it reorders globally rather than nudging. Measured against a session sitting in one repo, once where the boosted topic is the one being asked about and once where it is not:
 
 ```
 mult    right-project   wrong-project    break-even hit rate
@@ -508,7 +510,7 @@ mult    right-project   wrong-project    break-even hit rate
 3.0            +0.073          -0.508    87% of prompts
 ```
 
-**1.1 captures the entire benefit of 3.0 and costs a twentieth as much when wrong.** Above 1.25 the gain is flat and only the damage grows. [§5.4](memory-v2.md) specifies 3.0 for a touched project and 2.0 for a linked one, which would need 87% of prompts in a session to be about that project just to break even. On a corpus spanning a payments ledger, sourdough and knee rehab, they are not.
+**1.1 captures the entire benefit of 3.0 and costs a twentieth as much when wrong.** Above 1.25 the gain is flat and only the damage grows. [§5.4](memory-v2.md) specifies 3.0 for a touched topic and 2.0 for a linked one, which would need 87% of prompts in a session to be about that topic just to break even. On a corpus spanning a payments ledger, sourdough and knee rehab, they are not.
 
 **The closed-task demotion is contradicted by the labels.**
 
@@ -525,7 +527,7 @@ statement+source - statement: +0.015  [-0.011, 0.041]  NOISE
 nomic/scoped (project prefix): 0.508, worse than plain statement
 ```
 
-Prefixing the project name actively hurts. Storing `source` remains right for the audit trail in [§4.3](memory-v2.md), but it does not belong in the index.
+Prefixing the topic name actively hurts. Storing `source` remains right for the audit trail in [§4.3](memory-v2.md), but it does not belong in the index.
 
 **The gate is a dial, and the corpus is too thin to fix its value.**
 
@@ -545,7 +547,7 @@ Given that, I would ship the looser end. An extra row the agent ignores costs a 
 **The recommendation, measured end to end:**
 
 ```
-nomic-embed-text over statement, cosine gate 0.55, cap 5, 1.1 boost on the in-repo project
+nomic-embed-text over statement, cosine gate 0.55, cap 5, 1.1 boost on the in-repo topic
 nDCG@10 0.523 [0.458, 0.589]   covered 67/69   silent 3/6
 ```
 
@@ -559,7 +561,7 @@ Everything above ran on 413 memories and 75 prompts, of which **six** had no cor
 
 It is now **473 memories and 159 prompts, 114 answerable and 45 answerless**, with 373 grade-2 and 537 grade-1 judgements. The additions were written by agents given the schema and the gaps, and no knowledge of the retrieval design:
 
-- 60 memories in the shapes the set was missing: `supersession` (a newer memory contradicting an older one), `near-duplicate` (the same fact for a different project, so fetching the wrong one is a real error), `identifier`, `very-short`, `numeric`, `people`, `task-dependent`, `half-opinion`.
+- 60 memories in the shapes the set was missing: `supersession` (a newer memory contradicting an older one), `near-duplicate` (the same fact for a different topic, so fetching the wrong one is a real error), `identifier`, `very-short`, `numeric`, `people`, `task-dependent`, `half-opinion`.
 - 84 prompts: 40 hard but answerable (`paraphrase`, `identifier`, `code-mixed` Hinglish, `typo`, `rambling`, `style-only`, `cross-domain`, `temporal`) and 44 with no answer at all, including **13 lexical traps** that share strong vocabulary with a memory while meaning something unrelated.
 
 Adding memories invalidated existing labels, so the older prompts were rechecked against the new rows. **14 of them had gained a correct answer** they were not credited for. An eval that skips that step quietly measures the wrong thing.
@@ -709,7 +711,7 @@ create unique index projects_owner_slug on public.projects(owner_id, slug);
 create unique index tasks_owner_slug    on public.tasks(owner_id, slug);
 ```
 
-Unique per user, not per project, per [§4.4](memory-v2.md). `slugify()` exists only to backfill, and collisions during backfill get a numeric suffix. `create_task` and `upsert_project` gain a required `p_slug` and raise `23505` on collision, which [server/mcp-server.mjs:59](../server/mcp-server.mjs) already maps to a sensible message.
+Unique per user, not per topic, per [§4.4](memory-v2.md). `slugify()` exists only to backfill, and collisions during backfill get a numeric suffix. `create_task` and `upsert_project` gain a required `p_slug` and raise `23505` on collision, which [server/mcp-server.mjs:59](../server/mcp-server.mjs) already maps to a sensible message.
 
 ### 5.3 Migration C, search
 
@@ -734,7 +736,7 @@ search_memories(p_query text, p_touched uuid[], p_limit int, p_exclude uuid[])
 
 `total_matched` and `total_in_scope` are what produce the counts line in [§6.2](memory-v2.md), and they are the thing that lets the agent tell "no rule about this" from "nothing scored". They are two window functions over the same scan, not two extra queries.
 
-Repo-linked projects come from the existing `project_repositories` table, so the 2.0 boost is a join, not a parameter.
+Repo-linked topics come from the existing `project_repositories` table, so the 2.0 boost is a join, not a parameter.
 
 ### 5.4 Migration D, settings and the log
 
@@ -805,8 +807,8 @@ The `UserPromptSubmit` retrieval goes through MCP as an `mcp_tool` hook, not a n
 | `delete_memory` | accepts the six-char handle | the injected block shows handles, not UUIDs |
 | `confirm_memory` | **new.** promotes `heard` to `said` | [§9](memory-v2.md) |
 | `create_task` | required `slug` | [§4.4](memory-v2.md) |
-| `upsert_project` | required `slug` | |
-| `list_projects`, `list_tasks` | return `slug` | the router's system prompt is built from these |
+| `upsert_topic` | required `slug` | |
+| `list_topics`, `list_tasks` | return `slug` | the router's system prompt is built from these |
 | `record_router_capture` | **new**, or folded into `/api/router` | |
 
 The six-character handle is a prefix of the UUID. It needs a server-side resolver that raises on an ambiguous prefix rather than picking one, and the handle length should grow automatically if a user ever has a collision.
@@ -838,7 +840,7 @@ The six-character handle is a prefix of the UUID. It needs a server-side resolve
 }
 ```
 
-- `resume` is added. Today both packages exclude it and [docs/memory-hooks.md](memory-hooks.md) records that as deliberate, because reloading a whole index onto a resumed session duplicated it. With retrieval, resume is the case that needs the projects and personal block most, since the session may be days old.
+- `resume` is added. Today both packages exclude it and [docs/memory-hooks.md](memory-hooks.md) records that as deliberate, because reloading a whole index onto a resumed session duplicated it. With retrieval, resume is the case that needs the topics and personal block most, since the session may be days old.
 - `UserPromptSubmit` gets a 5s timeout against a documented 30s default, because a hook that delays the prompt is worse than a hook that misses.
 - `Stop` is `async: true`. Claude Code does not enforce a timeout on async command hooks, and capture must never hold up the turn.
 - `Stop` is a `command`, not an `mcp_tool`, because it needs the session ring buffer from disk and `last_assistant_message` from stdin before it calls anything.
@@ -902,7 +904,7 @@ All three go in `integrations/shared/` and are copied into both packages by [scr
 | [features/memories/MemoryEditor.tsx](../src/features/memories/MemoryEditor.tsx) | name becomes optional and secondary, description becomes the single required statement field, `more_info` collapses behind a disclosure |
 | [features/memories/MemoryList.tsx](../src/features/memories/MemoryList.tsx) | show the handle, the band, and the task link; a `heard` row gets a **Confirm** button that is the whole promotion mechanism from [§9](memory-v2.md) |
 | [features/memories/repository.ts](../src/features/memories/repository.ts) | rename through, add `confirm`, add `search` |
-| [features/projects/ScopeSidebar.tsx](../src/features/projects/ScopeSidebar.tsx) | slug field on project create, shown next to the name |
+| [features/projects/ScopeSidebar.tsx](../src/features/projects/ScopeSidebar.tsx) | slug field on topic create, shown next to the name |
 | [features/tasks/TaskWorkspace.tsx](../src/features/tasks/TaskWorkspace.tsx) | slug field on task create |
 | [Workspace.tsx](../src/Workspace.tsx) | a search box, because with automatic capture the list gets long enough that alphabetical browsing stops working |
 
@@ -915,7 +917,7 @@ A `heard` row needs to look different at a glance. That is the entire user-facin
 ```
 What Claude Code sees in this session
 
-  projects              20 rows     400 tok
+  topics                20 rows     400 tok
   personal              38 rows   1,340 tok
   ─────────────────────────────────────────
   session start                   1,740 tok
@@ -947,7 +949,7 @@ The suite is 68 assertions across 10 files, all `node --test`, using PGlite for 
 | `tests/slugs.test.mjs` | format constraint, uniqueness per user, two users may share a slug, backfill collisions, `23505` on create |
 | `tests/search.test.mjs` | the section 4 probes as assertions: OR-of-lexemes beats `websearch_to_tsquery`, `word_similarity` matches where `similarity` does not, boosts multiply in the documented order, counts are correct, exclusion list works |
 | `tests/injection-format.test.mjs` | the formatter is pure and its output is byte-identical to what the preview renders |
-| `tests/router-contract.test.mjs` | schema validation, empty list is the no, unknown slug falls back to personal, a `task` whose project disagrees is rejected |
+| `tests/router-contract.test.mjs` | schema validation, empty list is the no, unknown slug falls back to personal, a `task` whose topic disagrees is rejected |
 
 Changed:
 

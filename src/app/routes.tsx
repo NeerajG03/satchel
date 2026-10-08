@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, useSearchParams } from 'react-router';
+import { createBrowserRouter, Navigate, useLocation, useSearchParams } from 'react-router';
 import { Shell } from '../shell/Shell';
 import { LeftOff } from '../features/leftoff/LeftOff';
 import { Book } from '../features/memories/Book';
@@ -23,6 +23,13 @@ function AuthorizeRedirect() {
   return <Navigate replace to={id ? `/apps/consent?authorization_id=${encodeURIComponent(id)}` : '/apps'} />;
 }
 
+// Projects are called topics now. Old /projects links still land on the
+// same page, with the rest of the path and the query kept.
+function ProjectsRedirect() {
+  const { pathname, search, hash } = useLocation();
+  return <Navigate replace to={pathname.replace(/^\/projects/, '/topics') + search + hash} />;
+}
+
 export const router = createBrowserRouter([
   { path: '/apps/connected/:partner', Component: Connected },
   {
@@ -35,10 +42,12 @@ export const router = createBrowserRouter([
       { path: 'tasks/:id', Component: TaskDetail },
       { path: 'tasks/:id/edit', Component: TaskEdit },
       { path: 'tasks/:id/delete', Component: TaskDelete },
-      { path: 'projects', Component: ProjectList },
-      { path: 'projects/new', Component: ProjectList },
-      { path: 'projects/:id', Component: ProjectPage },
-      { path: 'projects/:id/delete', Component: ProjectDelete },
+      { path: 'topics', Component: ProjectList },
+      { path: 'topics/new', Component: ProjectList },
+      { path: 'topics/:id', Component: ProjectPage },
+      { path: 'topics/:id/delete', Component: ProjectDelete },
+      { path: 'projects/*', Component: ProjectsRedirect },
+      { path: 'projects', Component: ProjectsRedirect },
       { path: 'apps', Component: Apps },
       { path: 'apps/consent', Component: Consent },
       { path: 'authorize', Component: AuthorizeRedirect },

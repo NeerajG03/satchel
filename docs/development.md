@@ -2,9 +2,9 @@
 
 Updated 16 September 2026.
 
-The repository contains a React/TypeScript companion with GitHub sign-in through Supabase, projects, explicit memory, Supabase-native tasks, append-only handoffs, typed links, private file upload/download and task export. It uses the notebook palette and typography with responsive light/dark themes.
+The repository contains a React/TypeScript companion with GitHub sign-in through Supabase, topics, explicit memory, Supabase-native tasks, append-only handoffs, typed links, private file upload/download and task export. It uses the notebook palette and typography with responsive light/dark themes.
 
-Memory hooks, generation-bound agent grants and the production MCP transport are implemented. Supabase-native personal/project tasks and the private bucket are deployed. Hosted rollback-only RPC checks, task-table advisors and the production read/render path pass; cleanup scheduling, a restore drill and broader signed-in browser mutation evidence remain release-hardening work.
+Memory hooks, generation-bound agent grants and the production MCP transport are implemented. Supabase-native personal/topic tasks and the private bucket are deployed. Hosted rollback-only RPC checks, task-table advisors and the production read/render path pass; cleanup scheduling, a restore drill and broader signed-in browser mutation evidence remain release-hardening work.
 
 ## Local setup
 
@@ -47,7 +47,7 @@ Satchel's implemented agent authorization follows Supabase's OAuth 2.1 server an
 
 ## Checks
 
-Pilot verification on 10 September 2026: GitHub login succeeded in the local companion. A project-load failure (`PGRST205`) revealed that the initial schema had not been applied. The foundation migration was then applied once through the hosted Supabase SQL editor, and the authenticated companion loaded successfully. A separate transaction verified project creation, memory saving, correction and deletion under the `authenticated` database role with the pilot user's JWT claims; all test data was rolled back. This verifies hosted database behavior, not a complete browser write flow or cross-device/agent integration. Dashboard application does not register the migration in CLI migration history; reconcile that history before adopting CLI-driven deployments, rather than applying this migration again.
+Pilot verification on 10 September 2026: GitHub login succeeded in the local companion. A topic-load failure (`PGRST205`) revealed that the initial schema had not been applied. The foundation migration was then applied once through the hosted Supabase SQL editor, and the authenticated companion loaded successfully. A separate transaction verified topic creation, memory saving, correction and deletion under the `authenticated` database role with the pilot user's JWT claims; all test data was rolled back. This verifies hosted database behavior, not a complete browser write flow or cross-device/agent integration. Dashboard application does not register the migration in CLI migration history; reconcile that history before adopting CLI-driven deployments, rather than applying this migration again.
 
 ```sh
 npm test
@@ -58,10 +58,10 @@ Tests execute the actual migrations in PGlite with test equivalents of Supabase 
 
 CI runs the same tests and build. No cloud credentials are required for CI, and CI does not deploy or migrate the database.
 
-Named-memory checks additionally apply both migrations over an existing body-only record, verify text preservation, case-insensitive names within a project, metadata-only listing, scoped detail retrieval, optional/bounded details, rename/delete behavior, retry conflicts and authorization. The companion exposes separate Name, Description and More info fields; it fetches details only when reading or correcting a memory. The future hook/MCP contract is in [memory and storage](memory-and-storage.md).
+Named-memory checks additionally apply both migrations over an existing body-only record, verify text preservation, case-insensitive names within a topic, metadata-only listing, scoped detail retrieval, optional/bounded details, rename/delete behavior, retry conflicts and authorization. The companion exposes separate Name, Description and More info fields; it fetches details only when reading or correcting a memory. The future hook/MCP contract is in [memory and storage](memory-and-storage.md).
 
 The named-memory migration was also applied through the pilot's SQL editor on 10 September 2026. The existing saved memory remained readable, and a temporary record exercised the new browser save/read/correct/delete flow. The manually applied migrations need their CLI history reconciled before switching to CLI deployment.
 
 11 September checkpoint: a broader browser test verified persistence, duplicate validation, two-tab conflicts, deletion cancellation, sign-out/sign-in and theme persistence. It exposed the `40001` retry loop, fixed by the third migration. All three migrations are now applied manually. Data requests also recover after 15 seconds instead of leaving the editor busy indefinitely. See [full evidence and current limits](checkpoints/web-memory-pilot-1.md).
 
-11 September personal-memory follow-up: the fourth migration enables For me without requiring a project, preserving all existing project rows. The application now shares one editor/list and memory repository across explicit personal/project scopes. PostgreSQL tests cover accounts with zero projects, personal owner isolation, same-name records in separate scopes, immutable scope, safe retries, corrections and deletion. Four pilot migrations have now been applied through the dashboard; reconcile all four before CLI-driven deployment. See [the updated checkpoint](checkpoints/web-memory-pilot-2.md) and [feature boundaries](architecture.md).
+11 September personal-memory follow-up: the fourth migration enables For me without requiring a topic, preserving all existing topic rows. The application now shares one editor/list and memory repository across explicit personal/topic scopes. PostgreSQL tests cover accounts with zero topics, personal owner isolation, same-name records in separate scopes, immutable scope, safe retries, corrections and deletion. Four pilot migrations have now been applied through the dashboard; reconcile all four before CLI-driven deployment. See [the updated checkpoint](checkpoints/web-memory-pilot-2.md) and [feature boundaries](architecture.md).

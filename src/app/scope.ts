@@ -2,12 +2,14 @@ import { PERSONAL_SCOPE, type MemoryScope } from '../features/memories/model';
 import type { Project } from '../features/projects/repository';
 
 export function parseScope(value: string | null): MemoryScope {
-  if (value && value.startsWith('project:')) return { kind: 'project', projectId: value.slice('project:'.length) };
+  // project: is what links said before topics; they still open the topic.
+  const match = value?.match(/^(?:topic|project):(.+)$/);
+  if (match) return { kind: 'project', projectId: match[1] };
   return PERSONAL_SCOPE;
 }
 
 export function scopeParam(scope: MemoryScope): string | null {
-  return scope.kind === 'project' ? `project:${scope.projectId}` : null;
+  return scope.kind === 'project' ? `topic:${scope.projectId}` : null;
 }
 
 export function scopeQuery(scope: MemoryScope, extra: Record<string, string | null> = {}): string {
@@ -21,11 +23,11 @@ export function scopeQuery(scope: MemoryScope, extra: Record<string, string | nu
 
 export function scopeName(scope: MemoryScope, projects: Project[]): string {
   if (scope.kind === 'personal') return 'For me';
-  return projects.find(project => project.id === scope.projectId)?.name ?? 'Project';
+  return projects.find(project => project.id === scope.projectId)?.name ?? 'Topic';
 }
 
 export function scopeEyebrow(scope: MemoryScope, projects: Project[]): string {
-  return scope.kind === 'personal' ? 'For me' : `Project · ${scopeName(scope, projects)}`;
+  return scope.kind === 'personal' ? 'For me' : `Topic · ${scopeName(scope, projects)}`;
 }
 
 export function projectScope(projectId: string | null): MemoryScope {

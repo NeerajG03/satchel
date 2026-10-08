@@ -169,7 +169,7 @@ New columns on `memories` are not writable until they are named in a `grant inse
 
 `stamp_memory_revision` bumped the revision on **any** update, so backfilling an embedding took live memories from revision 1 to revision 2 without a word of their text changing. The revision is the optimistic concurrency token, so every client holding the old one gets a conflict it cannot explain, and the person sees "edited just now" on a row nobody touched. Re-embedding after a model change would do it to the whole corpus at once.
 
-The shape migration had already worked around this by disabling the trigger around its own backfill, which was a local patch for a general problem. The trigger now bumps only when the statement, source, more_info, name, band, project or task changes.
+The shape migration had already worked around this by disabling the trigger around its own backfill, which was a local patch for a general problem. The trigger now bumps only when the statement, source, more_info, name, band, topic or task changes.
 
 ### Recreating a function can revert an earlier migration
 

@@ -4,7 +4,7 @@
 
 ## One task authority
 
-Satchel's Supabase database is the sole authority for task title, outcome, rationale, completion criteria, next action, state, priority, blocker, revision and history. Tasks belong either to **For me** or to a Satchel project and do not require a repository.
+Satchel's Supabase database is the sole authority for task title, outcome, rationale, completion criteria, next action, state, priority, blocker, revision and history. Tasks belong either to **For me** or to a Satchel topic and do not require a repository.
 
 An existing GitHub issue, pull request, repository, Notion page or document can be attached as a typed HTTPS resource. Satchel does not automatically fetch it, mirror its status or claim to synchronize it. This avoids two editable copies of an external team's work while still giving a Satchel task the context needed for continuity.
 
@@ -26,7 +26,7 @@ All three appear as durable continuation context. They are not interchangeable l
 
 ## Planning relationships
 
-A task may have one parent and any number of dependencies, all within the same owner and personal/project scope. Parent edges describe decomposition; dependency edges mean the task cannot be acted on until each prerequisite is done. The database rejects self-links, cross-scope links, hierarchy cycles and dependency cycles.
+A task may have one parent and any number of dependencies, all within the same owner and personal/topic scope. Parent edges describe decomposition; dependency edges mean the task cannot be acted on until each prerequisite is done. The database rejects self-links, cross-scope links, hierarchy cycles and dependency cycles.
 
 Actionability is derived rather than stored: a task is actionable when it is `ready` or `in_progress`, has a concrete next action and has no unfinished dependency. Closing or reopening a prerequisite therefore changes downstream actionability without rewriting every dependent task.
 
@@ -49,7 +49,7 @@ Do not claim validation that was not performed. A branch, commit, PR or artifact
 
 ## Resume flow
 
-1. Resolve an authorized personal or project task scope.
+1. Resolve an authorized personal or topic task scope.
 2. List active tasks and choose one explicitly.
 3. Read the latest task, planning relationships and actionability, comments, progress updates, handoffs, verified resources and events.
 4. Check that referenced code, documents and files are reachable.

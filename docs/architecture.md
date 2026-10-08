@@ -10,7 +10,7 @@ The pilot uses React/TypeScript with Vite, react-router and Supabase Auth/Postgr
 |---|---|
 | `app/routes.tsx` | Route table. Every destination and detail page has a URL. Unknown routes go to `/`. |
 | `app/auth.tsx` | Session state, GitHub sign-in and sign-out, return-to path for signed-out visits |
-| `app/scope.ts` | The `?scope=me|project:<id>` query and its labels |
+| `app/scope.ts` | The `?scope=me|topic:<id>` query and its labels |
 | `app/readout.tsx` | Footer readout and header status word, set per page with `useFooter` |
 | `app/useLoad.ts` | Page loading, in-place error text, busy actions, conflict detection |
 | `app/stores.ts` | One place that builds the four repositories from the signed-in client |
@@ -19,13 +19,13 @@ The pilot uses React/TypeScript with Vite, react-router and Supabase Auth/Postgr
 | `styles/*` | Tokens (copied from `design/tokens.css`), base, shell, components, pages |
 | `features/memories/*` | Model, repository, Book page, composer and entry |
 | `features/tasks/*` | Model, repository, list, capture, detail, edit, timeline, update composer, blocked sheet |
-| `features/projects/*` | Repository, list, new-project sheet, project page, repository links |
+| `features/projects/*` | Repository, list, new-topic sheet, topic page, repository links |
 | `features/connections/*` | Repository, Apps, Consent, Connected pages |
 | `features/settings/Settings.tsx` | Account, export, forgetting |
 | `request.mjs` | Bounded request execution shared by the repositories |
-| `server/repository-hint-handler.mjs` | Validates and stages a short-lived repository identity without returning project or memory data |
+| `server/repository-hint-handler.mjs` | Validates and stages a short-lived repository identity without returning topic or memory data |
 
-The UI never builds database queries. Repositories receive their Supabase client explicitly. Adding another supported memory scope starts with the domain union and an intentional database migration; unknown scopes must not default to personal. Shared editor/list components remain independent of the storage representation. The current database boundary maps personal to a null project ID and project scope to a real project ID, with owner policies and separate uniqueness constraints enforcing the meaning.
+The UI never builds database queries. Repositories receive their Supabase client explicitly. Adding another supported memory scope starts with the domain union and an intentional database migration; unknown scopes must not default to personal. Shared editor/list components remain independent of the storage representation. The current database boundary maps personal to a null topic ID and topic scope to a real topic ID, with owner policies and separate uniqueness constraints enforcing the meaning.
 
 Future agent transports must enforce their own connection grants against the same database authority. Do not reuse a companion session as agent authorization. There is no speculative source-plugin registry or generic entity framework in this structure; those systems remain deferred until concrete features require them.
 
@@ -37,7 +37,7 @@ flowchart LR
     O[ChatGPT / Codex integration] --> A
     L[Claude Code integration] --> A
     X[Other explicitly supported clients] --> A
-    A --> P[Project and skill catalog]
+    A --> P[Topic and skill catalog]
     A --> M[Canonical memory store: decision open]
     A --> T[TaskService]
     T --> G[Supabase task tables and functions]
@@ -54,13 +54,13 @@ This is the user-facing direction expressed as a proposed architecture: one shar
 | Companion | Direct user interaction, configuration, inspection, correction, setup guidance, verification results | Control over every app's internal settings |
 | Native integration package | Host-specific discovery, workflow instructions, service connection configuration | All private skills installed or supported on every device |
 | Backing memory store | Canonical revisions and deletion/correction semantics | Independent copies in every native memory database |
-| Supabase task store | Authoritative personal/project task records, planning graph and history | A repository requirement or external-tracker synchronization |
+| Supabase task store | Authoritative personal/topic task records, planning graph and history | A repository requirement or external-tracker synchronization |
 | Existing skill sources | Versioned reusable workflows | Satchel ownership of every third-party package |
 | Native AI apps | Conversations, model selection, execution, workspace/session lifecycle | Guaranteed equivalent capabilities across their surfaces |
 
 ## Proposed request path
 
-A connected host identifies its authorized session and the requested personal/project scope. The service checks effective access, retrieves current records and permitted source context, and returns a bounded result with IDs, provenance, revisions and derived task actionability. Live task operations go through Supabase functions behind `TaskService`; GitHub objects are optional HTTPS resources.
+A connected host identifies its authorized session and the requested personal/topic scope. The service checks effective access, retrieves current records and permitted source context, and returns a bounded result with IDs, provenance, revisions and derived task actionability. Live task operations go through Supabase functions behind `TaskService`; GitHub objects are optional HTTPS resources.
 
 Writes need permission checks, idempotency, revision checks, and honest acknowledgement. Search indexes must be permission-aware and invalidated on relevant changes. Exact API schemas, tool names, search technology, and storage transaction mechanisms remain open.
 
@@ -82,7 +82,7 @@ A catalog and context service should stay useful without a large dashboard, auto
 
 ## Important unresolved implementation questions
 
-1. Canonical memory and project storage, history, and export format.
+1. Canonical memory and topic storage, history, and export format.
 2. Authentication, account linking, work/personal partitioning, and credential ownership.
 3. Exact supported clients, account tiers/policies, and mobile setup paths.
 4. Private skill distribution and evidence of installed/ready state.

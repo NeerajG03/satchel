@@ -29,7 +29,7 @@ export function ProjectList() {
     const created = await action.run(() => stores.projects.create(id, name, brief, slug));
     if (!created) return;
     announce(`Topic created · ${created.name}`);
-    navigate(`/projects/${created.id}`, { replace: true });
+    navigate(`/topics/${created.id}`, { replace: true });
   }
   async function unmerge(id: string) {
     const project = data?.projects.find(p => p.id === id);
@@ -50,12 +50,12 @@ export function ProjectList() {
   return <>
     <div className="head">
       <div className="col"><span className="eyebrow">Topics</span><h1>Topics.</h1>
-        <p className="lede">A topic is a subject your memories are about. Satchel makes one when a work fact fits none of these. Link a codebase or add tasks and it works as a project.</p></div>
-      <Button look="primary" onClick={() => navigate('/projects/new')}>+ New topic</Button>
+        <p className="lede">A topic is a subject your memories are about. Satchel makes one when a work fact fits none of these. You can also link a codebase or add tasks to it.</p></div>
+      <Button look="primary" onClick={() => navigate('/topics/new')}>+ New topic</Button>
     </div>
     {page.error && <LoadError what="Your topics" onReload={page.reload} />}
     {page.loading && !data && <Skeleton rows={4} />}
-    {data && live.length === 0 && <Empty title="No topics yet." action={<Button onClick={() => navigate('/projects/new')}>New topic</Button>}>
+    {data && live.length === 0 && <Empty title="No topics yet." action={<Button onClick={() => navigate('/topics/new')}>New topic</Button>}>
       “For me” already holds everything that applies everywhere. Satchel makes a topic when a work fact needs one, or you can make one now.
     </Empty>}
     {data && live.length > 0 && <table className="table">
@@ -64,7 +64,7 @@ export function ProjectList() {
         const s = stats(project.id);
         const empty = s.memories === 0 && s.tasks === 0;
         return <tr key={project.id}>
-          <td><Link to={`/projects/${project.id}`} className="serif" style={{ fontSize: 20, color: 'var(--ink)' }}>{project.name}</Link>
+          <td><Link to={`/topics/${project.id}`} className="serif" style={{ fontSize: 20, color: 'var(--ink)' }}>{project.name}</Link>
             {project.made_by === 'satchel' && <> <Chip>made by Satchel</Chip></>}
             <div className="fine muted">{empty ? 'Nothing saved here yet.' : project.brief || 'No brief yet.'}</div>
             {project.project_repositories.length === 0 ? <div className="fine muted">No repositories linked</div>
@@ -85,6 +85,6 @@ export function ProjectList() {
         </div>;
       })}
     </section>}
-    {creating && data && <NewProjectSheet projects={data.projects} busy={action.busy} error={action.error} onCancel={() => navigate('/projects')} onCreate={(id, name, brief, slug) => void create(id, name, brief, slug)} />}
+    {creating && data && <NewProjectSheet projects={data.projects} busy={action.busy} error={action.error} onCancel={() => navigate('/topics')} onCreate={(id, name, brief, slug) => void create(id, name, brief, slug)} />}
   </>;
 }

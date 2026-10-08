@@ -51,6 +51,6 @@ test('the memory set is counted by scope and by kind', () => {
   ], slugs);
   assert.equal(set.live, 4);
   assert.equal(set.heard, 2);
-  assert.deepEqual(set.scopes, [['satchel', 2], ['personal', 1], ['a project', 1]]);
+  assert.deepEqual(set.scopes, [['satchel', 2], ['personal', 1], ['a topic', 1]]);
   assert.deepEqual(set.kinds, [['preference', 2], ['fact', 1], ['intent', 1]]);
 });

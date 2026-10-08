@@ -30,7 +30,7 @@ function Waiting({ docs, slugs }: { docs: WaitingDoc[]; slugs: Map<string, strin
     light={ready.length ? <Light color="amber" word={`${ready.length} ready`} /> : <Light color="off" word="nothing ready" />}>
     <p className="glance-line">{count(ready.length, 'session')} ready · {active.length} still going</p>
     {shown.length > 0 && <ul className="glance-list">{shown.map(doc => <li key={doc.id}>
-      <span className="mono">{doc.project_id ? slugs.get(doc.project_id) ?? 'a project' : 'personal'} · {doc.session_key.slice(0, 8)}</span>
+      <span className="mono">{doc.project_id ? slugs.get(doc.project_id) ?? 'a topic' : 'personal'} · {doc.session_key.slice(0, 8)}</span>
       <span className="fine muted">{count(doc.turns, 'turn')} · {doc.consolidated_through === null ? 'never read' : 'read before, has more'} · quiet since {whenText(doc.last_turn_at)}</span>
     </li>)}</ul>}
     {ready.length > shown.length && <p className="fine muted">And {ready.length - shown.length} older.</p>}

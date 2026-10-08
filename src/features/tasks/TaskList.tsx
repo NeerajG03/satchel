@@ -87,10 +87,10 @@ export function TaskList() {
       <div className="col">
         <span className="eyebrow">{scopeEyebrow(scope, projectList)}</span>
         <h1>Continue.</h1>
-        <p className="lede">Tasks hold the exact next action and the evidence a session leaves behind. They don’t need a repository, and they don’t need a project.</p>
+        <p className="lede">Tasks hold the exact next action and the evidence a session leaves behind. They don’t need a repository, and they don’t need a topic.</p>
       </div>
       <div className="row wrap" style={{ alignItems: 'flex-start' }}>
-        <ScopePicker scope={scope} projects={projectList} onChange={next => navigate(`/tasks${scopeQuery(next)}`)} onNewProject={() => navigate('/projects/new')} />
+        <ScopePicker scope={scope} projects={projectList} onChange={next => navigate(`/tasks${scopeQuery(next)}`)} onNewProject={() => navigate('/topics/new')} />
         <Button disabled={action.busy} onClick={() => void exportScope()}>Export</Button>
         <Button look="primary" onClick={() => setComposeOpen(true)}>+ Capture</Button>
       </div>

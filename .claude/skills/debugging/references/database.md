@@ -41,9 +41,11 @@ The application itself only ever holds the publishable key. RLS does the rest. I
 | Is the developer cron installed? | `consolidation_status()`, `consolidation_credentials` |
 | Can this app read this scope at all? | `agent_connections` |
 | Did the bootstrap stage the repository? | `agent_repository_hints` |
-| Which project is this session in? | `agent_session_scopes` |
-| Is this repo linked to a project? | `project_repositories` |
+| Which topic is this session in? | `agent_session_scopes` |
+| Is this repo linked to a topic? | `project_repositories` |
 | Per-owner retrieval tuning | `memory_settings` |
+
+Topics are stored in the `projects` table, so the column on memories, tasks and documents is `project_id`.
 
 Tasks have their own set: `tasks`, `task_events`, `task_updates`, `task_handoffs`, `task_dependencies`, `task_parent_edges`, `task_resources`.
 

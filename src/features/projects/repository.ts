@@ -21,7 +21,7 @@ export function createProjectRepository(db: SupabaseClient) {
         p_id: id, p_name: name.trim(), p_brief: brief.trim(),
       }).abortSignal(signal).single<Project>());
       if (error) throw error;
-      if (!data) throw new Error('Missing created project');
+      if (!data) throw new Error('Missing created topic');
       // The project always gets a slug. This only replaces the derived one with
       // something the person would actually say, and a collision is reported
       // rather than silently accepted.
@@ -41,7 +41,7 @@ export function createProjectRepository(db: SupabaseClient) {
         p_name: name.trim(), p_brief: brief.trim(),
       }).abortSignal(signal).single<{ project: Project; repositories: ProjectRepositoryLink[] }>());
       if (error) throw error;
-      if (!data) throw new Error('Missing updated project');
+      if (!data) throw new Error('Missing updated topic');
       return { ...data.project, project_repositories: data.repositories };
     },
     // Puts back exactly the memories the merge moved, and shows the topic again.

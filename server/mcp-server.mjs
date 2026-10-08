@@ -4,7 +4,7 @@ import {errorText} from './error-text.mjs';
 import {sessionStart} from './lifecycle.mjs';
 import {traced} from './tracing.mjs';
 
-const scope=z.uuid().nullable().describe('null means personal memory; otherwise an explicitly selected project UUID.');
+const scope=z.uuid().nullable().describe('null means personal memory; otherwise a topic UUID from list_topics.');
 const session=z.string().min(1).max(200);
 // A memory is one sentence. `source` is the span the user actually typed and is
 // stored for provenance, never injected. `band` is not a judgement call: an
@@ -16,11 +16,11 @@ const content={
   more_info:z.string().max(40000).default(''),
 };
 const correctionContent={statement:content.statement,name:content.name,more_info:content.more_info};
-const identity={project_id:scope,id:z.uuid(),revision:z.number().int().positive()};
+const identity={topic_id:scope,id:z.uuid(),revision:z.number().int().positive()};
 const readAnnotations={readOnlyHint:true,destructiveHint:false,openWorldHint:false};
 const writeAnnotations={readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false};
 const lifecycle=z.enum(['SessionStart','PostCompact']);
-// Only the server-side link table maps a repository to a project, so the provider stays implicit.
+// Only the server-side link table maps a repository to a topic, so the provider stays implicit.
 const PROVIDER='github';
 const REPOSITORY_RULE='A repository is a lowercase owner/repository, like acme/web, up to 201 characters';
 const repositoryName=z.string().regex(/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/,REPOSITORY_RULE).max(201,REPOSITORY_RULE).nullable()
@@ -35,17 +35,17 @@ const projectRepositoryChange=z.discriminatedUnion('kind',[
 const slug=z.string().trim().toLowerCase()
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/,'A slug is lowercase letters and digits in words joined by single hyphens, like fix-consent-layout')
   .min(1).max(40,'A slug is at most 40 characters')
-  .describe('A short handle the user would actually say, like fix-consent-layout. Lowercase words joined by hyphens, unique across all of this user\'s projects and tasks. Do not derive it from the title; choose something sayable. On 23505 pick another and retry.');
+  .describe('A short handle the user would actually say, like fix-consent-layout. Lowercase words joined by hyphens, unique across all of this user\'s topics and tasks. Do not derive it from the title; choose something sayable. On 23505 pick another and retry.');
 const taskStatus=z.enum(['inbox','ready','in_progress','blocked','done']);
 const taskPriority=z.enum(['low','medium','high','urgent']);
-const taskProject=z.uuid().nullable().describe('null means personal tasks; otherwise an explicitly task-authorized Satchel project UUID.');
+const taskProject=z.uuid().nullable().describe('null means personal tasks; otherwise a task-authorized topic UUID from list_topics.');
 // Rules the database enforces across fields, checked here first so the agent
 // hears which field to change instead of a refusal from inside a routine.
 const blockedNeedsReason=[entry=>entry.status!=='blocked'||entry.blocked_reason.trim().length>0,
   {message:'A blocked status needs a blocked_reason saying what it is waiting on',path:['blocked_reason']}];
 const distinct=label=>[ids=>new Set(ids).size===ids.length,{message:`${label} lists the same id twice`}];
 const resourceIds=z.array(z.uuid()).max(50).default([]).refine(...distinct('resource_ids'));
-const taskIdentity={project_id:taskProject,id:z.uuid(),revision:z.number().int().positive()};
+const taskIdentity={topic_id:taskProject,id:z.uuid(),revision:z.number().int().positive()};
 const taskContent={
   title:z.string().trim().min(1).max(200),outcome:z.string().max(1000).default(''),
   why:z.string().max(4000).default(''),done_when:z.array(z.string().trim().min(1).max(500)).max(20).default([]),
@@ -78,14 +78,26 @@ const taskUpdate=z.discriminatedUnion('kind',[
     status:taskStatus.nullable().default(null),blocked_reason:z.string().max(2000).default(''),
     resource_ids:resourceIds}).refine(...blockedNeedsReason),
 ]);
-const textResult=data=>({content:[{type:'text',text:JSON.stringify(data)}]});
+// The database calls a topic a project. Everything an agent sends or reads
+// says topic, so the names are swapped here and nowhere else: on the way in
+// topic_id becomes project_id, and every key in an answer goes the other way.
+const swapKeys=(from,to)=>{
+  const swap=value=>Array.isArray(value)?value.map(swap)
+    :value&&typeof value==='object'&&value.constructor===Object
+      ?Object.fromEntries(Object.entries(value).map(([key,inner])=>[key.replaceAll(from,to),swap(inner)]))
+      :value;
+  return swap;
+};
+export const asTopics=swapKeys('project','topic');
+const fromTopics=swapKeys('topic','project');
+const textResult=data=>({content:[{type:'text',text:JSON.stringify(asTopics(data))}]});
 const newId=()=>crypto.randomUUID();
 // ownerId attributes a trace to the person and nothing more: never an email,
 // never a token.
 export function createMemoryServer(service, {ownerId} = {}) {
   const server=new McpServer({name:'satchel',title:'Satchel',version:'0.2.0',
     websiteUrl:'https://satchel-pi.vercel.app',
-    description:'Your memory, tasks and projects, across your agents.',
+    description:'Your memory, tasks and topics, across your agents.',
     icons:[
       {src:'https://satchel-pi.vercel.app/mark.svg',mimeType:'image/svg+xml',sizes:['any']},
       {src:'https://satchel-pi.vercel.app/mark-512.png',mimeType:'image/png',sizes:['512x512']},
@@ -102,31 +114,31 @@ export function createMemoryServer(service, {ownerId} = {}) {
       try {
         const status=await service.status();
         if (!status) throw {code:'42501',message:'Connection unavailable'};
-        return textResult(await operation(args,status));
+        return textResult(await operation(fromTopics(args),status));
       } catch(error) { return {...textResult({error:errorText(error)}),isError:true}; }
     });
   }
-  register('list_projects','Show effective Satchel connection permissions and only the projects this connection may access. Personal scope is project_id=null; a project is an explicit UUID from this list, never a directory name.',
+  register('list_topics','Show effective Satchel connection permissions and the topics this connection may access. A topic is a subject memories and tasks are filed under; Satchel makes some itself. Personal scope is topic_id=null; a topic is an explicit UUID from this list, never a directory name.',
     {},async (_args,{project_ids,...connection})=>{
-      // Diagnosing a broken connection must not depend on the project query succeeding.
+      // Diagnosing a broken connection must not depend on the topic query succeeding.
       try { return {...connection,projects:await service.projects()}; }
       catch(error) { return {...connection,projects_error:errorText(error)}; }
     });
-  register('upsert_project','Create or revise a Satchel project only when the user explicitly asks. A slug is required and is how everything else refers to this project. Omit project_id and expected_revision to create; provide both to update an already authorized project. A repository change links or unlinks one normalized GitHub owner/repository without disturbing other links. Creating a project never expands this connection grant: when grant_required is true, tell the user to authorize the new project before using it.',
-    {project_id:z.uuid().optional(),slug,expected_revision:z.number().int().positive().optional(),
+  register('upsert_topic','Create or revise a Satchel topic only when the user explicitly asks. A slug is required and is how everything else refers to this topic. Omit topic_id and expected_revision to create; provide both to update an existing topic. A repository change links or unlinks one normalized GitHub owner/repository without disturbing other links. Creating a topic never expands this connection grant: when grant_required is true, tell the user to allow every topic for this app in Satchel.',
+    {topic_id:z.uuid().optional(),slug,expected_revision:z.number().int().positive().optional(),
       name:z.string().trim().min(1).max(100),brief:z.string().trim().max(1000).default(''),
       repository_change:projectRepositoryChange.default({kind:'unchanged'})},
     a=>{
       if(a.expected_revision!==undefined&&!a.project_id)
-        throw {reason:'an existing project needs its project_id and current revision'};
+        throw {reason:'an existing topic needs its topic_id and current revision'};
       if(a.expected_revision===undefined&&a.project_id)
-        throw {reason:'omit project_id when creating a project; Satchel assigns it'};
+        throw {reason:'omit topic_id when creating a topic; Satchel assigns it'};
       if(a.expected_revision===undefined&&a.repository_change.kind==='unlink')
-        throw {reason:'a new project has nothing to unlink. Pass expected_revision to unlink from an existing project'};
+        throw {reason:'a new topic has nothing to unlink. Pass expected_revision to unlink from an existing topic'};
       return service.upsertProject({...a,request_id:newId(),project_id:a.project_id??newId()});
     },writeAnnotations);
-  register('select_project','Select the active project for this conversation only, by project_id (null selects personal scope) or by the linked GitHub repository identity supplied by the Satchel bootstrap. Provide exactly one; a repository resolves only to a link whose project is already in this connection\'s grant, and only while it names one project: a repository shared by several projects is refused, so pass project_id for those. Returns the resulting personal plus project memory index: check complete before claiming all memories loaded. Pass event only when the Satchel bootstrap asks for it on a new conversation or after compaction. Does not grant permissions and does not change another conversation.',
-    {session_key:session,project_id:scope.optional(),repository:repositoryName.optional(),event:lifecycle.optional()},
+  register('select_topic','Select the active topic for this conversation only, by topic_id (null selects personal scope) or by the linked GitHub repository identity supplied by the Satchel bootstrap. Provide exactly one; a repository resolves only to a link whose topic is already in this connection\'s grant, and only while it names one topic: a repository shared by several topics is refused, so pass topic_id for those. Returns the resulting personal plus topic memory index: check complete before claiming all memories loaded. Pass event only when the Satchel bootstrap asks for it on a new conversation or after compaction. Does not grant permissions and does not change another conversation.',
+    {session_key:session,topic_id:scope.optional(),repository:repositoryName.optional(),event:lifecycle.optional()},
     async (a,status)=>{
       const byRepository=a.repository!=null,byProject=a.project_id!==undefined;
       if (byProject===byRepository) throw {code:'PT400'};
@@ -153,19 +165,19 @@ export function createMemoryServer(service, {ownerId} = {}) {
     catch(error) { throw error?.code==='P0002'?{code:'PT404'}:error; }
   }
   register('memory_index','List whole memories in one explicit scope. Each row carries its full statement, so there is nothing further to fetch unless has_more_info is true. Check complete before claiming all memories loaded.',
-    {project_id:scope},a=>service.index(a.project_id));
-  register('retrieve_memory','Search memories by meaning across every scope this connection may read. Use this rather than reading a whole scope. Returns the closest matches above a relevance floor, with counts: matched is how many cleared the floor and in_scope is how many were searched, so "nothing relevant" is distinguishable from "nothing scored". Pass in_scope with the project the conversation is working in to weight it slightly; it is a nudge, not a filter.',
+    {topic_id:scope},a=>service.index(a.project_id));
+  register('retrieve_memory','Search memories by meaning across every scope this connection may read. Use this rather than reading a whole scope. Returns the closest matches above a relevance floor, with counts: matched is how many cleared the floor and in_scope is how many were searched, so "nothing relevant" is distinguishable from "nothing scored". Pass in_scope with the topic the conversation is working in to weight it slightly; it is a nudge, not a filter.',
     {query:z.string().trim().min(1).max(2000),in_scope:z.uuid().nullable().default(null),
       limit:z.number().int().min(1).max(20).default(5),
       exclude:z.array(z.uuid()).max(50).default([]).describe('Memory ids already in this conversation, so nothing is injected twice.')},
     a=>service.search(a));
   register('read_memory','Read the rare memory that carries more_info, by scope and id. The index already contains every statement, so this is only for a row whose has_more_info is true.',
-    {project_id:scope,id:z.uuid()},a=>service.read(a.project_id,a.id));
-  // A memory has one scope: a project, or personal. There is no task_id any
+    {topic_id:scope,id:z.uuid()},a=>service.read(a.project_id,a.id));
+  // A memory has one scope: a topic, or personal. There is no task_id any
   // more, so this takes three decisions instead of four and none of them can
   // move the scope after it was chosen.
-  register('save_memory','Save memory only when the user explicitly asks. Choose personal/project scope explicitly. Satchel assigns the ID. An explicit save is confirmed by definition, so it is stored as said.',
-    {project_id:scope,...content},
+  register('save_memory','Save memory only when the user explicitly asks. Choose personal or topic scope explicitly. Satchel assigns the ID. An explicit save is confirmed by definition, so it is stored as said.',
+    {topic_id:scope,...content},
     a=>service.save({...a,id:newId(),band:'said'}),writeAnnotations);
   register('correct_memory','Correct memory only on an explicit user request. Read first and provide the current revision; conflicts require re-reading. Correcting a memory also confirms it.',
     {...identity,...correctionContent},a=>service.correct(a),{readOnlyHint:false,destructiveHint:true,idempotentHint:false,openWorldHint:false});
@@ -178,12 +190,12 @@ export function createMemoryServer(service, {ownerId} = {}) {
     identity,a=>service.forget(a),{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false});
 
   if(service.tasks) {
-    register('list_tasks','List bounded task summaries in one explicit task scope. Use project_id=null for personal tasks; otherwise use an authorized project UUID. Filter by state when useful and check complete before claiming the list is exhaustive.',
-      {project_id:taskProject,statuses:z.array(taskStatus).max(5).optional()},a=>service.tasks.list(a.project_id,a.statuses));
+    register('list_tasks','List bounded task summaries in one explicit task scope. Use topic_id=null for personal tasks; otherwise use an authorized topic UUID. Filter by state when useful and check complete before claiming the list is exhaustive.',
+      {topic_id:taskProject,statuses:z.array(taskStatus).max(5).optional()},a=>service.tasks.list(a.project_id,a.statuses));
     register('read_task','Read one task with its planning relationships, derived actionability, comments, progress updates, handoffs, verified resources, and event history.',
-      {project_id:taskProject,id:z.uuid()},a=>service.tasks.read(a.project_id,a.id));
-    register('create_task','Create a personal or project Satchel task only when the user explicitly asks. A slug is required: it is how the user and you will refer to this task later. Use project_id=null for personal scope. Satchel assigns the ID.',
-      {slug,project_id:taskProject,...taskContent},a=>service.tasks.create({...a,request_id:newId(),id:newId()}),writeAnnotations);
+      {topic_id:taskProject,id:z.uuid()},a=>service.tasks.read(a.project_id,a.id));
+    register('create_task','Create a personal or topic Satchel task only when the user explicitly asks. A slug is required: it is how the user and you will refer to this task later. Use topic_id=null for personal scope. Satchel assigns the ID.',
+      {slug,topic_id:taskProject,...taskContent},a=>service.tasks.create({...a,request_id:newId(),id:newId()}),writeAnnotations);
     register('edit_task','Apply one explicit revision-safe task edit: replace content, transition state, set/clear the parent, or add/remove one dependency. Relationship edits are same-scope and cycle-safe. Re-read after a conflict.',
       {...taskIdentity,change:taskEdit},a=>{
         const base={request_id:newId(),project_id:a.project_id,id:a.id,revision:a.revision};
@@ -196,7 +208,7 @@ export function createMemoryServer(service, {ownerId} = {}) {
         return service.tasks.removeDependency({...base,...a.change});
       },writeAnnotations);
     register('record_task_update','Append one continuation entry: a lightweight comment, structured progress, or a handoff. Progress and handoffs require the current revision because they update canonical task state; comments do not.',
-      {project_id:taskProject,id:z.uuid(),entry:taskUpdate},a=>{
+      {topic_id:taskProject,id:z.uuid(),entry:taskUpdate},a=>{
         const base={request_id:newId(),project_id:a.project_id,id:a.id};
         if(a.entry.kind==='comment')return service.tasks.comment({...base,...a.entry,update_id:newId()});
         if(a.entry.kind==='progress')return service.tasks.progress({...base,...a.entry,update_id:newId()});

@@ -10,7 +10,7 @@ Then read the one that covers the subsystem you are touching:
 
 4. [satchel-memory](.claude/skills/satchel-memory/SKILL.md): capture, retrieval, embeddings, the eval.
 5. [satchel-tasks](.claude/skills/satchel-tasks/SKILL.md): task states, updates, planning edges, resources, storage.
-6. [satchel-projects](.claude/skills/satchel-projects/SKILL.md): projects as the scope that memories, tasks and grants hang off.
+6. [satchel-topics](.claude/skills/satchel-topics/SKILL.md): topics as the scope that memories, tasks and grants hang off.
 7. [satchel-apps](.claude/skills/satchel-apps/SKILL.md): OAuth, grants, the MCP handler, the plugin packages and hooks.
 
 And when something is not working and you need evidence rather than a reading of the code:

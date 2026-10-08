@@ -66,7 +66,7 @@ export type LiveMemory = { project_id: string | null; band: string; kind: string
 export function memorySet(rows: LiveMemory[], slugs: Map<string, string>) {
   const scopes = new Map<string, number>();
   for (const row of rows) {
-    const scope = row.project_id === null ? 'personal' : slugs.get(row.project_id) ?? 'a project';
+    const scope = row.project_id === null ? 'personal' : slugs.get(row.project_id) ?? 'a topic';
     scopes.set(scope, (scopes.get(scope) ?? 0) + 1);
   }
   return {

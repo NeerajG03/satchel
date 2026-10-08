@@ -54,7 +54,7 @@ export function ScopePicker({ scope, projects, counts, locked, onChange, onNewPr
     </button>
     {locked && <span className="fine muted">{locked}</span>}
     {open && <div className="drop" onKeyDown={onKey}>
-      <input ref={input} className="field" placeholder="Find a project" value={query} aria-label="Find a project"
+      <input ref={input} className="field" placeholder="Find a topic" value={query} aria-label="Find a topic"
         onChange={event => { setQuery(event.target.value); setCursor(0); }} />
       <div role="listbox" id={listId} aria-label="Scope" className="col" style={{ gap: 2 }}>
         {options.map((option, index) => {
@@ -69,7 +69,7 @@ export function ScopePicker({ scope, projects, counts, locked, onChange, onNewPr
         })}
         {options.length === 0 && <span className="fine muted" style={{ padding: '6px 12px' }}>Nothing matches “{query}”.</span>}
       </div>
-      {onNewProject && <><hr className="hr" /><button type="button" className="option" onClick={() => { setOpen(false); onNewProject(); }}><span>New project</span><span className="muted">+</span></button></>}
+      {onNewProject && <><hr className="hr" /><button type="button" className="option" onClick={() => { setOpen(false); onNewProject(); }}><span>New topic</span><span className="muted">+</span></button></>}
     </div>}
   </div>;
 }

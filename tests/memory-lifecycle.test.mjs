@@ -328,12 +328,12 @@ test('an ambiguous repository names the choice rather than picking one', async (
   }, {sessionKey: 's', repository: 'cbx1/backend'});
 
   assert.equal(result.active_project, null);
-  assert.match(result.context, /belongs to 2 projects/);
+  assert.match(result.context, /belongs to 2 topics/);
   // By id, because that is what select_project takes. A slug it would have to
   // look up is a second place to go wrong.
   assert.match(result.context, /email-self-serve \(p1\)/);
   assert.match(result.context, /data-model-2-0 \(p2\)/);
-  assert.doesNotMatch(result.context, /active project:/, 'nothing is scoped until it is chosen');
+  assert.doesNotMatch(result.context, /active topic:/, 'nothing is scoped until it is chosen');
 });
 
 test('the linked set is read without changing a scope the person already chose', async () => {
@@ -361,8 +361,8 @@ test('the linked set is read without changing a scope the person already chose',
   assert.deepEqual(asked, [{repository: 'acme/mono', select: false}],
     'asked, but told not to select');
   assert.equal(result.active_project, 'chosen-by-hand', 'the chosen scope survives');
-  assert.match(result.context, /projects in this codebase/);
-  assert.match(result.context, /1 other project not linked/, 'and the block still filters');
+  assert.match(result.context, /topics in this codebase/);
+  assert.match(result.context, /1 other topic not linked/, 'and the block still filters');
 });
 
 test('with no scope chosen yet, resolving the repository is allowed to select', async () => {
@@ -381,7 +381,7 @@ test('with no scope chosen yet, resolving the repository is allowed to select', 
   }, {sessionKey: 's', repository: 'acme/one'});
   assert.deepEqual(asked, [{repository: 'acme/one', select: true}]);
   assert.equal(result.active_project, 'p1');
-  assert.match(result.context, /1 other project not linked/);
+  assert.match(result.context, /1 other topic not linked/);
 });
 
 test('picked-up memories load, and the log and the notice say so', async () => {
@@ -404,7 +404,7 @@ test('picked-up memories load, and the log and the notice say so', async () => {
   assert.match(result.context, /dddddd {2}Pros and cons\./);
   assert.deepEqual(logged[0].memory_ids, ['aaaaaa11-0000-4000-8000-000000000001',
     'cccccc33-0000-4000-8000-000000000003', 'dddddd44-0000-4000-8000-000000000004']);
-  assert.equal(result.notice, 'Satchel loaded · 0 projects, 3 personal memories');
+  assert.equal(result.notice, 'Satchel loaded · 0 topics, 3 personal memories');
 });
 
 test('a rate limit tells the person what actually happened', async () => {
@@ -715,11 +715,11 @@ test('session start loads the active project\'s own rules under their own cap', 
     index: async projectId => { assert.equal(projectId, 'p1'); return {memories: own, complete: true}; },
     logInjection: async entry => { logged.push(entry); },
   }, {sessionKey: 's', repository: 'acme/ledger'});
-  assert.match(result.context, /project ledger, confirmed, applies to work in this codebase\n {2}f20000 {2}One QA run per commit is enough\./);
-  assert.match(result.context, /project ledger, picked up from what you said, use unless told otherwise\n {2}f10000 {2}Deploys go through infra-configurations\./);
+  assert.match(result.context, /topic ledger, confirmed, applies to work in this codebase\n {2}f20000 {2}One QA run per commit is enough\./);
+  assert.match(result.context, /topic ledger, picked up from what you said, use unless told otherwise\n {2}f10000 {2}Deploys go through infra-configurations\./);
   assert.doesNotMatch(result.context, /A personal row memories_in_scope/, 'only the project\'s own rows go in its block');
   assert.doesNotMatch(result.context, /personal, confirmed/, 'the personal block is empty here, and the project rows did not leak into it');
-  assert.match(result.notice, /2 project memories/);
+  assert.match(result.notice, /2 topic memories/);
   assert.deepEqual(new Set(logged[0].memory_ids), new Set([own[0].id, own[1].id]), 'the log names what loaded');
 });
 

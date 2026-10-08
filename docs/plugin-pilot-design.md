@@ -14,7 +14,7 @@ Start read-only. The companion already provides writes, so it can exercise cross
 |---|---|---|
 | Companion and connection-management UI | Existing Vercel deployment | Web deployment |
 | Satchel MCP endpoint | A new HTTPS route backed by a Vercel Node function | Backend deployment, with an explicit API compatibility version |
-| Memory, project and connection grants | Supabase | Reviewed migrations and normal authenticated operations |
+| Memory, topic and connection grants | Supabase | Reviewed migrations and normal authenticated operations |
 | Plugin instructions, manifests and hook configuration | Versioned source in the private Satchel repository; host-specific build outputs | Plugin release and host update/install |
 | Access and refresh credentials | Host-managed OAuth storage | Login, refresh and revoke; never plugin source |
 
@@ -52,9 +52,9 @@ Do not fetch current metadata each turn or add a persistent private-memory cache
 
 ## Index and scope contract
 
-The hook returns all names and descriptions in the **enabled personal scope and explicitly active project**, within that connection's grant. Permission to access several projects does not mean injecting all their memories. Selecting a project in the phone UI must not change every agent conversation's active project.
+The hook returns all names and descriptions in the **enabled personal scope and explicitly active topic**, within that connection's grant. Permission to access several topics does not mean injecting all their memories. Selecting a topic in the phone UI must not change every agent conversation's active topic.
 
-Default to personal only when the user granted it. Project selection is explicit and session-bound. A directory can suggest a previously confirmed binding later; it cannot grant access or choose a project by a matching folder name. Concurrent conversations keep independent selections. The server checks authorization again regardless of supplied session or project identifiers.
+Default to personal only when the user granted it. Topic selection is explicit and session-bound. A directory can suggest a previously confirmed binding later; it cannot grant access or choose a topic by a matching folder name. Concurrent conversations keep independent selections. The server checks authorization again regardless of supplied session or topic identifiers.
 
 Proposed read tools:
 
@@ -64,7 +64,7 @@ Proposed read tools:
 | `read_memory(scope, name)` | Current detail for exactly one scoped name, with ID and revision |
 | `connection_status()` | Effective allowed scopes and connection state, without credentials |
 
-A hook adapter formats the index as context using fixed output fields. Memory text is quoted data; it cannot supply hook decisions, executable commands or permission overrides. More info stays out of bootstrap context. Scope remains explicit when personal and project names collide. Rename/reuse handling must retain the existing stable-ID protection.
+A hook adapter formats the index as context using fixed output fields. Memory text is quoted data; it cannot supply hook decisions, executable commands or permission overrides. More info stays out of bootstrap context. Scope remains explicit when personal and topic names collide. Rename/reuse handling must retain the existing stable-ID protection.
 
 Set a documented index budget and test its boundary on both hosts. Fetching a complete API response is not proof the entire index reached the model. An oversized index must report incomplete loading and offer narrower scope or explicit retrieval; never quietly drop entries or claim all memory loaded. Start with a small fixture, then deliberately exceed the host limit.
 
@@ -72,7 +72,7 @@ Set a documented index budget and test its boundary on both hosts. Fetching a co
 
 Preferred first implementation: Supabase OAuth 2.1 plus a Satchel consent page and grant records. Supabase documents MCP discovery, registration, PKCE and refresh support, but Satchel must implement its own MCP service and authorization UI. [Supabase MCP authentication](https://supabase.com/docs/guides/auth/oauth-server/mcp-authentication).
 
-Consent should say which connection is asking, whether personal memory is included, which projects it can read, and how to revoke. Start with read-only grants. Treat a self-declared client display name as descriptive, not verified identity. The app manages effective authorization even when a host allows a tool automatically.
+Consent should say which connection is asking, whether personal memory is included, which topics it can read, and how to revoke. Start with read-only grants. Treat a self-declared client display name as descriptive, not verified identity. The app manages effective authorization even when a host allows a tool automatically.
 
 The OAuth compatibility spike must validate discovery, client registration, exact redirects, PKCE, token issuer/audience and refresh in both real clients. OpenAI requires MCP resource metadata and resource-bound token validation. Do not advertise metadata capabilities the authorization server has not implemented. [OpenAI authentication](https://developers.openai.com/plugins/build/auth). Claude supports browser OAuth for HTTP MCP servers. [Claude MCP authentication](https://code.claude.com/docs/en/mcp).
 
@@ -95,8 +95,8 @@ Use synthetic records and isolated fresh conversations outside the JEFF workspac
 | Negative control | With plugin disabled and a new conversation, the model does not know the randomized fixture answer |
 | Metadata vs. detail | An ordinary relevant request triggers lookup from the index; an answer present only in more info requires a recorded detail call |
 | Irrelevant request | Index may load, but unrelated full memory is not fetched |
-| Personal/project isolation | Same name in personal, Project A and forbidden Project B resolves correctly; B is absent even from summaries and errors |
-| Parallel conversations | Two active projects in two conversations cannot overwrite each other's selection |
+| Personal/topic isolation | Same name in personal, Topic A and forbidden Topic B resolves correctly; B is absent even from summaries and errors |
+| Parallel conversations | Two active topics in two conversations cannot overwrite each other's selection |
 | Phone edit | Change the fixture on the phone; each host's next turn retrieves the new description/detail revision |
 | Resume/compaction | Necessary current index reaches the next response, including automatic compaction mid-turn where supported |
 | Revocation | Revoke one connection on the phone; old access/refresh attempts cannot obtain data through MCP or direct RPC; other connection and companion still work |

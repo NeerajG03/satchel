@@ -17,7 +17,7 @@ codex mcp login satchel
 claude mcp login plugin:satchel:satchel
 ```
 
-Run Claude login in an interactive terminal. In Satchel's consent page, select personal memory and/or individual projects. Write access is a separate unchecked option. Connections in the web app shows and revokes those grants. A client display name is self-declared; revocation applies to all installations using that client identity.
+Run Claude login in an interactive terminal. In Satchel's consent page, select personal memory and/or individual topics. Write access is a separate unchecked option. Connections in the web app shows and revokes those grants. A client display name is self-declared; revocation applies to all installations using that client identity.
 
 ## Claude account upload and cloud verification status (2026-09-11)
 
@@ -31,10 +31,10 @@ Cloud OAuth, actual Code-session plugin delivery, startup/compaction execution, 
 
 ## Use
 
-- Personal memory needs no project. Ask the agent to remember something **in personal memory**, with a name, description and optional more info.
-- For project work, ask the agent to list allowed projects and select one for this conversation. Selection never expands its grant and never changes another conversation's selection.
-- A project can optionally link one or more GitHub repositories in the companion. In a linked checkout, the lifecycle bootstrap stages the normalized `origin` identity and the authenticated index hook selects that project only if the current connection already has access. Repository linking is routing, never authorization; `select_project` with the staged repository identity remains a fallback when staging fails.
-- On an explicit request, a connection with memory-write or task-write capability can use `upsert_project` to create a project and optionally link one GitHub repository atomically. Existing projects require their current revision and must already be in the corresponding writable grant. A newly created project is not added to the grant automatically; authorize it in the companion before selecting it or writing scoped content.
+- Personal memory needs no topic. Ask the agent to remember something **in personal memory**, with a name, description and optional more info.
+- For topic work, ask the agent to list allowed topics and select one for this conversation. Selection never expands its grant and never changes another conversation's selection.
+- A topic can optionally link one or more GitHub repositories in the companion. In a linked checkout, the lifecycle bootstrap stages the normalized `origin` identity and the authenticated index hook selects that topic only if the current connection already has access. Repository linking is routing, never authorization; `select_topic` with the staged repository identity remains a fallback when staging fails.
+- On an explicit request, a connection with memory-write or task-write capability can use `upsert_topic` to create a topic and optionally link one GitHub repository atomically. Existing topics require their current revision and must already be in the corresponding writable grant. A newly created topic is not added to the grant automatically; authorize it in the companion before selecting it or writing scoped content.
 - Names/descriptions load on a new conversation (including clear) and after compaction. There is no per-message refresh or resume hook. Relevant details are fetched with `read_memory` using the index's name and stable ID.
 - Satchel assigns IDs for explicit saves; corrections and forgets require the existing ID and current revision. Hooks never save, correct or forget memory on their own, and never collect transcripts. A memory the router keeps at the end of a turn arrives unconfirmed and is announced to the person.
 - A web/phone edit enters the index on the next lifecycle load or explicit refresh request, not automatically on the next ordinary turn. Existing chat text does not disappear. Ask for a refresh after a correction.
@@ -45,7 +45,7 @@ Claude can start `SessionStart` before MCP is available. Its command hook stages
 
 Codex uses `SessionStart` for startup/clear and `PostCompact` for compaction. Both hosts exclude resume and `UserPromptSubmit`. Hooks remain subject to host trust/settings and connection availability. See [current event behavior](memory-hooks.md).
 
-The hook includes authorized personal memory plus the conversation's explicitly selected project. Its serialized index budget is 1,800 UTF-8 bytes, deliberately conservative relative to host context limits. If the index exceeds that budget, or database pagination is incomplete, it reports incomplete loading and directs explicit scoped retrieval. Full detail is never automatically injected. This pilot limit needs usability testing with larger memory collections.
+The hook includes authorized personal memory plus the conversation's explicitly selected topic. Its serialized index budget is 1,800 UTF-8 bytes, deliberately conservative relative to host context limits. If the index exceeds that budget, or database pagination is incomplete, it reports incomplete loading and directs explicit scoped retrieval. Full detail is never automatically injected. This pilot limit needs usability testing with larger memory collections.
 
 ## Install for anyone
 

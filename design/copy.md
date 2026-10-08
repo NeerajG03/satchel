@@ -9,7 +9,7 @@
 | Wordmark | satchel |
 | Rail | Left off · Book · Tasks · Topics · Apps · Settings |
 | Rail write key | Write |
-| Header status (word next to the light) | Synced · Nothing saved yet · No apps connected · Project has nothing yet |
+| Header status (word next to the light) | Synced · Nothing saved yet · No apps connected · Topic has nothing yet |
 | Footer right, default | Explicit saves only |
 | Footer left, examples | 5 in the book · 3 tasks moving · 2 apps |
 
@@ -17,20 +17,20 @@
 
 - Eyebrow: Your work, with you
 - H1: A place for what you want to remember.
-- Body: Keep the decisions, preferences and next steps that make a project yours. Write them once. Every connected AI app can read them.
+- Body: Keep the decisions, preferences and next steps that make your work yours. Write them once. Every connected AI app can read them.
 - Button: Continue with GitHub
 - Under button: GitHub is only used to sign you in. Satchel never asks for repository access here.
-- Side list: The book / Preferences and decisions you chose to save. Names and short descriptions form an index agents read first. · Tasks and handoffs / The exact next action and the evidence the last session left behind. · Projects / One effort, its repositories and the apps allowed to see it. · Apps / Each connected agent gets only the scopes you grant. Revoke any time.
+- Side list: The book / Preferences and decisions you chose to save. Names and short descriptions form an index agents read first. · Tasks and handoffs / The exact next action and the evidence the last session left behind. · Topics / One subject, its repositories and the apps allowed to see it. · Apps / Each connected agent gets only the scopes you grant. Revoke any time.
 - Footer: Satchel · Private pilot — A little less repeating yourself
 
 ## Left off, first run
 
 - H1: Welcome, {first name}.
 - Lede: Your Satchel is empty, which is the right place to start. Do any one of these three and this page turns into "Where you left off".
-- Step 1: 01 · Two minutes / Write the first thing down / A preference about how you like to work. It applies everywhere, no project needed. / Open the book
+- Step 1: 01 · Two minutes / Write the first thing down / A preference about how you like to work. It applies everywhere, no topic needed. / Open the book
 - Step 2: 02 · Five minutes / Connect an AI app / Install the Satchel plugin in Claude Code or Codex, then sign in from its connection settings. You choose what it can read. / See the steps
 - Step 3: 03 · When you have one / Capture a task / A title and the next action. Later, a handoff makes it resumable from any device. / Capture a task
-- Notice when projects exist but are empty: You have {n} projects but nothing in them yet. {names} were created earlier. A project with no memories or tasks is invisible to agents until you add something. / View projects
+- Notice when topics exist but are empty: You have {n} topics but nothing in them yet. {names} were created earlier. A topic with no memories or tasks is invisible to agents until you add something. / View topics
 
 ## Left off
 
@@ -44,12 +44,12 @@
 
 ## Book
 
-- Eyebrow: For me · Project · {name}
+- Eyebrow: For me · Topic · {name}
 - H1: The book.
-- Lede, For me: "For me" holds preferences and details that apply across all your work. Pick a project from the picker when something belongs to one effort only.
-- Lede, project: {brief}
+- Lede, For me: "For me" holds preferences and details that apply across all your work. Pick a topic from the picker when something belongs to one subject only.
+- Lede, topic: {brief} · Decisions and details for this topic only.
 - Picker button: In {scope}
-- Picker: Find a project · For me / applies everywhere · Projects · {n} · {name} / {n} memories · empty · New project
+- Picker: Find a topic · For me / applies everywhere · Topics · {n} · {name} / {n} memories · empty · New topic
 - Picker locked: Finish or discard the correction to switch scope. / Save or discard the draft to switch scope.
 - Segments: All {n} · Saved by me {n} · Saved by agents {n}
 - Composer: Write something down · saving in {scope} / Name · short, how an agent will find it / Description · one or two lines. This is what agents read first / Add more info (optional) / Name and description form the index. More info is read on demand. / Discard · Save memory
@@ -65,13 +65,13 @@
 - Source block heading: From what you said
 - No approval action anywhere. A memory is a memory whether or not the person agrees with it, and asking them to confirm one turns memory into a queue of chores.
 - Empty: Ideas for a first memory / Start with something about you. / Things you end up repeating in every new chat make good first entries. Tap one to prefill the form above. / How I like answers written · Tools and languages I use · What to never do in my code · My working hours and timezone
-- Search: Searching names, descriptions and more info in this scope. Search all scopes instead / Matches {n} · In name {n} · In more info {n} / matched in name and description / Not here? Memories saved in "For me" and other projects are not searched unless you widen the scope above. / Clear
+- Search: Searching names, descriptions and more info in this scope. Search all scopes instead / Matches {n} · In name {n} · In more info {n} / matched in name and description / Not here? Memories saved in "For me" and other topics are not searched unless you widen the scope above. / Clear
 - Footer: {n} in the book · {scope} / {n} of {total} match "{q}" / Saved to your book · revision {n} / Forgotten
 
 ## Tasks
 
 - H1: Continue.
-- Lede: Tasks hold the exact next action and the evidence a session leaves behind. They don't need a repository, and they don't need a project.
+- Lede: Tasks hold the exact next action and the evidence a session leaves behind. They don't need a repository, and they don't need a topic.
 - Actions: Export · Capture
 - Segments: Actionable {n} · Moving {n} · Blocked {n} · Done {n} · All {n}
 - Search placeholder: Title or next action
@@ -99,10 +99,10 @@
 
 ## Topics
 
-The route stays `/projects`; a project is a topic with a repository or tasks.
+The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). Old `/projects` links redirect to the matching `/topics` path.
 
 - H1: Topics.
-- Lede: A topic is a subject your memories are about. Satchel makes one when a work fact fits none of these. Link a codebase or add tasks and it works as a project.
+- Lede: A topic is a subject your memories are about. Satchel makes one when a work fact fits none of these. You can also link a codebase or add tasks to it.
 - Button: + New topic
 - Columns: Topic · Memories · Tasks · Apps with access · Last activity
 - Mark on a topic Satchel made: made by Satchel
@@ -112,9 +112,11 @@ The route stays `/projects`; a project is a topic with a repository or tasks.
 - Topic page eyebrow: Topic · Topic · made by Satchel
 - Topic page, merged: Merged into {other}. / Its memories moved there. Undo it from the topics list to put them back.
 - Row: No repositories linked · Nothing saved here yet.
-- New project sheet: New project / Name the effort, not the repo. / A project can hold many repositories or none. You can link codebases on the next page. / Name / Brief · one or two lines an agent reads to tell this apart from your other projects / A project with the same name already exists? Satchel will ask before creating a second one. / Opens the new project page / Cancel · Create project
-- Project page: ← Projects / Open its book · Open its tasks / Edit brief / Linked codebases · Link another · Unlink / A linked repository lets an agent pick this project for a coding chat. It does not grant access by itself. / Apps that can see this project · Manage / Activity / Tasks · {n} · All tasks / Memories · {n} · Open the book
-- Empty project: Agents can't see this project yet. It has no brief, no memories and no tasks. Fill in the brief first so an agent can tell it apart from "{other}". / Brief · one or two lines an agent reads to know what this effort is / What is this project for, and what does "done" look like? / Save brief / You can change it any time. / Codebases / Link a repository / Optional. Lets a coding agent select this project when it opens that repo. / Book / Save a first decision / Something agents should know before working here. / Write in this project's book / Tasks / Capture the next thing / A title and next action is enough to start. / Capture a task
+- New topic sheet: New topic / Name the effort, not the repo. / A topic can hold many repositories or none. You can link codebases on the next page. / Name / Brief · one or two lines an agent reads to tell this apart from your other topics / A topic with this name already exists. Create a second one anyway? Agents pick topics by name, so two with the same name can confuse them. / Opens the new topic page / Cancel · Create topic · Create anyway
+- Topic page: ← Topics / Delete topic (torn page key) / Open its book · Open its tasks / Edit brief / Linked codebases · Link another · Unlink / A linked repository lets an agent pick this topic for a coding chat. It does not grant access by itself. / Apps that can see this topic · Manage / Activity / Tasks · {n} · All tasks / Memories · {n} · Open the book
+- Empty topic: Agents can't see this topic yet. It has no brief, no memories and no tasks. Fill in the brief first so an agent can tell it apart from "{other}". / Brief · one or two lines an agent reads to know what this effort is / What is this topic for, and what does "done" look like? / Save brief / You can change it any time. / Codebases / Link a repository / Optional. Lets a coding agent select this topic when it opens that repo. / Book / Save a first decision / Something agents should know before working here. / Write in this topic's book / Tasks / Capture the next thing / A title and next action is enough to start. / Capture a task
+- Topic not found: That topic is not here. / It may have been removed. Nothing else changed. · This topic (load error)
+- Delete topic (`/topics/{id}/delete`): ← Back to topic / Delete topic · this cannot be undone / Topic / Delete "{name}"? / Everything in it goes too: {n} memories in its book · {n} tasks, with every comment, handoff and uploaded file · {n} linked repositories. Agents opening those repos will no longer land here. · No app can see this topic. / {n} connected apps lose access to it: {names}. Their other grants stay. / Type the topic name to confirm / Keep the topic · Delete this topic / This topic changed while you were looking. / Footer: Delete topic · {name}
 
 ## Apps
 
@@ -123,6 +125,7 @@ The route stays `/projects`; a project is a topic with a repository or tasks.
 - Empty: Nothing is connected yet. An app gets only the memory and task scopes you grant when it first asks. You can revoke later. / 01 · In your terminal / Install the Satchel plugin / Both apps install from the same public catalog. Pick yours. / Claude Code · Codex / {install commands} · Copy / Or let {app} do it. Copy a prompt, paste it into a {app} chat, and it runs the install for you. / Copy prompt for {app} / 02 · In the app / Sign in / The login command opens Satchel in your browser with a consent page. Nothing is granted until you allow it. / {login command} · Copy / 03 · Back here / See it connected / The app appears in this list with a green light once you allow it. / Waiting for the first connection
 - Empty footer panel: What a connected app can never do: read scopes you didn't grant, save without both write permission and your explicit ask, or see More info in bulk. Hooks read names and descriptions only.
 - Card: Verified · read {when} / Connected · last read {when} · no writes granted / Revoked {when} · earlier retrieved content stays in that app / Memory / Tasks / read and save · read only · read, write and upload · none / Revoke access · Edit scopes · Reconnect from the app
+- Grant line: For me · Every topic, including new ones · {name} · a removed topic
 - Footer: {n} apps connected · {n} revoked / {app} access revoked — Earlier reads stay in that app
 
 ## Consent
@@ -146,7 +149,7 @@ The route stays `/projects`; a project is a topic with a repository or tasks.
 
 - H1: Settings.
 - Account: {handle} · {email} / Sign out / GitHub is used only to sign you in.
-- Take it with you: Export everything as a portable manifest plus your verified task files. No credentials are included. Identifiers, sources and revision history are kept. / Export all · Export one project…
+- Take it with you: Export everything as a portable manifest plus your verified task files. No credentials are included. Identifiers, sources and revision history are kept. / Export all · Export one scope · For me · {topic} · Export this one
 - Developer mode: Adds an Activity page showing every request that came in, every conversation Satchel kept, and every change to a memory, and lets you run the consolidation pass by hand. It is a view and one button, not a permission: nothing about what is stored or who may read it changes. / Show Activity in the rail · this browser only / Open Activity
 - Overnight pass: While you are away, Satchel reads the conversations that have gone quiet and updates your memory from them. It signs in as its own connection, listed in Apps as Satchel consolidation, and you can revoke it there. It is off until you switch it on. / Run overnight / How often: Once a day · Twice a day / Run at · First run · Second run / On these days: Sun to Sat · Every day · Weekdays / Times are in {zone}, this browser's time zone. A pass only runs when there is a conversation that has been quiet for 30 minutes, so a night with nothing new costs nothing. / Save schedule
 - Overnight pass, problems: Choose at least one day of the week. · Choose one time, or two at most. · Two passes need to be at least an hour apart. · That time zone is not recognised. · Switch the overnight pass on first.
