@@ -110,7 +110,7 @@ export function buildReconsiderPrompt({proposed, existing, now = new Date()} = {
  *  still has to survive validation. Errors leave raw, so the caller can tell
  *  an overloaded host from a bad request, and every caller wraps them before
  *  they reach anyone. */
-async function askModel({provider, apiKey, baseURL, fetchImpl, model, thinking, schema, system, prompt, signal, functionId}) {
+export async function askModel({provider, apiKey, baseURL, fetchImpl, model, thinking, schema, system, prompt, signal, functionId}) {
   try {
     return await generateObject({
       model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(model),

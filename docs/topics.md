@@ -97,15 +97,47 @@ The only difference is that work facts now have a topic to live in, so personal 
 
 ## What has to get done
 
-| # | Area | What it means | Size |
+Status on 8 October.
+
+| # | Area | What it means | Status |
 |---|---|---|---|
-| 1 | Rename | `projects` becomes `topics`, with the same ids. Database, server, tools (with aliases), UI, tests, docs and the `satchel-projects` skill. Stage it: database with old-name views, then server and tools, then UI, then remove the aliases. | L |
-| 2 | Capture | Consolidation can name a new topic. A new name either reuses a close topic or makes one. Update `consolidate.md` the prompt-management way. | M |
-| 3 | Tidy | The nightly merge, with a note and undo in activity. | S |
-| 4 | Grants | All or none for topics, narrow grants end, security checklist and tests. | S |
-| 5 | Backfill | One pass over personal: move work facts into topics. Dry run first. | S |
-| 6 | UI | A design pass for the topics page: which ones Satchel made, the merge note, and the first visit after the backfill, when topics appear that you never made. | M |
-| 7 | Eval | A blind subagent reads real memories and proposes topics. Tune it until it is right, then use its output as a golden set the pipeline has to beat. Move the existing evals from projects to topics. | M |
+| 1 | Rename | What a person reads says topic: the rail, the topics page, the topic page, the consent page. The table, routes and agent tools keep the word project, because renaming them changes nothing anyone sees and risks every hook. A topic with a repository or tasks is what a project was. | Built, user-facing only |
+| 2 | Capture | Consolidation can name a new topic, and reuses a close one. Topics it makes are marked `made_by = 'satchel'` (`create_topic`). | Built |
+| 3 | Tidy | One call a job, before sessions are read: moves work facts out of personal and merges topics that are one subject. Only topics Satchel made are merged away, never one with tasks or repositories. Every merge is recorded in `topic_merges` and can be undone from the topics page. | Built |
+| 4 | Grants | The consent page offers every topic or none. Existing grants are left as they are: on 8 October every live connection already had every project, so nothing needed narrowing. | Built |
+| 5 | Backfill | The tidy is the backfill: its first run moves what sits in personal today. | Built, runs on the next job |
+| 6 | UI | "made by Satchel" on the list and the topic page, a Merged section with Undo merge, a notice on a merged topic, and "Apps with access" now counts apps granted every topic. | Built |
+| 7 | Eval | `eval/topics-replay.mjs` for capture and `eval/tidy-replay.mjs` for the tidy, both against the blind golden set. The golden file holds real names and is passed in by path. | Built |
+
+### How a move and a merge work
+
+```
+move_memory(id, revision, topic)      the same row, a new topic
+  ├── wording, band, how often it was said: unchanged
+  ├── caller must be able to write on both sides
+  └── memory history gets a "moved" event: personal → infrastructure
+
+merge_topic(from, into)               from must have no tasks or repositories
+  ├── its live memories move to into, each with a "moved" event
+  ├── from is kept, hidden, with merged_into set
+  └── topic_merges remembers exactly which memories moved
+
+unmerge_topic(from)                   Undo merge on the topics page
+  └── moves back only those memories, if they are still where the merge put them
+```
+
+### Tidy results on real memories
+
+The 14 memories that sat in personal on 7 October, three runs of one call each:
+
+| | Run 1 | Run 2 | Run 3 |
+|---|---|---|---|
+| Stayed in personal, should | 8/8 | 8/8 | 8/8 |
+| Moved, should | 6/6 | 6/6 | 6/6 |
+| Same-subject pairs together | 4/4 | 4/4 | 4/4 |
+| Topics made | customers, infrastructure, windtunnel-cloud | same | same |
+
+A merge probe with two near-duplicate topics and two that only share a word merged the duplicates both times and left the others apart.
 
 ## Later, if needed
 

@@ -62,7 +62,8 @@ export type ConsolidationOutcome = {
 /** One change the pass made, or tried to, with the model's reason. */
 export type JobAction = { did: string; on: string | null; statement?: string | null; why?: string | null };
 /** What one session came to inside a job. */
-export type JobRun = ConsolidationOutcome & { session_key?: string; scope?: string; actions?: JobAction[]; spent?: boolean };
+export type JobRun = ConsolidationOutcome & { session_key?: string; scope?: string; actions?: JobAction[]; spent?: boolean;
+  topics?: number; moved?: number; merged?: number };
 
 /** A consolidation you start and come back to. The row is the progress while
  *  it runs and the report once it stops. */
@@ -107,8 +108,9 @@ export function summarizeJobRun(run: JobRun): string {
   if (run.failed) return run.failed;
   if (run.skipped) return 'nothing new since the last read';
   const said = ([['added', run.added], ['extended', run.extended], ['replaced', run.replaced],
-    ['retired', run.retired], ['affirmed', run.affirmed], ['rejected', run.dropped]] as const)
-    .filter(([, n]) => n > 0).map(([word, n]) => `${n} ${word}`);
+    ['retired', run.retired], ['affirmed', run.affirmed], ['moved', run.moved], ['merged', run.merged],
+    ['new topics', run.topics], ['rejected', run.dropped]] as const)
+    .filter(([, n]) => (n ?? 0) > 0).map(([word, n]) => `${n} ${word}`);
   return said.length ? said.join(', ') : 'nothing to change';
 }
 

@@ -7,7 +7,7 @@
 | Where | Text |
 |---|---|
 | Wordmark | satchel |
-| Rail | Left off · Book · Tasks · Projects · Apps · Settings |
+| Rail | Left off · Book · Tasks · Topics · Apps · Settings |
 | Rail write key | Write |
 | Header status (word next to the light) | Synced · Nothing saved yet · No apps connected · Project has nothing yet |
 | Footer right, default | Explicit saves only |
@@ -97,11 +97,20 @@
 - Edit: ← Back to task / Editing task · state does not change here / Title / Next action · the one concrete thing to do first / Outcome · what is true when this is done / Why · the reason it matters / Done when · one per line, each becomes a checkbox / Priority / Parent, dependencies and resources are edited on the task page, not here. / What this write does / Saves with the current revision. If an agent changed the task since you opened it, you get a conflict, not an overwrite. / Last change: {app} · {kind} · {when} / Discard · Save task
 - Footer: Task · {scope} · revision {n} / Editing · revision {n} · save writes revision {n+1} / Moved to {state} / Comment added / Progress recorded / Handoff recorded
 
-## Projects
+## Topics
 
-- H1: Projects.
-- Lede: A project is an ongoing effort, not a repository. Link as many codebases as it needs, or none at all.
-- Columns: Project · Memories · Tasks · Apps with access · Last activity
+The route stays `/projects`; a project is a topic with a repository or tasks.
+
+- H1: Topics.
+- Lede: A topic is a subject your memories are about. Satchel makes one when a work fact fits none of these. Link a codebase or add tasks and it works as a project.
+- Button: + New topic
+- Columns: Topic · Memories · Tasks · Apps with access · Last activity
+- Mark on a topic Satchel made: made by Satchel
+- Merged section: Merged / kept so you can undo / {name} went into {other} / Undo merge
+- Announce after undo: Merge undone · {name} is back
+- Empty: No topics yet. / "For me" already holds everything that applies everywhere. Satchel makes a topic when a work fact needs one, or you can make one now.
+- Topic page eyebrow: Topic · Topic · made by Satchel
+- Topic page, merged: Merged into {other}. / Its memories moved there. Undo it from the topics list to put them back.
 - Row: No repositories linked · Nothing saved here yet.
 - New project sheet: New project / Name the effort, not the repo. / A project can hold many repositories or none. You can link codebases on the next page. / Name / Brief · one or two lines an agent reads to tell this apart from your other projects / A project with the same name already exists? Satchel will ask before creating a second one. / Opens the new project page / Cancel · Create project
 - Project page: ← Projects / Open its book · Open its tasks / Edit brief / Linked codebases · Link another · Unlink / A linked repository lets an agent pick this project for a coding chat. It does not grant access by itself. / Apps that can see this project · Manage / Activity / Tasks · {n} · All tasks / Memories · {n} · Open the book
@@ -122,8 +131,8 @@
 - H1: {app} wants to read your Satchel.
 - Under: Name supplied by the app · will return to {redirect}
 - Quick start: Read everything · Read and save everything · Clear all
-- Groups: Memory / Scopes it can read · {n} of {total} / Select all · None / For me · personal memories / Also allow saves, corrections and forgets / Only when you ask it to, in that chat. — Tasks / For me · personal tasks / Also allow creating tasks, updates, moves and handoffs / Also allow file uploads to task storage
-- Note: Projects you create later are not included. Add them from Apps.
+- Groups: Memory / Scopes it can read · every topic and you · you only · nothing / Everything · None / For me · personal memories / Every topic · all {n}, and the ones made later / Also allow saves, corrections and forgets / Only when you ask it to, in that chat. — Tasks / For me · personal tasks / Every topic / Also allow creating tasks, updates, moves and handoffs / Also allow file uploads to task storage
+- Note: Topics are all or none. "Every topic" keeps being true, so a topic made next month, by you or by Satchel, is included without asking again.
 - Actions: Allow this access · Deny · You can change or revoke this later in Apps.
 - Aside: What this means / Reading means the app's hooks get the names and descriptions of memories in these scopes. It fetches More info by name only when it needs it. / Writing still needs your explicit ask inside the chat. The app cannot save on its own. / Summary
 - Footer: Deny closes this and sends the app back
@@ -143,7 +152,7 @@
 - Overnight pass, problems: Choose at least one day of the week. · Choose one time, or two at most. · Two passes need to be at least an hour apart. · That time zone is not recognised. · Switch the overnight pass on first.
 - Overnight pass, state: Switched off after three refusals in a row. Switch it on again to sign it in fresh, or delete what is stored. / Delete the stored sign-in / The stored sign-in was deleted / Off. The stored sign-in is deleted. The connection stays listed in Apps until you revoke it there. / Switched on, but the timer that runs it is not installed on this database. / Lights: working · not run yet · {n} refused · not installed / last run · next run
 - Overnight pass, switching on (`/settings/consolidation`): H1 Switching on the overnight pass. / You did not allow it, so the overnight pass was not switched on. · That sign-in has expired. Switch the overnight pass on again. · That response did not match this request, so nothing was switched on. Try again. · Satchel could not set up the overnight sign-in. Nothing was switched on. Try again in a minute. · Satchel could not finish signing the overnight pass in. Nothing was switched on. Try again. · The overnight pass can only be switched on from the hosted Satchel, over https. Open it there. · This browser would not let Satchel remember the sign-in between pages. Allow site data for this page and try again. / Back to Settings
-- Overnight pass, on the consent page: What the overnight pass needs (button) / The overnight pass (aside): This is the connection you just asked for in Settings. It reads conversations that have gone quiet and saves what it learns, so it needs your memory, every project and you, with saves. It does not need tasks. Nothing is ticked for you: press the button above or choose your own.
+- Overnight pass, on the consent page: What the overnight pass needs (button) / The overnight pass (aside): This is the connection you just asked for in Settings. It reads conversations that have gone quiet and saves what it learns, so it needs your memory, every topic and you, with saves. It does not need tasks. Nothing is ticked for you: press the button above or choose your own.
 - Footer: Overnight pass is on · {schedule} · Overnight schedule saved · {schedule} · Overnight pass is off · the stored sign-in was deleted
 - Forgetting: Forget removes a record from active retrieval right away. Satchel cannot delete copies from earlier chats, exports, or an app's own memory. / Read how retention works
 - Footer: Exported {file} + {n} files — No credentials included

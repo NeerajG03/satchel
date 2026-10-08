@@ -133,9 +133,12 @@ async function makeTopics(service, topics, projects) {
     if (projects.some(p => p.slug === topic.slug)) continue;
     try {
       const id = crypto.randomUUID();
-      const out = await service.upsertProject({request_id: crypto.randomUUID(), project_id: id, slug: topic.slug,
-        name: topic.slug.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' '), brief: topic.brief,
-        repository_change: {kind: 'unchanged'}});
+      const name = topic.slug.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+      const out = service.createTopic
+        ? await service.createTopic({request_id: crypto.randomUUID(), project_id: id, slug: topic.slug,
+          name, brief: topic.brief})
+        : await service.upsertProject({request_id: crypto.randomUUID(), project_id: id, slug: topic.slug,
+          name, brief: topic.brief, repository_change: {kind: 'unchanged'}});
       if (out?.grant_required) { failed.add(topic.slug); continue; }
       const row = {id: out?.project?.id ?? out?.id ?? id, slug: topic.slug, brief: topic.brief, project_repositories: []};
       projects.push(row);
@@ -143,6 +146,62 @@ async function makeTopics(service, topics, projects) {
     } catch { failed.add(topic.slug); }
   }
   return {made, failed};
+}
+
+/** Once a job: file what sits in personal under the topics it belongs to,
+ *  and fold together topics that are one subject. Returns a run for the job
+ *  row, or null when there was nothing to ask about.
+ *
+ *  Never stops the pass. A tidy that fails is a night where personal stayed
+ *  as it was, which is how every night went before topics existed. */
+export async function tidyTopics(service, tidier, {traced = untraced, ownerId, deadline = null} = {}) {
+  if (!tidier || !service.moveMemory || !await mayMakeTopics(service)) return null;
+  return traced('satchel.tidy', {userId: ownerId, metadata: {event: 'tidy'}, tags: ['satchel', 'tidy'], input: null},
+    async setOutput => {
+      const counts = {moved: 0, merged: 0, topics: 0, dropped: 0};
+      const run = {document: 'tidy', session_key: 'personal', scope: 'tidy', ...counts, actions: []};
+      try {
+        const projects = await service.projects();
+        const memories = (await service.memoriesInScope(null, 200)).filter(m => !m.project_id);
+        const made = projects.filter(p => p.made_by === 'satchel');
+        if (!memories.length && made.length < 2) return null;
+        const topics = projects.map(p => ({id: p.id, slug: p.slug, brief: p.brief, made_by: p.made_by ?? 'person'}));
+        const outcome = await tidier.tidy({topics, memories}, {deadline});
+        run.dropped = outcome.dropped.length;
+        const fresh = await makeTopics(service, outcome.topics, projects);
+        for (const topic of fresh.made) {
+          run.topics += 1;
+          run.actions.push({did: 'made topic', on: topic.id, statement: topic.slug, why: topic.brief});
+        }
+        for (const merge of outcome.merges) {
+          try {
+            await service.mergeTopic({from: merge.from.id, into: merge.into.id, note: merge.why});
+            run.merged += 1;
+            run.actions.push({did: 'merged topic', on: merge.from.id,
+              statement: `${merge.from.slug} into ${merge.into.slug}`, why: merge.why});
+          } catch (error) {
+            run.actions.push({did: 'failed', on: merge.from.id, statement: `merge ${merge.from.slug}`, why: errorText(error)});
+          }
+        }
+        for (const move of outcome.moves) {
+          const target = projects.find(p => p.slug === move.slug);
+          if (!target || fresh.failed.has(move.slug)) continue;
+          try {
+            await service.moveMemory({id: move.memory.id, revision: move.memory.revision, project_id: target.id,
+              note: move.why});
+            run.moved += 1;
+            run.actions.push({did: 'moved', on: move.memory.id, statement: `${move.memory.statement} → ${move.slug}`,
+              why: move.why});
+          } catch (error) {
+            run.actions.push({did: 'failed', on: move.memory.id, statement: move.memory.statement, why: errorText(error)});
+          }
+        }
+      } catch (error) {
+        run.failed = errorText(error);
+      }
+      setOutput(run.actions);
+      return run;
+    });
 }
 
 /** Personal memories and every project's own, once each. A session with no
@@ -329,7 +388,7 @@ const TOTALS = ['added', 'extended', 'replaced', 'retired', 'affirmed', 'dropped
  *  ended without saying so looks exactly like one that is still going:
  *  nothing left, the 30 minutes are up, or the model cannot answer. */
 export async function consolidateStep(service, consolidator, job,
-  {budgetMs = 240000, traced = untraced, ownerId, now = Date.now} = {}) {
+  {budgetMs = 240000, traced = untraced, ownerId, now = Date.now, tidier = null} = {}) {
   const wall = Date.parse(job.deadline_at);
   const deadline = Math.min(now() + budgetMs, wall);
   // A session already tried in this job is not tried again, even though a
@@ -345,8 +404,18 @@ export async function consolidateStep(service, consolidator, job,
   // inside the hook's budget: three log tables are nothing to scan once a job
   // and something to scan on every keystroke.
   try { await service.expireRunLogs?.(); } catch { /* retention, never the pass */ }
-  const waiting = (await service.pendingDocuments(job.idle_minutes)).filter(d => !tried.has(d.id));
   let current = job;
+  // First, and once a job: the tidy reads what is already stored, so it does
+  // not wait on there being a new session to read.
+  if (!tried.has('tidy')) {
+    const run = await tidyTopics(service, tidier, {traced, ownerId, deadline});
+    if (run) {
+      tried.add('tidy');
+      current = await service.moveConsolidationJob(current.id, current.step,
+        {runs: [...(current.runs ?? []), run]}) ?? current;
+    }
+  }
+  const waiting = (await service.pendingDocuments(job.idle_minutes)).filter(d => !tried.has(d.id));
   const stop = async (reason, patch = {}) => {
     current = await service.moveConsolidationJob(current.id, current.step, {
       status: 'finished', ...patch, stop_reason: reason, finished_at: new Date(now()).toISOString()}) ?? current;

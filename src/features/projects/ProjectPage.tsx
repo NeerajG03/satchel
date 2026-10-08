@@ -12,7 +12,7 @@ import { TextArea } from '../../ui/Field';
 import { Light } from '../../ui/Light';
 import { LoadError, Notice, SaveError, Skeleton } from '../../ui/Notice';
 import { Provenance } from '../../ui/Provenance';
-import { StateChip } from '../../ui/Chip';
+import { Chip, StateChip } from '../../ui/Chip';
 import { RepositoryLinks } from './RepositoryLinks';
 
 export function ProjectPage() {
@@ -31,7 +31,7 @@ export function ProjectPage() {
   const project = data?.projects.find(p => p.id === id);
   const scope = { kind: 'project' as const, projectId: id };
   const isEmpty = Boolean(data && data.memories.length === 0 && data.tasks.length === 0);
-  const apps = data?.connections.filter(c => c.project_ids.includes(id) || c.agent_task_grants.some(g => g.project_id === id)) ?? [];
+  const apps = data?.connections.filter(c => c.all_projects || c.task_all_projects || c.project_ids.includes(id) || c.agent_task_grants.some(g => g.project_id === id)) ?? [];
   useFooter(project ? `${project.name} · ${count(data!.memories.length, 'memory', 'memories')} · ${count(data!.tasks.length, 'task')}` : '',
     isEmpty ? { light: 'amber', word: 'Project has nothing yet' } : undefined);
 
@@ -57,9 +57,9 @@ export function ProjectPage() {
     announce(`Unlinked ${target.repository}`);
   }
 
-  if (page.error) return <><LinkButton to="/projects" look="quiet">← Projects</LinkButton><LoadError what="This project" onReload={page.reload} /></>;
-  if (!data) return <><LinkButton to="/projects" look="quiet">← Projects</LinkButton><Skeleton rows={6} /></>;
-  if (!project) return <><LinkButton to="/projects" look="quiet">← Projects</LinkButton><Notice look="error" title="That project is not here.">It may have been removed. Nothing else changed.</Notice></>;
+  if (page.error) return <><LinkButton to="/projects" look="quiet">← Topics</LinkButton><LoadError what="This project" onReload={page.reload} /></>;
+  if (!data) return <><LinkButton to="/projects" look="quiet">← Topics</LinkButton><Skeleton rows={6} /></>;
+  if (!project) return <><LinkButton to="/projects" look="quiet">← Topics</LinkButton><Notice look="error" title="That topic is not here.">It may have been removed. Nothing else changed.</Notice></>;
 
   const other = data.projects.find(p => p.id !== id);
   const activity = [...data.tasks.map(t => ({ at: t.last_activity_at, text: t.title, tag: 'task', to: `/tasks/${t.id}${scopeQuery(scope)}` })),
@@ -77,11 +77,13 @@ export function ProjectPage() {
   </form>;
 
   return <>
-    <div className="between wrap"><Link to="/projects" className="fine">← Projects</Link>
+    <div className="between wrap"><Link to="/projects" className="fine">← Topics</Link>
       <div className="row" style={{ gap: 8 }}><LinkButton to={`/projects/${id}/delete`} look="quiet" className="tear" aria-label="Delete project" title="Delete project"><TornPageIcon /></LinkButton><LinkButton to={`/book${scopeQuery(scope)}`}>Open its book</LinkButton><LinkButton to={`/tasks${scopeQuery(scope)}`}>Open its tasks</LinkButton></div></div>
     <div className="col" style={{ gap: 10 }}>
-      <span className="eyebrow">Project</span>
+      <span className="eyebrow">Topic{project.made_by === 'satchel' ? ' · made by Satchel' : ''}</span>
       <h1>{project.name}</h1>
+      {project.merged_into && <Notice look="amber" title={`Merged into ${data.projects.find(p => p.id === project.merged_into)?.name ?? 'another topic'}.`}>
+        Its memories moved there. Undo it from the topics list to put them back.</Notice>}
       {isEmpty ? null : editingBrief ? briefForm : <div className="row wrap" style={{ alignItems: 'baseline' }}>
         <p className="serif" style={{ fontSize: 19, lineHeight: 1.45, maxWidth: 640 }}>{project.brief || <span className="muted">No brief yet.</span>}</p>
         <Button look="link" small onClick={() => { setBrief(project.brief); setEditingBrief(true); }}>Edit brief</Button>
@@ -111,7 +113,7 @@ export function ProjectPage() {
           <div className="between"><h3>Apps that can see this project</h3><Link to="/apps" className="fine">Manage</Link></div>
           {apps.length === 0 && <p className="muted fine">None yet. Grants are made on the consent page when an app connects.</p>}
           {apps.map(app => <div className="between" key={app.client_id}><span style={{ fontWeight: 500 }}>{app.label}</span>
-            <Light color="green" word={[app.project_ids.includes(id) && (app.can_write ? 'memory rw' : 'memory'), app.agent_task_grants.some(g => g.project_id === id) && 'tasks'].filter(Boolean).join(' · ')} /></div>)}
+            <Light color="green" word={[(app.all_projects || app.project_ids.includes(id)) && (app.can_write ? 'memory rw' : 'memory'), (app.task_all_projects || app.agent_task_grants.some(g => g.project_id === id)) && 'tasks'].filter(Boolean).join(' · ')} /></div>)}
         </div>
         <div className="aside-block">
           <div className="between"><h3>Tasks <span className="muted fine">· {data.tasks.length}</span></h3><Link to={`/tasks${scopeQuery(scope)}`} className="fine">All tasks</Link></div>

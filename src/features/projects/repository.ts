@@ -2,7 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
 
 export type ProjectRepositoryLink = { provider: 'github'; repository: string };
-export type Project = { id: string; slug: string; name: string; brief: string; revision: number; updated_at: string; created_at: string; project_repositories: ProjectRepositoryLink[] };
+export type Project = { id: string; slug: string; name: string; brief: string; revision: number; updated_at: string; created_at: string;
+  made_by?: 'person' | 'satchel'; merged_into?: string | null; project_repositories: ProjectRepositoryLink[] };
 
 import { normalizeGitHubRepository } from './githubRepository';
 export { normalizeGitHubRepository };
@@ -11,7 +12,7 @@ export function createProjectRepository(db: SupabaseClient) {
   return {
     async list(): Promise<Project[]> {
       const { data, error } = await requestWithTimeout(signal => db.from('projects')
-        .select('id,slug,name,brief,revision,updated_at,created_at,project_repositories(provider,repository)').order('created_at').abortSignal(signal));
+        .select('id,slug,name,brief,revision,updated_at,created_at,made_by,merged_into,project_repositories(provider,repository)').order('created_at').abortSignal(signal));
       if (error) throw error;
       return (data ?? []) as Project[];
     },
@@ -42,6 +43,11 @@ export function createProjectRepository(db: SupabaseClient) {
       if (error) throw error;
       if (!data) throw new Error('Missing updated project');
       return { ...data.project, project_repositories: data.repositories };
+    },
+    // Puts back exactly the memories the merge moved, and shows the topic again.
+    async unmerge(project: Project): Promise<void> {
+      const { error } = await requestWithTimeout(signal => db.rpc('unmerge_topic', { p_from: project.id }).abortSignal(signal));
+      if (error) throw error;
     },
     async remove(project: Project): Promise<{ id: string; name: string; memories_removed: number; tasks_removed: number; files_removed: number }> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('delete_project', {

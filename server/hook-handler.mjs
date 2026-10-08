@@ -235,19 +235,19 @@ const stale = (job, now = Date.now()) => now - Date.parse(job.heartbeat_at) > ST
  *  `background` is where the work goes once the answer is sent. On Vercel it
  *  is waitUntil, which keeps the function alive after the response; in a
  *  test it is a list to await. */
-export async function handleConsolidate(req, res, {embedder = null, consolidator = null, traced,
+export async function handleConsolidate(req, res, {embedder = null, consolidator = null, tidier = null, traced,
   exchange, background = work => { void work; }, fetchImpl = fetch,
   stepMs = Number(process.env.SATCHEL_CONSOLIDATE_STEP_MS ?? 240000)} = {}) {
   const connection = await connect(req, res, {embedder, allowRefresh: true, allowCompanion: true,
     ...(exchange ? {exchange} : {})});
   if (!connection) return;
   if (!consolidator) { res.writeHead(503); return res.end('No consolidation model is configured'); }
-  return handleConsolidateWith(connection, req, res, {consolidator, traced, background, fetchImpl, stepMs});
+  return handleConsolidateWith(connection, req, res, {consolidator, tidier, traced, background, fetchImpl, stepMs});
 }
 
 /** Everything after the caller is known. Its own function so the job logic can
  *  be driven without minting a real token; connect() has its own tests. */
-export async function handleConsolidateWith(connection, req, res, {consolidator, traced,
+export async function handleConsolidateWith(connection, req, res, {consolidator, tidier = null, traced,
   background = work => { void work; }, fetchImpl = fetch,
   stepMs = Number(process.env.SATCHEL_CONSOLIDATE_STEP_MS ?? 240000)} = {}) {
   let input;
@@ -297,7 +297,7 @@ export async function handleConsolidateWith(connection, req, res, {consolidator,
   const origin = publicOrigin(req);
   background((async () => {
     const out = await consolidateStep(service, consolidator, claimed,
-      {budgetMs: stepMs, ownerId: connection.ownerId, ...(traced ? {traced} : {})});
+      {budgetMs: stepMs, ownerId: connection.ownerId, tidier, ...(traced ? {traced} : {})});
     if (!out.more) return;
     // Handed on and not awaited past the answer, which is immediate. Tried
     // twice, then left: a job that stops moving shows as stalled on the page
