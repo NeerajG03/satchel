@@ -2,8 +2,8 @@
 // commits are behind HEAD.
 //
 // Not the files, not the branch, not the path, not a message, not a diff. A
-// normalized `owner/name` is enough to resolve which project this conversation
-// is in, because project_repositories maps it server side. The count is a
+// normalized `owner/name` is enough to resolve which topic this conversation
+// is in, because the repository link table maps it server side. The count is a
 // single integer and it exists for one thing: a memory about how something is
 // built can stop being true because a commit landed, and nothing anyone says
 // will mention it. Both stale memories in Satchel's own production data were
@@ -16,7 +16,7 @@ const git = (cwd, args) => execFileSync('git', args, {
 
 /** `owner/name`, lowercased, or null. Non-Git and non-GitHub workspaces are not
  *  an error: they simply have no repository, and memory stays personal until
- *  someone selects a project by hand. */
+ *  someone selects a topic by hand. */
 export function repositoryFrom(cwd) {
   try {
     const remote = git(cwd, ['config', '--get', 'remote.origin.url']);

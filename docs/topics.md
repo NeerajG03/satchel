@@ -1,6 +1,6 @@
 # Topics
 
-Proposed · 7 October 2026. Direction agreed with Neeraj in conversation; the mechanisms below are proposed and not built. This replaces the project model in [projects.md](projects.md) once it ships.
+Proposed · 7 October 2026, built by 8 October (see the status table below). Direction agreed with Neeraj in conversation. This replaces the project model in [projects.md](projects.md).
 
 The rule for this design: keep it simple. A small system lasts longer and has room to grow. Anything not needed on day one is under "Later, if needed".
 
@@ -17,6 +17,8 @@ topic
 ```
 
 A "project" is just a topic that has a repository link or tasks on it.
+
+Topics are stored in the `projects` table, so the database still says project: `project_id`, `project_repositories`, `upsert_project`. Everything people and agents read says topic (D34).
 
 A memory with no topic is personal, exactly like a memory with no project today. The database keeps it that way, because "no project means personal" is built into about 13 functions and the `personal` grant flag. In the UI and the tools, Personal shows as the first topic, pinned at the top, marked "always loads".
 
@@ -71,17 +73,17 @@ every session
 └── by match   everything else
 ```
 
-The only difference is that work facts now have a topic to live in, so personal stays small and about you. One small change: with no linked repository, today every project is listed. As Satchel makes topics that list would grow, so it is capped at the 15 most recently used, with a count for the rest.
+The only difference is that work facts now have a topic to live in, so personal stays small and about you. One small change: with no linked repository, every topic is listed. As Satchel makes topics that list would grow, so it is capped at the 15 most recently used, with a count for the rest.
 
 ## What changes
 
-**Capture.** Consolidation already picks one project slug or null for each change. Now it can also give a new topic name when no listed topic fits. Today an unknown slug turns into null (personal). Instead, a new name that is not close to an existing topic becomes a new topic, and a name that is close reuses that topic.
+**Capture.** Consolidation already picks one topic slug or null for each change. Now it can also give a new topic name when no listed topic fits. Today an unknown slug turns into null (personal). Instead, a new name that is not close to an existing topic becomes a new topic, and a name that is close reuses that topic.
 
 **Tidy.** The nightly pass can merge two topics that are really the same thing. Each merge shows a note in activity with an undo. It never merges a topic that has tasks or repository links, because those are yours to manage. A merge moves the memories first and only then removes the old topic, because deleting a topic still deletes its memories (the foreign key cascades). The delete screen says how many memories go with it.
 
-**Grants.** All or none for topics. A migration must not widen a live grant (security skill), so it goes the other way: existing grants that name specific projects lose topic access, and you reconnect the app once to choose "all". Satchel has one user today, so that is one reconnect per app. The overnight connection and the plugin's connection must have "all" before the capture change ships, or the pass can't see any topics and would make duplicates. So the pass only makes new topics when its own grant is "all". The grant flags for personal, write, tasks and uploads stay as they are.
+**Grants.** All or none for topics. A migration must not widen a live grant (security skill), so it goes the other way: existing grants that name specific topics lose topic access, and you reconnect the app once to choose "all". Satchel has one user today, so that is one reconnect per app. The overnight connection and the plugin's connection must have "all" before the capture change ships, or the pass can't see any topics and would make duplicates. So the pass only makes new topics when its own grant is "all". The grant flags for personal, write, tasks and uploads stay as they are.
 
-**Names.** "Project" becomes "topic" in the UI, the tools and the code. The old tool names stay as aliases until the plugin stops using them.
+**Names.** "Project" becomes "topic" in the UI, the tools and the docs. The app lives at `/topics`, and the tools are `list_topics`, `upsert_topic` and `select_topic`, with `topic_id` on every call. The tables, columns, routines and code names keep project.
 
 ## Decisions
 
@@ -101,7 +103,7 @@ Status on 8 October.
 
 | # | Area | What it means | Status |
 |---|---|---|---|
-| 1 | Rename | What a person reads says topic: the rail, the topics page, the topic page, the consent page. The table, routes and agent tools keep the word project, because renaming them changes nothing anyone sees and risks every hook. A topic with a repository or tasks is what a project was. | Built, user-facing only |
+| 1 | Rename | What a person or an agent reads says topic: the rail, the topics page at `/topics`, the topic page, the consent page, the agent tools and their fields, the docs and the skills. The table, columns, routines and code keep the word project, because renaming them changes nothing anyone sees and risks every hook. A topic with a repository or tasks is what a project was. | Built |
 | 2 | Capture | Consolidation can name a new topic, and reuses a close one. Topics it makes are marked `made_by = 'satchel'` (`create_topic`). | Built |
 | 3 | Tidy | One call a job, before sessions are read: moves work facts out of personal and merges topics that are one subject. Only topics Satchel made are merged away, never one with tasks or repositories. Every merge is recorded in `topic_merges` and can be undone from the topics page. | Built |
 | 4 | Grants | The consent page offers every topic or none. Existing grants are left as they are: on 8 October every live connection already had every project, so nothing needed narrowing. | Built |
@@ -138,6 +140,15 @@ The 14 memories that sat in personal on 7 October, three runs of one call each:
 | Topics made | customers, infrastructure, windtunnel-cloud | same | same |
 
 A merge probe with two near-duplicate topics and two that only share a word merged the duplicates both times and left the others apart.
+
+## What carries over from the project model
+
+These held for projects and still hold for topics.
+
+- **A topic is not a repository.** It can have none, one or several. A local clone path belongs to one machine and is never a topic's identity.
+- **The UUID is the identity, the slug is a handle.** Renaming a topic must not orphan its memories or tasks. Two topics can share a name, so tell them apart by slug or ID, never by name.
+- **A topic is a label, not a permission.** Check access to the topic and to anything it links before returning content. A link can exist without the right to fetch what it points at.
+- **Native app projects stay with the app.** A Claude or ChatGPT project may point at a Satchel topic through the plugin or its instructions, but Satchel does not keep an editable copy of a topic's brief in every app.
 
 ## Later, if needed
 

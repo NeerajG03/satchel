@@ -38,7 +38,7 @@ Everything under `design/mockup/`, `design/prototype/` and `design/archive/` is 
 
 **States.** Every page needs empty, loading, error and success. Loading uses skeleton rows. Errors show in place with `role="alert"` and a Reload or retry. Success goes to the footer readout through `useFooter` and does not disappear on its own. Nothing is carried by colour alone.
 
-**Routing.** Every destination and detail page has a real URL. Back and refresh must work. Scope lives in the `?scope=me|project:<id>` query, see `src/app/scope.ts`.
+**Routing.** Every destination and detail page has a real URL. Back and refresh must work. Scope lives in the `?scope=me|topic:<id>` query, see `src/app/scope.ts`.
 
 ## Not in v1
 

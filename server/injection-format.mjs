@@ -40,7 +40,7 @@ export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25, sl
   // apply the rule the session-start header gives it. The label is the
   // project's slug, or "personal", with "picked up" when it is still heard.
   const labelOf = row => {
-    const where = row.project_id ? slugs[row.project_id] ?? 'project' : 'personal';
+    const where = row.project_id ? slugs[row.project_id] ?? 'topic' : 'personal';
     return row.band === 'heard' ? `${where}, picked up` : where;
   };
   // A `[task closed, may be fixed]` hint used to hang off rows whose task had
@@ -125,14 +125,14 @@ export function sessionStartBlock({projects = [], personal = [], linked = [], ca
   const here = ids.size ? projects.filter(p => ids.has(p.id)) : projects;
   const elsewhere = ids.size ? projects.length - here.length : 0;
   if (here.length) {
-    lines.push(ids.size ? 'projects in this codebase' : 'projects');
+    lines.push(ids.size ? 'topics in this codebase' : 'topics');
     const width = Math.max(...here.map(p => (p.slug ?? p.name ?? '').length));
     for (const project of here)
       lines.push(`  ${pad(project.slug ?? project.name ?? '', width)}  ${clip(project.brief, 70)}`.trimEnd());
   }
   // Inside the group, because that is where the reader is looking when the
   // question "is this all of them" occurs to them.
-  if (elsewhere) lines.push(`  ${plural(elsewhere, 'other project')} not linked to this codebase, by name from list_projects`);
+  if (elsewhere) lines.push(`  ${plural(elsewhere, 'other topic')} not linked to this codebase, by name from list_topics`);
   const {said, heard, past} = personalLoad(personal, cap);
   if (said.length) {
     if (lines.length) lines.push('');
@@ -161,18 +161,18 @@ export function sessionStartBlock({projects = [], personal = [], linked = [], ca
   // rules would be the guess the choose-a-project line exists to refuse.
   if (project) {
     const own = projectLoad(projectMemories, projectCap);
-    const slug = project.slug ?? project.name ?? 'project';
+    const slug = project.slug ?? project.name ?? 'topic';
     if (own.said.length) {
       if (lines.length) lines.push('');
-      lines.push(`project ${slug}, confirmed, applies to work in this codebase`);
+      lines.push(`topic ${slug}, confirmed, applies to work in this codebase`);
       for (const memory of own.said) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
     }
     if (own.heard.length) {
       if (lines.length) lines.push('');
-      lines.push(`project ${slug}, picked up from what you said, use unless told otherwise`);
+      lines.push(`topic ${slug}, picked up from what you said, use unless told otherwise`);
       for (const memory of own.heard) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
     }
-    if (own.past) lines.push(`  ${plural(own.past, 'more project memory', 'more project memories')} not loaded, search satchel for them`);
+    if (own.past) lines.push(`  ${plural(own.past, 'more topic memory', 'more topic memories')} not loaded, search satchel for them`);
   }
   if (!lines.length) return '';
   lines.push('');
@@ -201,8 +201,8 @@ export function noticeFor(event, {error, withheld, unrecorded, projects = 0, per
   if (unrecorded) return `Satchel did not record this turn · ${unrecorded}`;
   if (event === 'SessionStart')
     return projects || personal || projectMemories
-      ? `Satchel loaded · ${plural(projects, 'project')}, ${plural(personal, 'personal memory', 'personal memories')}`
-        + (projectMemories ? `, ${plural(projectMemories, 'project memory', 'project memories')}` : '')
+      ? `Satchel loaded · ${plural(projects, 'topic')}, ${plural(personal, 'personal memory', 'personal memories')}`
+        + (projectMemories ? `, ${plural(projectMemories, 'topic memory', 'topic memories')}` : '')
       : 'Satchel connected · nothing saved yet';
   // Counts, not just a number shown, because "2 of 9" and "2 of 2" mean very
   // different things about whether anything was left behind.

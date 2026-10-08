@@ -19,7 +19,7 @@ Two check constraints do real work and are easy to trip over:
 - blocked implies a non-empty `blocked_reason`, and any other status implies an empty one. A transition that forgets to clear the blocker fails with `23514`.
 - done implies `closed_at is not null`, and not-done implies it is null. Reopening clears it.
 
-`project_id is null` is the personal **For me** scope. It became nullable in `20260916154226_personal_tasks.sql`, which also added `scope_key`, a stored generated column equal to `project_id::text` or the literal `'personal'`.
+Topics are stored in the `projects` table, so the column is `project_id`. `project_id is null` is the personal **For me** scope. It became nullable in `20260916154226_personal_tasks.sql`, which also added `scope_key`, a stored generated column equal to `project_id::text` or the literal `'personal'`.
 
 ## `scope_key` and the composite keys
 

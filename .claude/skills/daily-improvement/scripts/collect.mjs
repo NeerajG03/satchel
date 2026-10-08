@@ -179,7 +179,7 @@ const index = (await pool(runs, 4, async run => {
     '## What landed (memory_events on this trace)', '',
     ...(events.length ? events.map(e => `- ${e.action} [${e.kind ?? '?'} · ${e.project_id ? slugs[e.project_id] ?? e.project_id : 'personal'} · ${e.band ?? '?'}] ${e.after ?? e.before ?? ''}${e.reason ? `  (reason: ${e.reason})` : ''}`) : ['- nothing']),
     ...affirms.map(a => `- affirmed ${a.on ?? '?'} (from the job report: an affirm on a confirmed memory leaves no history row)`),
-    ...(lost ? [`- ${lost} added in the job report with no row now: the memory, or the project it was filed under, was deleted since`] : []), '',
+    ...(lost ? [`- ${lost} added in the job report with no row now: the memory, or the topic it was filed under, was deleted since`] : []), '',
     '## The job report entry', '',
     job ? '```json\n' + JSON.stringify(job.entry, null, 1) + '\n```' : 'not part of a job in this window', '',
     '## Langfuse', '',
@@ -222,11 +222,11 @@ const index = (await pool(runs, 4, async run => {
   write(`blind/${name}.md`, [
     `# Session ${name} · scope: ${scope}`, '',
     ...(codebase ? [`The conversation ran in the codebase ${codebase}`, ''] : []),
-    '## Projects that exist', '',
+    '## Topics that exist', '',
     ...projectsOf[run.owner_id].filter(p => !shown || shown.has(p.slug)).map(p => `- ${p.slug}: ${(p.brief ?? p.name ?? '').replace(/\s+/g, ' ')}`.slice(0, 220)
       + (repos.some(r => r.project_id === p.id) ? ` (repos: ${repos.filter(r => r.project_id === p.id).map(r => r.repository).join(', ')})` : '')),
     ...gone.map(p => `- ${p.slug}: ${p.brief}`.slice(0, 220)), '',
-    `## Memories that already existed before this pass (${run.project_id ? 'personal, plus this session\'s project' : 'personal, plus every project\'s'})`, '',
+    `## Memories that already existed before this pass (${run.project_id ? 'personal, plus this session\'s topic' : 'personal, plus every topic\'s'})`, '',
     ...inScope.map((m, i) => `${i + 1}. [${m.kind} · ${m.project_id ? slugs[m.project_id] : 'personal'}${m.mentions > 1 ? ` · said ${m.mentions} times` : ''}] ${m.statement}`), '',
     `## The new turns (${turns.length})`, '',
     ...turns.map(t => `### ${t.role} · ${t.created_at}\n\n${t.content}\n`),
@@ -267,7 +267,7 @@ for (const owner of owners) {
       from public.memory_events e join public.memories m on m.id = e.memory_id left join public.projects p on p.id = m.project_id
       where e.owner_id = ${lit(owner)} and e.created_at >= ${lit(since)} and e.created_at < ${lit(until)}
       group by 1, 2, 3 order by 1, 2, 3`),
-    documents_in_window: await sql(`select coalesce(p.slug, 'personal (no project)') scope, count(*)::int n
+    documents_in_window: await sql(`select coalesce(p.slug, 'personal (no topic)') scope, count(*)::int n
       from public.documents d left join public.projects p on p.id = d.project_id
       where d.owner_id = ${lit(owner)} and d.last_turn_at >= ${lit(since)} and d.last_turn_at < ${lit(until)}
       group by 1 order by 2 desc`),

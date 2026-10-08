@@ -202,7 +202,7 @@ ways and both end in the same `retires`: the user says it is done, or R8's churn
 check notices the repository moved.
 
 **"Fix this" implies a problem, and the problem is not a memory either.** The
-temptation is to record the bug as a durable fact about the project. It is not
+temptation is to record the bug as a durable fact about the topic. It is not
 durable: it will be fixed within the hour. Neither "the user wants this fixed later"
 nor "the user is facing issue X" is a correct capture of an imperative.
 
@@ -326,11 +326,11 @@ changes because the user mentions it. For a coding agent the world changes becau
 something merged.
 
 Cheapest useful version, and it needs no model call to raise the doubt: a memory
-scoped to a project whose linked repository has moved N commits since the memory was
+scoped to a topic whose linked repository has moved N commits since the memory was
 last affirmed is injected with a doubt marker, the way a closed task already is, and
 is offered to consolidation as a candidate to re-check.
 
-### R9a A memory has one scope, and it is a project or personal
+### R9a A memory has one scope, and it is a topic or personal
 
 | | |
 | --- | --- |
@@ -338,13 +338,13 @@ is offered to consolidation as a candidate to re-check.
 | decision | **remove it** |
 | status | **built**, `4ac8841`. The column, the index, the foreign key, the router field, the `validate()` overwrite, the scope check, the MCP argument, the retrieval hint and the web app's type |
 
-A memory belongs to exactly one project, or to personal. Nothing else. The task link
+A memory belongs to exactly one topic, or to personal. Nothing else. The task link
 goes, and it takes several things with it:
 
 - the `task` field leaves the router schema, so the model makes three decisions per
   item instead of four
 - `validate()`'s `project: task ? taskProject : project` goes, and with it a silent
-  scope overwrite where a wrong task guess moves a memory into another project
+  scope overwrite where a wrong task guess moves a memory into another topic
 - the scope agreement check in `save_memory` goes, and so does the `(owner_id, id)`
   foreign key that exists only because Postgres refuses `ON DELETE SET NULL` against
   a generated `scope_key`
@@ -396,9 +396,9 @@ what makes Satchel safe to give to someone else.
 | --- | --- |
 | **source span** | every captured memory carries words the user actually typed, and the item is dropped if the span is not in the turn. This is the only anti fabrication guard any of these systems has, and `dropped=0` over 100 runs says it costs nothing to keep |
 | **RLS authoritative** | isolation is enforced by the database for every caller, not by application code passing the right tag. Supermemory self hosted is single tenant behind one API key, which inverts this |
-| **repo to project scope** | resolved automatically from the git remote. Supermemory's container tag is an opaque string it never interprets, so this is work it pushes onto whoever integrates it |
+| **repo to topic scope** | resolved automatically from the git remote. Supermemory's container tag is an opaque string it never interprets, so this is work it pushes onto whoever integrates it |
 | **said and heard** | the band already exists and is the same idea as supermemory's `isInference`. R6 is mostly about finally using it |
-| **tasks and projects exist in the same system** | memory is not a separate product here, so a work order has somewhere to go. Note this is about routing, not linking: R9a removes the memory-to-task link entirely |
+| **tasks and topics exist in the same system** | memory is not a separate product here, so a work order has somewhere to go. Note this is about routing, not linking: R9a removes the memory-to-task link entirely |
 
 ### R10 Runs locally, in containers
 
@@ -497,7 +497,7 @@ These change the work and are not mine to make.
    ready. Worst case latency between saying something and it being remembered is one
    cron interval, which is acceptable because explicit `save_memory` stays
    synchronous.
-5. **Memory scope is project or personal only.** See R9a.
+5. **Memory scope is topic or personal only.** See R9a.
 
 **Still open.** These are what is left. Everything else in this document is
 built.

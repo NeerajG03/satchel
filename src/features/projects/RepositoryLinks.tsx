@@ -23,6 +23,6 @@ export function RepositoryLinks({ project, busy, onLink, onUnlink }: Props) {
       <Button type="submit" disabled={busy || !value.trim()}>Link repository</Button>
       {project.project_repositories.length > 0 && <Button look="quiet" disabled={busy} onClick={() => setAdding(false)}>Cancel</Button>}
     </form>}
-    <p className="fine muted">A linked repository lets an agent pick this project for a coding chat. It does not grant access by itself.</p>
+    <p className="fine muted">A linked repository lets an agent pick this topic for a coding chat. It does not grant access by itself.</p>
   </section>;
 }

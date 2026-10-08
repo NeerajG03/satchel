@@ -91,9 +91,9 @@ test('every way a session begins reaches the same script', async () => {
       assert.match(context, /not connected/, `${source}: same answer on every source`);
       // No instruction to go and make a tool call. The script fetches memory
       // itself now, so there is nothing left for the model to be asked to do,
-      // and a paragraph asking it to please call select_project was a promise
+      // and a paragraph asking it to please call select_project (now select_topic) was a promise
       // that depended on the model choosing to keep it.
-      assert.doesNotMatch(context, /select_project|load_memory_context/,
+      assert.doesNotMatch(context, /select_project|select_topic|load_memory_context/,
         `${source}: the script fetches its own memory and asks the model for nothing`);
     }
   } finally { rmSync(cwd, {recursive: true, force: true}); rmSync(SATCHEL_HOME, {recursive: true, force: true}); }
@@ -110,7 +110,7 @@ test('the repository is read from the origin and its credentials never leave', a
     req.on('end', () => {
       asked.push({path: req.url, auth: req.headers.authorization, body: JSON.parse(body)});
       res.writeHead(200, {'content-type': 'application/json'});
-      res.end(JSON.stringify({context: '<satchel>\nprojects\n  satchel  x\n</satchel>', notice: 'Satchel loaded · 1 project, 0 personal memories', active_project: null}));
+      res.end(JSON.stringify({context: '<satchel>\ntopics\n  satchel  x\n</satchel>', notice: 'Satchel loaded · 1 topic, 0 personal memories', active_topic: null}));
     });
   });
   await new Promise(done => server.listen(0, '127.0.0.1', done));
@@ -324,7 +324,7 @@ test('built packages stay in sync with their shared sources', () => {
   // Nothing else fails when integrations/shared changes without re-running build-plugins.
   const shared = path => readFileSync(new URL(`../integrations/shared/${path}`, import.meta.url), 'utf8');
   // A reference left behind breaks progressive disclosure silently, so every skill file is checked.
-  const skillFiles = ['SKILL.md', 'references/memory.md', 'references/tasks.md', 'references/projects.md']
+  const skillFiles = ['SKILL.md', 'references/memory.md', 'references/tasks.md', 'references/topics.md']
     .map(file => [`context/${file}`, `skills/context/${file}`]);
   const scripts = ['session-start.mjs', 'retrieve.mjs', 'capture.mjs', 'connect.mjs', 'auth.mjs', 'workspace.mjs']
     .map(file => [file, `scripts/${file}`]);

@@ -126,7 +126,7 @@ try {
 const count = (name, f) => results.flatMap(r => r[name].filter(w => w.write !== "error").map(w => ({...w, scope: r.scope}))).filter(f).length;
 console.log(`\n${results.length} sessions · ${outFile}`);
 console.log('                              old  new');
-for (const [label, f] of [['changes', () => true], ['project-scoped', w => w.project],
+for (const [label, f] of [['changes', () => true], ['topic-scoped', w => w.project],
   ['unlinked into a project', w => w.project && w.scope === 'personal'], ['extend / affirm / replace', w => ['extend', 'affirm', 'replace'].includes(w.write)],
   ['errors', null]])
   console.log(`  ${label.padEnd(28)}${String(f ? count('old', f) : results.filter(r => r.old.some(w => w.write === 'error')).length).padStart(4)} ${String(f ? count('new', f) : results.filter(r => r.new.some(w => w.write === 'error')).length).padStart(4)}`);

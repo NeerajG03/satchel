@@ -4,9 +4,9 @@ Updated 10 September 2026. Explicit saves, no curator, and named memory with pro
 
 ## What memory is for
 
-Keep durable, deliberately stated preferences and confirmed decisions useful in later conversations. Distinguish them from project documents, live task status, and historical evidence. A statement that a task was blocked yesterday is evidence; current issue state remains authoritative for whether it is blocked today.
+Keep durable, deliberately stated preferences and confirmed decisions useful in later conversations. Distinguish them from topic documents, live task status, and historical evidence. A statement that a task was blocked yesterday is evidence; current issue state remains authoritative for whether it is blocked today.
 
-Three semantic scopes were retained in the discussion: the user, a repository, and a project. There is no persona or orchestrator memory scope. Scope describes relevance. It does not grant permission. A work-related user preference can remain restricted to work connections even though its semantic scope is “user.”
+Three semantic scopes were retained in the discussion: the user, a repository, and a topic. There is no persona or orchestrator memory scope. Scope describes relevance. It does not grant permission. A work-related user preference can remain restricted to work connections even though its semantic scope is “user.”
 
 ## Proposed logical record
 
@@ -18,13 +18,13 @@ The user-facing content has three fields:
 | Description | Explain what the memory covers and when its details are useful | Required, 280 characters |
 | More info | Full context, decisions, examples and references, fetched when needed | Optional, 40,000 characters |
 
-Names are unique within each owner's scope, compared without case or surrounding spaces. Personal memory and each project have separate namespaces: the same name may appear in For me and in one or more projects. Names are editable; stable IDs preserve identity across corrections. A lookup must include the explicit scope, rather than guess between identical names or search across unauthorized projects. A stale name returns unavailable and requires refreshing the index; the companion checks the stable ID so a reused name cannot silently open a different record.
+Names are unique within each owner's scope, compared without case or surrounding spaces. Personal memory and each topic have separate namespaces: the same name may appear in For me and in one or more topics. Names are editable; stable IDs preserve identity across corrections. A lookup must include the explicit scope, rather than guess between identical names or search across unauthorized topics. A stale name returns unavailable and requires refreshing the index; the companion checks the stable ID so a reused name cannot silently open a different record.
 
-The implementation stores these fields, stable ID, owner, nullable project, revision and timestamps. A null project identifies the owner's personal scope; it does not create a hidden project or mean “all projects.” Existing body-only records receive `memory-<original UUID>` as their editable name and an excerpt as their description. The complete stored body becomes More info unchanged. This format conversion advances the revision once. It does not infer a new decision or rewrite the saved text. Adding personal scope does not modify existing project records or their revisions.
+The implementation stores these fields, stable ID, owner, nullable topic, revision and timestamps. A null topic identifies the owner's personal scope; it does not create a hidden topic or mean “all topics.” Existing body-only records receive `memory-<original UUID>` as their editable name and an excerpt as their description. The complete stored body becomes More info unchanged. This format conversion advances the revision once. It does not infer a new decision or rewrite the saved text. Adding personal scope does not modify existing topic records or their revisions.
 
-The broader record model still needs kind, repository scope, access partition, provenance, source reference or authorized excerpt, writer/client, and current/superseded/deleted state. A correction needs a relationship to its prior version; the current foundation increments revision but does not retain past bodies. Personal and project memory are implemented. Moving a saved record between scopes is not yet supported; editing content cannot silently change its scope.
+The broader record model still needs kind, repository scope, access partition, provenance, source reference or authorized excerpt, writer/client, and current/superseded/deleted state. A correction needs a relationship to its prior version; the current foundation increments revision but does not retain past bodies. Personal and topic memory are implemented. Moving a saved record between scopes is not yet supported; editing content cannot silently change its scope.
 
-The companion starts in **For me**, where someone with no projects can save personal preferences and context. Projects remain optional destinations for effort-specific memory. The shared editor explicitly labels its save destination. A memory draft blocks scope switching until saved or discarded, avoiding accidental saves into another scope.
+The companion starts in **For me**, where someone with no topics can save personal preferences and context. Topics remain optional destinations for effort-specific memory. The shared editor explicitly labels its save destination. A memory draft blocks scope switching until saved or discarded, avoiding accidental saves into another scope.
 
 An inaccessible conversation URL alone is weak portable evidence. Where appropriate, save a short authorized excerpt or a durable decision note alongside the reference. Do not copy a full transcript merely to provide provenance.
 
@@ -51,15 +51,15 @@ Use a memory index followed by on-demand detail retrieval, like the user's inten
 3. A separate read returns the current full record, including More info and revision. Authorization is checked again on that read. Agents should read the details before relying on a memory's full instructions or evidence.
 4. Re-fetch the index after a known save, correction, rename or deletion, and on each supported context rebuild. Previously injected text cannot be removed from an existing chat; subsequent retrieval must reflect the latest state.
 
-The companion already exercises this separation: `list_memories(p_project_id)` returns only `id`, `project_id`, `name`, `description`, `revision` and `updated_at`; `read_memory(p_project_id, p_name)` returns the full record. Opening a book does not fetch More info. “Read more info” and “Correct” fetch the current record by its scoped name.
+Topics are stored in the `projects` table, so the column is `project_id`. The companion already exercises this separation: `list_memories(p_project_id)` returns only `id`, `project_id`, `name`, `description`, `revision` and `updated_at`; `read_memory(p_project_id, p_name)` returns the full record. Opening a book does not fetch More info. “Read more info” and “Correct” fetch the current record by its scoped name.
 
-The eventual MCP tools should expose the same two operations through connection-grant checks. These database functions currently authorize companion sessions only; agent tokens remain denied. There is no live hook or agent transport yet. Personal reads pass an explicit null project ID; project reads pass that project's ID. Neither performs an implicit union. Future hook context assembly must request authorized personal and active-project indexes separately and retain their scope qualifiers when combining them. Repository scope is still pending. “Always loaded” does not authorize loading all of a person's private projects into every chat.
+The eventual MCP tools should expose the same two operations through connection-grant checks. These database functions currently authorize companion sessions only; agent tokens remain denied. There is no live hook or agent transport yet. Personal reads pass an explicit null topic ID; topic reads pass that topic's ID. Neither performs an implicit union. Future hook context assembly must request authorized personal and active-topic indexes separately and retain their scope qualifiers when combining them. Repository scope is still pending. “Always loaded” does not authorize loading all of a person's private topics into every chat.
 
 Hook delivery is a requirement for supported, configured hosts, not a promise that every vendor chat can be intercepted. Index size limits, caching and installed-host lifecycle behavior must be verified during integration. If the complete index cannot fit or be fetched, report incomplete/unavailable context explicitly and provide an index-retrieval fallback; do not silently omit entries or claim full context loaded. Never compensate by injecting all More info. There are no automatic transcript uploads or writes through these hooks.
 
 Required rules should remain available as explicit instructions or source guidance rather than depend entirely on search ranking. Retrieved external text is data, not authority to change permissions or override the user's instructions.
 
-Installed workflow instructions can encourage retrieval at the start of project work. They cannot guarantee a model will call a tool in every new chat. Measure ordinary retrieval separately from an explicit “search Satchel” test.
+Installed workflow instructions can encourage retrieval at the start of work on a topic. They cannot guarantee a model will call a tool in every new chat. Measure ordinary retrieval separately from an explicit “search Satchel” test.
 
 ### Correct
 
@@ -85,7 +85,7 @@ The earlier Codex report proposed a hosted memory provider pilot, naming Mem0, w
 | Satchel product code and design documents | This private development repository |
 | Skill content | Versioned source packages/repositories, reused where appropriate; final private distribution path open |
 | Memory records | Supabase PostgreSQL for the implemented pilot; summary and details share one canonical row |
-| Project catalog and briefs | Supabase PostgreSQL for the implemented pilot |
+| Topic catalog and briefs | Supabase PostgreSQL for the implemented pilot |
 | Code, receipts, statements, original documents | Remain in their appropriate authoritative source unless deliberately moved |
 | Search indexes and caches | Derived, permission-aware, rebuildable; never a second independently editable authority |
 | Credentials | Supported secure credential storage, separate from content and exports |
@@ -94,7 +94,7 @@ The repository containing Satchel's software is not the default repository for a
 
 ## Proposed sharing boundary
 
-Grant each app connection specific operations and access to selected material. Keep personal, work, and restricted people-data boundaries enforceable at the service and backing-source level. Folder names and project labels alone do not provide isolation.
+Grant each app connection specific operations and access to selected material. Keep personal, work, and restricted people-data boundaries enforceable at the service and backing-source level. Folder names and topic labels alone do not provide isolation.
 
 The user's companion session can have different permissions from an agent connection. A context preview must use the selected agent's effective access. A manual export uses the user's access and requires an intentional choice of what to share. Label these as separate actions.
 
@@ -102,6 +102,6 @@ Do not mirror vendor-native memories or suppress them globally. Satchel supplies
 
 ## Export and recovery
 
-Export selected authorized records with stable IDs, provenance, scope, revisions, and correction links, plus non-secret project and configuration references. Verify that an export can be read without Satchel. Record which source references still need separate authentication.
+Export selected authorized records with stable IDs, provenance, scope, revisions, and correction links, plus non-secret topic and configuration references. Verify that an export can be read without Satchel. Record which source references still need separate authentication.
 
 An export is a snapshot, not a second writable master. Restoration needs revision reconciliation and access review. Do not overwrite newer records with an old snapshot. Exact export format, retention, encryption, hosting region, and backup policy remain implementation decisions.

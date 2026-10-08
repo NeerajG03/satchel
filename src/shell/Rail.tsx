@@ -7,7 +7,7 @@ const DESTINATIONS: Destination[] = [
   { to: '/', label: 'Left off', end: true },
   { to: '/book', label: 'Book' },
   { to: '/tasks', label: 'Tasks' },
-  { to: '/projects', label: 'Topics' },
+  { to: '/topics', label: 'Topics' },
   { to: '/apps', label: 'Apps' },
   { to: '/settings', label: 'Settings' },
 ];

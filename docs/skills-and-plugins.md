@@ -25,9 +25,9 @@ Using a native marketplace manifest to distribute our own integration does not m
 
 ## What should live where
 
-Keep reusable skill content versioned at its authoritative source. Satchel's hosted catalog can describe the source, chosen revision, associated projects, and installation instructions. Preserve existing package ownership and licenses when referencing or redistributing content.
+Keep reusable skill content versioned at its authoritative source. Satchel's hosted catalog can describe the source, chosen revision, associated topics, and installation instructions. Preserve existing package ownership and licenses when referencing or redistributing content.
 
-A small Satchel integration package should teach the agent how to resolve a project, retrieve context, save explicit records, correct records, and leave a handoff. These are workflow capabilities; the exact number of skills and tool names remains open.
+A small Satchel integration package should teach the agent how to resolve a topic, retrieve context, save explicit records, correct records, and leave a handoff. These are workflow capabilities; the exact number of skills and tool names remains open.
 
 Do not bundle every personal or work skill into a public integration package. A broadly distributable Satchel connector and private user skill collections have different audiences. The product source repository is also distinct from a user's private memory and configuration store.
 
@@ -58,9 +58,9 @@ Proposed user flow: discover/install through the supported host route, connect t
 
 Claude Code plugins can package skills and MCP servers, along with other optional components. Its plugin manifest lives under `.claude-plugin/`; skills and MCP configuration live at the plugin root. Satchel should use only the components its workflows need. [Create plugins](https://code.claude.com/docs/en/plugins).
 
-Claude Code documents marketplace installation with `/plugin install plugin-name@marketplace-name` and user, project, and local scopes. Project scope refers to repository configuration in that host; it does not define a Satchel project or automatically provision collaborators' credentials. Shared configuration can still require individual installation. [Install plugins](https://code.claude.com/docs/en/discover-plugins).
+Claude Code documents marketplace installation with `/plugin install plugin-name@marketplace-name` and user, project, and local scopes. Project scope refers to repository configuration in that host; it does not define a Satchel topic or automatically provision collaborators' credentials. Shared configuration can still require individual installation. [Install plugins](https://code.claude.com/docs/en/discover-plugins).
 
-Proposed Satchel flow: add the approved distribution source, install the selected version and scope, authenticate to Satchel, activate according to the host's response, then verify an actual project retrieval and authorized save. The identifiers above are generic documentation syntax, not a Satchel command to execute now.
+Proposed Satchel flow: add the approved distribution source, install the selected version and scope, authenticate to Satchel, activate according to the host's response, then verify an actual topic retrieval and authorized save. The identifiers above are generic documentation syntax, not a Satchel command to execute now.
 
 ### Claude chat, web, and mobile
 
@@ -70,7 +70,7 @@ A supported hosted connection may provide retrieval and writes without local scr
 
 ### Satchel web and Android companion
 
-These are first-party interfaces to the user's Satchel account. They should not require the user to grant Claude or Codex write access before saving directly. Their sign-in, project selection, and permissions are independent of an AI app's installation.
+These are first-party interfaces to the user's Satchel account. They should not require the user to grant Claude or Codex write access before saving directly. Their sign-in, topic selection, and permissions are independent of an AI app's installation.
 
 A responsive web experience is the proposed first implementation. An installable web app and a native Android app are different deliverables. Native share-to-save, device lifecycle behavior, and distribution are open packaging decisions.
 
@@ -86,7 +86,7 @@ Display separate states: in library; compatible; setup required; installed or in
 
 Keep source identity and version visible. Use existing host update mechanisms where possible. New permissions or dependencies need an explicit setup step; changing a catalog row must not silently expand access. Uninstalling a plugin removes that installation, while revoking Satchel access stops future authenticated access through the relevant grant. Previously delivered chat text is unaffected.
 
-Sharing a package shares its included content. It does not share private project records, credentials, or the owner's service authorization. Each recipient connects their own authorized account. Private skills must stay within their intended audience.
+Sharing a package shares its included content. It does not share private topic records, credentials, or the owner's service authorization. Each recipient connects their own authorized account. Private skills must stay within their intended audience.
 
 ## JEFF portability work still required
 

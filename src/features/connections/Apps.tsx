@@ -13,12 +13,12 @@ import { CommandBlock } from '../../ui/CommandBlock';
 import { HOST_NAMES, INSTALL, LOGIN, PROMPT, type Host } from './install';
 
 function GrantLine({ personal, all, ids, projects, level }: { personal: boolean; all: boolean; ids: string[]; projects: Project[]; level: string }) {
-  // A blanket grant is not a long list of names. Saying "every project" is
+  // A blanket grant is not a long list of names. Saying "every topic" is
   // both shorter and the only honest rendering, because the grant covers
   // projects that do not exist yet and no list can show those.
   const names = all
-    ? [...(personal ? ['For me'] : []), 'Every project, including new ones']
-    : [...(personal ? ['For me'] : []), ...ids.map(id => projects.find(p => p.id === id)?.name ?? 'a removed project')];
+    ? [...(personal ? ['For me'] : []), 'Every topic, including new ones']
+    : [...(personal ? ['For me'] : []), ...ids.map(id => projects.find(p => p.id === id)?.name ?? 'a removed topic')];
   if (!names.length) return <dd>none</dd>;
   return <dd>{names.join(', ')} <span className="muted fine">· {level}</span></dd>;
 }

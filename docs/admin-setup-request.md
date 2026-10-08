@@ -17,7 +17,7 @@ Please enable Satchel for Neeraj's pilot use in the Claude Team workspace and, i
 | OAuth issuer | `https://prpgcrwteepcunizdcut.supabase.co/auth/v1` |
 | Source repository | `https://github.com/NeerajG03/satchel` (private) |
 | Intended initial user | Neeraj; use an existing suitable role/group where individual assignment is unavailable |
-| Data access | Saved personal memories and individually authorized projects; names/descriptions automatically, more info on request |
+| Data access | Saved personal memories and individually authorized topics; names/descriptions automatically, more info on request |
 
 Satchel supports OAuth discovery and dynamic client registration. Leave optional manually supplied OAuth client ID/secret fields empty initially. Do not enter the GitHub sign-in application's client secret: that is a different integration. Each person must authorize their own Satchel connection; a shared administrator login should not be used as the team's memory identity.
 
@@ -28,10 +28,10 @@ An Owner or Primary Owner should:
 1. Open **Organization settings → Connectors → Add → Custom → Web**.
 2. Add **Satchel**, using the MCP endpoint above.
 3. Make it available to Neeraj under the workspace's supported access controls. Confirm it can be selected in Claude Code cloud sessions.
-4. If tool policies are configured, permit the complete current tool list below, including project selection and explicit save/correct/delete. Writes may continue to require user confirmation.
+4. If tool policies are configured, permit the complete current tool list below, including topic selection and explicit save/correct/delete. Writes may continue to require user confirmation.
 5. Confirm organization policies allow the uploaded Satchel plugin and its lifecycle hooks in the intended Code environment. The account already has `satchel@My Uploads` version `0.1.1`; a second upload is not requested.
 
-At the last UI check, the plugin was enabled and its skill, connector, and two hook groups were recognized. Its connector showed **Not added**, with **Connect disabled**. After owner registration, Neeraj connects individually in **Customize → Connectors**, completes Satchel OAuth, and selects personal/project scopes and write permission.
+At the last UI check, the plugin was enabled and its skill, connector, and two hook groups were recognized. Its connector showed **Not added**, with **Connect disabled**. After owner registration, Neeraj connects individually in **Customize → Connectors**, completes Satchel OAuth, and selects personal/topic scopes and write permission.
 
 The plugin upload and connector registration do not prove that a cloud Code runtime receives the package or executes its hooks. Satchel's implementation/testing work must verify that separately. If repository configuration or an environment setup is needed for package delivery, we will prepare it in the Satchel test repository; the request does not authorize modifying unrelated company repositories.
 
@@ -41,11 +41,11 @@ The personal local Satchel installation has already completed OAuth and memory t
 
 1. Satchel is available to the intended user/role wherever workspace plugin controls apply, and any required MCP/app connection is also available.
 2. Managed configuration does not disable plugins or reject Satchel's approved installation source. The current local plugin identity is `satchel@personal`; its MCP server key is `satchel`. Review/allow that exact plugin identity and endpoint under plugin-scoped MCP requirements if allowlists are enforced. A future organization-managed installation may use a different marketplace identity and must match the deployed identity.
-3. The current approved tool set below is allowed, including explicit writes and project selection.
+3. The current approved tool set below is allowed, including explicit writes and topic selection.
 4. Hook policy permits Satchel's read-only lifecycle hooks. If `allow_managed_hooks_only` is enforced, an administrator must arrange managed deployment of equivalent reviewed hooks/scripts; ordinary plugin installation will not run them. Do not disable the organization's global hook restrictions just to complete this pilot.
 5. Where network restrictions apply, allow the MCP service host `satchel-pi.vercel.app` and OAuth issuer host `prpgcrwteepcunizdcut.supabase.co`. Package installation requires access to its approved source; the existing GitHub/Satchel sign-in flow must also remain usable. No inbound laptop port or tunnel is required by the hosted memory service.
 
-The package bootstrap requires Node.js. Its command reads only the current Git origin and sends the normalized GitHub repository identity with an opaque session ID to Satchel's short-lived staging endpoint. It does not read repository files, collect transcripts, return memory data, or hold OAuth credentials. The authenticated MCP hook still enforces the connection grant before selecting a project. User hook trust and individual OAuth are still user-side setup steps, not repeated administrator approvals.
+The package bootstrap requires Node.js. Its command reads only the current Git origin and sends the normalized GitHub repository identity with an opaque session ID to Satchel's short-lived staging endpoint. It does not read repository files, collect transcripts, return memory data, or hold OAuth credentials. The authenticated MCP hook still enforces the connection grant before selecting a topic. User hook trust and individual OAuth are still user-side setup steps, not repeated administrator approvals.
 
 ### Hosted ChatGPT / Work: separate from local Codex
 
@@ -57,14 +57,14 @@ If hosted ChatGPT use is also in scope, request authorization to register/enable
 
 | Tools | Effect |
 | --- | --- |
-| `list_projects`, `memory_index`, `read_memory`, `load_memory_context` | Read connection permissions, authorized projects, repository links, memory metadata or requested details |
-| `upsert_project` | Explicitly create a project, or revision-safely rename/rebrief and link or unlink one GitHub repository; creation never expands the connection grant |
-| `select_project` | Changes this conversation's active project, addressed either by project ID or through a user-created repository link; it does not expand access or write memory content |
+| `list_topics`, `memory_index`, `read_memory`, `load_memory_context` | Read connection permissions, authorized topics, repository links, memory metadata or requested details |
+| `upsert_topic` | Explicitly create a topic, or revision-safely rename/rebrief and link or unlink one GitHub repository; creation never expands the connection grant |
+| `select_topic` | Changes this conversation's active topic, addressed either by topic ID or through a user-created repository link; it does not expand access or write memory content |
 | `save_memory` | Explicitly saves a memory |
 | `correct_memory` | Explicitly revises a memory using its current revision |
 | `forget_memory` | Explicitly forgets a requested memory using its current revision; it moves to the archive and can be restored |
 
-Allowing only tools marked read-only will block `select_project` as well as memory writes. Approve these existing actions explicitly where a custom tool policy is used; keep review for future newly introduced actions.
+Allowing only tools marked read-only will block `select_topic` as well as memory writes. Approve these existing actions explicitly where a custom tool policy is used; keep review for future newly introduced actions.
 
 Hooks load the memory index only on a new conversation/clear and after compaction. There is no ordinary-message or resume refresh, automatic memory save, or transcript ingestion. Claude uses `SessionStart` with `startup|clear|compact` for bootstrap and `clear|compact` for direct MCP; Codex uses `SessionStart` for `startup|clear` and `PostCompact`.
 

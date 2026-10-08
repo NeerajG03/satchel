@@ -50,4 +50,4 @@ The companion's scope export does steps 1 and 2. The drill is still release-hard
 
 `npm run task-storage:cleanup` (`scripts/cleanup-task-files.mjs`) removes failed or pending reservations older than 24 hours and records deletion events. It is bounded and deliberately a command, not something hidden inside a request transaction. Scheduling it is an operational choice that has not been made.
 
-Deleting a task or a project drops its storage objects through `private.drop_task_files`, which is a definer routine that no role can execute directly and which no-ops when `storage.objects` does not exist (the local SQL harness).
+Deleting a task or a topic drops its storage objects through `private.drop_task_files`, which is a definer routine that no role can execute directly and which no-ops when `storage.objects` does not exist (the local SQL harness).

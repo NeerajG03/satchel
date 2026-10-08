@@ -78,7 +78,7 @@ Every one of the three ends in the same thing: a Supabase client carrying a toke
 
 ## The repository hint bridge
 
-`POST /api/repository-hint` is the one anonymous endpoint, and it exists because the plugin's local bootstrap can read the workspace's Git origin but holds no token. `parseRepositoryHint` in `server/repository-hint-handler.mjs` accepts exactly three fields, rejects anything over 1024 bytes twice (the header and the re-serialized object, because Vercel hands over parsed JSON), requires `provider` to be `github`, and pattern-checks the session key and the `owner/repo` shape. It calls `stage_agent_repository_hint` with the publishable key and no user token; the authenticated lifecycle hook is what consumes the staged row later. See the `satchel-projects` skill for what the hint then does.
+`POST /api/repository-hint` is the one anonymous endpoint, and it exists because the plugin's local bootstrap can read the workspace's Git origin but holds no token. `parseRepositoryHint` in `server/repository-hint-handler.mjs` accepts exactly three fields, rejects anything over 1024 bytes twice (the header and the re-serialized object, because Vercel hands over parsed JSON), requires `provider` to be `github`, and pattern-checks the session key and the `owner/repo` shape. It calls `stage_agent_repository_hint` with the publishable key and no user token; the authenticated lifecycle hook is what consumes the staged row later. See the `satchel-topics` skill for what the hint then does.
 
 ## The consent and Apps screens
 

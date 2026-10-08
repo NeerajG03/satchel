@@ -62,7 +62,7 @@ revision, created_at, updated_at
 
 **Name uniqueness is partial.** `where name is not null`, on both the scoped and the personal index. Without the predicate the second unnamed memory collides with the first on NULL.
 
-**A memory has one scope: a project, or personal.** There is no task link and there is no column for one. It was removed in `20260922100000` because it produced exactly one thing, a `[task closed, may be fixed]` hint, and cost three ways to get the scope wrong: `save_memory` silently moved a memory into the task's project, so a wrong guess by a small model relocated a rule; the router made four decisions per item instead of three; and the foreign key could not be scope-qualified at all, because Postgres refuses `ON DELETE SET NULL` against a generated column and `tasks.scope_key` is generated, so a function had to enforce what the database could not. The doubt the link was for comes back in v2.5 R8, raised by the repository moving, which is what actually made the stale rows in production false. See `docs/memory-v2-5-scope.md`, R9a.
+**A memory has one scope: a topic, or personal.** Topics are stored in the `projects` table, so the column is `project_id`. There is no task link and there is no column for one. It was removed in `20260922100000` because it produced exactly one thing, a `[task closed, may be fixed]` hint, and cost three ways to get the scope wrong: `save_memory` silently moved a memory into the task's topic, so a wrong guess by a small model relocated a rule; the router made four decisions per item instead of three; and the foreign key could not be scope-qualified at all, because Postgres refuses `ON DELETE SET NULL` against a generated column and `tasks.scope_key` is generated, so a function had to enforce what the database could not. The doubt the link was for comes back in v2.5 R8, raised by the repository moving, which is what actually made the stale rows in production false. See `docs/memory-v2-5-scope.md`, R9a.
 
 **A memory ends, it is not deleted.** `ended_at`/`ended_reason` is one way out with a reason instead of four flag pairs, and `(ended_at is null) = (ended_reason is null)` is enforced. `replaced` means the claim is false now and `ended_by` names its successor; `retired` means an intent was fulfilled, which is spent rather than wrong; `forgotten` is a decision, a person's Forget in the web app or a pass deciding it should not be there. `restore_memory(id, revision)` undoes any of them: it clears the ending, clears an expiry that has already passed (a future one is a deadline the person gave, so it stays), and moves `affirmed_at`. Expiry is separate, because it is time passing rather than something happening: a row past `expires_at` is not live and no event was raised. Everything that reads a memory to use it filters to live; `archived_memories()` is where the rest goes, and it is the undo that makes auto-applied consolidation acceptable.
 
@@ -80,7 +80,7 @@ Deleting a memory cascades its history. The system never deletes, it ends; a per
 
 ## `stamp_memory_revision`
 
-Bumps `revision` and moves `updated_at` **only** when the statement, source, more_info, name, band, project, kind or `ended_at` changes. Ending a memory moves it, so a client holding the old revision cannot go on to correct something that is no longer live. Affirming, expiring and embedding do not.
+Bumps `revision` and moves `updated_at` **only** when the statement, source, more_info, name, band, topic, kind or `ended_at` changes. Ending a memory moves it, so a client holding the old revision cannot go on to correct something that is no longer live. Affirming, expiring and embedding do not.
 
 Embedding a row is bookkeeping, not an edit. The revision is the optimistic concurrency token, so bumping it for an embedding hands every client holding the old one a conflict it cannot explain, and re-embedding after a model change does that to the whole corpus at once.
 
@@ -155,13 +155,13 @@ The durable record of a conversation, kept apart from the memories derived from 
 
 Not the same thing as `session_messages` and not a replacement for it. Different lifetimes: the window is trimmed to `p_keep` and expires in a day, a document lives 30 days. Both are written by one call, `record_turn`, because the per-prompt hook waits for it now and must not delay the prompt.
 
-`project_id` is the scope, null meaning personal, and there is no task link. It is set by whichever turn first knows it and never cleared, because a cron reading the document hours later has no workspace and no git remote to resolve it from. A project id the caller does not own is dropped rather than borrowed.
+`project_id` is the scope, null meaning personal, and there is no task link. It is set by whichever turn first knows it and never cleared, because a cron reading the document hours later has no workspace and no git remote to resolve it from. A topic id the caller does not own is dropped rather than borrowed.
 
-An empty `content` is not a no-op: it creates and scopes the document without appending a turn. Codex hands over no `last_assistant_message`, so on that host the end of a turn has nothing to append but is still the moment the project is known.
+An empty `content` is not a no-op: it creates and scopes the document without appending a turn. Codex hands over no `last_assistant_message`, so on that host the end of a turn has nothing to append but is still the moment the topic is known.
 
 Retention is a deletion, not a policy sentence: `expire_documents()` returns a row count and is called on every `record_turn`. A document stops accepting turns past 400,000 characters and sets `truncated_at`, so a reader can tell a short session from a capped one.
 
-No table grants at all, exactly like `session_messages`. An agent connection is `authenticated` too, so a select grant would let any granted connection read every session regardless of which projects it was given.
+No table grants at all, exactly like `session_messages`. An agent connection is `authenticated` too, so a select grant would let any granted connection read every session regardless of which topics it was given.
 
 `record_turn`, `record_document_turn`, `expire_documents`, `session_document`, `document_content`, `pending_documents`, `mark_document_consolidated`.
 
@@ -183,13 +183,13 @@ Nothing is ever ended by churn. It is a marker in the retrieval block and a line
 
 ## `memories_in_scope`
 
-The project's live memories and the personal ones together, newest first inside each scope, with the project slug joined on. This is what the consolidation pass is shown, because a conversation inside a project still produces preferences that belong everywhere and "is this already remembered" cannot be judged against half the set. `p_limit` is a bound that stops one enormous scope producing a prompt nobody can pay for. It is not R3's block cap; `block_size` is, and the prompt only mentions the pressure when the set is near it. The ordering is deterministic because the model is handed integer labels over it.
+The topic's live memories and the personal ones together, newest first inside each scope, with the topic slug joined on. This is what the consolidation pass is shown, because a conversation inside a topic still produces preferences that belong everywhere and "is this already remembered" cannot be judged against half the set. `p_limit` is a bound that stops one enormous scope producing a prompt nobody can pay for. It is not R3's block cap; `block_size` is, and the prompt only mentions the pressure when the set is near it. The ordering is deterministic because the model is handed integer labels over it.
 
 ## `consolidation_runs`
 
 One row per background pass, including the ones that changed nothing and the ones that failed. `memory_events` already carries the trace id on every write, so this is the half with nowhere else to live: the quiet runs. Prompt up to 200,000 characters because it holds a whole conversation, plus the raw reply, the counts by action, the tokens, the duration and the trace id.
 
-Browser only to read, like `memory_injections`. The prompt is a whole session plus memories from every scope, so an app granted one project reading it would learn about all the others. The cron still writes it as its own connection.
+Browser only to read, like `memory_injections`. The prompt is a whole session plus memories from every scope, so an app granted one topic reading it would learn about all the others. The cron still writes it as its own connection.
 
 ## The consolidation schedule
 
@@ -232,7 +232,7 @@ unique (owner_id, slug) on projects, and on tasks
 
 There is no length floor. One was tried at three characters and it rejected `go`, `ui` and `qa`, which are exactly the slugs a person would pick, and it failed from inside `create_project` with a bare constraint name.
 
-`default_slug` is one trigger serving both tables, reading `title` or `name` through jsonb so there are not two functions to drift. It picks a candidate unique across projects and tasks **together**, and on a collision appends a numeric suffix to the base trimmed to 36 characters, with the trailing hyphen trimmed off, because otherwise the truncation produces `--` and fails the pattern.
+`default_slug` is one trigger serving both tables, reading `title` or `name` through jsonb so there are not two functions to drift. It picks a candidate unique across topics and tasks **together**, and on a collision appends a numeric suffix to the base trimmed to 36 characters, with the trailing hyphen trimmed off, because otherwise the truncation produces `--` and fails the pattern.
 
 `set_slug` is the one definer routine that owns slug changes, so the column is never writable directly and ownership is checked in one place. It enforces the same cross-table uniqueness the trigger does, excluding the row being renamed so renaming to the current slug stays a no-op.
 

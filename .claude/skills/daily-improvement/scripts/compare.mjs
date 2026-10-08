@@ -64,10 +64,10 @@ lines.push(row('sessions with any on both sides', count(names, n => pl(n).length
 const unanswered = names.filter(n => !(n in blind));
 lines.push(row('empty answers', count(names, n => !pl(n).length), count(names, n => n in blind && !bl(n).length)));
 lines.push(row('sessions with no blind answer', '', unanswered.length));
-lines.push(row('project-scoped', sum(names, n => count(pl(n), inProject)), sum(names, n => count(bl(n), blindIn))));
-lines.push(row('project-scoped from sessions with no project',
+lines.push(row('topic-scoped', sum(names, n => count(pl(n), inProject)), sum(names, n => count(bl(n), blindIn))));
+lines.push(row('topic-scoped from sessions with no topic',
   sum(unlinked, n => count(pl(n), inProject)), sum(unlinked, n => count(bl(n), blindIn))));
-lines.push(row(`sessions with no project`, `${unlinked.length} of ${names.length}`, ''));
+lines.push(row(`sessions with no topic`, `${unlinked.length} of ${names.length}`, ''));
 for (const kind of kinds) lines.push(row(`${kind}s`, sum(names, n => count(pl(n), c => c.kind === kind)),
   sum(names, n => count(bl(n), c => c.kind === kind))));
 lines.push(row('add / extend / replace / retire / affirm',

@@ -1,7 +1,7 @@
 {
   "name": "satchel",
-  "version": "0.4.10",
-  "description": "Personal and project memory, tasks and projects across your agents.",
+  "version": "0.5.0",
+  "description": "Personal and topic memory, tasks and topics across your agents.",
   "author": {
     "name": "Satchel"
   },
@@ -10,8 +10,8 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Satchel",
-    "shortDescription": "Your memory, tasks and projects, across your agents.",
-    "longDescription": "Load memory and task summaries automatically, read details on demand, and explicitly save or revise memories, tasks and projects with scoped access.",
+    "shortDescription": "Your memory, tasks and topics, across your agents.",
+    "longDescription": "Load memory and task summaries automatically, read details on demand, and explicitly save or revise memories, tasks and topics with scoped access.",
     "developerName": "Satchel",
     "category": "Productivity",
     "capabilities": [

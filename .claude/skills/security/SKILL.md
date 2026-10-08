@@ -31,11 +31,11 @@ The database is the only authority. The server and the UI are convenience layers
 
 **Every table has RLS and a `revoke all ... from public, anon, authenticated`.** Access goes through owner policies or through `security definer` functions. Every `security definer` function sets `search_path = ''` and uses schema-qualified names. Revoke execute from `public` and `anon`, grant to `authenticated` only. Look at `supabase/migrations/202609110003_agent_connections.sql` for the pattern.
 
-**Two callers, two sets of policies.** A companion session is identified by `auth.uid()`. An agent token also carries `client_id` and `satchel_grant_id`. Agent policies check the grant row: it belongs to the owner, it is not revoked, its `grant_id` matches the token, and the requested project is in the grant. Never reuse a companion session as agent authorization, and never let an agent policy fall back to plain owner checks.
+**Two callers, two sets of policies.** A companion session is identified by `auth.uid()`. An agent token also carries `client_id` and `satchel_grant_id`. Agent policies check the grant row: it belongs to the owner, it is not revoked, its `grant_id` matches the token, and the requested topic is in the grant. Never reuse a companion session as agent authorization, and never let an agent policy fall back to plain owner checks.
 
-**Scopes are explicit.** Personal scope is `project_id = null`. Project scope is a real UUID from the grant, or the connection's `all_projects` flag. An unknown scope must not default to personal. Personal access needs its own grant flag, and `all_projects` does not imply it: a blanket grant is every project, not everything. A missing grant is a denial, never an empty list.
+**Scopes are explicit.** Topics are stored in the `projects` table, so the column is `project_id`. Personal scope is `project_id = null`. Topic scope is a real UUID from the grant, or the connection's `all_projects` flag. An unknown scope must not default to personal. Personal access needs its own grant flag, and `all_projects` does not imply it: a blanket grant is every topic, not everything. A missing grant is a denial, never an empty list.
 
-**"Every project" is a flag, never a list.** The consent page used to build "select all" as `projects.map(p => p.id)`, which froze a set of UUIDs, so a project made the next day was invisible to an app that had been given everything. `all_projects` and `task_all_projects` are the grant saying something that stays true about projects that do not exist yet. Three rules keep that safe:
+**"Every topic" is a flag, never a list.** The consent page used to build "select all" as `projects.map(p => p.id)`, which froze a set of UUIDs, so a topic made the next day was invisible to an app that had been given everything. `all_projects` and `task_all_projects` are the grant saying something that stays true about topics that do not exist yet. Three rules keep that safe:
 
 - It defaults to false and is never backfilled. An existing grant keeps its frozen list until the person authorizes again and sees what they are agreeing to. Widening a live grant in a migration is the same bug pointing the other way.
 - A blanket grant stores an empty `project_ids`, so a stale list can never sit beside the flag looking authoritative in the UI or in `agent_connection_status`.
@@ -47,7 +47,7 @@ Everything else still applies: it is per connection, revocation still rotates `g
 
 **Writes are safe to retry and safe against races.** Creates take a caller-supplied `id` and `request_id`. The same pair with the same payload returns the existing record. A different payload is a conflict. Updates take the expected `revision` and fail with a conflict on mismatch instead of overwriting. Deletes check the revision too.
 
-**Agents cannot delete tasks or projects.** Only a person can. Agents can forget a memory only within a scope they were granted write on. Keep destructive tool annotations honest. The system itself never deletes a memory: consolidation and the web app's Forget end it with a reason, and `restore_memory` brings it back. So does an agent's `forget_memory`: nothing an agent can call destroys a memory.
+**Agents cannot delete tasks or topics.** Only a person can. Agents can forget a memory only within a scope they were granted write on. Keep destructive tool annotations honest. The system itself never deletes a memory: consolidation and the web app's Forget end it with a reason, and `restore_memory` brings it back. So does an agent's `forget_memory`: nothing an agent can call destroys a memory.
 
 **Inputs are bounded.** Every MCP tool argument has a zod schema with lengths and enums, see the top of `server/mcp-server.mjs`. Lists are capped and return a `complete` flag. URLs attached to tasks must be HTTPS and are stored, never fetched. Repository names are normalized `owner/repo` and are only accepted from the bootstrap, never guessed from a folder name.
 
@@ -57,7 +57,7 @@ Everything else still applies: it is per connection, revocation still rotates `g
 
 **Conversations are stored, for 30 days, and nobody else can read them.** Since v2.5 both halves of every turn go into `documents` and `document_turns`, so a later pass can re-read them. That is the largest privacy surface in the product, and four things hold it:
 
-- Neither table has any grant, not even `select`. An agent connection is `authenticated` too, so a grant would let any connection read every session regardless of its projects. Reads go through owner-scoped definer routines.
+- Neither table has any grant, not even `select`. An agent connection is `authenticated` too, so a grant would let any connection read every session regardless of its topics. Reads go through owner-scoped definer routines.
 - `recent_documents` refuses any token with a `client_id`. Listing conversations is for the person in their browser, never for an app acting for them.
 - Retention is a real delete: `expire_documents()` runs on every write and returns a row count, so it can be tested rather than trusted.
 - `capture = false` stops both the document and the window. The setting is about whether the conversation is kept at all.

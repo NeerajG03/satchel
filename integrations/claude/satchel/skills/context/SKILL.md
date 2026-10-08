@@ -1,11 +1,11 @@
 ---
 name: satchel-context
-description: Use Satchel for the user's saved context across conversations - personal and project memories, tasks with their progress, handoffs and planning relationships, and the projects that scope both. Use when recalling preferences or prior decisions, when explicitly asked to save/correct/forget a memory, when listing, creating, updating, resuming or handing off a task, and when selecting, creating or linking a project.
+description: Use Satchel for the user's saved context across conversations - personal and topic memories, tasks with their progress, handoffs and planning relationships, and the topics that scope both. Use when recalling preferences or prior decisions, when explicitly asked to save/correct/forget a memory, when listing, creating, updating, resuming or handing off a task, and when selecting, creating or linking a topic.
 ---
 
 # Satchel
 
-Satchel is the authoritative hosted store for context the user explicitly saves: **memories**, **tasks** and the **projects** that scope both. It is the sole authority for that data. You never write memory without an explicit request. Satchel itself may add memories later from recorded conversations, and those arrive unconfirmed.
+Satchel is the authoritative hosted store for context the user explicitly saves: **memories**, **tasks** and the **topics** that scope both. It is the sole authority for that data. You never write memory without an explicit request. Satchel itself may add memories later from recorded conversations, and those arrive unconfirmed.
 
 ## Read this first, then route
 
@@ -15,7 +15,7 @@ Everything below applies to every Satchel call. Read one reference file only whe
 | --- | --- |
 | Recall, save, correct or forget a memory | `references/memory.md` |
 | List, read, create, edit, progress, hand off or resume a task | `references/tasks.md` |
-| Inspect permissions, select a project, create one, link a repository | `references/projects.md` |
+| Inspect permissions, select a topic, create one, link a repository | `references/topics.md` |
 
 Do not load a reference you are not about to use. Do not answer from these headings alone: the reference holds the required arguments and conflict rules.
 
@@ -23,20 +23,20 @@ Do not load a reference you are not about to use. Do not answer from these headi
 
 Every memory and every task lives in exactly one scope.
 
-- `project_id=null` is personal scope.
-- Any other scope is an explicit project UUID taken from `list_projects`.
+- `topic_id=null` is personal scope.
+- Any other scope is an explicit topic UUID taken from `list_topics`.
 
-Never choose a scope from a directory name, a repository's contents, or a similar-looking project name. Ask briefly when the destination is genuinely ambiguous and not already established in the conversation.
+Never choose a scope from a directory name, a repository's contents, or a similar-looking topic name. Ask briefly when the destination is genuinely ambiguous and not already established in the conversation.
 
-Grants are separate and independently denied. Memory access does not imply task access, read does not imply write, and personal access does not imply project access. Check `list_projects` when a call is denied.
+Grants are separate and independently denied. Memory access does not imply task access, read does not imply write, and personal access does not imply topic access. Check `list_topics` when a call is denied.
 
 ## What arrives on its own
 
 You do not have to go and get context. It arrives once, at the start.
 
-**At the start of a conversation, after a clear, after compaction and on resume**, you receive the list of projects and the personal memories, up to a cap: the confirmed ones first, then the ones Satchel picked up from what the user said, under their own header. When the workspace is one project, that project's own rules follow under a smaller cap. A local Satchel script reads the workspace's GitHub origin and resolves it, so the active project is named too. If the block says the repository belongs to several projects, none was chosen: call `select_project` with one of the `project_id` values it listed, and never substitute a similar name.
+**At the start of a conversation, after a clear, after compaction and on resume**, you receive the list of topics and the personal memories, up to a cap: the confirmed ones first, then the ones Satchel picked up from what the user said, under their own header. When the workspace is one topic, that topic's own rules follow under a smaller cap. A local Satchel script reads the workspace's GitHub origin and resolves it, so the active topic is named too. If the block says the repository belongs to several topics, none was chosen: call `select_topic` with one of the `topic_id` values it listed, and never substitute a similar name.
 
-Nothing from any other project loads here, and nothing about tasks. A picked-up row is used unless the user says otherwise; a retrieved row says `picked up` beside its scope when that is what it is.
+Nothing from any other topic loads here, and nothing about tasks. A picked-up row is used unless the user says otherwise; a retrieved row says `picked up` beside its scope when that is what it is.
 
 **On every message the user types**, memories relevant to what they said are retrieved and handed to you, with counts and with each row's scope. Messages from the host or another agent, such as a subagent's report or a task notification, are not searched. Read the counts. `0 matched` is a real answer and means no such memory exists, which is not the same as one existing and being held back.
 
@@ -53,7 +53,7 @@ List results carry a `complete` flag, and retrieval carries counts. Check them b
 ## Writes
 
 - Write only when the user explicitly asks. Reading, listing and resuming are ordinary; creating, editing, deleting and handing off are not.
-- Satchel assigns IDs to new memories, projects, tasks, updates and resources. Use the returned ID for later reads or edits.
+- Satchel assigns IDs to new memories, topics, tasks, updates and resources. Use the returned ID for later reads or edits.
 - Content and state writes carry the current `revision`. A stale revision is a conflict, not an overwrite: re-read, show the user the divergence, and never blindly replay.
 - A timeout is an uncertain outcome, not a success. Check the relevant list before trying to create the same thing again.
 - After a successful mutation, report the actual saved name, ID and scope returned by the server, not the values you sent.

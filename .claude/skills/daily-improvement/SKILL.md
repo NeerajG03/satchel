@@ -1,6 +1,6 @@
 ---
 name: daily-improvement
-description: Review the last consolidation runs against a blind read of the same conversations, find what the pass got, missed and could have done, trace each gap to a file, write a ranked TODO list, and build the top one as a PR that merges on green. Use for the scheduled daily review, or when asked why consolidation is not learning enough, why project memories are not being made, or what to improve next in the pass.
+description: Review the last consolidation runs against a blind read of the same conversations, find what the pass got, missed and could have done, trace each gap to a file, write a ranked TODO list, and build the top one as a PR that merges on green. Use for the scheduled daily review, or when asked why consolidation is not learning enough, why topic memories are not being made, or what to improve next in the pass.
 ---
 
 # Daily consolidation review
@@ -53,7 +53,7 @@ It picks up where the last review stopped (`~/satchel-daily/state.json`), or the
 | `F/window.json` | the window, and how many jobs and runs were in it |
 | `F/stats.json` | each job's totals; live memories by scope, kind and band; changes in the window; documents in the window by scope; sessions waiting now |
 | `F/langfuse.json` | per run trace: model, thinking, waited, tokens, cost, latency, level and status |
-| `F/blind/<name>.md` | what the pass was given: projects, memories in scope then, the new turns in full |
+| `F/blind/<name>.md` | what the pass was given: topics, memories in scope then, the new turns in full |
 | `F/blind/INDEX.json` | per session turns, characters, and the batches (the cut counts only matter for runs before 29 September) |
 | `F/blind/prompt-<n>.txt` | the ready blind-read prompt for batch n, with its files and its answer path filled in |
 | `F/pipeline/<name>.md` | what the pass did: what landed, the job's report entry, the Langfuse trace, the raw answer |
@@ -67,9 +67,9 @@ For each batch in `F/blind/INDEX.json`, start a background agent: `subagent_type
 
 ### 3. Read the pipeline while they run
 
-Do not open `F/blind/out-*.json` yet. For every session read `F/pipeline/<name>.md`, and the head of `F/pipeline/<name>.prompt.txt` (everything before the turns) to see what the model was told: which scope the session had, which projects and memories it was shown, whether it could have written to a project at all. Read `$WORK/server/prompts/consolidate.md` once, since it is the standard the pass was held to.
+Do not open `F/blind/out-*.json` yet. For every session read `F/pipeline/<name>.md`, and the head of `F/pipeline/<name>.prompt.txt` (everything before the turns) to see what the model was told: which scope the session had, which topics and memories it was shown, whether it could have written to a topic at all. Read `$WORK/server/prompts/consolidate.md` once, since it is the standard the pass was held to.
 
-Then check that the two sides were given the same facts. The blind file lists every project with its repositories and says to file under a project when a claim is about one. Look at what the pass's prompt head showed instead: which projects, whether their repositories, whether their memories, and what the wording let it do with them. A gap between the two inputs explains misses faster than any judgment about the model. On 25 September it was the whole scope gap: the pass was told to use null unless a project was named, and the blind reader was not.
+Then check that the two sides were given the same facts. The blind file lists every topic with its repositories and says to file under a topic when a claim is about one. Look at what the pass's prompt head showed instead: which topics, whether their repositories, whether their memories, and what the wording let it do with them. A gap between the two inputs explains misses faster than any judgment about the model. On 25 September it was the whole scope gap: the pass was told to use null unless a topic was named, and the blind reader was not.
 
 ### 4. Compare
 
@@ -79,7 +79,7 @@ When every blind agent is back, run the counting first:
 node $SKILL/scripts/compare.mjs F
 ```
 
-It prints and writes `F/numbers.md`: changes, sessions with any, empty answers, project-scoped and from unlinked sessions, kinds and actions, rejected claims, the runtime table, and a check that the blind side was shown the same memories as the pass (a WARNING there means "both" cannot be trusted). Copy its numbers into the report and answer the warning first. Then go session by session and sort every change into:
+It prints and writes `F/numbers.md`: changes, sessions with any, empty answers, topic-scoped and from unlinked sessions, kinds and actions, rejected claims, the runtime table, and a check that the blind side was shown the same memories as the pass (a WARNING there means "both" cannot be trusted). Copy its numbers into the report and answer the warning first. Then go session by session and sort every change into:
 
 - **both**: the same claim, action and scope, near enough. Note a scope or kind mismatch.
 - **pipeline only**: judge it good, noisy, wrong or stale-prone.
@@ -91,10 +91,10 @@ Misses seen in two or more sessions are the strongest evidence. So is the same s
 
 Every review answers all of these with numbers, even when the answer is "fine":
 
-1. **Scope.** Changes landed per scope. Sessions the pass saw as personal against project. For every blind change filed under a project: what scope the pass had for that session, and whether its prompt offered that project at all. If project memories are not being made, this is where it shows. How many project-scoped changes came from sessions with no project (D25 allows it; zero across a night of project talk means it is not working).
+1. **Scope.** Changes landed per scope. Sessions the pass saw as personal against topic. For every blind change filed under a topic: what scope the pass had for that session, and whether its prompt offered that topic at all. If topic memories are not being made, this is where it shows. How many topic-scoped changes came from sessions with no topic (D25 allows it; zero across a night of topic talk means it is not working).
 2. **Kinds.** Facts, preferences and intents added, and intents retired, pipeline against blind.
 3. **Actions beyond add.** Affirm, extend, replace and retire: used by the pass when the blind read used them?
-4. **Shapes it misses.** Group the real misses by shape: a rule inside a job, "do X so I can Y", setup facts, decisions about a project, intents.
+4. **Shapes it misses.** Group the real misses by shape: a rule inside a job, "do X so I can Y", setup facts, decisions about a topic, intents.
 5. **What it never saw.** Since 29 September no turn is cut (`server/turn-chunks.mjs`), and a session over 240,000 characters is read in pieces, so it shows as several runs. Check `characters` and `turns` in the trace against the session. Only runs before that change can have a miss that is an input problem (`cut_user`, `cut_assistant` in INDEX).
 6. **Runtime.** Which prompt ran: `promptSource` and `promptVersion` in each trace's metadata in `F/langfuse.json`. `local` means production read the file, so a prompt edit ships with the merge, not with `scripts/push-prompt.mjs`. From `F/langfuse.json`: models used, thinking level, calls that waited, errors, reasoning tokens against output, cost, the slowest calls.
 7. **Failures.** Failed, skipped and rejected changes, with the reasons.
@@ -102,7 +102,7 @@ Every review answers all of these with numbers, even when the answer is "fine":
 
 ### 6. Find the cause
 
-For each gap, find the place that causes it and cite `file:line` under `$WORK`: a prompt section in `server/prompts/consolidate.md`; how the input is built in `server/consolidator.mjs`; which scope a session gets in `server/consolidation.mjs`, `documents.project_id` and the hooks' repository linking; or the eval coverage in `eval/consolidation-cases.json`. Read the code to confirm it. If you cannot confirm a cause, say it is a guess.
+For each gap, find the place that causes it and cite `file:line` under `$WORK`: a prompt section in `server/prompts/consolidate.md`; how the input is built in `server/consolidator.mjs`; which scope a session gets in `server/consolidation.mjs`, `documents.project_id` and the hooks' repository linking; or the eval coverage in `eval/consolidation-cases.json`. Topics are stored in the `projects` table, so the column is `project_id`. Read the code to confirm it. If you cannot confirm a cause, say it is a guess.
 
 ### 7. Write the TODOs
 
@@ -142,10 +142,10 @@ If more work happens in the same session after the mark, such as a replay, a fix
 
 The synthetic eval checks rules someone wrote down. `eval/consolidation-real.mjs` checks the pass against the person's own conversations, so a change is judged on what actually goes wrong. It costs model quota, so it runs when a person asks, or after a prompt or input change. The scheduled run never runs it whole; step 8 may run a slice of it (`--only <session ids>`).
 
-1. `node $SKILL/scripts/collect-corpus.mjs` refreshes `~/satchel-daily/real-eval/` (sessions, blind files, projects). New sessions are added; nothing is deleted.
+1. `node $SKILL/scripts/collect-corpus.mjs` refreshes `~/satchel-daily/real-eval/` (sessions, blind files, topics). New sessions are added; nothing is deleted.
 2. For sessions with no file in `gold/`, start blind labellers on their `blind/` files with the prompt used on 29 September: they write the memories each conversation justifies, from nothing, with keywords and a clear or arguable mark. They never see the pass's answer.
 3. `node eval/consolidation-real.mjs`, then read the claims that matched nothing. A good one the labeller missed goes into that session's gold. A bad one is a precision problem to trace.
-4. Adopt a new baseline only after reading the run. First baseline, 29 September: clear recall 45% (27 of 60), all 25%, 92% under the right project, 0 of 4 quiet sessions noisy. `main` before the whole-turn change scored 25% on the same sessions.
+4. Adopt a new baseline only after reading the run. First baseline, 29 September: clear recall 45% (27 of 60), all 25%, 92% under the right topic, 0 of 4 quiet sessions noisy. `main` before the whole-turn change scored 25% on the same sessions.
 
 ### Evals cost money, so do not be wasteful
 
@@ -171,17 +171,17 @@ It runs every session in `F`'s window through both versions' own `consolidateDoc
 
 - **One sample per side is noise.** The same session gave 1 change on one replay and 0 on the next. A difference of one or two changes across a night means nothing; a new column going from 0 to 2 or more is a signal.
 - **A call that fails is not a zero.** The model sometimes answers nothing, or the network resets. Rerun only those with `--only` before counting.
-- **Run the eval too, then repeat what it fails.** For every case that fails on the branch, run it on `main` and on the branch with `--only <category> --repeat 5`. `rej01` looked like one miss, and was 14 of 14 on `main` against 6 of 9 on the branch: an example list in the new project rule was pulling a rejected claim in as a fact.
-- **Check new eval cases before trusting them.** `want` matches words, so "emoji" fails against "emojis". A case should test one thing: a turn that also carries a project decision will score a correct second add as wrong.
+- **Run the eval too, then repeat what it fails.** For every case that fails on the branch, run it on `main` and on the branch with `--only <category> --repeat 5`. `rej01` looked like one miss, and was 14 of 14 on `main` against 6 of 9 on the branch: an example list in the new topic rule was pulling a rejected claim in as a fact.
+- **Check new eval cases before trusting them.** `want` matches words, so "emoji" fails against "emojis". A case should test one thing: a turn that also carries a topic decision will score a correct second add as wrong.
 - **Edit reports and case files as text.** Re-serialising `consolidation-cases.json` rewrote 600 lines, and a scripted rewrite of `report.md` doubled it. Insert at an anchor, then check the file once.
 
 ## Where this came from
 
 The first blind comparison, on 23 September, read 27 sessions two ways. The pass made 9 changes and the blind read 27. The pass made 8 of its 9 the same way the blind read did, and it missed a preference said in three different sessions ("push first so I can review"). Nothing in the eval or the job report could have shown either fact. This skill is that comparison, made repeatable.
 
-On 25 September the scope gap was traced to the prompt: sessions with no project were told to use null unless a project was named, and 22 of 26 sessions had no project. Replaying the night with that wording changed moved project-scoped changes from 1 to 3 and made 2 from unlinked sessions. The rest of the misses were judgment, not scope.
+On 25 September the scope gap was traced to the prompt: sessions with no topic were told to use null unless a topic was named, and 22 of 26 sessions had no topic. Replaying the night with that wording changed moved topic-scoped changes from 1 to 3 and made 2 from unlinked sessions. The rest of the misses were judgment, not scope.
 
-On 28 September the pass answered nothing on 27 of 30 sessions, and the blind read found only 6 real changes, so both sides were thin. Two things the review could not see made it look worse than it was: a project deleted after the run took the pass's two adds with it, and an affirm on a confirmed memory leaves no history row by design. `collect.mjs` now sets the job report beside the history, lists projects the run's prompt named even if they are gone, and shows an unlinked session every project's memories, as the pass sees them. The misses that were left were judgment: a rule that started with a verb, and an affirm inside a long request.
+On 28 September the pass answered nothing on 27 of 30 sessions, and the blind read found only 6 real changes, so both sides were thin. Two things the review could not see made it look worse than it was: a topic deleted after the run took the pass's two adds with it, and an affirm on a confirmed memory leaves no history row by design. `collect.mjs` now sets the job report beside the history, lists topics the run's prompt named even if they are gone, and shows an unlinked session every topic's memories, as the pass sees them. The misses that were left were judgment: a rule that started with a verb, and an affirm inside a long request.
 
 ## The read side, once a week
 

@@ -15,7 +15,7 @@ Append this to the end of the file. Leave out a line only when it says "none".
 
 - window: <since> to <until> · <n> jobs · <n> runs · <n> sessions read · <n> waiting now
 - blind reads: <n> agents · <n> changes · or "skipped, nothing ran"
-- numbers: pipeline <n> vs blind <n> changes · project-scoped <n> vs <n> · <n> from unlinked sessions · intents <n> vs <n>
+- numbers: pipeline <n> vs blind <n> changes · topic-scoped <n> vs <n> · <n> from unlinked sessions · intents <n> vs <n>
 - TODOs: added #<n>, #<n> · done #<n> (<commit>) · carried <n> · or "none changed"
 - report: <folder>/report.md
 - changes beyond the review: none
@@ -46,7 +46,7 @@ In the scheduled run this line names step 8's PR, its merge commit or why it did
 - report: 2026-09-25/report.md
 - changes beyond the review, asked for by Neeraj in the same session:
   - replay of 26 sessions, old vs the scope branch: changes 1 to 4, project-scoped 1 to 3
-  - PR NeerajG03/satchel#5 merged as 2b5462d: unlinked sessions may file under a project (TODO #9)
-- watch next: project-scoped changes from unlinked sessions should go above 0 on the next night with a run
+  - PR NeerajG03/satchel#5 merged as 2b5462d: unlinked sessions may file under a topic (TODO #9)
+- watch next: topic-scoped changes from unlinked sessions should go above 0 on the next night with a run
 - marked through 2026-09-25T06:51:23Z
 ```

@@ -33,7 +33,7 @@ export function ProjectPage() {
   const isEmpty = Boolean(data && data.memories.length === 0 && data.tasks.length === 0);
   const apps = data?.connections.filter(c => c.all_projects || c.task_all_projects || c.project_ids.includes(id) || c.agent_task_grants.some(g => g.project_id === id)) ?? [];
   useFooter(project ? `${project.name} · ${count(data!.memories.length, 'memory', 'memories')} · ${count(data!.tasks.length, 'task')}` : '',
-    isEmpty ? { light: 'amber', word: 'Project has nothing yet' } : undefined);
+    isEmpty ? { light: 'amber', word: 'Topic has nothing yet' } : undefined);
 
   async function saveBrief(event: FormEvent) {
     event.preventDefault(); if (!project) return;
@@ -57,9 +57,9 @@ export function ProjectPage() {
     announce(`Unlinked ${target.repository}`);
   }
 
-  if (page.error) return <><LinkButton to="/projects" look="quiet">← Topics</LinkButton><LoadError what="This project" onReload={page.reload} /></>;
-  if (!data) return <><LinkButton to="/projects" look="quiet">← Topics</LinkButton><Skeleton rows={6} /></>;
-  if (!project) return <><LinkButton to="/projects" look="quiet">← Topics</LinkButton><Notice look="error" title="That topic is not here.">It may have been removed. Nothing else changed.</Notice></>;
+  if (page.error) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><LoadError what="This topic" onReload={page.reload} /></>;
+  if (!data) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><Skeleton rows={6} /></>;
+  if (!project) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><Notice look="error" title="That topic is not here.">It may have been removed. Nothing else changed.</Notice></>;
 
   const other = data.projects.find(p => p.id !== id);
   const activity = [...data.tasks.map(t => ({ at: t.last_activity_at, text: t.title, tag: 'task', to: `/tasks/${t.id}${scopeQuery(scope)}` })),
@@ -67,7 +67,7 @@ export function ProjectPage() {
 
   const briefForm = <form className="stack-tight" onSubmit={saveBrief}>
     <TextArea label="Brief" hint="one or two lines an agent reads to know what this effort is" limit={1000} rows={3} value={brief} disabled={action.busy} autoFocus
-      placeholder="What is this project for, and what does “done” look like?" onChange={e => setBrief(e.target.value)} />
+      placeholder="What is this topic for, and what does “done” look like?" onChange={e => setBrief(e.target.value)} />
     {action.error && <SaveError message={action.error} />}
     <div className="row" style={{ gap: 8 }}>
       <Button type="submit" look="primary" small disabled={action.busy}>Save brief</Button>
@@ -77,8 +77,8 @@ export function ProjectPage() {
   </form>;
 
   return <>
-    <div className="between wrap"><Link to="/projects" className="fine">← Topics</Link>
-      <div className="row" style={{ gap: 8 }}><LinkButton to={`/projects/${id}/delete`} look="quiet" className="tear" aria-label="Delete project" title="Delete project"><TornPageIcon /></LinkButton><LinkButton to={`/book${scopeQuery(scope)}`}>Open its book</LinkButton><LinkButton to={`/tasks${scopeQuery(scope)}`}>Open its tasks</LinkButton></div></div>
+    <div className="between wrap"><Link to="/topics" className="fine">← Topics</Link>
+      <div className="row" style={{ gap: 8 }}><LinkButton to={`/topics/${id}/delete`} look="quiet" className="tear" aria-label="Delete topic" title="Delete topic"><TornPageIcon /></LinkButton><LinkButton to={`/book${scopeQuery(scope)}`}>Open its book</LinkButton><LinkButton to={`/tasks${scopeQuery(scope)}`}>Open its tasks</LinkButton></div></div>
     <div className="col" style={{ gap: 10 }}>
       <span className="eyebrow">Topic{project.made_by === 'satchel' ? ' · made by Satchel' : ''}</span>
       <h1>{project.name}</h1>
@@ -91,11 +91,11 @@ export function ProjectPage() {
     </div>
 
     {isEmpty && <>
-      <Notice look="amber" title="Agents can’t see this project yet.">It has no brief, no memories and no tasks. Fill in the brief first so an agent can tell it apart{other ? ` from “${other.name}”` : ''}.</Notice>
+      <Notice look="amber" title="Agents can’t see this topic yet.">It has no brief, no memories and no tasks. Fill in the brief first so an agent can tell it apart{other ? ` from “${other.name}”` : ''}.</Notice>
       {project.brief && !editingBrief ? <div className="row wrap" style={{ alignItems: 'baseline' }}><p className="serif" style={{ fontSize: 19 }}>{project.brief}</p><Button look="link" small onClick={() => { setBrief(project.brief); setEditingBrief(true); }}>Edit brief</Button></div> : briefForm}
       <div className="steps">
-        <div className="step"><span className="n">Codebases</span><h3>Link a repository</h3><p className="muted">Optional. Lets a coding agent select this project when it opens that repo.</p></div>
-        <div className="step"><span className="n">Book</span><h3>Save a first decision</h3><p className="muted">Something agents should know before working here.</p><LinkButton to={`/book${scopeQuery(scope, { compose: '1' })}`}>Write in this project’s book</LinkButton></div>
+        <div className="step"><span className="n">Codebases</span><h3>Link a repository</h3><p className="muted">Optional. Lets a coding agent select this topic when it opens that repo.</p></div>
+        <div className="step"><span className="n">Book</span><h3>Save a first decision</h3><p className="muted">Something agents should know before working here.</p><LinkButton to={`/book${scopeQuery(scope, { compose: '1' })}`}>Write in this topic’s book</LinkButton></div>
         <div className="step"><span className="n">Tasks</span><h3>Capture the next thing</h3><p className="muted">A title and next action is enough to start.</p><LinkButton to={`/tasks${scopeQuery(scope, { compose: '1' })}`}>Capture a task</LinkButton></div>
       </div>
     </>}
@@ -110,7 +110,7 @@ export function ProjectPage() {
       </div>
       <aside>
         <div className="aside-block">
-          <div className="between"><h3>Apps that can see this project</h3><Link to="/apps" className="fine">Manage</Link></div>
+          <div className="between"><h3>Apps that can see this topic</h3><Link to="/apps" className="fine">Manage</Link></div>
           {apps.length === 0 && <p className="muted fine">None yet. Grants are made on the consent page when an app connects.</p>}
           {apps.map(app => <div className="between" key={app.client_id}><span style={{ fontWeight: 500 }}>{app.label}</span>
             <Light color="green" word={[(app.all_projects || app.project_ids.includes(id)) && (app.can_write ? 'memory rw' : 'memory'), (app.task_all_projects || app.agent_task_grants.some(g => g.project_id === id)) && 'tasks'].filter(Boolean).join(' · ')} /></div>)}

@@ -123,12 +123,12 @@ export function Book() {
         <span className="eyebrow">{scopeEyebrow(scope, projectList)}</span>
         <h1>The book.</h1>
         <p className="lede">{scope.kind === 'personal'
-          ? '“For me” holds preferences and details that apply across all your work. Pick a project from the picker when something belongs to one effort only.'
-          : project?.brief || 'Decisions and details for this project only.'}</p>
+          ? '“For me” holds preferences and details that apply across all your work. Pick a topic from the picker when something belongs to one subject only.'
+          : project?.brief || 'Decisions and details for this topic only.'}</p>
       </div>
       <div className="row wrap" style={{ alignItems: 'flex-start' }}>
         <ScopePicker scope={scope} projects={projectList} counts={memoryCounts} locked={locked}
-          onChange={next => navigate(`/book${scopeQuery(next)}`)} onNewProject={() => navigate('/projects/new')} />
+          onChange={next => navigate(`/book${scopeQuery(next)}`)} onNewProject={() => navigate('/topics/new')} />
         <label className="search"><span aria-hidden="true">⌕</span>
           <input type="search" placeholder="Search this scope" aria-label="Search the book" value={query} onChange={event => setParam('q', event.target.value || null)} />
         </label>
@@ -159,7 +159,7 @@ export function Book() {
       </span>
     </Empty>}
     {memories.data && query && visible.length === 0 && <Empty title="Nothing matches here.">
-      Memories saved in “For me” and other projects are not searched unless you widen the scope above.
+      Memories saved in “For me” and other topics are not searched unless you widen the scope above.
     </Empty>}
 
     <div>

@@ -56,9 +56,9 @@ A shared constant would be wrong by 0.4 cosine across that range. Applying nomic
 
 ## Scope is a boost of 1.1, not 3.0
 
-A boost multiplies a score in [0,1], so a large one reorders globally instead of nudging. Measured with the boosted project being the right one, and being the wrong one:
+A boost multiplies a score in [0,1], so a large one reorders globally instead of nudging. Measured with the boosted topic being the right one, and being the wrong one:
 
-| multiplier | right project | wrong project | break-even hit rate |
+| multiplier | right topic | wrong topic | break-even hit rate |
 |---|---|---|---|
 | 1.05 | +0.048 | −0.010 | 18% |
 | **1.1** | **+0.077** | **−0.022** | **22%** |
@@ -66,9 +66,9 @@ A boost multiplies a score in [0,1], so a large one reorders globally instead of
 | 2.0 | +0.073 | −0.493 | 87% |
 | 3.0 | +0.073 | −0.508 | 87% |
 
-1.1 captures the entire benefit of 3.0 and costs a twentieth as much when wrong. Above 1.25 the gain is flat and only the damage grows. The original design specified 3.0, which would have needed 87% of a session's prompts to be about that one project just to break even.
+1.1 captures the entire benefit of 3.0 and costs a twentieth as much when wrong. Above 1.25 the gain is flat and only the damage grows. The original design specified 3.0, which would have needed 87% of a session's prompts to be about that one topic just to break even.
 
-Scope is a boost and not a filter, so a first mention of an unrelated project still wins on similarity alone.
+Scope is a boost and not a filter, so a first mention of an unrelated topic still wins on similarity alone.
 
 ## The closed-task demotion was wrong, and the labels said so
 
@@ -82,7 +82,7 @@ They are *more* likely to be wanted, not less. A task closing does not make what
 
 On the first corpus this was called noise. On 159 prompts it is a real **+0.043**. The extra text is the user's own phrasing, which is closer to how they later ask for it.
 
-Prefixing the project name actively hurts: 0.508 against 0.523 for plain statement.
+Prefixing the topic name actively hurts: 0.508 against 0.523 for plain statement.
 
 `source` is stored for provenance and indexed, and is **never injected**.
 
@@ -234,9 +234,9 @@ The whole 21 point gain came from the prompt: worked examples, an explicit list 
 
 ### Naming the scope instead of asking the model to infer it
 
-The router used to get a flat list of every project and nothing saying which one the conversation was in, so it inferred the scope from the words. A memory about Satchel's own deployment key said "vercel" and not "satchel", so it landed in personal.
+The router used to get a flat list of every topic and nothing saying which one the conversation was in, so it inferred the scope from the words. A memory about Satchel's own deployment key said "vercel" and not "satchel", so it landed in personal.
 
-The workspace's git remote already resolves to a project through `project_repositories`, so the prompt names it. That was measured as an A/B on the same sample through the same code, with `ROUTER_EVAL_NO_SCOPE=1` withholding the scope and handing over the flat list the way the router used to get it:
+The workspace's git remote already resolves to a topic through `project_repositories`, so the prompt names it. Topics are stored in the `projects` table, so the column is `project_id`. That was measured as an A/B on the same sample through the same code, with `ROUTER_EVAL_NO_SCOPE=1` withholding the scope and handing over the flat list the way the router used to get it:
 
 ```
                        scope withheld     scope named
@@ -247,17 +247,17 @@ scope, universal       17/18   94%        17/18   94%
 stayed quiet           16/16  100%        16/16  100%
 ```
 
-One row moves and nothing else does. All four discordant items went the improving way, so a one-sided sign test puts it at about p = 0.06: suggestive at fourteen samples, not conclusive, and the mechanism is not in doubt because the model had no way to know the project. Raise `SCOPED` in `eval/router.mjs` if the number needs to be solid.
+One row moves and nothing else does. All four discordant items went the improving way, so a one-sided sign test puts it at about p = 0.06: suggestive at fourteen samples, not conclusive, and the mechanism is not in doubt because the model had no way to know the topic. Raise `SCOPED` in `eval/router.mjs` if the number needs to be solid.
 
-The other two rows are the ones that could have gone wrong and did not. **Universal preferences did not get swallowed** into whichever project was open, which is the regression defaulting to a project invites: 17/18 both times, and the same single item in both runs. It files "the passport renewal has to be done before March 2028" into `schengen-visa`, which the corpus labels personal and which is arguably the label being wrong rather than the model. **And naming an open project did not make the router start finding things in it**: 16/16 quiet both ways.
+The other two rows are the ones that could have gone wrong and did not. **Universal preferences did not get swallowed** into whichever topic was open, which is the regression defaulting to a topic invites: 17/18 both times, and the same single item in both runs. It files "the passport renewal has to be done before March 2028" into `schengen-visa`, which the corpus labels personal and which is arguably the label being wrong rather than the model. **And naming an open topic did not make the router start finding things in it**: 16/16 quiet both ways.
 
-The eval scored the project slug only on memories that have one, which is the direction this change cannot get wrong. Personal memories are 19% of the corpus, so a proportional sample gave four or five out of 24, which cannot measure a threshold. They are sampled deliberately now and counted separately, replayed from inside a rotating project so no one project's brief can explain the result.
+The eval scored the topic slug only on memories that have one, which is the direction this change cannot get wrong. Personal memories are 19% of the corpus, so a proportional sample gave four or five out of 24, which cannot measure a threshold. They are sampled deliberately now and counted separately, replayed from inside a rotating topic so no one topic's brief can explain the result.
 
-Everything the model returns is validated before it reaches the database. An item is dropped if its statement is missing or over 500 characters, if it has no source, or if its source is not in the turn being classified. A project slug not in the supplied list becomes personal, which is the safer mistake. A task drags its own project.
+Everything the model returns is validated before it reaches the database. An item is dropped if its statement is missing or over 500 characters, if it has no source, or if its source is not in the turn being classified. A topic slug not in the supplied list becomes personal, which is the safer mistake. A task drags its own topic.
 
 ## A work order is not a memory, and the prompt is where that is decided
 
-On 21 September 2026 the memory list filled with things that were not memories: "Update the plugin marketplace so installs get 0.2.2", "Link data-model-2-0 to cbx1/backend", "fix the repository-hint import so cold start drops". Each one is the user's own words, each is plainly about the open project, each is specific, and each is stale the moment the work lands. Langfuse has all three, with the turn that produced them.
+On 21 September 2026 the memory list filled with things that were not memories: "Update the plugin marketplace so installs get 0.2.2", "Link data-model-2-0 to cbx1/backend", "fix the repository-hint import so cold start drops". Each one is the user's own words, each is plainly about the open topic, each is specific, and each is stale the moment the work lands. Langfuse has all three, with the turn that produced them.
 
 Worse, one of them was a belief the user was arguing against. "One codebase can only be connected to one project this is the wrong way to look at it" was stored as its first eight words.
 
@@ -289,7 +289,7 @@ One extraction apart on 40 samples, and v1 lost one call to a timeout so the den
 
 It is not free: the wording went from 3403 to 6387 characters, about 750 more input tokens on every capture, roughly $0.0002 a turn at the flash-lite input price, and 60ms on the median. That is the price of the 6 cases, and it is worth paying.
 
-The three cases still wrong are all the same one, and it is not this: a universal rule filed into the open project rather than personal. That is the known cost of defaulting to the working project, measured separately in `eval/router.mjs`, and this change neither helped nor hurt it.
+The three cases still wrong are all the same one, and it is not this: a universal rule filed into the open topic rather than personal. That is the known cost of defaulting to the working topic, measured separately in `eval/router.mjs`, and this change neither helped nor hurt it.
 
 The prompt now lives in Langfuse as `satchel-capture-router` with `server/prompts/capture-router.md` as the editing surface and the fallback. Not for convenience: a wording change can only be argued about afterwards if the traces from before and after can be told apart, and v1 is published under the `baseline` label for exactly that reason.
 
@@ -311,7 +311,7 @@ Recorded as judgement, not as evidence:
 
 - Six-character handles for memories in injected text. Short enough for a model to copy without transposing, long enough to name a row.
 - Slugs supplied on create, not derived from the title. A 40-character slug derived from a sentence is something nobody would say, and a model matches it worse than the title. The derived form exists only so no row can lack one.
-- Slugs unique per user across projects and tasks together, so there is one thing to get right instead of two.
+- Slugs unique per user across topics and tasks together, so there is one thing to get right instead of two.
 - A session-start block withheld entirely when it exceeds the token budget, rather than truncated. A partial block that looks complete is worse than an honest absence, because the agent cannot tell.
 - Documents kept 30 days, then deleted. Long enough to re-run a changed prompt over a month of real sessions, and the largest privacy surface of the options, which is why the deletion is a routine with a row count.
 - One session is one document, because a whole conversation is the unit the pass can judge.

@@ -32,9 +32,9 @@ An app registers through Supabase's OAuth server and sends the person to Satchel
 
 **Nothing is granted by default.** Consent has to select at least one memory or task scope or it raises `23514`. Write and upload are separate unchecked boxes, and they are forced off when no scope in that group is selected.
 
-**Memory and tasks are four independent switches, not one.** `personal`, `all_projects`/`project_ids`, `can_write` for memory; `task_personal`, `task_all_projects`/`agent_task_grants`, `task_can_write`, `task_can_upload` for tasks. Task permission is not memory permission in either direction.
+**Memory and tasks are four independent switches, not one.** `personal`, `all_projects`/`project_ids`, `can_write` for memory; `task_personal`, `task_all_projects`/`agent_task_grants`, `task_can_write`, `task_can_upload` for tasks. Task permission is not memory permission in either direction. Topics are stored in the `projects` table, which is why these columns still say project.
 
-**"Every project" keeps being true.** It is a flag, not a snapshot of names, so it covers projects that do not exist yet. A blanket grant stores an empty list beside the flag so a stale snapshot can never sit there looking authoritative.
+**"Every topic" keeps being true.** It is a flag, not a snapshot of names, so it covers topics that do not exist yet. A blanket grant stores an empty list beside the flag so a stale snapshot can never sit there looking authoritative.
 
 **A permission applies to the app identity, not the installation.** `client_id` is the key. Both the consent page and the Apps page say so out loud, because a person will assume otherwise.
 

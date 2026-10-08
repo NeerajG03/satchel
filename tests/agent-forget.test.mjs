@@ -104,28 +104,28 @@ test('an agent forgets a memory by ending it, and the person can bring it back',
     const forget = await connect('forget-writer');
 
     await t.test('a stale revision is a conflict and changes nothing', async () => {
-      const reply = await forget({project_id:project, id:memory, revision:2});
+      const reply = await forget({topic_id:project, id:memory, revision:2});
       assert.equal(reply.error, true);
       assert.match(reply.body.error, /changed since you read it.*current revision/);
       assert.equal((await row()).ended_at, null);
     });
 
     await t.test('the scope it names has to be the scope the memory is in', async () => {
-      const reply = await forget({project_id:null, id:memory, revision:1});
+      const reply = await forget({topic_id:null, id:memory, revision:1});
       assert.equal(reply.error, true, 'personal write access does not reach a project memory by id');
       assert.match(reply.body.error, /changed since you read it.*current revision/);
       assert.equal((await row()).ended_at, null);
     });
 
     await t.test('a connection without write access is refused', async () => {
-      const reply = await (await connect('forget-reader'))({project_id:project, id:memory, revision:1});
+      const reply = await (await connect('forget-reader'))({topic_id:project, id:memory, revision:1});
       assert.equal(reply.error, true);
       assert.match(reply.body.error, /may not write memories in that scope/);
       assert.equal((await row()).ended_at, null);
     });
 
     await t.test('forgetting ends the row as forgotten and keeps it', async () => {
-      const reply = await forget({project_id:project, id:memory, revision:1});
+      const reply = await forget({topic_id:project, id:memory, revision:1});
       assert.equal(reply.error, false, JSON.stringify(reply.body));
       assert.deepEqual(reply.body, {forgotten_id:memory, revision:2});
       const after = await row();
@@ -145,7 +145,7 @@ test('an agent forgets a memory by ending it, and the person can bring it back',
     });
 
     await t.test('forgetting it again is a conflict, not a second ending', async () => {
-      const reply = await forget({project_id:project, id:memory, revision:2});
+      const reply = await forget({topic_id:project, id:memory, revision:2});
       assert.equal(reply.error, true);
       assert.match(reply.body.error, /changed since you read it.*current revision/);
     });

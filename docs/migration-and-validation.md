@@ -7,7 +7,7 @@ Historical capability mapping and proposed evidence gates · 8 September 2026. T
 | JEFF responsibility | Intended Satchel treatment |
 |---|---|
 | Initialization, home directory, configuration | Account/service setup plus supported native plugin installation; machine setup stays with its environment |
-| Projects and repository registry | Portable project catalog with repository/source references and separate local mappings |
+| Topics and repository registry | Portable topic catalog with repository/source references and separate local mappings |
 | gig task state | Supabase-native Satchel tasks after a verified, explicit cutover; preserve IDs, history, links and exports |
 | Pickup/work/done | Native execution plus task operations and portable handoffs |
 | Worktrees and task folders | Native app/Git ownership; retain focused multi-repo setup scripts where needed |
@@ -26,7 +26,7 @@ Historical capability mapping and proposed evidence gates · 8 September 2026. T
 | Notifications and scheduling | Existing app/CI features; no background curation service |
 | Doctor | Cross-client checks with distinct installation, access, freshness, and real-chat results |
 | Cleanup, open, IDE selection, shell completions | Native tools and environment configuration; not core Satchel responsibilities |
-| Exports, research, learnings and artifacts | Classify and keep in appropriate sources with durable project links; no bulk ingestion |
+| Exports, research, learnings and artifacts | Classify and keep in appropriate sources with durable topic links; no bulk ingestion |
 | Transcript queue | Protected archive outside normal retrieval, with deliberate retention decisions |
 | Python `api` CLI and `lyric-cli` | Evaluate/package useful functionality independently of the Go launcher |
 | Jeff-Anywhere fleet epic | Shelve as a direction for continuity; assess useful completed prerequisites individually |
@@ -43,7 +43,7 @@ The old inventory is dated evidence, not a fresh audit. This documentation updat
 
 The prior reports recorded 68 accepted entries, 99 proposals, and 344 queued session references, along with seven personas and sixteen configured/built-in hooks. These counts came from the earlier inspection and have not been refreshed here.
 
-Re-scope useful records by meaning and source: a review preference may belong to the user, a backend fact to a repository, and a cross-repo decision to a project. Do not assume everything under a persona name is a user preference. Preserve agent-derived provenance honestly.
+Re-scope useful records by meaning and source: a review preference may belong to the user, a backend fact to a repository, and a cross-repo decision to a topic. Do not assume everything under a persona name is a user preference. Preserve agent-derived provenance honestly.
 
 Use one bounded triage for old proposals. Archive unresolved items outside active retrieval. Repeated queue slugs justify checking duplicates, not blanket deletion of every session. Migration triage is not an ongoing curator feature.
 
@@ -53,7 +53,7 @@ Use one bounded triage for old proposals. Archive unresolved items outside activ
 2. **Prove continuity with synthetic data.** Test a real supported phone/laptop pair against the chosen service and host integrations. Gate: save, retrieve, correct, revoke, fail, export, and laptop-off behavior are evidenced.
 3. **Resolve storage and installation choices.** Select the smallest architecture that passes the tests. In parallel where practical, prepare a reviewed private skill package without removing the registry. Gate: actual per-host installation and a representative second-machine script run.
 4. **Move selected content.** Preserve provenance, IDs, scope, correction links, source access, and useful skill dependencies. Gate: validated records and source mappings, no blanket upload of JEFF home.
-5. **Cut over selected tasks.** Verify personal/project scope, state, dependency links, typed attributes, handoffs, and original-ID mapping. Gate: Supabase is the one authority for migrated records, with usable historical lookup.
+5. **Cut over selected tasks.** Verify personal/topic scope, state, dependency links, typed attributes, handoffs, and original-ID mapping. Gate: Supabase is the one authority for migrated records, with usable historical lookup.
 6. **Retire duplicate runtime last.** Finish or preserve sessions, uncommitted code, hooks, and tool dependencies first. Gate: normal work no longer needs the removed component; useful Python/specialized tools still run.
 7. **Evaluate daily use.** Measure repeated explanations, missed saves, stale facts, failed retrievals, setup friction, cost, and maintenance time. Improve the demonstrated problem rather than automatically adding a curator or fleet.
 
@@ -66,11 +66,11 @@ These are proposed gates, not a scheduled implementation plan. An archive is not
 | Phone → fresh laptop chat | Explicit saved record is retrieved with the correct scope/source/revision |
 | Laptop → fresh phone chat | Reverse loop works through the claimed supported route |
 | Laptop off | Shared context access and phone writes remain usable |
-| Ordinary project request | Relevant retrieval occurs without an extra “search memory” instruction; irrelevant records are excluded |
+| Ordinary topic request | Relevant retrieval occurs without an extra “search memory” instruction; irrelevant records are excluded |
 | Explicit-only behavior | Brainstorming creates no confirmed personal memory; an explicit save does |
 | Correction | New current record replaces old context without a batch job |
 | Concurrency/retry | Unrelated edits survive, conflicting edits surface, retries do not duplicate writes |
-| Project/access isolation | Similar names, work/personal boundaries, and revoked access cannot leak context through search or caches |
+| Topic/access isolation | Similar names, work/personal boundaries, and revoked access cannot leak context through search or caches |
 | Companion identity | Direct phone saves do not depend on a separate Claude/Codex grant |
 | Effective-client preview | Matches what that connection can retrieve; manual export is labeled separately |
 | Task operations | Supported surfaces can perform Satchel task operations; hierarchy/dependencies, conflicts and unavailable resources remain visible |
@@ -86,4 +86,4 @@ These are proposed gates, not a scheduled implementation plan. An archive is not
 
 Record account, surface, app/plugin version, grants, environment, source revision, time, and observed result for each integration test. Browser sample-state tests are not substitutes.
 
-Earlier proposals used ten representative records across two projects, a sixty-second freshness target after acknowledged writes, nine ordinary successful retrievals in ten opportunities, and a manual thirty-day quality check targeting 90% useful/current/supported/correctly scoped records. These remain unmeasured planning targets. Report missed expected memories separately; an almost-empty accurate store is not success. Access leaks, lost writes, and false provenance are failures even if average retrieval looks good.
+Earlier proposals used ten representative records across two topics, a sixty-second freshness target after acknowledged writes, nine ordinary successful retrievals in ten opportunities, and a manual thirty-day quality check targeting 90% useful/current/supported/correctly scoped records. These remain unmeasured planning targets. Report missed expected memories separately; an almost-empty accurate store is not success. Access leaks, lost writes, and false provenance are failures even if average retrieval looks good.
