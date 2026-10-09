@@ -30,7 +30,9 @@ for (const {name} of sessions) {
   const confirmed = [...text.matchAll(/^- confirmed \[(\w+) · (.+?) · \w+\]/gm)].map(([, kind, scope]) => ({action: 'affirmed', kind, scope}));
   const affirms = Number(text.match(/affirmed (\d+) rejected/)?.[1] ?? confirmed.length);
   for (let i = 0; i < affirms; i++) landed.push(confirmed[i] ?? {action: 'affirmed', kind: null, scope: null});
-  pipeline[name] = {landed, rejected: Number(text.match(/rejected (\d+)/)?.[1] ?? 0), error: /error (?!none)\S/.test(text.split('\n')[2] ?? '')};
+  // Topics the pass named for this session, from its job report entry.
+  const named = [...text.matchAll(/"did": "made topic"[\s\S]*?"statement": "([^"]+)"/g)].map(([, slug]) => slug);
+  pipeline[name] = {landed, named, rejected: Number(text.match(/rejected (\d+)/)?.[1] ?? 0), error: /error (?!none)\S/.test(text.split('\n')[2] ?? '')};
 }
 
 // What the blind readers answered.
@@ -38,6 +40,19 @@ const blind = {};
 const outs = readdirSync(join(folder, 'blind')).filter(f => /^out-\d+\.json$/.test(f));
 if (!outs.length) console.warn('no blind/out-*.json yet: the blind side is empty');
 for (const f of outs) for (const s of json(`blind/${f}`)) blind[s.session] = s.changes ?? [];
+// The topics each blind file listed, so a blind change filed anywhere else is
+// a topic the reader named, the same thing the pass does when nothing fits.
+const listedIn = name => {
+  if (!existsSync(join(folder, `blind/${name}.md`))) return null;
+  const part = read(`blind/${name}.md`).split(/## (?:Topics|Projects) that exist/)[1]?.split(/\n## /)[0];
+  return part == null ? null : new Set([...part.matchAll(/^- `?([a-z0-9-]+)`?/gm)].map(m => m[1]));
+};
+// Without the list, only a change that says it names a topic counts as one.
+const blindNamed = name => {
+  const listed = listedIn(name);
+  return [...new Set(bl(name).filter(c => c.new_topic || (listed && c.memory_scope && c.memory_scope !== 'personal'
+    && !listed.has(c.memory_scope))).map(c => c.memory_scope))];
+};
 
 const count = (list, test) => list.filter(test).length;
 const sum = (names, pick) => names.reduce((n, name) => n + pick(name), 0);
@@ -68,6 +83,8 @@ lines.push(row('topic-scoped', sum(names, n => count(pl(n), inTopic)), sum(names
 lines.push(row('topic-scoped from sessions with no topic',
   sum(unlinked, n => count(pl(n), inTopic)), sum(unlinked, n => count(bl(n), blindIn))));
 lines.push(row(`sessions with no topic`, `${unlinked.length} of ${names.length}`, ''));
+lines.push(row('new topics named', [...new Set(names.flatMap(n => pipeline[n].named))].join(', ') || '0',
+  [...new Set(names.flatMap(blindNamed))].join(', ') || '0'));
 for (const kind of kinds) lines.push(row(`${kind}s`, sum(names, n => count(pl(n), c => c.kind === kind)),
   sum(names, n => count(bl(n), c => c.kind === kind))));
 lines.push(row('add / extend / replace / retire / affirm',
