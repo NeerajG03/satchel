@@ -62,8 +62,8 @@ export function TopicPage() {
   if (!topic) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><Notice look="error" title="That topic is not here.">It may have been removed. Nothing else changed.</Notice></>;
 
   const other = data.topics.find(p => p.id !== id);
-  const activity = [...data.tasks.map(t => ({ at: t.last_activity_at, text: t.title, tag: 'task', to: `/tasks/${t.id}${scopeQuery(scope)}` })),
-    ...data.memories.map(m => ({ at: m.updated_at, text: m.name, tag: `memory · rev ${m.revision}`, to: `/book${scopeQuery(scope)}` }))].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8);
+  const activity = [...data.tasks.map(t => ({ id: t.id, at: t.last_activity_at, text: t.title, tag: 'task', to: `/tasks/${t.id}${scopeQuery(scope)}` })),
+    ...data.memories.map(m => ({ id: m.id, at: m.updated_at, text: m.name || m.statement, tag: `memory · rev ${m.revision}`, to: `/book${scopeQuery(scope)}` }))].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8);
 
   const briefForm = <form className="stack-tight" onSubmit={saveBrief}>
     <TextArea label="Brief" hint="one or two lines an agent reads to know what this effort is" limit={1000} rows={3} value={brief} disabled={action.busy} autoFocus
@@ -105,7 +105,7 @@ export function TopicPage() {
         <RepositoryLinks topic={topic} busy={action.busy} onLink={link} onUnlink={target => void unlink(target)} />
         {!isEmpty && <section className="section">
           <div className="between"><h2>Activity</h2><span className="eyebrow">newest first</span></div>
-          {activity.map(item => <div className="relation" key={item.to + item.at}><Link to={item.to}>{item.text}</Link><Provenance parts={[item.tag]} at={item.at} /></div>)}
+          {activity.map(item => <div className="relation" key={item.id}><Link to={item.to} className="clamp">{item.text}</Link><Provenance parts={[item.tag]} at={item.at} /></div>)}
         </section>}
       </div>
       <aside>
@@ -121,7 +121,7 @@ export function TopicPage() {
         </div>
         <div className="aside-block">
           <div className="between"><h3>Memories <span className="muted fine">· {data.memories.length}</span></h3><Link to={`/book${scopeQuery(scope)}`} className="fine">Open the book</Link></div>
-          {data.memories.slice(0, 4).map(memory => <div className="relation" key={memory.id}><span>{memory.name}</span><span className="fine muted">{whenText(memory.updated_at)}</span></div>)}
+          {data.memories.slice(0, 4).map(memory => <div className="relation" key={memory.id}><span className="clamp">{memory.name || memory.statement}</span><span className="fine muted">{whenText(memory.updated_at)}</span></div>)}
         </div>
       </aside>
     </div>

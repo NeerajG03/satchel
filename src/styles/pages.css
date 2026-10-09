@@ -41,6 +41,7 @@
 .done-when li::before { content: ''; width: 16px; height: 16px; border: 1.5px solid var(--ink); border-radius: 4px; flex: none; margin-top: 3px; }
 .relation { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
 .relation a { color: var(--ink); overflow-wrap: anywhere; }
+.relation .clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .history summary { cursor: pointer; font-weight: 500; font-size: 13px; }
 .event { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; text-transform: capitalize; }
 .modes { display: inline-flex; gap: 6px; flex-wrap: wrap; }
