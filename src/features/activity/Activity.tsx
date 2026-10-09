@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useStores } from '../../app/stores';
 import { errorMessage } from '../../client';
-import { useLoad } from '../../app/useLoad';
+import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter } from '../../app/readout';
 import { actorLabel, count } from '../../app/format';
 import { handleOf } from '../memories/model';
 import { Button } from '../../ui/Button';
 import { Empty } from '../../ui/Empty';
-import { Notice } from '../../ui/Notice';
+import { Notice, SaveError } from '../../ui/Notice';
 import { Provenance } from '../../ui/Provenance';
 import { Segments } from '../../ui/Segments';
 import { GROUP, KIND_LABEL, jobState, summarize, summarizeJob,
-  type Activity as Item, type ActivityKind, type ConsolidationJob } from './model';
+  type Activity as Item, type ActivityKind, type ConsolidationJob, type MemoryEvent } from './model';
 import { EarlierJobs, Glance } from './Glance';
 import { JobReport } from './JobReport';
 
@@ -116,7 +116,27 @@ function Detail({ item, apps }: { item: Item; apps: { client_id: string; label: 
       ['why', event.reason], ['trace', event.trace_id], ['from document', event.document_id]]} />
     <Readout label="Before" text={event.before} />
     <Readout label="After" text={event.after} />
+    {event.action === 'moved' && <MoveBack event={event} />}
   </>;
+}
+
+/** The undo for one move. A merge has its own, on the topics page. */
+function MoveBack({ event }: { event: MemoryEvent }) {
+  const stores = useStores();
+  const action = useAction();
+  const [done, setDone] = useState('');
+  async function moveBack() {
+    const where = await action.run(() => stores.activity.moveBack(event));
+    if (where) setDone(where);
+  }
+  if (done) return <p className="fine">Moved back to {done}.</p>;
+  return <div className="stack-tight">
+    <div className="row" style={{ gap: 8 }}>
+      <Button small disabled={action.busy} onClick={() => void moveBack()}>{action.busy ? 'Moving…' : `Move back to ${event.before ?? 'personal'}`}</Button>
+      <span className="fine muted">Puts it where it was before this move.</span>
+    </div>
+    {action.error && <SaveError message={action.error} />}
+  </div>;
 }
 
 const JOB_TITLE = {

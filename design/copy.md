@@ -176,6 +176,7 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - Eyebrow: Developer
 - H1: What Satchel did.
 - Lede: Every request that came in, every conversation kept, and every change to a memory, in the order it happened. Yours alone.
+- A moved memory, opened: Move back to {topic or personal} · Moving… / Puts it where it was before this move. / Moved back to {topic}. / Refusals: It has moved since, and is in {topic} now. Nothing changed. · That memory is not live any more, so there is nothing to move back. · The topic {slug} is gone, so it cannot go back there.
 - Filters: All · Requests · Documents · Memory
 - Row kinds: Session start · Prompt · Capture · Consolidation · Document · Memory
 - Row actions: Look / Hide · Reload · Consolidate now
