@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
+import { moveBack } from './moveBack';
 import type { Activity, ActivityPage, ConsolidationJob, ConsolidationRun, DocumentRow, DocumentTurn, Injection, MemoryEvent, RouterRun, RunText } from './model';
 import { quotaDayStart, type LiveMemory, type ModelCall, type Overview, type ScheduleStatus, type WaitingDoc } from './overview';
 
@@ -83,6 +84,8 @@ export function createActivityRepository(db: SupabaseClient) {
       const full = [injections, captures, consolidations, documents, events].some(source => source.length >= limit);
       return { items: stream.slice(0, limit), more: stream.length > limit || full };
     },
+
+    moveBack: (event: MemoryEvent) => moveBack(db, event),
 
     /** What a model was sent and what it said, for one row someone opened.
      *  This is where the long text lives now. */

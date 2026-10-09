@@ -108,7 +108,7 @@ Status on 8 October.
 | 3 | Tidy | One call a job, before sessions are read: moves work facts out of personal and merges topics that are one subject. Only topics Satchel made are merged away, never one with tasks or repositories. Every merge is recorded in `topic_merges` and can be undone from the topics page. | Built |
 | 4 | Grants | The consent page offers every topic or none. Existing grants are left as they are: on 8 October every live connection already had every project, so nothing needed narrowing. | Built |
 | 5 | Backfill | The tidy is the backfill: its first run moves what sits in personal today. | Built, runs on the next job |
-| 6 | UI | "made by Satchel" on the list and the topic page, a Merged section with Undo merge, a notice on a merged topic, and "Apps with access" now counts apps granted every topic. | Built |
+| 6 | UI | "made by Satchel" on the list and the topic page, a Merged section with Undo merge, a notice on a merged topic, "Apps with access" counts apps granted every topic, and every move in Activity has Move back (`src/features/activity/moveBack.ts`), which works only while the memory is still where that move put it. | Built |
 | 7 | Eval | `eval/topics-replay.mjs` for capture and `eval/tidy-replay.mjs` for the tidy, both against the blind golden set. The golden file holds real names and is passed in by path. | Built |
 
 ### How a move and a merge work
