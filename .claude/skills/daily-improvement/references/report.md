@@ -15,6 +15,7 @@ Langfuse: <n> of <n> runs traced · <n> waited · <n> errors · cost $<x>
 | changes                 |          |       |      |
 | sessions with any       |          |       |      |
 | topic-scoped            |          |       |      |
+| new topics named        |          |       |      |
 | intents                 |          |       |      |
 | affirm / extend / replace / retire |  |    |      |
 
@@ -35,6 +36,20 @@ Blind changes you judged over-reach, in one line each, so tomorrow's reviewer do
 ## Actions it could have taken
 
 Existing memories the conversation affirmed, extended, contradicted or finished, that the pass left alone.
+
+## Topics
+
+From `topics.md`. One line each, with a verdict.
+
+| | count | verdict |
+|---|---:|---|
+| topics made | | each: real subject, named for the area? |
+| memories moved | | each: right topic, or should it have stayed personal? |
+| merges / undone | | each: really one subject? |
+| work facts still in personal | | which ones, and why the tidy left them |
+| thin topics / name overlaps | | one subject or two? |
+
+Enhancements: briefs that no longer fit, topics that grew into two, repositories that belong to a topic and are not linked. Each one is a TODO, for the person or for the code.
 
 ## Gaps
 

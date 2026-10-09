@@ -65,3 +65,19 @@ test('a failed run has no blind file and does not stop the count', () => {
   assert.match(out, /\| empty answers \| 2 \| 1 \|/, 'the unanswered session is not a blind empty answer');
   assert.match(out, /\| sessions with no blind answer \| {2}\| 1 \|/);
 });
+
+test('topics named on each side are counted, and a listed topic is not a new one', () => {
+  const dir = folder({shown: 2});
+  writeFileSync(join(dir, 'blind/bbbb2222.md'), '# bbbb2222\n\n## Topics that exist\n\n- ledger: payments\n\n'
+    + '## Memories that already existed before this pass (x)\n\n1. [fact · personal] a\n2. [fact · personal] b\n\n## The new turns (1)\n');
+  writeFileSync(join(dir, 'blind/out-1.json'), JSON.stringify([
+    {session: 'aaaa1111', scope: 'personal', changes: []},
+    {session: 'bbbb2222', scope: 'ledger', changes: [
+      {action: 'add', kind: 'fact', memory_scope: 'ledger', new_topic: null, statement: 's', source: 's'},
+      {action: 'add', kind: 'fact', memory_scope: 'billing', new_topic: 'Invoices and payment collection', statement: 's', source: 's'}]}]));
+  writeFileSync(join(dir, 'pipeline/bbbb2222.md'), ['# bbbb2222', '', 'model m · 10 ms · error none',
+    'counts: added 0 extended 0 replaced 0 retired 0 affirmed 0 rejected 0', '', '## What landed', '',
+    '```json', JSON.stringify({actions: [{did: 'made topic', on: 't1', statement: 'billing', why: 'Invoices'}]}, null, 1), '```'].join('\n'));
+  assert.match(run(dir), /\| new topics named \| billing \| billing \|/);
+});
+

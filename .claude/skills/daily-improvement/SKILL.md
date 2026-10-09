@@ -1,6 +1,6 @@
 ---
 name: daily-improvement
-description: Review the last consolidation runs against a blind read of the same conversations, find what the pass got, missed and could have done, trace each gap to a file, write a ranked TODO list, and build the top one as a PR that merges on green. Use for the scheduled daily review, or when asked why consolidation is not learning enough, why topic memories are not being made, or what to improve next in the pass.
+description: Review the last consolidation runs against a blind read of the same conversations, find what the pass got, missed and could have done, check how the topics are doing (what was made, moved and merged, and what should have been), trace each gap to a file, write a ranked TODO list, and build the top one as a PR that merges on green. Use for the scheduled daily review, or when asked why consolidation is not learning enough, why topic memories are not being made, whether topics are sprawling or work facts are stuck in personal, or what to improve next in the pass.
 ---
 
 # Daily consolidation review
@@ -13,7 +13,7 @@ Why it builds and merges: from 29 September to 6 October the person followed eve
 
 ## Rules
 
-- **Production stays read only.** No database writes, no migrations applied, no memory writes (never call `save_memory`, `correct_memory`, `forget_memory` or `confirm_memory`). A fix that needs a migration is built and opened as a PR, not merged, and the final message asks the person to approve applying it.
+- **Production stays read only.** No database writes, no migrations applied, no memory or topic writes (never call `save_memory`, `correct_memory`, `forget_memory`, `confirm_memory`, `upsert_topic`, `move_memory`, `merge_topic` or `unmerge_topic`). A topic that should be merged or a memory that should move is a finding in the report, not something the review does. A fix that needs a migration is built and opened as a PR, not merged, and the final message asks the person to approve applying it.
 - **Code changes go through a PR.** Work in a worktree cut from `origin/main`, never on `main` and never in the shared checkout. No AI co-author or "generated with" lines in commits or PR text.
 - **Merge only on green, as its own step.** Wait for every check on the PR to finish, read the result, and merge only when none failed and `npm test` and `npm run build` passed locally. Never chain the merge into the command that runs the checks: on 6 October that merged a failing test. If the merge is blocked by a permission check, stop and say so; do not work around it.
 - **Evals: one small slice, for the change only.** Steps 1 to 7 run no eval. Step 8 may run the slice that proves its change, under the cost rules below, with at most 30 calls. Say the count in the PR and the log.
@@ -46,7 +46,13 @@ Read the end of `~/satchel-daily/log.md` first: what the last runs did, what cha
 node $SKILL/scripts/collect.mjs
 ```
 
-It picks up where the last review stopped (`~/satchel-daily/state.json`), or the last 48 hours, and prints the folder it wrote. Call it `F`. It holds:
+It picks up where the last review stopped (`~/satchel-daily/state.json`), or the last 48 hours, and prints the folder it wrote. Call it `F`. Then:
+
+```bash
+node $SKILL/scripts/topics.mjs F
+```
+
+It holds:
 
 | Path | What |
 | --- | --- |
@@ -58,6 +64,7 @@ It picks up where the last review stopped (`~/satchel-daily/state.json`), or the
 | `F/blind/prompt-<n>.txt` | the ready blind-read prompt for batch n, with its files and its answer path filled in |
 | `F/pipeline/<name>.md` | what the pass did: what landed, the job's report entry, the Langfuse trace, the raw answer |
 | `F/pipeline/<name>.prompt.txt` | the exact prompt the model was sent |
+| `F/topics.md`, `F/topics.json` | every topic with its memories, tasks and repositories; the topics made, the memories moved and the merges in the window, each with its reason; what personal holds now; thin topics and name overlaps to judge |
 
 If it says nothing ran, write a three-line report (the window, the sessions waiting now that it prints, and "no run to review"), add the log entry and mark it (step 9), and stop. A second review on the same day always lands here, because the first one marked the window.
 
@@ -67,7 +74,7 @@ For each batch in `F/blind/INDEX.json`, start a background agent: `subagent_type
 
 ### 3. Read the pipeline while they run
 
-Do not open `F/blind/out-*.json` yet. For every session read `F/pipeline/<name>.md`, and the head of `F/pipeline/<name>.prompt.txt` (everything before the turns) to see what the model was told: which scope the session had, which topics and memories it was shown, whether it could have written to a topic at all. Read `$WORK/server/prompts/consolidate.md` once, since it is the standard the pass was held to.
+Do not open `F/blind/out-*.json` yet. For every session read `F/pipeline/<name>.md`, and the head of `F/pipeline/<name>.prompt.txt` (everything before the turns) to see what the model was told: which scope the session had, which topics and memories it was shown, whether it could have written to a topic at all. Read `$WORK/server/prompts/consolidate.md` once, since it is the standard the pass was held to, and `$WORK/server/prompts/tidy.md` with `F/topics.md`, since the nightly tidy is what moved and merged anything in the window.
 
 Then check that the two sides were given the same facts. The blind file lists every topic with its repositories and says to file under a topic when a claim is about one. Look at what the pass's prompt head showed instead: which topics, whether their repositories, whether their memories, and what the wording let it do with them. A gap between the two inputs explains misses faster than any judgment about the model. On 25 September it was the whole scope gap: the pass was told to use null unless a topic was named, and the blind reader was not.
 
@@ -99,10 +106,17 @@ Every review answers all of these with numbers, even when the answer is "fine":
 6. **Runtime.** Which prompt ran: `promptSource` and `promptVersion` in each trace's metadata in `F/langfuse.json`. `local` means production read the file, so a prompt edit ships with the merge, not with `scripts/push-prompt.mjs`. From `F/langfuse.json`: models used, thinking level, calls that waited, errors, reasoning tokens against output, cost, the slowest calls.
 7. **Failures.** Failed, skipped and rejected changes, with the reasons.
 8. **Quality of what landed.** Wrong, vague, too narrow, stale-prone, or a duplicate of an existing memory.
+9. **Topics.** From `F/topics.md` and the `new topics named` row of `numbers.md`, every time, even when nothing happened:
+   - **Made.** Each topic the pass or the tidy made: a real subject of their work, named for the area rather than the one thing a fact mentioned? Would the blind side have made it, and under what name?
+   - **Missing.** Topics the blind side named that the pass did not, and work facts that landed in personal anyway. Read every fact in personal once: one that is about something they work on is a miss, and it should have moved on the next tidy.
+   - **Moved.** Each move in the window: right topic, or a preference about how they work that should have stayed in personal?
+   - **Merged.** Each merge: really one subject? A merge someone undid is a wrong merge, and the strongest evidence there is.
+   - **Sprawl.** Thin topics and name overlaps from the signals table: one subject under two names, or two real subjects? A topic made by Satchel that never got a second memory was usually named too narrowly.
+   - **Enhancements.** Anything the topics could do better that is not a miss: a brief that no longer says what the topic holds, a topic that has grown into two subjects, a repository that clearly belongs to a topic but is not linked. These are TODOs for the person or for the code, never writes by the review.
 
 ### 6. Find the cause
 
-For each gap, find the place that causes it and cite `file:line` under `$WORK`: a prompt section in `server/prompts/consolidate.md`; how the input is built in `server/consolidator.mjs`; which scope a session gets in `server/consolidation.mjs`, `documents.topic_id` and the hooks' repository linking; or the eval coverage in `eval/consolidation-cases.json`. Read the code to confirm it. If you cannot confirm a cause, say it is a guess.
+For each gap, find the place that causes it and cite `file:line` under `$WORK`: a prompt section in `server/prompts/consolidate.md`; how the input is built in `server/consolidator.mjs`; which scope a session gets in `server/consolidation.mjs`, `documents.topic_id` and the hooks' repository linking; or the eval coverage in `eval/consolidation-cases.json`. Topic gaps live in four places: naming a new topic in the `topic` paragraph of `server/prompts/consolidate.md`; folding a near spelling into a listed slug in `nearSlug` in `server/consolidator.mjs`; moves and merges in `server/prompts/tidy.md` and `validateTidy` in `server/tidy.mjs`; and whether the pass may make or tidy topics at all in `mayMakeTopics` and `tidyTopics` in `server/consolidation.mjs`. Read the code to confirm it. If you cannot confirm a cause, say it is a guess.
 
 ### 7. Write the TODOs
 
@@ -119,7 +133,7 @@ Before writing a prompt TODO, read the `prompt-management` skill: a TODO says wh
 Pick the highest open TODO that one small PR can close and that a slice of the eval or a unit test can prove. Skip one that needs a production write to work, a decision only the person can make, or more than a few files. If none fits, build the smallest useful thing instead, such as a missing eval case or a tooling fix, and say why the P1 was skipped. If the window had no run, skip this step.
 
 1. **Build.** In a worktree from `origin/main`, make the change. For a prompt change, read the `prompt-management` skill first. Add the eval case or test that the TODO names.
-2. **Prove.** Run `npm test` and `npm run build`, and the eval slice for this change, before and after (the cost rules below apply). If the slice does not move, or a guard case gets worse, do not open the PR; log what you tried.
+2. **Prove.** Run `npm test` and `npm run build`, and the eval slice for this change, before and after (the cost rules below apply). If the slice does not move, or a guard case gets worse, do not open the PR; log what you tried. A topic change is proven on the person's own memories with the golden file in `~/satchel-daily/real-eval/topics-golden.json` (see "The topics golden set"): `eval/tidy-replay.mjs --golden <it> --repeat 2` before and after is 4 calls, and `eval/topics-replay.mjs --golden <it>` once on the branch is about 25, compared with the last numbers in the log rather than run again on `main`.
 3. **Open the PR.** The body says what changed, the before and after numbers, what is not proven, and what a user will feel, in a line. Say "nothing" when nothing changes for users.
 4. **Review it.** Run the `code-review` skill at `high` on the PR, fix every real finding, push, and say in the PR which ones were skipped and why.
 5. **Merge on green** (see Rules). Then mark the TODO built in the report, and remove the worktree.
@@ -158,6 +172,14 @@ Every eval call is a paid model call, and the real-data eval makes about 50 per 
 - Label and audit each session once. New sessions only; never re-label the corpus to get a different number.
 - Say before a full run what it will cost in calls (sessions x repeats, plus the judge), and skip it if a slice already answers.
 - Never leave a wait loop or a watcher running after its job finished.
+
+## The topics golden set
+
+`~/satchel-daily/real-eval/topics-golden.json` holds real memories, each with the one place a blind reader said it belongs: personal, a listed topic, or a topic that does not exist yet. It holds the person's real words and real names, so it lives in this folder and never in the repository; the evals take it by path. Its shape is the one `eval/topics-replay.mjs` reads: `topics`, `new_topics`, and `memories` with `current_scope`, `golden` and `misplaced`.
+
+Refresh it when it no longer looks like the person's memory, at most once a week: start one blind agent on the live memory list (read with `db.mjs`, never written) with no other context, and have it place each memory the same way. Keep the earlier labels for memories it already had; label only the new ones. Log the refresh like an eval run.
+
+Last numbers, 8 and 9 October: capture replay 21 of 25 with every same-subject pair together (matches `main`); tidy 10 of 10 stayed, 4 of 4 moved, 3 of 3 pairs, on two runs.
 
 ## Checking a change before it ships
 

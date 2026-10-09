@@ -16,6 +16,7 @@ Append this to the end of the file. Leave out a line only when it says "none".
 - window: <since> to <until> · <n> jobs · <n> runs · <n> sessions read · <n> waiting now
 - blind reads: <n> agents · <n> changes · or "skipped, nothing ran"
 - numbers: pipeline <n> vs blind <n> changes · topic-scoped <n> vs <n> · <n> from unlinked sessions · intents <n> vs <n>
+- topics: <n> made · <n> moved · <n> merged · <n> undone · <n> work facts left in personal · <n> thin · or "nothing changed"
 - TODOs: added #<n>, #<n> · done #<n> (<commit>) · carried <n> · or "none changed"
 - report: <folder>/report.md
 - changes beyond the review: none
