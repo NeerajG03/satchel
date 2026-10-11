@@ -166,13 +166,13 @@ async function makeTopics(service, named, topics) {
  *    codebase nobody has claimed is the one that belongs to it;
  *  - only when every topic-scoped change landed there, and at least two did.
  *  Undone from the Topics page like any link. */
-async function linkCodebase(service, {document, topics, slugs, made, allowed}) {
+async function linkCodebase(service, {document, topics, landed, made, allowed}) {
   const repository = document.repository;
   if (!allowed || document.topic_id || !repository || !service.upsertTopic) return null;
   if (topics.some(p => (p.topic_repositories ?? []).some(r => r.repository === repository))) return null;
-  const scoped = slugs.filter(Boolean);
-  if (new Set(scoped).size !== 1 || scoped.length < 2) return null;
-  const topic = made.find(p => p.slug === scoped[0]);
+  const scoped = landed.filter(l => l.topic);
+  if (new Set(scoped.map(l => l.topic)).size !== 1 || scoped.filter(l => l.added).length < 2) return null;
+  const topic = made.find(p => p.slug === scoped[0].topic);
   if (!topic?.id) return null;
   try {
     // Read again, not taken from the create: create_satchel_topic stamps
@@ -263,7 +263,8 @@ async function memoriesAcross(service, topics, limit = 60) {
  *  Returns what it did rather than throwing, because the caller is a loop over
  *  documents and one failure must not end the others. */
 export async function consolidateDocument(service, consolidator, document,
-  {topics = [], cap = 30, churn = 25, deadline = null, traced = untraced, ownerId, topicsAllowed = false} = {}) {
+  {topics = [], cap = 30, churn = 25, deadline = null, traced = untraced, ownerId, topicsAllowed = false,
+    session = {made: [], landed: []}} = {}) {
   return traced('satchel.consolidate',
     {sessionId: document.session_key, userId: ownerId,
      metadata: {event: 'consolidate', document: document.id,
@@ -324,7 +325,7 @@ export async function consolidateDocument(service, consolidator, document,
       // and the ones validation refused with the reason it refused them.
       const actions = [];
       const made = await makeTopics(service, outcome.named ?? [], topics);
-      const landed = [];
+      session.made.push(...made.made);
       for (const topic of made.made) {
         counts.topics += 1;
         actions.push({did: 'made topic', on: topic.id, statement: topic.slug, why: topic.brief});
@@ -339,7 +340,10 @@ export async function consolidateDocument(service, consolidator, document,
           const did = typeof out === 'string' ? out : out?.did;
           if (did) {
             counts[did] += 1;
-            landed.push(change.topic ?? null);
+            // Where the change went, and whether it wrote a new row there. An
+            // add that became an affirm or a replace of a twin elsewhere did
+            // not put anything in this topic.
+            session.landed.push({topic: change.topic ?? null, added: did === 'added'});
             actions.push({did, on: out?.on ?? change.target ?? null, statement: change.statement,
               why: out?.why ?? change.why, ...(out?.asked ? {asked: out.asked} : {})});
           }
@@ -350,8 +354,10 @@ export async function consolidateDocument(service, consolidator, document,
       }
       for (const {change, why} of outcome.dropped)
         actions.push({did: 'rejected', on: change?.target ?? null, statement: change?.statement, why});
-      const linked = await linkCodebase(service, {document, topics, slugs: landed, made: made.made,
-        allowed: topicsAllowed});
+      // Judged on the whole session, so only after its last piece: a long one
+      // is read in pieces, and a later piece can file somewhere else.
+      const linked = rest ? null : await linkCodebase(service, {document, topics, landed: session.landed,
+        made: session.made, allowed: topicsAllowed});
       if (linked) actions.push({did: 'linked repository', on: linked.id, statement: document.repository,
         why: `${linked.slug} was named in this session, every topic change went to it, and no topic had this repository`});
       setOutput(actions);
@@ -370,7 +376,7 @@ export async function consolidateDocument(service, consolidator, document,
       if (!rest) return result;
       const next = await consolidateDocument(service, consolidator,
         {...document, consolidated_through: through},
-        {topics, cap, churn, deadline, traced, ownerId, topicsAllowed});
+        {topics, cap, churn, deadline, traced, ownerId, topicsAllowed, session});
       for (const key of Object.keys(counts)) result[key] += next[key] ?? 0;
       result.actions = [...actions, ...(next.actions ?? [])];
       if (next.failed) Object.assign(result, {failed: next.failed, spent: next.spent, later: next.later});

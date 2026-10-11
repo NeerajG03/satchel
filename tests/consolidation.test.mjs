@@ -473,3 +473,17 @@ test('the link uses the current revision of the topic, not the stale one the cre
   const [link] = writes.filter(w => w.repository_change.kind === 'link');
   assert.equal(link.expected_revision, 3);
 });
+
+test('only new rows count towards a link: an extend filed under the new topic does not', async () => {
+  const {service, consolidator} = fake();
+  const writes = [];
+  service.upsertTopic = async args => { writes.push(args); return {topic: {id: args.topic_id, name: args.name, revision: 1}}; };
+  consolidator.consolidate = async () => ({changes: [
+    {action: 'add', statement: 'API tests run nightly.', source: 's', kind: 'fact', topic: 'api-tests', expires: null, why: 'w'},
+    {action: 'extend', target: 'm1', revision: 2, statement: 'Entries are append only, checked nightly.', source: 's',
+      kind: 'fact', topic: 'api-tests', why: 'w'}],
+    dropped: [], named: [{slug: 'api-tests', brief: 'API tests'}], prompt: 'p', raw: '{}'});
+  await consolidateDocument(service, consolidator, {...document, topic_id: null, repository: 'acme/api-automation'},
+    {topics: topics.map(p => ({...p, revision: 1})), topicsAllowed: true});
+  assert.equal(writes.filter(w => w.repository_change?.kind === 'link').length, 0);
+});
