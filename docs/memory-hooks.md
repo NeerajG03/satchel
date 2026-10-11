@@ -65,7 +65,9 @@ The stored credential is a Supabase refresh token. Those do not age out on their
 
 The repository is read from `git config --get remote.origin.url` and normalized. Remote credentials in that URL, repository contents, local paths and the prompt are never read or emitted. `SATCHEL_DISABLE_REPOSITORY_STAGING=1` turns the repository off.
 
-`retrieve.mjs` sends the session key, the repository and the prompt the host handed it. `capture.mjs` sends the session key, the repository and the `last_assistant_message` the host handed it. Neither opens a file.
+`retrieve.mjs` sends the session key, the repository and the prompt the host handed it, plus the ids of memories earlier prompts in the session were shown, so they are not shown again. It keeps those ids in `~/.satchel/shown/<session>.json`, and `session-start.mjs` clears the list on a compact or a clear. `capture.mjs` sends the session key, the repository and the `last_assistant_message` the host handed it. Neither opens a file of the host's.
+
+Retrieval also skips what session start loaded: the personal rows and, since 0.5.2, the active topic's own rows. On the 11 October replay of three weeks of sessions (`eval/injection-real.mjs`) the two skips together took prompt slots already in front of the agent from 60% to 0%.
 
 ## No transcript is read
 

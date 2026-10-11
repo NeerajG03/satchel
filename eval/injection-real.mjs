@@ -40,6 +40,14 @@ const read = path => JSON.parse(readFileSync(join(DIR, path), 'utf8'));
 if (!existsSync(join(DIR, 'snapshot.json'))) throw new Error(`no corpus in ${DIR}; run collect-injections.mjs first`);
 const {sessionStart, retrieve} = await import(join(CHECKOUT, 'server/lifecycle.mjs'));
 const {handleOf, estimateTokens} = await import(join(CHECKOUT, 'server/injection-format.mjs'));
+const {scrub} = await import(join(CHECKOUT, 'server/secrets.mjs'));
+// The hook's half of the skip list, when the checkout has one: the ids each
+// prompt was shown, sent back as `exclude` until a compact or a clear. Replayed
+// with the plugin's own rule, so a change to it is measured like any other.
+const plugin = existsSync(join(CHECKOUT, 'integrations/shared/shown.mjs'))
+  ? await import(join(CHECKOUT, 'integrations/shared/shown.mjs')) : null;
+// What handleHookRetrieve does to a prompt before retrieve sees it.
+const asSent = text => scrub(String(text).trim().slice(0, 4000));
 
 const snapshot = read('snapshot.json');
 const vectors = read('vectors/memories.json');
@@ -105,10 +113,11 @@ const resets = new Set(['startup', 'clear', 'compact', null, undefined]);
 const replayed = [], production = [];
 for (const s of sessions) {
   const service = replayService({snapshot, vectors, queryVector});
-  let front = new Set(), shipFront = new Set(), shipActive = null;
+  let front = new Set(), shipFront = new Set(), shipActive = null, sent = [];
   for (const e of s.events) {
     if (e.kind === 'start') {
       if (resets.has(e.how)) { front = new Set(); shipFront = new Set(); }
+      if (plugin && (plugin.RESETS.has(e.how) || e.how == null)) sent = [];
       const mark = service.log.length;
       await sessionStart(service, {sessionKey: s.session, repository: s.repository});
       for (const entry of service.log.slice(mark)) for (const id of entry.memory_ids) front.add(id);
@@ -121,8 +130,12 @@ for (const s of sessions) {
       const id = `${s.session}:${e.n ?? e.uuid}`;
       const g = e.typed ? gold.get(`${s.session}:${e.n}`) ?? null : null;
       const mark = service.log.length;
-      const out = await retrieve(service, {sessionKey: s.session, prompt: e.text, repository: s.repository});
+      const prompt = asSent(e.text);
+      const out = prompt
+        ? await retrieve(service, {sessionKey: s.session, prompt, repository: s.repository, exclude: sent})
+        : {context: ''};
       const shown = service.log.slice(mark).flatMap(entry => entry.memory_ids);
+      if (plugin) sent = plugin.remember(sent, out.shown ?? shown);
       replayed.push({id, session: s.session, n: e.n, typed: e.typed, gold: g, shown, before: [...front],
         active: service.state.active, tokens: out.context ? estimateTokens(out.context) : 0});
       for (const m of shown) front.add(m);

@@ -123,3 +123,14 @@ test('personal rows with no affirmation sort first, as Postgres sorts nulls in a
   ], at);
   assert.deepEqual(rows.map(r => r.id), [B, A]);
 });
+
+test('retrieve skips the active topic rows session start loaded, and says what it showed', async () => {
+  const scoped = {...snapshot, settings: {...snapshot.settings, gate: 0.5}};
+  const service = replayService({snapshot: scoped, vectors, queryVector: async () => unit(1, 0.2)});
+  await sessionStart(service, {sessionKey: 's', repository: 'acme/one'});
+  const out = await retrieve(service, {sessionKey: 's', prompt: 'what about the first topic', repository: 'acme/one'});
+  assert.ok(!out.shown.includes(B), 'the topic row loaded at the start is not shown again');
+  assert.ok(out.shown.includes(C), 'a row the start block did not load still is');
+  const again = await retrieve(service, {sessionKey: 's', prompt: 'and again', repository: 'acme/one', exclude: out.shown});
+  assert.deepEqual(again.shown, [], 'what the hook sends back is skipped');
+});

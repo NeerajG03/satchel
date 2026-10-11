@@ -189,7 +189,7 @@ export async function handleHookRetrieve(req, res, {embedder = null, traced, ret
   const result = await retrieve(connection.service, {
     sessionKey, prompt, repository: readRepository(input.repository), exclude,
     ownerId: connection.ownerId, ...(traced ? {traced} : {}), ...(retrieval ? {retrieval} : {})});
-  send(res, {context: result.context, notice: result.notice});
+  send(res, {context: result.context, notice: result.notice, shown: result.shown ?? []});
 }
 
 /** Where the next call in a consolidation chain is sent.

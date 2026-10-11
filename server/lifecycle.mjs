@@ -213,7 +213,18 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
             status.personal && service.personal ? service.personal().catch(() => []) : [],
           ]);
           const load = personalLoad(personal, settings.block_size);
-          const already = [...new Set([...exclude, ...load.said.map(m => m.id), ...load.heard.map(m => m.id)])];
+          // The active topic's own rows load at session start too, under their
+          // own cap, and the skip list above never knew them. On 11 October
+          // the replay of three weeks of sessions had 60% of prompt slots
+          // already in front of the agent, most of them these. Recomputed the
+          // way sessionStart computes them, for the same reason as the
+          // personal rows. Its failure only means nothing extra is skipped.
+          const own = scope.topic && service.index
+            ? await service.index(scope.topic).then(out => (out?.memories ?? []).filter(r => r.topic_id === scope.topic), () => [])
+            : [];
+          const ownLoad = topicLoad(own, TOPIC_BLOCK);
+          const already = [...new Set([...exclude, ...load.said.map(m => m.id), ...load.heard.map(m => m.id),
+            ...ownLoad.said.map(m => m.id), ...ownLoad.heard.map(m => m.id)])];
           const lookup = retrieval?.('retrieve-memory', {input: query,
             metadata: {gate: settings.gate, limit: settings.per_prompt_matches,
               inScope: scope.topic ?? 'personal', excluded: already.length}});
@@ -251,7 +262,10 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
       if (logged) void service.logInjection({id: crypto.randomUUID(), session_key: sessionKey,
         event: 'UserPromptSubmit', ...logged});
       setOutput(context);
-      return {context, notice};
+      // The ids as well as the text, so the hook can send them back as
+      // `exclude` on the next prompt: the server cannot see what earlier
+      // prompts showed, because the log is the person's and not the app's.
+      return {context, notice, shown: logged?.memory_ids ?? []};
     });
 }
 

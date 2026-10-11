@@ -16,6 +16,7 @@
 // silently took capture with it for that reason.
 import {call} from './auth.mjs';
 import {repositoryFrom, readHookInput, sessionIdOf, cwdOf, emit} from './workspace.mjs';
+import {shownSoFar, recordShown} from './shown.mjs';
 
 const event = await readHookInput();
 const sessionKey = sessionIdOf(event);
@@ -34,6 +35,9 @@ try {
     session_key: sessionKey,
     prompt,
     repository: process.env.SATCHEL_DISABLE_REPOSITORY_STAGING === '1' ? null : repositoryFrom(cwdOf(event)),
+    // What earlier prompts in this session already showed, so it is not
+    // shown again. Ids only.
+    exclude: shownSoFar(sessionKey),
   }, {timeout: 8000});
   // Not connected is silent here. Session start already said so once, and
   // repeating it on every prompt is how a person learns to ignore the line
@@ -44,6 +48,7 @@ try {
       ? 'Satchel disconnected · no memory retrieved' : `Satchel unavailable · ${response.status}`});
     process.exit(0);
   }
+  recordShown(sessionKey, response.data.shown);
   // Finding nothing is the common case and costs nothing: no block, no line.
   emit({event: 'UserPromptSubmit', context: response.data.context ?? '', notice: response.data.notice ?? ''});
 } catch (error) {
