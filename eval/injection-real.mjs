@@ -53,6 +53,14 @@ const REMINDER = /<system-reminder\b[^>]*>[\s\S]*?<\/system-reminder>\s*/g;
 const asSent = text => scrub(String(text).replace(REMINDER, '').trim().slice(0, 4000));
 
 const snapshot = read('snapshot.json');
+// --set gate=0.72 --set per_prompt_matches=3: score a settings proposal without
+// touching the memory_settings row, which only the person may change.
+const overrides = args.flatMap((a, i) => a === '--set' ? [args[i + 1]] : []).map(kv => kv.split('='));
+if (args.includes('--update-baseline') && overrides.length) throw new Error('a baseline is the settings as they are; drop --set');
+for (const [key, value] of overrides) {
+  if (!(key in snapshot.settings) || value === undefined || value === '') throw new Error(`--set takes name=value for a known setting, got ${key}`);
+  snapshot.settings[key] = Number.isNaN(Number(value)) ? value : Number(value);
+}
 const vectors = read('vectors/memories.json');
 const cache = read('vectors/prompts.json');
 const byId = new Map(snapshot.memories.map(m => [m.id, m]));
@@ -113,6 +121,7 @@ const sessions = readdirSync(join(DIR, 'sessions')).map(f => read(`sessions/${f}
   .sort((a, b) => String(a.first).localeCompare(String(b.first)));
 
 const resets = new Set(['startup', 'clear', 'compact', null, undefined]);
+const linkCount = repository => repository ? snapshot.links.filter(l => l.repository === repository).length : 0;
 const replayed = [], production = [];
 for (const s of sessions) {
   const service = replayService({snapshot, vectors, queryVector});
@@ -139,7 +148,7 @@ for (const s of sessions) {
         : {context: ''};
       const shown = service.log.slice(mark).flatMap(entry => entry.memory_ids);
       if (plugin) sent = plugin.remember(sent, out.shown ?? shown);
-      replayed.push({id, session: s.session, n: e.n, typed: e.typed, gold: g, shown, before: [...front],
+      replayed.push({id, session: s.session, n: e.n, typed: e.typed, gold: g, shown, before: [...front], links: linkCount(s.repository),
         active: service.state.active, tokens: out.context ? estimateTokens(out.context) : 0});
       for (const m of shown) front.add(m);
       const shipShown = e.shown ?? [];
@@ -176,7 +185,8 @@ const rows = [
   ['utility', 'headline, per typed prompt', v => v == null ? '-' : v.toFixed(3)],
 ];
 console.log(`injection eval · ${sessions.length} sessions · ${now.typed} labelled prompts (${now.answerable} needed something) · ${now.host} host messages`);
-console.log(`snapshot ${snapshot.taken_at.slice(0, 10)} · checkout ${CHECKOUT}${embeddedNow ? ` · ${embeddedNow} new query vectors` : ''}`);
+console.log(`snapshot ${snapshot.taken_at.slice(0, 10)} · checkout ${CHECKOUT}${embeddedNow ? ` · ${embeddedNow} new query vectors` : ''}`
+  + (overrides.length ? ` · settings ${overrides.map(kv => kv.join('=')).join(', ')}` : ''));
 if (unknown.size) console.log(`gold names ${unknown.size} handles that are not in the snapshot: ${[...unknown].slice(0, 8).join(', ')}`);
 if (endedInGold) console.log(`${endedInGold} gold labels name memories ended since; counted as traps`);
 const unlabelled = replayed.filter(r => r.typed && !r.gold).length;
@@ -199,6 +209,15 @@ console.log('\n  shown and not needed, replay:');
 for (const [id, n] of tally(replayed.filter(m => m.gold), m => m.shown.filter(x => !graded(m).has(x)))) console.log(`    ${String(n).padStart(4)}  ${label(id)}`);
 console.log('\n  needed and not in front of the agent, replay:');
 for (const [id, n] of tally(replayed.filter(m => m.gold), m => m.gold.must.filter(x => !m.shown.includes(x) && !m.before.includes(x)))) console.log(`    ${String(n).padStart(4)}  ${label(id)}`);
+// Where the misses live. A repository linked to several topics never picks
+// one, so its sessions run unscoped; that is the first thing to look at when
+// reached or topic right is low.
+console.log('\n  by how the repository is linked, replay:');
+console.log(`    ${''.padEnd(22)} ${'prompts'.padStart(8)} ${'reached'.padStart(8)} ${'clean'.padStart(7)} ${'quiet'.padStart(7)} ${'topic'.padStart(7)} ${'utility'.padStart(8)}`);
+for (const [name, pick] of [['no repository link', n => n === 0], ['one topic', n => n === 1], ['several topics', n => n > 1]]) {
+  const part = summarise(replayed.filter(m => pick(m.links)));
+  console.log(`    ${name.padEnd(22)} ${String(part.typed).padStart(8)} ${pct(part.reached).padStart(8)} ${pct(part.clean).padStart(7)} ${pct(part.quiet).padStart(7)} ${pct(part.topicRight).padStart(7)} ${(part.utility ?? 0).toFixed(3).padStart(8)}`);
+}
 const harmful = replayed.filter(m => m.gold && m.shown.some(x => m.gold.traps.includes(x)));
 if (harmful.length) {
   console.log('\n  traps shown, replay:');

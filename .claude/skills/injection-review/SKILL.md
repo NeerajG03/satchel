@@ -44,7 +44,7 @@ Everything in the daily review's Rules applies here unchanged: production stays 
 
 Three more:
 
-- **Settings are proposals.** The gate, slot count and caps live in a `memory_settings` row, which is a production write. Score a settings change in the replay (copy the snapshot's `settings` into a scratch folder and point `SATCHEL_INJECTION_EVAL_DIR` at it), put before and after in the report, and ask. Never apply it.
+- **Settings are proposals.** The gate, slot count and caps live in a `memory_settings` row, which is a production write. Score a settings change in the replay with `--set gate=0.70 --set per_prompt_matches=3`, put before and after in the report, and ask. Never apply it. A run with `--set` refuses `--update-baseline`.
 - **Data is a finding.** A memory that matches everything, a memory that is wrong, a repository linked to the wrong topic: name the id and the evidence in the report. The person fixes it.
 - **Label each session once.** New sessions only. Never relabel to get a different number.
 
@@ -64,9 +64,16 @@ REPO=/Volumes/Casesensitive/Github/satchel
 git -C $REPO fetch -q origin main
 WORK=$(mktemp -d)
 git -C $REPO archive origin/main | tar -x -C $WORK
-SKILL=$WORK/.claude/skills/injection-review
-EVAL=~/satchel-daily/injection-eval
+# The archive has no dependencies; embedding a new prompt imports `ai`.
+ln -s $REPO/node_modules $WORK/node_modules
+cat > $WORK/env.sh <<SH
+REPO=$REPO; WORK=$WORK; SKILL=$WORK/.claude/skills/injection-review; EVAL=$HOME/satchel-daily/injection-eval
+SH
 ```
+
+Shell variables do not survive between commands. Start every later command with `source <the WORK path>/env.sh &&`.
+
+Stop and log, without building anything, when: collect or parity fails on a missing `SB_TOKEN` or `GEMINI_API_KEY`; a label batch fails twice; parity does not match and the twin cannot be fixed in this run; or step 4 says the baseline is from another snapshot after you already re-collected.
 
 ## Steps
 
@@ -80,19 +87,19 @@ node $SKILL/scripts/collect-injections.mjs --checkout $WORK
 
 It takes a fresh snapshot every run, collects sessions quiet for 12 hours that have no labels yet, and writes `blind/INDEX.json`. A session is labelled whole, once.
 
-### 2. Label
-
-For each entry in `$EVAL/blind/INDEX.json`, start a background agent (`subagent_type: general-purpose`, `model: sonnet`, all in one message) with the one line `Read <EVAL>/blind/prompt-<name>.txt and do exactly what it says.` The labellers see `blind/` and nothing else, never `sessions/`, the repository or the database. If the index has no prompts, skip to step 3.
-
-When they are back, check that each output file parses and names every session in its batch. Rerun a batch that failed, never one that only gave answers you did not expect.
-
-### 3. Prove the twin
+### 2. Prove the twin
 
 ```bash
 node $SKILL/scripts/parity.mjs --checkout $WORK
 ```
 
-It must say the twin matches. If it does not, the replay numbers mean nothing: fix `eval/lib/injection-twin.mjs` against the latest `search_memories` migration as this run's TODO, and do not build anything else.
+Run it straight after collect, before labelling: it refuses a snapshot that any memory change has made stale, and the nightly pass edits memories. If it says the snapshot is stale, run collect again (it skips labelled sessions) and then parity. It must say the twin matches. If it does not, the replay numbers mean nothing: fix `eval/lib/injection-twin.mjs` against the latest `search_memories` migration as this run's TODO, and do not build anything else.
+
+### 3. Label
+
+For each entry in `$EVAL/blind/INDEX.json`, start a background agent (`subagent_type: general-purpose`, `model: sonnet`, all in one message) with the one line `Read <EVAL>/blind/prompt-<name>.txt and do exactly what it says.` The labellers see `blind/` and nothing else, never `sessions/`, the repository or the database. If the index has no prompts, skip to step 3.
+
+When they are back, check that each output file parses and names every session in its batch. Rerun a batch that failed, never one that only gave answers you did not expect.
 
 ### 4. Score main
 
@@ -100,12 +107,13 @@ It must say the twin matches. If it does not, the replay numbers mean nothing: f
 node $WORK/eval/injection-real.mjs --checkout $WORK --update-baseline
 ```
 
-This is the baseline for this snapshot. Read the whole output:
+This is the baseline for this snapshot. Do not collect again after this step: a new snapshot makes this baseline incomparable, and the eval will refuse to gate. Typed prompts with no label yet (a failed batch) are listed and left out; say how many in the report. Read the whole output:
 
 - **The scorecard**, production against replay. Production is what people got; the replay is what main gives today on the same prompts. A gap between them is either code that has already shipped, or the memory set having changed since.
 - **Shown and not needed.** The memories that cost the most room. A memory here every run is either too general for retrieval (a data finding) or a sign the gate or the skip list is wrong (a code TODO).
 - **Needed and not in front of the agent.** Usually a topic not being picked, or a gate too high for short prompts.
 - **Traps shown.** Each one is a wrong instruction handed to the agent.
+- **By how the repository is linked.** No link, one topic, several topics. A low "topic right" on several topics means nothing picked one; a low clean on one topic usually means the repository is linked to the wrong topic (a data finding).
 - **The second labeller.** If it says the two labellers disagree on which version is better for a number, do not gate on that number, and say so in the report.
 - **The labellers' "missing" notes** in `gold/`. Something the person needed that is not stored is a capture gap: put it in the report for the daily review, it is not this loop's to fix.
 
@@ -136,6 +144,8 @@ Pick the highest TODO that one small PR can close. Skip one that needs a product
 3. **Open the PR** with the scorecard before and after, what is not proven (the replay cannot see whether the agent follows a memory it was shown), and what a user will feel, in a line.
 4. **Review it** with the `code-review` skill at `high`, fix every real finding, and re-run the eval after the fixes.
 5. **Merge on green**, as its own command. Mark the TODO built in the report and remove the worktree.
+
+No PR, and say why in the log, when: the top TODO is a settings change or a data fix (those go in the report for the person), the gate fails, or the named number does not move. If checks are still pending when you finish, leave the PR open and say so; never merge with a check pending or failing.
 
 ### 8. Log
 
