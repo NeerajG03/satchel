@@ -203,25 +203,26 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
           try { await service.recordTurn(sessionKey, 'user', machine ? machineTurnNote(machine) : query, settings.capture_window * 2); }
           catch (error) { unrecorded = errorText(error); }
         if (settings.per_prompt_matches && !machine) {
-          const [scope, personal] = await Promise.all([
-            topic !== undefined ? {topic} : resolveScope(service, {sessionKey, repository}),
+          const scoped = topic !== undefined ? Promise.resolve({topic}) : resolveScope(service, {sessionKey, repository});
+          const [scope, personal, own] = await Promise.all([
+            scoped,
             // What session start already loaded is not retrieved again. The
             // hook never knew those ids, so for a week the personal rows took
             // the five slots on prompt after prompt, and the same rows came
             // back on every message in a session. The set is recomputed the
             // way session start computes it, so the two cannot disagree.
             status.personal && service.personal ? service.personal().catch(() => []) : [],
+            // The active topic's own rows load at session start too, under
+            // their own cap, and the skip list never knew them. On 11 October
+            // the replay of three weeks of sessions had 60% of prompt slots
+            // already in front of the agent, most of them these. Chained on the
+            // scope so it runs beside personal() rather than after it. Its
+            // failure only means nothing extra is skipped.
+            scoped.then(({topic: active}) => active && service.index
+              ? service.index(active).then(out => (out?.memories ?? []).filter(r => r.topic_id === active))
+              : []).catch(() => []),
           ]);
           const load = personalLoad(personal, settings.block_size);
-          // The active topic's own rows load at session start too, under their
-          // own cap, and the skip list above never knew them. On 11 October
-          // the replay of three weeks of sessions had 60% of prompt slots
-          // already in front of the agent, most of them these. Recomputed the
-          // way sessionStart computes them, for the same reason as the
-          // personal rows. Its failure only means nothing extra is skipped.
-          const own = scope.topic && service.index
-            ? await service.index(scope.topic).then(out => (out?.memories ?? []).filter(r => r.topic_id === scope.topic), () => [])
-            : [];
           const ownLoad = topicLoad(own, TOPIC_BLOCK);
           const already = [...new Set([...exclude, ...load.said.map(m => m.id), ...load.heard.map(m => m.id),
             ...ownLoad.said.map(m => m.id), ...ownLoad.heard.map(m => m.id)])];

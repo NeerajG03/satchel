@@ -46,8 +46,11 @@ const {scrub} = await import(join(CHECKOUT, 'server/secrets.mjs'));
 // with the plugin's own rule, so a change to it is measured like any other.
 const plugin = existsSync(join(CHECKOUT, 'integrations/shared/shown.mjs'))
   ? await import(join(CHECKOUT, 'integrations/shared/shown.mjs')) : null;
-// What handleHookRetrieve does to a prompt before retrieve sees it.
-const asSent = text => scrub(String(text).trim().slice(0, 4000));
+// What handleHookRetrieve does to a prompt before retrieve sees it. The host
+// hands the hook the prompt without the reminders the transcript wraps round
+// it, so those come off first, or a long one would push the request past the cut.
+const REMINDER = /<system-reminder\b[^>]*>[\s\S]*?<\/system-reminder>\s*/g;
+const asSent = text => scrub(String(text).replace(REMINDER, '').trim().slice(0, 4000));
 
 const snapshot = read('snapshot.json');
 const vectors = read('vectors/memories.json');
