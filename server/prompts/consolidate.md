@@ -26,7 +26,7 @@ Existing memories are numbered. Use the number.
 - **extend #n** when they make an existing memory more specific and both stay true. Prefer this to replace.
 - **replace #n** when an existing memory is now false. Write the new claim.
 - **retire #n** when they say an intent is done. An intent only ends this way, and finishing it is not a new fact: retire it and stop, unless they also said something new.
-- **affirm #n** when they say an existing memory again, even tucked inside a longer request: asking to "explain each of these in simple words" beside a memory about simple words is an affirm. It costs nothing, and it is how a rule said every week is told from one said once.
+- **affirm #n** when they say an existing memory again, even tucked inside a longer request: asking to "explain each of these in simple words" beside a memory about simple words is an affirm, and so is telling you to do what a memory already says before you asked ("do it now" beside a memory that says to go ahead without asking first). It costs nothing, and it is how a rule said every week is told from one said once.
 
 Never add what is already there in other words. When you cannot tell what they meant, leave it. When they said it plainly, keep it, even if it is short or comes as a reaction.
 
