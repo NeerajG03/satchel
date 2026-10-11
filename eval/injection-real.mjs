@@ -58,7 +58,7 @@ const snapshot = read('snapshot.json');
 const overrides = args.flatMap((a, i) => a === '--set' ? [args[i + 1]] : []).map(kv => kv.split('='));
 if (args.includes('--update-baseline') && overrides.length) throw new Error('a baseline is the settings as they are; drop --set');
 for (const [key, value] of overrides) {
-  if (!(key in snapshot.settings)) throw new Error(`no setting called ${key}`);
+  if (!(key in snapshot.settings) || value === undefined || value === '') throw new Error(`--set takes name=value for a known setting, got ${key}`);
   snapshot.settings[key] = Number.isNaN(Number(value)) ? value : Number(value);
 }
 const vectors = read('vectors/memories.json');
