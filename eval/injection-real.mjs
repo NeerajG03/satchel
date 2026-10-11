@@ -56,6 +56,7 @@ const snapshot = read('snapshot.json');
 // --set gate=0.72 --set per_prompt_matches=3: score a settings proposal without
 // touching the memory_settings row, which only the person may change.
 const overrides = args.flatMap((a, i) => a === '--set' ? [args[i + 1]] : []).map(kv => kv.split('='));
+if (args.includes('--update-baseline') && overrides.length) throw new Error('a baseline is the settings as they are; drop --set');
 for (const [key, value] of overrides) {
   if (!(key in snapshot.settings)) throw new Error(`no setting called ${key}`);
   snapshot.settings[key] = Number.isNaN(Number(value)) ? value : Number(value);
@@ -293,7 +294,6 @@ const record = {at: new Date().toISOString(), checkout: CHECKOUT, snapshot: snap
   overlap, rows: now.rows.map(r => ({id: r.id, labelled: r.labelled, utility: r.utility ?? null,
     ...(r.checkUtility != null ? {checkUtility: r.checkUtility} : {})}))};
 writeFileSync(join(DIR, 'runs', `run-${record.at.replace(/[:.]/g, '-')}.json`), JSON.stringify(record));
-if (args.includes('--update-baseline') && overrides.length) throw new Error('a baseline is the settings as they are; drop --set');
 if (args.includes('--update-baseline')) {
   writeFileSync(baselinePath, JSON.stringify(record));
   console.log('\n  baseline updated');
