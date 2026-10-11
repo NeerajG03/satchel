@@ -140,12 +140,48 @@ async function makeTopics(service, named, topics) {
         : await service.upsertTopic({request_id: crypto.randomUUID(), topic_id: id, slug: topic.slug,
           name, brief: topic.brief, repository_change: {kind: 'unchanged'}});
       if (out?.grant_required) { failed.add(topic.slug); continue; }
-      const row = {id: out?.topic?.id ?? out?.id ?? id, slug: topic.slug, brief: topic.brief, topic_repositories: []};
+      const row = {id: out?.topic?.id ?? out?.id ?? id, slug: topic.slug, name: out?.topic?.name ?? name,
+        brief: topic.brief, revision: out?.topic?.revision ?? null, topic_repositories: []};
       topics.push(row);
       made.push(row);
     } catch { failed.add(topic.slug); }
   }
   return {made, failed};
+}
+
+/** Links the repository a session ran in to the one topic it filed into.
+ *
+ *  A topic the pass makes was never linked to anything, so the next session in
+ *  the same codebase ran unscoped again and its start block held none of the
+ *  topic's rules. On 11 October a replay of three weeks of sessions found 32
+ *  prompts in an unlinked test repository whose work belonged to one subject.
+ *
+ *  Narrow on purpose:
+ *  - only a repository no topic claims yet, so this never adds a second
+ *    candidate to a codebase (that is how a repository ends up unscoped);
+ *  - only a topic this same session made. A session in one codebase often
+ *    talks about another project: the one real case in production would have
+ *    linked a skills repository to the email topic, because that was what the
+ *    person discussed there. A subject first named while working in a
+ *    codebase nobody has claimed is the one that belongs to it;
+ *  - only when every topic-scoped change landed there, and at least two did.
+ *  Undone from the Topics page like any link. */
+async function linkCodebase(service, {document, topics, slugs, made, allowed}) {
+  const repository = document.repository;
+  if (!allowed || document.topic_id || !repository || !service.upsertTopic) return null;
+  if (topics.some(p => (p.topic_repositories ?? []).some(r => r.repository === repository))) return null;
+  const scoped = slugs.filter(Boolean);
+  if (new Set(scoped).size !== 1 || scoped.length < 2) return null;
+  const topic = made.find(p => p.slug === scoped[0]);
+  if (!topic?.id || topic.revision == null) return null;
+  try {
+    const out = await service.upsertTopic({request_id: crypto.randomUUID(), topic_id: topic.id, slug: topic.slug,
+      expected_revision: topic.revision, name: topic.name ?? topic.slug, brief: topic.brief,
+      repository_change: {kind: 'link', repository}});
+    topic.topic_repositories = [...(topic.topic_repositories ?? []), {provider: 'github', repository}];
+    if (out?.topic?.revision != null) topic.revision = out.topic.revision;
+    return topic;
+  } catch { return null; }
 }
 
 /** Once a job: file what sits in personal under the topics it belongs to,
@@ -282,6 +318,7 @@ export async function consolidateDocument(service, consolidator, document,
       // and the ones validation refused with the reason it refused them.
       const actions = [];
       const made = await makeTopics(service, outcome.named ?? [], topics);
+      const landed = [];
       for (const topic of made.made) {
         counts.topics += 1;
         actions.push({did: 'made topic', on: topic.id, statement: topic.slug, why: topic.brief});
@@ -296,6 +333,7 @@ export async function consolidateDocument(service, consolidator, document,
           const did = typeof out === 'string' ? out : out?.did;
           if (did) {
             counts[did] += 1;
+            landed.push(change.topic ?? null);
             actions.push({did, on: out?.on ?? change.target ?? null, statement: change.statement,
               why: out?.why ?? change.why, ...(out?.asked ? {asked: out.asked} : {})});
           }
@@ -306,6 +344,10 @@ export async function consolidateDocument(service, consolidator, document,
       }
       for (const {change, why} of outcome.dropped)
         actions.push({did: 'rejected', on: change?.target ?? null, statement: change?.statement, why});
+      const linked = await linkCodebase(service, {document, topics, slugs: landed, made: made.made,
+        allowed: topicsAllowed});
+      if (linked) actions.push({did: 'linked repository', on: linked.id, statement: document.repository,
+        why: `${linked.slug} was named in this session, every topic change went to it, and no topic had this repository`});
       setOutput(actions);
       // Marked only after the writes. A run that died halfway leaves the
       // document pending and the next pass sees the turns again, which can
