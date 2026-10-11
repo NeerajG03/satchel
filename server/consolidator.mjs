@@ -373,9 +373,13 @@ export function createConsolidator({
   // and asks what the memory set should be, against everything already in
   // it. A session's worth of budget in a single call buys a better model.
   //
-  // Not measured yet. eval/router.mjs covers the router prompt and there is
-  // no eval for this one, which is the honest gap in the whole rebuild.
-  model = process.env.SATCHEL_ROUTER_MODEL ?? 'gemini-3.8-flash',
+  // Pro, not flash. On 11 October the same prompt on three sessions made 12
+  // changes with gemini-3.1-pro-preview and 2 with gemini-3.8-flash, and about
+  // 9 of the 12 were real misses. The cost is accepted on purpose: move back
+  // to a cheaper model when one makes the same changes. It has its own
+  // variable, so SATCHEL_ROUTER_MODEL, which the router and the tidy share,
+  // does not hold this call back on flash.
+  model = process.env.SATCHEL_CONSOLIDATE_MODEL ?? 'gemini-3.1-pro-preview',
   // Medium. Deciding between add, extend, replace, retire and nothing, over
   // a numbered list, with rules about which kinds may be retired, is a
   // reasoning problem. It is also the call whose mistakes are destructive,
