@@ -25,6 +25,7 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       SATCHEL_ROUTER_KEY: ${SATCHEL_ROUTER_KEY:-}
       SATCHEL_ROUTER_MODEL: ${SATCHEL_ROUTER_MODEL:-}
+      SATCHEL_CONSOLIDATE_MODEL: ${SATCHEL_CONSOLIDATE_MODEL:-}
       SATCHEL_EMBEDDING_KEY: ${SATCHEL_EMBEDDING_KEY:-}
       # Tracing. Without these the endpoints run untraced, which is the one
       # thing you do not want while tuning the memory system.
