@@ -108,3 +108,18 @@ test('the scorecard counts repeats and host messages, and the gate holds the lin
   assert.equal(gate({reached: 0.6, harmful: 1}, {reached: 0.6, harmful: 0}).pass, false);
   assert.equal(gate({reached: 0.59, harmful: 0}, {reached: 0.6, harmful: 0}, {significant: false, delta: -0.01}).pass, true);
 });
+
+test('the twin compares database and transcript timestamps as instants', () => {
+  const rows = [{...memories[0], created_at: '2026-10-01 00:00:00+00', ended_at: '2026-10-05 08:00:00.5+00'}];
+  assert.equal(search(rows, vectors, unit(1, 0), {gate: 0.5, at: '2026-10-05T06:00:00.000Z'}).length, 1,
+    'ended two hours after the moment, so still live then');
+  assert.equal(search(rows, vectors, unit(1, 0), {gate: 0.5, at: '2026-10-05T09:00:00.000Z'}).length, 0);
+});
+
+test('personal rows with no affirmation sort first, as Postgres sorts nulls in a descending order', () => {
+  const rows = personal([
+    {id: A, topic_id: null, mentions: 1, affirmed_at: '2026-10-02T00:00:00.000Z', created_at: '2026-10-01'},
+    {id: B, topic_id: null, mentions: 1, affirmed_at: null, created_at: '2026-10-01'},
+  ], at);
+  assert.deepEqual(rows.map(r => r.id), [B, A]);
+});

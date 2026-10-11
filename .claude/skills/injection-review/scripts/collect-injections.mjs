@@ -2,7 +2,7 @@
 // Real prompts, what Satchel showed on them, and the memory set to judge
 // against, into the private folder the injection eval reads.
 //
-//   node collect-injections.mjs [--days 21] [--checkout <dir>] [--no-embed]
+//   node collect-injections.mjs [--days 21] [--checkout <dir>] [--no-embed] [--refresh]
 //
 // Three things, all read only:
 //
@@ -41,6 +41,7 @@ const BATCH_CHARS = 450_000;
 const {classifyPrompt} = await import(join(CHECKOUT, 'server/machine-prompt.mjs'));
 const {repositoryFrom} = await import(join(CHECKOUT, 'integrations/shared/workspace.mjs'));
 const {handleOf} = await import(join(CHECKOUT, 'server/injection-format.mjs'));
+const {promptKey, fill} = await import(join(CHECKOUT, 'eval/lib/injection-cache.mjs'));
 
 for (const sub of ['sessions', 'blind', 'gold', 'vectors', 'runs']) mkdirSync(join(DIR, sub), {recursive: true});
 const readJson = (path, fallback) => existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : fallback;
@@ -69,8 +70,10 @@ const memoryRows = await sql(`select m.id, m.topic_id, m.statement, m.name, m.ba
   left join public.repository_heads h on h.owner_id = m.owner_id and h.repository = m.anchor_repository
   where m.owner_id = ${lit(OWNER)}`);
 const vectors = {};
+const iso = value => value == null ? null : new Date(String(value).replace(' ', 'T').replace(/(:\d\d(?:\.\d+)?)([+-]\d\d)$/, '$1$2:00')).toISOString();
 const memories = memoryRows.map(({embedding, ...m}) => {
   if (embedding) vectors[m.id] = JSON.parse(embedding);
+  for (const key of ['affirmed_at', 'updated_at', 'created_at', 'ended_at', 'expires_at']) m[key] = iso(m[key]);
   return m;
 });
 const snapshot = {taken_at: new Date().toISOString(), owner: OWNER,
@@ -130,7 +133,7 @@ for (const {path} of files) {
   if (!MARK.test(raw)) continue;
   const session = basename(path, '.jsonl');
   const events = [];
-  let cwd = null, title = null, first = null, lastPrompt = null;
+  let cwd = null, title = null, first = null, lastPrompt = null, startKind = null;
   const seenStart = new Set();
   const satchelCalls = new Map();
   for (const line of raw.split('\n')) {
@@ -142,6 +145,9 @@ for (const {path} of files) {
     if (ts && !first) first = ts;
     if (d.type === 'attachment') {
       const a = d.attachment ?? {};
+      // The context row is named plain `SessionStart`; the kind (startup,
+      // resume, compact) is on the hook's other rows, which come first.
+      if (/^SessionStart:/.test(a.hookName ?? '')) startKind = a.hookName.split(':')[1];
       let body = '';
       if (a.type === 'hook_additional_context') body = (a.content ?? []).join('\n');
       else if (a.type === 'hook_success' && a.stdout) {
@@ -155,7 +161,7 @@ for (const {path} of files) {
         const key = `${body}|${String(ts).slice(0, 16)}`;
         if (seenStart.has(key)) continue;
         seenStart.add(key);
-        const kind = hook.split(':')[1] ?? null;
+        const kind = hook.split(':')[1] ?? startKind;
         const last = events.at(-1);
         if (last?.kind === 'start' && !last.loaded.length && Date.parse(ts) - Date.parse(last.ts) < 5000) {
           last.loaded = idsIn(body); last.how ??= kind; continue;
@@ -202,7 +208,10 @@ parsed.sort((a, b) => String(a.first).localeCompare(String(b.first)));
 const seenMessage = new Set();
 let collected = 0, skipped = 0;
 for (const s of parsed) {
-  if (labelled.has(s.session)) {
+  // --refresh rewrites a labelled session's events after a collector fix. The
+  // numbering is the same, so its labels still line up; its blind file is not
+  // written again.
+  if (labelled.has(s.session) && !args.includes('--refresh')) {
     for (const e of s.events) if (e.kind === 'prompt') seenMessage.add(e.uuid);
     skipped++; continue;
   }
@@ -267,7 +276,9 @@ const check = sizes.filter(s => parseInt(createHash('sha1').update(s.session).di
   .map(s => s.session);
 const template = readFileSync(join(import.meta.dirname, '../references/blind-label.md'), 'utf8')
   .split('\n---\n')[1].trim();
-const stamp = new Date().toISOString().slice(0, 10);
+// Date and time, so a second run on the same day cannot overwrite the first
+// run's labels.
+const stamp = snapshot.taken_at.slice(0, 16).replace(/[:]/g, '');
 const write = (name, sessions) => {
   const out = join(DIR, 'gold', `${name}.json`);
   writeFileSync(join(DIR, 'blind', `prompt-${name}.txt`), template
@@ -284,30 +295,12 @@ writeJson(join(DIR, 'blind', 'INDEX.json'), {collected_at: snapshot.taken_at, pr
 
 const cachePath = join(DIR, 'vectors', 'prompts.json');
 const cache = readJson(cachePath, {});
-const hash = text => createHash('sha256').update(text).digest('hex').slice(0, 32);
-const queries = new Set();
+const queries = [];
 for (const f of readdirSync(join(DIR, 'sessions')))
   for (const e of readJson(join(DIR, 'sessions', f)).events)
-    if (e.kind === 'prompt' && e.query && !cache[hash(e.query)]) queries.add(e.query);
-let embedded = 0;
-if (!args.includes('--no-embed') && queries.size) {
-  const env = readFileSync(join(process.env.HOME, '.config', 'env'), 'utf8');
-  const key = env.split('\n').map(l => l.replace(/^export\s+/, '').trim())
-    .find(l => l.startsWith('GEMINI_API_KEY='))?.slice('GEMINI_API_KEY='.length).replace(/^['"]|['"]$/g, '');
-  if (!key) throw new Error('GEMINI_API_KEY is not in ~/.config/env');
-  const {createEmbedder} = await import(join(CHECKOUT, 'server/embedding.mjs'));
-  // The production model and space: memories.embedding_model is
-  // gemini-embedding-001 with no task type, so neither is set here.
-  const embedder = createEmbedder({apiKey: key, budgetMs: 60000, timeoutMs: 30000});
-  const list = [...queries];
-  for (let i = 0; i < list.length; i += 50) {
-    const chunk = list.slice(i, i + 50);
-    const out = await embedder.embed(chunk, 'query');
-    chunk.forEach((q, j) => { cache[hash(q)] = out[j]; });
-    embedded += chunk.length;
-    writeJson(cachePath, cache);
-  }
-}
+    if (e.kind === 'prompt' && e.query && !cache[promptKey(e.query)]) queries.push(e.query);
+const embedded = args.includes('--no-embed') ? 0 : await fill(cache, queries);
+if (embedded) writeJson(cachePath, cache);
 
 console.log(`snapshot: ${live.length} live memories of ${memories.length}, ${topics.length} topics, ${Object.keys(vectors).length} vectors`);
 console.log(`sessions: ${collected} collected, ${skipped} already labelled, ${parsed.length - collected - skipped} with no typed prompt`);

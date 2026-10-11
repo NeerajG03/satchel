@@ -20,8 +20,18 @@ export function similarity(a, b) {
   return na && nb ? dot / Math.sqrt(na * nb) : 0;
 }
 
-const live = (m, at) => (!m.ended_at || m.ended_at > at) && (!m.expires_at || m.expires_at > at)
-  && (!m.created_at || m.created_at <= at);
+// Compared as instants. The database writes `2026-10-05 08:00:00+00` and a
+// transcript `2026-10-05T06:00:00Z`; as strings a space sorts before `T`, so
+// every same-day comparison came out wrong.
+const time = value => value == null ? null : Date.parse(String(value).replace(' ', 'T').replace(/(:\d\d(?:\.\d+)?)([+-]\d\d)$/, '$1$2:00'));
+const live = (m, at) => {
+  const now = time(at);
+  return (!m.ended_at || time(m.ended_at) > now) && (!m.expires_at || time(m.expires_at) > now)
+    && (!m.created_at || time(m.created_at) <= now);
+};
+export {time};
+// Postgres puts NULLs first in a descending sort.
+const desc = (a, b) => a == null ? (b == null ? 0 : -1) : b == null ? 1 : time(b) - time(a);
 
 /** search_memories, from supabase/migrations/20261009090000_topics_everywhere.sql. */
 export function search(memories, vectors, query, {in_scope = null, limit = 5, gate = 0.67, boost = 1.1,
@@ -49,8 +59,8 @@ export function search(memories, vectors, query, {in_scope = null, limit = 5, ga
 export function personal(memories, at) {
   return memories.filter(m => m.topic_id == null && live(m, at))
     .sort((a, b) => (b.mentions ?? 1) - (a.mentions ?? 1)
-      || String(b.affirmed_at ?? '').localeCompare(String(a.affirmed_at ?? ''))
-      || String(b.updated_at ?? '').localeCompare(String(a.updated_at ?? ''))
+      || desc(a.affirmed_at, b.affirmed_at)
+      || desc(a.updated_at, b.updated_at)
       || (a.id < b.id ? -1 : 1));
 }
 

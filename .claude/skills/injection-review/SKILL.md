@@ -163,11 +163,11 @@ Finish with a short message: the scorecard row, the top three gaps, what step 7 
 | | production | main replay |
 | --- | --- | --- |
 | reached | 21.5% | 81.3% |
-| clean | 13.3% | 19.9% |
+| clean | 12.9% | 19.9% |
 | quiet | 86.6% | 69.5% |
-| repeat | 54.3% | 59.9% |
+| repeat | 54.3% | 60.2% |
 | topic right | 34.2% | 39.7% |
-| harmful | 27 | 24 |
+| harmful | 8 | 24 |
 
 Production's low reached is mostly history: 152 of the 246 "must" labels (62%) name a memory that did not exist yet when that prompt ran, because the labels are judged against today's memory set. So read production's reached as a lower bound, and compare code on the replay. The replay's low clean and quiet are today's problem.
 

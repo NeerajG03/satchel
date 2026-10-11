@@ -26,7 +26,6 @@
 // difference and the report names it.
 import {readFileSync, writeFileSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
-import {createHash} from 'node:crypto';
 import {sql, lit} from '../../daily-improvement/scripts/db.mjs';
 
 const args = process.argv.slice(2);
@@ -38,14 +37,27 @@ const COUNT = Number(flag('--count') ?? 40);
 
 const {search, personal} = await import(join(CHECKOUT, 'eval/lib/injection-twin.mjs'));
 const {personalLoad} = await import(join(CHECKOUT, 'server/injection-format.mjs'));
+const {promptKey: hash, fill} = await import(join(CHECKOUT, 'eval/lib/injection-cache.mjs'));
 const snapshot = JSON.parse(readFileSync(join(DIR, 'snapshot.json'), 'utf8'));
 const vectors = JSON.parse(readFileSync(join(DIR, 'vectors', 'memories.json'), 'utf8'));
 const cachePath = join(DIR, 'vectors', 'prompts.json');
 const cache = existsSync(cachePath) ? JSON.parse(readFileSync(cachePath, 'utf8')) : {};
-const hash = text => createHash('sha256').update(text).digest('hex').slice(0, 32);
 
 const [{changed}] = await sql(`select max(greatest(updated_at, coalesce(ended_at, updated_at), coalesce(embedded_at, updated_at))) as changed
   from public.memories where owner_id = ${lit(snapshot.owner)}`);
+// A memory deleted outright, or a settings row that changed, leaves no
+// timestamp behind, so the live set and the settings are compared as well.
+const [{ids: liveNow}] = await sql(`select coalesce(array_agg(id order by id), '{}') as ids from public.memories
+  where owner_id = ${lit(snapshot.owner)} and ended_at is null`);
+const liveThen = snapshot.memories.filter(m => !m.ended_at).map(m => m.id).sort();
+const settingsNow = (await sql(`select per_prompt_matches, gate, scope_boost, block_size from public.memory_settings
+  where owner_id = ${lit(snapshot.owner)} limit 1`))[0];
+const settingsMoved = settingsNow && ['per_prompt_matches', 'gate', 'scope_boost', 'block_size']
+  .some(k => Number(settingsNow[k]) !== Number(snapshot.settings[k]));
+if (liveNow.join() !== liveThen.join() || settingsMoved) {
+  console.log('the live memories or the settings differ from the snapshot; run collect-injections.mjs again first');
+  process.exit(1);
+}
 if (changed && new Date(changed) > new Date(snapshot.taken_at)) {
   console.log(`a memory changed at ${changed}, after the snapshot (${snapshot.taken_at}); run collect-injections.mjs again first`);
   process.exit(1);
@@ -58,20 +70,7 @@ const rows = await sql(`select distinct on (i.query) i.query, s.topic_id, i.crea
   order by i.query, i.created_at desc`);
 const sample = rows.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).slice(0, COUNT);
 
-const missing = sample.map(r => r.query).filter(q => !cache[hash(q)]);
-if (missing.length) {
-  const env = readFileSync(join(process.env.HOME, '.config', 'env'), 'utf8');
-  const apiKey = env.split('\n').map(l => l.replace(/^export\s+/, '').trim())
-    .find(l => l.startsWith('GEMINI_API_KEY='))?.slice('GEMINI_API_KEY='.length).replace(/^['"]|['"]$/g, '');
-  if (!apiKey) throw new Error('GEMINI_API_KEY is not in ~/.config/env');
-  const {createEmbedder} = await import(join(CHECKOUT, 'server/embedding.mjs'));
-  const embedder = createEmbedder({apiKey, budgetMs: 60000, timeoutMs: 30000});
-  for (let i = 0; i < missing.length; i += 50) {
-    const chunk = missing.slice(i, i + 50);
-    (await embedder.embed(chunk, 'query')).forEach((v, j) => { cache[hash(chunk[j])] = v; });
-  }
-  writeFileSync(cachePath, JSON.stringify(cache));
-}
+if (await fill(cache, sample.map(r => r.query))) writeFileSync(cachePath, JSON.stringify(cache));
 
 const settings = snapshot.settings;
 const load = personalLoad(personal(snapshot.memories, snapshot.taken_at), settings.block_size);

@@ -25,8 +25,8 @@
 // code would give them.
 import {readFileSync, writeFileSync, readdirSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
-import {createHash} from 'node:crypto';
-import {replayService} from './lib/injection-twin.mjs';
+import {replayService, time} from './lib/injection-twin.mjs';
+import {promptKey, promptEmbedder} from './lib/injection-cache.mjs';
 import {summarise, pair, gate} from './lib/injection-scoring.mjs';
 import {paired} from './lib/metrics.mjs';
 
@@ -48,7 +48,8 @@ const byId = new Map(snapshot.memories.map(m => [m.id, m]));
 const byHandle = new Map();
 for (const m of snapshot.memories) { const h = handleOf(m.id); byHandle.set(h, byHandle.has(h) ? null : m.id); }
 const bySlug = new Map(snapshot.topics.map(t => [t.slug, t.id]));
-const isEnded = id => { const m = byId.get(id); return Boolean(m?.ended_at && m.ended_at <= snapshot.taken_at); };
+const endedBy = (id, at) => { const m = byId.get(id); return Boolean(m?.ended_at && time(m.ended_at) <= time(at)); };
+const isEnded = id => endedBy(id, snapshot.taken_at);
 
 // ---- gold ---------------------------------------------------------------------
 
@@ -84,19 +85,11 @@ const check = loadGold('check-');
 
 // ---- prompt vectors --------------------------------------------------------------
 
-const hash = text => createHash('sha256').update(text).digest('hex').slice(0, 32);
 let embedder = null, embeddedNow = 0;
 async function queryVector(text) {
-  const key = hash(text);
+  const key = promptKey(text);
   if (cache[key]) return cache[key];
-  if (!embedder) {
-    const env = readFileSync(join(process.env.HOME, '.config', 'env'), 'utf8');
-    const apiKey = env.split('\n').map(l => l.replace(/^export\s+/, '').trim())
-      .find(l => l.startsWith('GEMINI_API_KEY='))?.slice('GEMINI_API_KEY='.length).replace(/^['"]|['"]$/g, '');
-    if (!apiKey) throw new Error('a query has no cached vector and GEMINI_API_KEY is not in ~/.config/env');
-    const {createEmbedder} = await import(join(import.meta.dirname, '../server/embedding.mjs'));
-    embedder = createEmbedder({apiKey, budgetMs: 60000, timeoutMs: 30000});
-  }
+  embedder ??= await promptEmbedder();
   cache[key] = await embedder.embedOne(text, 'query');
   embeddedNow++;
   return cache[key];
@@ -135,8 +128,8 @@ for (const s of sessions) {
       for (const m of shown) front.add(m);
       const shipShown = e.shown ?? [];
       production.push({id, session: s.session, n: e.n, typed: e.typed, gold: g,
-        shown: shipShown.filter(m => !isEnded(m) || byId.get(m).ended_at > e.ts),
-        ended: shipShown.filter(m => byId.get(m)?.ended_at && byId.get(m).ended_at <= e.ts),
+        shown: shipShown.filter(m => !endedBy(m, e.ts)),
+        ended: shipShown.filter(m => endedBy(m, e.ts)),
         before: [...shipFront], active: shipActive, tokens: e.shownText ? estimateTokens(e.shownText) : 0});
       for (const m of shipShown) shipFront.add(m);
     }
