@@ -49,6 +49,23 @@ test('topics: move, make, merge and undo, each inside the grant', async t => {
       {slug: 'work', made_by: 'person'}]);
   });
 
+  await t.test('the pass links a repository to a topic it made, with the revision read after the create', async () => {
+    const tests = crypto.randomUUID();
+    const [{create_satchel_topic: made}] = await call(pass, 'select create_satchel_topic($1,$2,$3,$4,$5)',
+      [crypto.randomUUID(), tests, 'api-tests', 'Api Tests', 'The API test suite']);
+    const [{revision}] = await call(pass, 'select revision from topics where id=$1', [tests]);
+    assert.ok(Number(revision) > Number(made.topic.revision), 'the create stamps the row again, so its revision is stale');
+    await assert.rejects(call(pass, 'select upsert_topic_with_slug($1,$2,$3,$4,$5,$6,$7,$8)',
+      ['api-tests', crypto.randomUUID(), tests, made.topic.revision, 'Api Tests', 'The API test suite', 'link', 'acme/api-automation']),
+      /Topic changed or unavailable/);
+    await call(pass, 'select upsert_topic_with_slug($1,$2,$3,$4,$5,$6,$7,$8)',
+      ['api-tests', crypto.randomUUID(), tests, revision, 'Api Tests', 'The API test suite', 'link', 'acme/api-automation']);
+    const links = await call(user, 'select repository from topic_repositories where topic_id=$1', [tests]);
+    assert.deepEqual(links, [{repository: 'acme/api-automation'}]);
+    const [still] = await call(user, 'select made_by from topics where id=$1', [tests]);
+    assert.equal(still.made_by, 'satchel', 'linking does not make it a topic the person made');
+  });
+
   await t.test('moving a memory keeps its wording, band and count, and says where it was', async () => {
     const memory = await save(null, 'Grafana is gone, Oodle replaces it.');
     const [moved] = await call(pass, 'select * from move_memory($1,$2,$3,$4)', [memory.id, memory.revision, infra, 'a work fact']);

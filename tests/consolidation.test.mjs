@@ -406,3 +406,84 @@ test('the pass only makes topics on a connection that sees every topic and may w
     assert.equal(of('consolidate')[0].input.topicsAllowed, allowed);
   }
 });
+
+test('an unlinked repository is linked to the one topic its session filed into, a new one included', async () => {
+  const {service, consolidator} = fake();
+  const writes = [];
+  service.upsertTopic = async args => {
+    writes.push(args);
+    return {topic: {id: args.topic_id, slug: args.slug, name: args.name, revision: (args.expected_revision ?? 0) + 1}};
+  };
+  consolidator.consolidate = async () => ({changes: [
+    {action: 'add', statement: 'API tests run against QA nightly.', source: 's', kind: 'fact', topic: 'api-tests', expires: null, why: 'w'},
+    {action: 'add', statement: 'Failing API tests block the release.', source: 's', kind: 'fact', topic: 'api-tests', expires: null, why: 'w'},
+    {action: 'add', statement: 'Wants short replies.', source: 's', kind: 'preference', topic: null, expires: null, why: 'w'}],
+    dropped: [], named: [{slug: 'api-tests', brief: 'The API automation test suite'}], prompt: 'p', raw: '{}'});
+  const doc = {...document, topic_id: null, repository: 'acme/api-automation'};
+  const result = await consolidateDocument(service, consolidator, doc, {topics: [...topics], topicsAllowed: true});
+  const link = writes.find(w => w.repository_change.kind === 'link');
+  assert.ok(link, 'the new topic is linked');
+  assert.equal(link.repository_change.repository, 'acme/api-automation');
+  assert.equal(link.slug, 'api-tests');
+  assert.equal(link.expected_revision, 1, 'linked as an update of the topic just made');
+  assert.ok(result.actions.some(a => a.did === 'linked repository' && a.statement === 'acme/api-automation'));
+});
+
+test('a repository is never linked to a topic the session did not make, or on thin or split evidence', async () => {
+  const cases = [
+    {name: 'already linked', topics: [{...topics[0], revision: 4, topic_repositories: [{provider: 'github', repository: 'acme/api-automation'}]}, {...topics[1], revision: 2}],
+      changes: [{topic: topics[1].slug}], allowed: true},
+    {name: 'two topics', topics: topics.map(p => ({...p, revision: 1})),
+      changes: [{topic: topics[0].slug}, {topic: topics[1].slug}], allowed: true},
+    {name: 'not allowed', topics: topics.map(p => ({...p, revision: 1})), changes: [{topic: topics[0].slug}], allowed: false},
+    {name: 'personal only', topics: topics.map(p => ({...p, revision: 1})), changes: [{topic: null}], allowed: true},
+    // The production case: a session in an unclaimed repository talking about an existing project.
+    {name: 'existing topic', topics: topics.map(p => ({...p, revision: 1})),
+      changes: [{topic: topics[0].slug}, {topic: topics[0].slug}], allowed: true},
+    {name: 'one change', topics: topics.map(p => ({...p, revision: 1})), changes: [{topic: 'api-tests'}],
+      named: [{slug: 'api-tests', brief: 'API tests'}], allowed: true},
+  ];
+  for (const c of cases) {
+    const {service, consolidator} = fake();
+    const writes = [];
+    service.upsertTopic = async args => { writes.push(args); return {topic: {id: args.topic_id}}; };
+    consolidator.consolidate = async () => ({changes: c.changes.map((x, i) => ({action: 'add', statement: `Fact ${i}.`,
+      source: 's', kind: 'fact', topic: x.topic, expires: null, why: 'w'})), dropped: [], named: c.named ?? [], prompt: 'p', raw: '{}'});
+    await consolidateDocument(service, consolidator, {...document, topic_id: null, repository: 'acme/api-automation'},
+      {topics: c.topics, topicsAllowed: c.allowed});
+    assert.equal(writes.filter(w => w.repository_change?.kind === 'link').length, 0, c.name);
+  }
+});
+
+test('the link uses the current revision of the topic, not the stale one the create returned', async () => {
+  const {service, consolidator} = fake();
+  const writes = [];
+  // As production: the create returns revision 1, then stamps made_by and the slug, which bump it to 3.
+  service.createSatchelTopic = async args => ({topic: {id: args.topic_id, name: args.name, revision: 1}});
+  service.topics = async () => [...topics, {id: made?.id, slug: 'api-tests', name: 'Api Tests', brief: 'API tests', revision: 3}];
+  let made = null;
+  const create = service.createSatchelTopic;
+  service.createSatchelTopic = async args => { made = {id: args.topic_id}; return create(args); };
+  service.upsertTopic = async args => { writes.push(args); return {topic: {id: args.topic_id, revision: args.expected_revision + 1}}; };
+  consolidator.consolidate = async () => ({changes: ['One.', 'Two.'].map(statement => ({action: 'add', statement,
+    source: 's', kind: 'fact', topic: 'api-tests', expires: null, why: 'w'})), dropped: [],
+    named: [{slug: 'api-tests', brief: 'API tests'}], prompt: 'p', raw: '{}'});
+  await consolidateDocument(service, consolidator, {...document, topic_id: null, repository: 'acme/api-automation'},
+    {topics: [...topics], topicsAllowed: true});
+  const [link] = writes.filter(w => w.repository_change.kind === 'link');
+  assert.equal(link.expected_revision, 3);
+});
+
+test('only new rows count towards a link: an extend filed under the new topic does not', async () => {
+  const {service, consolidator} = fake();
+  const writes = [];
+  service.upsertTopic = async args => { writes.push(args); return {topic: {id: args.topic_id, name: args.name, revision: 1}}; };
+  consolidator.consolidate = async () => ({changes: [
+    {action: 'add', statement: 'API tests run nightly.', source: 's', kind: 'fact', topic: 'api-tests', expires: null, why: 'w'},
+    {action: 'extend', target: 'm1', revision: 2, statement: 'Entries are append only, checked nightly.', source: 's',
+      kind: 'fact', topic: 'api-tests', why: 'w'}],
+    dropped: [], named: [{slug: 'api-tests', brief: 'API tests'}], prompt: 'p', raw: '{}'});
+  await consolidateDocument(service, consolidator, {...document, topic_id: null, repository: 'acme/api-automation'},
+    {topics: topics.map(p => ({...p, revision: 1})), topicsAllowed: true});
+  assert.equal(writes.filter(w => w.repository_change?.kind === 'link').length, 0);
+});
