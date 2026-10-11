@@ -454,3 +454,22 @@ test('a repository is never linked to a topic the session did not make, or on th
     assert.equal(writes.filter(w => w.repository_change?.kind === 'link').length, 0, c.name);
   }
 });
+
+test('the link uses the current revision of the topic, not the stale one the create returned', async () => {
+  const {service, consolidator} = fake();
+  const writes = [];
+  // As production: the create returns revision 1, then stamps made_by and the slug, which bump it to 3.
+  service.createSatchelTopic = async args => ({topic: {id: args.topic_id, name: args.name, revision: 1}});
+  service.topics = async () => [...topics, {id: made?.id, slug: 'api-tests', name: 'Api Tests', brief: 'API tests', revision: 3}];
+  let made = null;
+  const create = service.createSatchelTopic;
+  service.createSatchelTopic = async args => { made = {id: args.topic_id}; return create(args); };
+  service.upsertTopic = async args => { writes.push(args); return {topic: {id: args.topic_id, revision: args.expected_revision + 1}}; };
+  consolidator.consolidate = async () => ({changes: ['One.', 'Two.'].map(statement => ({action: 'add', statement,
+    source: 's', kind: 'fact', topic: 'api-tests', expires: null, why: 'w'})), dropped: [],
+    named: [{slug: 'api-tests', brief: 'API tests'}], prompt: 'p', raw: '{}'});
+  await consolidateDocument(service, consolidator, {...document, topic_id: null, repository: 'acme/api-automation'},
+    {topics: [...topics], topicsAllowed: true});
+  const [link] = writes.filter(w => w.repository_change.kind === 'link');
+  assert.equal(link.expected_revision, 3);
+});

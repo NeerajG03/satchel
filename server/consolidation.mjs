@@ -173,10 +173,16 @@ async function linkCodebase(service, {document, topics, slugs, made, allowed}) {
   const scoped = slugs.filter(Boolean);
   if (new Set(scoped).size !== 1 || scoped.length < 2) return null;
   const topic = made.find(p => p.slug === scoped[0]);
-  if (!topic?.id || topic.revision == null) return null;
+  if (!topic?.id) return null;
   try {
+    // Read again, not taken from the create: create_satchel_topic stamps
+    // made_by after the row is written and sets the slug, and each update
+    // bumps the revision, so the one the create returned is already stale.
+    const fresh = service.topics ? (await service.topics()).find(p => p.id === topic.id) : null;
+    const revision = fresh?.revision ?? topic.revision;
+    if (revision == null) return null;
     const out = await service.upsertTopic({request_id: crypto.randomUUID(), topic_id: topic.id, slug: topic.slug,
-      expected_revision: topic.revision, name: topic.name ?? topic.slug, brief: topic.brief,
+      expected_revision: revision, name: fresh?.name ?? topic.name ?? topic.slug, brief: fresh?.brief ?? topic.brief,
       repository_change: {kind: 'link', repository}});
     topic.topic_repositories = [...(topic.topic_repositories ?? []), {provider: 'github', repository}];
     if (out?.topic?.revision != null) topic.revision = out.topic.revision;
