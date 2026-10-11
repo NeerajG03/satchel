@@ -44,7 +44,7 @@ Everything in the daily review's Rules applies here unchanged: production stays 
 
 Three more:
 
-- **Settings are proposals.** The gate, slot count and caps live in a `memory_settings` row, which is a production write. Score a settings change in the replay (copy the snapshot's `settings` into a scratch folder and point `SATCHEL_INJECTION_EVAL_DIR` at it), put before and after in the report, and ask. Never apply it.
+- **Settings are proposals.** The gate, slot count and caps live in a `memory_settings` row, which is a production write. Score a settings change in the replay with `--set gate=0.70 --set per_prompt_matches=3`, put before and after in the report, and ask. Never apply it. A run with `--set` refuses `--update-baseline`.
 - **Data is a finding.** A memory that matches everything, a memory that is wrong, a repository linked to the wrong topic: name the id and the evidence in the report. The person fixes it.
 - **Label each session once.** New sessions only. Never relabel to get a different number.
 
@@ -106,6 +106,7 @@ This is the baseline for this snapshot. Read the whole output:
 - **Shown and not needed.** The memories that cost the most room. A memory here every run is either too general for retrieval (a data finding) or a sign the gate or the skip list is wrong (a code TODO).
 - **Needed and not in front of the agent.** Usually a topic not being picked, or a gate too high for short prompts.
 - **Traps shown.** Each one is a wrong instruction handed to the agent.
+- **By how the repository is linked.** No link, one topic, several topics. A low "topic right" on several topics means nothing picked one; a low clean on one topic usually means the repository is linked to the wrong topic (a data finding).
 - **The second labeller.** If it says the two labellers disagree on which version is better for a number, do not gate on that number, and say so in the report.
 - **The labellers' "missing" notes** in `gold/`. Something the person needed that is not stored is a capture gap: put it in the report for the daily review, it is not this loop's to fix.
 
