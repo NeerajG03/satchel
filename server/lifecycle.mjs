@@ -27,6 +27,15 @@ import {errorText} from './error-text.mjs';
 // standing personal rule out of the block.
 const TOPIC_BLOCK = 15;
 
+// How long a prompt waits for the active topic's rows before skipping nothing
+// extra. The hook gives up at 8 seconds.
+const TOPIC_SKIP_MS = 1500;
+const withinTime = (promise, ms, fallback) => {
+  let timer;
+  return Promise.race([promise, new Promise(done => { timer = setTimeout(done, ms, fallback); })])
+    .finally(() => clearTimeout(timer));
+};
+
 const PROVIDER = 'github';
 
 // Tracing is passed in, not imported. tracing.mjs pulls in `ai`, the
@@ -218,9 +227,11 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
             // already in front of the agent, most of them these. Chained on the
             // scope so it runs beside personal() rather than after it. Its
             // failure only means nothing extra is skipped.
-            scoped.then(({topic: active}) => active && service.index
-              ? service.index(active).then(out => (out?.memories ?? []).filter(r => r.topic_id === active))
-              : []).catch(() => []),
+            // Bounded well inside the hook's own timeout: a slow list costs a
+            // repeat, never the whole prompt's memory.
+            scoped.then(({topic: active}) => active && service.index ? withinTime(
+              service.index(active).then(out => (out?.memories ?? []).filter(r => r.topic_id === active)),
+              TOPIC_SKIP_MS, []) : []).catch(() => []),
           ]);
           const load = personalLoad(personal, settings.block_size);
           const ownLoad = topicLoad(own, TOPIC_BLOCK);

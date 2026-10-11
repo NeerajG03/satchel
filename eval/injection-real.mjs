@@ -120,7 +120,7 @@ for (const s of sessions) {
   for (const e of s.events) {
     if (e.kind === 'start') {
       if (resets.has(e.how)) { front = new Set(); shipFront = new Set(); }
-      if (plugin && (plugin.RESETS.has(e.how) || e.how == null)) sent = [];
+      if (plugin?.RESETS.has(e.how)) sent = [];
       const mark = service.log.length;
       await sessionStart(service, {sessionKey: s.session, repository: s.repository});
       for (const entry of service.log.slice(mark)) for (const id of entry.memory_ids) front.add(id);
