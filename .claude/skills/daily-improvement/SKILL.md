@@ -207,5 +207,7 @@ On 28 September the pass answered nothing on 27 of 30 sessions, and the blind re
 
 ## The read side, once a week
 
+The read side now has its own loop: the `injection-review` skill, with a golden set and `eval/injection-real.mjs`. Use it for any retrieval change. The audit below is the older, quicker look and still works on Langfuse spans.
+
 `node $SKILL/scripts/injection-audit.mjs --days 7 [--checkout <dir>]` replays the window's `retrieve-memory` spans through a checkout's retrieval rules (which prompts count as the person's, which rows the block already loaded) and prints before and after: prompts with a hit, slots, slots on machine prompts, and the most injected memories. Run it before a retrieval change ships and once a week in the review, and read the "most injected" list the way the pipeline table is read: a row that is injected often and is a work order or describes code is noise to forget by hand, and it is the first thing a person feels.
 
