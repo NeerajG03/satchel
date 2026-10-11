@@ -35,17 +35,19 @@ const description='Personal and topic memory, tasks and topics across your agent
 //
 // 0.5.1 carries the hooks' own wording over to topic too, now that the
 // database says topic as well.
-const versions={claude:'0.5.1',codex:'0.5.1'};
+// 0.5.2 remembers which memories a session was already shown and asks the
+// server to skip them, until a compact or a clear.
+const versions={claude:'0.5.2',codex:'0.5.2'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
   await mkdir(join(target,'hooks'),{recursive:true});
   await mkdir(join(target,'scripts'),{recursive:true});
-  // Every hook script, plus the two modules they share. They are copied rather
+  // Every hook script, plus the modules they share. They are copied rather
   // than bundled because the plugin is read by people deciding whether to trust
   // it, and one readable file per job is the point.
   for(const script of ['session-start.mjs','retrieve.mjs','capture.mjs','connect.mjs',
-    'auth.mjs','workspace.mjs','background.mjs'])
+    'auth.mjs','workspace.mjs','background.mjs','shown.mjs'])
     await cp(join(root,'integrations/shared',script),join(target,'scripts',script));
   const common={name,version:versions[host],description,author:{name:'Satchel'},repository:'https://github.com/NeerajG03/satchel'};
   const manifest=host==='codex'?{...common,skills:'./skills/',mcpServers:'./.mcp.json',interface:{

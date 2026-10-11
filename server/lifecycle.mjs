@@ -27,6 +27,15 @@ import {errorText} from './error-text.mjs';
 // standing personal rule out of the block.
 const TOPIC_BLOCK = 15;
 
+// How long a prompt waits for the active topic's rows before skipping nothing
+// extra. The hook gives up at 8 seconds.
+const TOPIC_SKIP_MS = 1500;
+const withinTime = (promise, ms, fallback) => {
+  let timer;
+  return Promise.race([promise, new Promise(done => { timer = setTimeout(done, ms, fallback); })])
+    .finally(() => clearTimeout(timer));
+};
+
 const PROVIDER = 'github';
 
 // Tracing is passed in, not imported. tracing.mjs pulls in `ai`, the
@@ -203,17 +212,31 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
           try { await service.recordTurn(sessionKey, 'user', machine ? machineTurnNote(machine) : query, settings.capture_window * 2); }
           catch (error) { unrecorded = errorText(error); }
         if (settings.per_prompt_matches && !machine) {
-          const [scope, personal] = await Promise.all([
-            topic !== undefined ? {topic} : resolveScope(service, {sessionKey, repository}),
+          const scoped = topic !== undefined ? Promise.resolve({topic}) : resolveScope(service, {sessionKey, repository});
+          const [scope, personal, own] = await Promise.all([
+            scoped,
             // What session start already loaded is not retrieved again. The
             // hook never knew those ids, so for a week the personal rows took
             // the five slots on prompt after prompt, and the same rows came
             // back on every message in a session. The set is recomputed the
             // way session start computes it, so the two cannot disagree.
             status.personal && service.personal ? service.personal().catch(() => []) : [],
+            // The active topic's own rows load at session start too, under
+            // their own cap, and the skip list never knew them. On 11 October
+            // the replay of three weeks of sessions had 60% of prompt slots
+            // already in front of the agent, most of them these. Chained on the
+            // scope so it runs beside personal() rather than after it. Its
+            // failure only means nothing extra is skipped.
+            // Bounded well inside the hook's own timeout: a slow list costs a
+            // repeat, never the whole prompt's memory.
+            scoped.then(({topic: active}) => active && service.index ? withinTime(
+              service.index(active).then(out => (out?.memories ?? []).filter(r => r.topic_id === active)),
+              TOPIC_SKIP_MS, []) : []).catch(() => []),
           ]);
           const load = personalLoad(personal, settings.block_size);
-          const already = [...new Set([...exclude, ...load.said.map(m => m.id), ...load.heard.map(m => m.id)])];
+          const ownLoad = topicLoad(own, TOPIC_BLOCK);
+          const already = [...new Set([...exclude, ...load.said.map(m => m.id), ...load.heard.map(m => m.id),
+            ...ownLoad.said.map(m => m.id), ...ownLoad.heard.map(m => m.id)])];
           const lookup = retrieval?.('retrieve-memory', {input: query,
             metadata: {gate: settings.gate, limit: settings.per_prompt_matches,
               inScope: scope.topic ?? 'personal', excluded: already.length}});
@@ -251,7 +274,10 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
       if (logged) void service.logInjection({id: crypto.randomUUID(), session_key: sessionKey,
         event: 'UserPromptSubmit', ...logged});
       setOutput(context);
-      return {context, notice};
+      // The ids as well as the text, so the hook can send them back as
+      // `exclude` on the next prompt: the server cannot see what earlier
+      // prompts showed, because the log is the person's and not the app's.
+      return {context, notice, shown: logged?.memory_ids ?? []};
     });
 }
 

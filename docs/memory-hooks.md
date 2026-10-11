@@ -65,7 +65,11 @@ The stored credential is a Supabase refresh token. Those do not age out on their
 
 The repository is read from `git config --get remote.origin.url` and normalized. Remote credentials in that URL, repository contents, local paths and the prompt are never read or emitted. `SATCHEL_DISABLE_REPOSITORY_STAGING=1` turns the repository off.
 
-`retrieve.mjs` sends the session key, the repository and the prompt the host handed it. `capture.mjs` sends the session key, the repository and the `last_assistant_message` the host handed it. Neither opens a file.
+`retrieve.mjs` sends the session key, the repository and the prompt the host handed it, plus the ids of memories earlier prompts in the session were shown, so they are not shown again. It keeps those ids in `~/.satchel/shown/<session>.json`, and `session-start.mjs` clears the list on a compact or a clear. `capture.mjs` sends the session key, the repository and the `last_assistant_message` the host handed it. Neither opens a file of the host's.
+
+Where the list is wrong, it errs towards a repeat being missed, never towards a crash: a rewind drops later turns without a session start, so what they were shown stays skipped until the next compact or clear; a memory edited in place keeps its id, so its new wording waits for the same; and a list untouched for two days is removed, so a resume after that may repeat.
+
+Retrieval also skips what session start loaded: the personal rows and, since 0.5.2, the active topic's own rows. It assumes the block loaded: when session start withholds a block over its token budget, those rows are skipped anyway, which is rare at about 1.5k tokens against a 15k budget. On the 11 October replay of three weeks of sessions (`eval/injection-real.mjs`) the two skips together took prompt slots already in front of the agent from 60% to 0%.
 
 ## No transcript is read
 

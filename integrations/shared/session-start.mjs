@@ -19,6 +19,7 @@
 import {call, refreshEagerly} from './auth.mjs';
 import {repositoryFrom, readHookInput, sessionIdOf, cwdOf, emit} from './workspace.mjs';
 import {connectState, recordConnectAttempt} from './connect.mjs';
+import {startShown} from './shown.mjs';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {dirname, join} from 'node:path';
@@ -70,6 +71,9 @@ if (!sessionKey || (event.hook_event_name !== 'SessionStart' && event.hook_event
   process.exit(0);
 
 const hookEvent = event.hook_event_name;
+// A compact or a clear drops what earlier prompts were shown, so they may be
+// shown again. PostCompact is a compact by another name.
+startShown(sessionKey, hookEvent === 'PostCompact' ? 'compact' : event.source);
 const repository = process.env.SATCHEL_DISABLE_REPOSITORY_STAGING === '1'
   ? null : repositoryFrom(cwdOf(event));
 
