@@ -1,6 +1,6 @@
 # Working on Satchel with an AI coding agent
 
-Ten skills live in `.claude/skills/`. Read these three in this order before making changes:
+Eleven skills live in `.claude/skills/`. Read these three in this order before making changes:
 
 1. [contributing](.claude/skills/contributing/SKILL.md): layout, how a change travels, checks, docs and commit rules.
 2. [design](.claude/skills/design/SKILL.md): the notebook-with-hardware direction, tokens, copy voice, accessibility.
@@ -21,9 +21,13 @@ And to find out what the consolidation pass is failing to learn:
 
 9. [daily-improvement](.claude/skills/daily-improvement/SKILL.md): compares the last runs against a blind read of the same conversations, traces each gap to a file, writes ranked TODOs, and builds the top one as a PR that merges on green. Runs on a schedule, Tuesday to Saturday; never writes to production.
 
+And to find out what the agent is shown on real prompts, and to improve it:
+
+10. [injection-review](.claude/skills/injection-review/SKILL.md): replays the person's own sessions through the injection code against a golden set labelled blind, traces the biggest gap to a file, and builds the fix as a PR that merges only when the scorecard moves the right way. Never writes to production.
+
 And before you change any model prompt:
 
-10. [prompt-management](.claude/skills/prompt-management/SKILL.md): the shape a prompt must have (goal, guardrails, examples), how to prove a change with before and after numbers, and what it costs.
+11. [prompt-management](.claude/skills/prompt-management/SKILL.md): the shape a prompt must have (goal, guardrails, examples), how to prove a change with before and after numbers, and what it costs.
 
 Claude Code loads them as project skills. Codex and other agents: read the files above directly.
 

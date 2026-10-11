@@ -10,6 +10,7 @@ could not answer the question.
 | `node eval/router-rigour.mjs` | capture rigour: does the router keep *only* claims | real turns, copied out of Langfuse |
 | `node eval/consolidation.mjs` | consolidation: does the pass change an existing memory set correctly | 41 cases, each carrying the memories it is judged against |
 | `node eval/consolidation-real.mjs` | consolidation on real conversations: does the pass find what a blind labeller finds | the person's own sessions, kept outside the repository |
+| `node eval/injection-real.mjs` | injection on real prompts: does the agent see what a blind labeller says each prompt needed, and nothing else | the person's own Claude Code sessions, kept outside the repository |
 
 ## Retrieval evaluation
 
@@ -177,3 +178,33 @@ GEMINI_API_KEY=... node eval/consolidation-real.mjs --update-baseline
 ```
 
 Every session starts from an empty memory set, so it measures whether a memory is found at all. Found means the labeller's keywords appear in a claim, or a model call says a claim states the same thing. Both numbers print, the keyword one is the strict floor. Claims that matched nothing are listed for a person to read; they are not counted as wrong, since a labeller misses things too. A fall of more than five points in clear recall exits non-zero.
+
+## Injection on real prompts
+
+`eval/injection-real.mjs` replays the person's own Claude Code sessions through the real `sessionStart` and `retrieve` in `server/lifecycle.mjs`, on a frozen copy of their memory set, and scores what reached the agent against labels written by readers who never saw what Satchel showed. The data lives in `SATCHEL_INJECTION_EVAL_DIR` (default `~/satchel-daily/injection-eval`) and is never committed. The `injection-review` skill collects it, labels it and runs this on a schedule.
+
+```bash
+node .claude/skills/injection-review/scripts/collect-injections.mjs   # snapshot, sessions, blind files, prompt vectors
+# labellers read blind/ and write gold/gold-*.json (the skill has the prompt)
+node .claude/skills/injection-review/scripts/parity.mjs               # the twin must match search_memories
+node eval/injection-real.mjs --update-baseline                        # main, on this snapshot
+node eval/injection-real.mjs --checkout <worktree>                     # a change, gated against it
+```
+
+A run makes no model call: the database search is replaced by `eval/lib/injection-twin.mjs`, a line for line copy of `search_memories`, and prompt vectors come from a cache. `parity.mjs` sends the same queries through both and must match every one before a replay is trusted.
+
+| Number | Means |
+|---|---|
+| reached | "must" memories in front of the agent, from the start block or the prompt block |
+| clean | prompt slots that were a must or a help |
+| quiet | prompts needing nothing that got nothing |
+| host quiet | host messages (task notices, subagent results, shell input) that got nothing |
+| repeat | prompt slots already in front of the agent |
+| topic right | prompts whose active topic matched the labelled one |
+| harmful | traps or ended memories shown. **The bar is zero** |
+| utility | per typed prompt: weighted reached times the share of its block that was needed, halved if a trap was shown; 1 or 0 for a prompt that needed nothing |
+
+The gate passes when reached falls by no more than two points, harmful does not rise, utility does not fall beyond chance (the paired bootstrap from `lib/metrics.mjs`), and the second labeller, on the one session in ten it also labelled, does not see the change going the other way. A baseline from an older snapshot is refused, because the memory set moving would read as the code changing.
+
+Two labellers agree on the topic and on "needs nothing" most of the time, and on the exact "must" calls only about a third of the time. So absolute numbers carry the labeller's taste and changes are judged paired, on the same labels.
+
