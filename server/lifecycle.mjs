@@ -253,10 +253,14 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
           let rows;
           try {
             rows = await service.search({query, in_scope: scope.topic ?? null,
-              limit: settings.per_prompt_matches, gate: settings.gate,
+              limit: settings.per_prompt_matches * 2, gate: settings.gate,
               boost: settings.scope_boost, exclude: already});
           } catch (error) { lookup?.fail(error); throw error; }
-          rows = withoutStrangers(rows, scope);
+          // Asked for twice the slots, because strangers are dropped after the
+          // search and must not leave a slot empty that a linked row could fill.
+          const matched = rows[0]?.matched ?? 0;
+          rows = withoutStrangers(rows, scope).slice(0, settings.per_prompt_matches)
+            .map(r => ({...r, matched}));
           lookup?.end(rows.map(r => ({id: r.id, statement: r.statement, score: r.score})),
             {metadata: {shown: rows.length, matched: rows[0]?.matched ?? 0, inScope: rows[0]?.in_scope ?? 0}});
           // Nothing relevant is a real answer, and the common one. It costs
