@@ -134,3 +134,17 @@ test('retrieve skips the active topic rows session start loaded, and says what i
   const again = await retrieve(service, {sessionKey: 's', prompt: 'and again', repository: 'acme/one', exclude: out.shown});
   assert.deepEqual(again.shown, [], 'what the hook sends back is skipped');
 });
+
+test('a row from a topic the repository is not linked to needs a closer match than the gate', async () => {
+  const scoped = {...snapshot, settings: {...snapshot.settings, gate: 0.5}};
+  const loose = {...vectors, [C]: unit(1, 2)};
+  const ask = async vecs => {
+    const service = replayService({snapshot: scoped, vectors: vecs, queryVector: async () => unit(1, 0.2)});
+    return retrieve(service, {sessionKey: 's', prompt: 'what about the first topic', repository: 'acme/one'});
+  };
+  assert.ok(!(await ask(loose)).shown.includes(C), 'a loose match from the other topic is dropped');
+  assert.ok((await ask(vectors)).shown.includes(C), 'a close match from the other topic still gets through');
+  const bare = replayService({snapshot: scoped, vectors: loose, queryVector: async () => unit(1, 0.2)});
+  const out = await retrieve(bare, {sessionKey: 'b', prompt: 'what about the first topic', repository: 'acme/none'});
+  assert.ok(out.shown.includes(C), 'with no link nothing is a stranger');
+});
