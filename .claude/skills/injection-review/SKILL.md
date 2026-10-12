@@ -139,9 +139,11 @@ Write `~/satchel-daily/injection-review/<date>/report.md`. Carry forward the new
 
 Pick the highest TODO that one small PR can close. Skip one that needs a production write, a decision only the person can make, or more than a few files, and say why.
 
+**Ask before a radical change.** If the real fix is a different approach, not a small tweak (a new way to pick a topic, a new shape for the block, a change in who decides what), do not default to a smaller fix that will hit a wall, and do not build the radical one alone. Put the idea in the report with the options side by side (pros and cons), ask Neeraj in the final message, and build the next TODO that is safe. In a session where the person is present, use AskUserQuestion instead. A small fix that only moves a number a little inside a known limit is fine to build; a fix that the replay already shows cannot reach the gap is not.
+
 1. **Build** in a worktree from `origin/main`. Add or extend a test in `tests/injection-eval.test.mjs` or beside the code it changes.
 2. **Prove.** `node eval/injection-real.mjs --checkout <worktree>` from the worktree, against step 4's baseline (same snapshot, or it refuses). The gate must pass and the number the TODO named must move. If it does not move, do not open the PR; log what you tried. Then `npm test` and `npm run build`.
-3. **Open the PR** with the scorecard before and after, what is not proven (the replay cannot see whether the agent follows a memory it was shown), and what a user will feel, in a line.
+3. **Open the PR** with the scorecard before and after, what is not proven (the replay cannot see whether the agent follows a memory it was shown), and what a user will feel, as a before and after (what the person got on a typical prompt then, what they get now, with a real example from the replay in a few words).
 4. **Review it** with the `code-review` skill at `high`, fix every real finding, and re-run the eval after the fixes.
 5. **Merge on green**, as its own command. Mark the TODO built in the report and remove the worktree.
 
@@ -164,7 +166,7 @@ Append to `~/satchel-daily/log.md`:
 - watch next: <the number that should move on the next run, and why>
 ```
 
-Finish with a short message: the scorecard row, the top three gaps, what step 7 built and whether it merged (with the link), what a user will feel from it, anything waiting on the person (a settings change, a data fix, a blocked merge), and the path to the report. Clean up `$WORK`.
+Finish with a short message: the scorecard row, the top three gaps, what step 7 built and whether it merged (with the link), what changes for the user, as a small before and now table with one real example, anything waiting on the person (a settings change, a data fix, a blocked merge), and the path to the report. Clean up `$WORK`.
 
 ## What the first run found
 
