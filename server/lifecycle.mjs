@@ -30,6 +30,16 @@ const TOPIC_BLOCK = 15;
 // How long a prompt waits for the active topic's rows before skipping nothing
 // extra. The hook gives up at 8 seconds.
 const TOPIC_SKIP_MS = 1500;
+
+// A memory from a topic this repository is not linked to has to be a much
+// closer match than the gate. With no topic picked the search reaches every
+// topic, and on a prompt about the codebase in front of the agent a loosely
+// related row from another topic is mostly noise.
+const UNLINKED_FLOOR = 0.75;
+export const withoutStrangers = (rows, scope) => {
+  const own = new Set([...(scope.linked ?? []), scope.topic].filter(Boolean));
+  return own.size ? rows.filter(r => !r.topic_id || own.has(r.topic_id) || r.score >= UNLINKED_FLOOR) : rows;
+};
 const withinTime = (promise, ms, fallback) => {
   let timer;
   return Promise.race([promise, new Promise(done => { timer = setTimeout(done, ms, fallback); })])
@@ -246,6 +256,7 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
               limit: settings.per_prompt_matches, gate: settings.gate,
               boost: settings.scope_boost, exclude: already});
           } catch (error) { lookup?.fail(error); throw error; }
+          rows = withoutStrangers(rows, scope);
           lookup?.end(rows.map(r => ({id: r.id, statement: r.statement, score: r.score})),
             {metadata: {shown: rows.length, matched: rows[0]?.matched ?? 0, inScope: rows[0]?.in_scope ?? 0}});
           // Nothing relevant is a real answer, and the common one. It costs
