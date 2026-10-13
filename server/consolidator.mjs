@@ -197,7 +197,9 @@ export function buildConsolidationPrompt({topic = null, topics = [], codebase = 
       // false. Shown as a fact, not a verdict: the pass decides whether to
       // re-check, and nothing is ended for it.
       const moved = memory.commits_since >= churn ? `, repo +${memory.commits_since} commits since` : '';
-      lines.push(`  #${index + 1}  [${memory.kind}, ${scope}${seen}${when}${moved}]  ${String(memory.statement).slice(0, 300)}`);
+      // A statement may be 500 long. Cutting it shorter here made the model
+      // rewrite an extended memory from half a sentence and drop its ending.
+      lines.push(`  #${index + 1}  [${memory.kind}, ${scope}${seen}${when}${moved}]  ${String(memory.statement).slice(0, 500)}`);
     });
     lines.push('');
     // R3's comparative pressure, stated only when it is true. The block holds
