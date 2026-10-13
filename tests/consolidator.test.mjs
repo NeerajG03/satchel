@@ -27,6 +27,13 @@ const context = {turns, memories, topic: {slug: 'ledger', brief: 'Go payments le
 const change = over => ({action: 'add', target: null, statement: 'A claim.', source: 'done, entries are append only',
   kind: 'fact', topic: null, expires: null, why: 'because', ...over});
 
+test('a memory is shown whole, so an extend does not rewrite it from a cut sentence', () => {
+  const long = `${'Keep going until the work is done. '.repeat(11)}Leave migrations for manual approval.`;
+  assert.ok(long.length > 300 && long.length <= 500);
+  const {prompt} = buildConsolidationPrompt({...context, memories: [{...memories[0], statement: long}]});
+  assert.ok(prompt.includes('for manual approval.'));
+});
+
 test('the model is told what day it is, and how old each memory is', () => {
   // R7. Nothing had a temporal anchor, which is how "not in the review list
   // this time around" became a permanent memory. A relative reference cannot
