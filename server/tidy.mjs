@@ -41,8 +41,10 @@ export function buildTidyPrompt({topics = [], memories = [], instructions = INST
   lines.push('');
   lines.push('memories in personal');
   if (!memories.length) lines.push('  none');
+  // A statement may be 500 long. Cut shorter, the tail that says what the
+  // memory is about is the part the move depends on.
   memories.forEach((memory, index) =>
-    lines.push(`  #${index + 1}  [${memory.kind ?? 'fact'}]  ${String(memory.statement).slice(0, 300)}`));
+    lines.push(`  #${index + 1}  [${memory.kind ?? 'fact'}]  ${String(memory.statement).slice(0, 500)}`));
   return {system: instructions, prompt: lines.join('\n')};
 }
 
