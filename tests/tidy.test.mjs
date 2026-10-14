@@ -55,6 +55,13 @@ test('the prompt marks the topics Satchel made and numbers personal', () => {
   assert.deepEqual(Object.keys(TIDY_SCHEMA.shape).sort(), ['merges', 'moves']);
 });
 
+test('the tidy sees a memory whole, not cut at 300 characters', () => {
+  const long = `${'Keep going until the work is done. '.repeat(11)}Leave migrations for manual approval.`;
+  assert.ok(long.length > 300 && long.length <= 500);
+  const {prompt} = buildTidyPrompt({topics, memories: [{id: 'm1', kind: 'preference', statement: long}]});
+  assert.ok(prompt.includes('for manual approval.'));
+});
+
 function service({status = {all_topics: true, can_write: true}, failMove = false} = {}) {
   const calls = [];
   return {calls,
