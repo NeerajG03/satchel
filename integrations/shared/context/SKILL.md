@@ -1,6 +1,14 @@
 ---
 name: satchel-context
-description: Use Satchel for the user's saved context across conversations - personal and topic memories, tasks with their progress, handoffs and planning relationships, and the topics that scope both. Use when recalling preferences or prior decisions, when explicitly asked to save/correct/forget a memory, when listing, creating, updating, resuming or handing off a task, and when selecting, creating or linking a topic.
+description: >
+  The user's memory across sessions and apps: what they decided, prefer and are
+  working on, scoped by topic, plus their tasks. Most of it arrives on its own at
+  session start and with each message; search for the rest with retrieve_memory
+  when the user points back to an earlier decision or session, or says
+  "remember", "we decided", "last time", "what did I say about" or "like before".
+  When a Satchel row shaped your answer, mark that part with ▣. Also use to save,
+  correct or forget a memory (only when asked), to list, create, update, resume
+  or hand off a task, and to select, create or link a topic.
 ---
 
 # Satchel
