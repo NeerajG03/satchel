@@ -296,6 +296,19 @@ async function memoriesAcross(service, topics, limit = 60) {
   return [...personal, ...own.flat().filter(memory => memory.topic_id)];
 }
 
+/** The day each memory was made, merged onto the rows the pass was shown.
+ *  None of the read functions returns created_at, so it is a second read by
+ *  id (`ages` in memory-service.mjs). A row the read did not return keeps
+ *  none, and a read that fails costs the pass the dates and nothing else: the
+ *  prompt before this never had them. */
+async function withAges(service, memories) {
+  if (!service.ages || !memories.length) return memories;
+  let ages = [];
+  try { ages = await service.ages(memories.map(m => m.id)) ?? []; } catch { ages = []; }
+  const made = new Map(ages.map(row => [row.id, row.created_at]));
+  return memories.map(memory => made.has(memory.id) ? {...memory, created_at: made.get(memory.id)} : memory);
+}
+
 /** One document. Read, decide, apply, and say so.
  *
  *  Returns what it did rather than throwing, because the caller is a loop over
@@ -328,9 +341,9 @@ export async function consolidateDocument(service, consolidator, document,
       const through = turns.at(-1)?.id ?? document.consolidated_through ?? null;
       if (!turns.length) return {...counts, document: document.id, session_key: document.session_key,
         skipped: 'nothing new'};
-      const memories = document.topic_id || !topics.length
+      const memories = await withAges(service, document.topic_id || !topics.length
         ? await service.memoriesInScope(document.topic_id ?? null)
-        : await memoriesAcross(service, topics);
+        : await memoriesAcross(service, topics));
       const topic = topics.find(p => p.id === document.topic_id) ?? null;
       setInput({turns: turns.length, memories: memories.length,
         scope: topic?.slug ?? 'personal'});

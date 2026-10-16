@@ -33,7 +33,8 @@ function recorder(responses = {}) {
           const rows = responses[table] ?? [];
           // Filters are recorded and not applied: the test supplies the rows
           // a real query would return, and asserts on what was asked for.
-          const chain = {...answer(rows), limit: () => chain, eq: () => chain, not: () => chain};
+          const chain = {...answer(rows), limit: () => chain, eq: () => chain, not: () => chain,
+            in: (column, values) => { calls.select.at(-1).in = {column, values}; return chain; }};
           return chain;
         },
         // Writing the vector is an update, and it was the one call this
@@ -770,4 +771,34 @@ test('forgottenTwin finds a forgotten row in the embedder\'s space, and asks not
   assert.equal(embedded, 0, 'with no forgotten rows there is nothing to compare, so no embedding is paid for');
 
   assert.equal(await memoryService(db, null).forgottenTwin('anything'), null, 'no embedder, no comparison');
+});
+
+test('ages reads when each memory was made by id, a hundred at a time, and nothing for no ids', async () => {
+  // None of the read functions returns created_at, so the pass and the hooks
+  // read it off the table by primary key. The columns and the chunking are
+  // the contract: a pass holding 200 ids must not send one `in` list of 200.
+  const ids = Array.from({length: 250}, (_, i) => `m${i}`);
+  const db = recorder({memories: [{id: 'm1', created_at: '2026-09-21T08:00:00Z', mentions: 2}]});
+  const service = memoryService(db, embedder);
+  const rows = await service.ages(ids);
+  assert.equal(db.calls.select.length, 3, '250 ids is three reads');
+  for (const call of db.calls.select) {
+    assert.equal(call.table, 'memories');
+    assert.equal(call.columns, 'id,created_at,mentions');
+    assert.equal(call.in.column, 'id');
+    assert.ok(call.in.values.length <= 100);
+  }
+  assert.deepEqual(db.calls.select.map(c => c.in.values.length), [100, 100, 50]);
+  assert.deepEqual(db.calls.select[0].in.values.slice(0, 2), ['m0', 'm1']);
+  assert.equal(rows.length, 3, 'each chunk\'s rows come back together');
+  assert.deepEqual(rows[0], {id: 'm1', created_at: '2026-09-21T08:00:00Z', mentions: 2});
+
+  const idle = recorder({memories: [{id: 'x'}]});
+  assert.deepEqual(await memoryService(idle, embedder).ages([]), []);
+  assert.deepEqual(await memoryService(idle, embedder).ages(), []);
+  assert.equal(idle.calls.select.length, 0, 'no ids, no read');
+
+  const twice = recorder({memories: []});
+  await memoryService(twice, embedder).ages(['a', 'a', null, 'b']);
+  assert.deepEqual(twice.calls.select[0].in.values, ['a', 'b'], 'repeats and blanks are not sent');
 });

@@ -110,6 +110,7 @@ POST {idle_minutes}   start_consolidation_job, or show the one already running
     for each, while inside this call's four minutes and the job's 30:
     document_content(after consolidated_through)   only turns not yet read
     memories_in_scope(topic)                     topic + personal, integer labels
+    memories.created_at by id (service.ages)     the day each was made; a failed read costs the dates only
     consolidator.consolidate()                     one call, gemini-3.8-flash, thinking medium
     validate()                                     source must be in the user's words
     apply: capture_memory | extend_memory | end_memory | affirm_memory
@@ -144,7 +145,7 @@ Tools: `list_topics`, `upsert_topic`, `select_topic`, `memory_index`, `retrieve_
 
 **`server/router.mjs`** is the per-turn capture model, used only in `turn` mode. `buildPrompt` assembles the window; `validate` drops anything that does not hold up; `createRouter` handles the call. `asModelError` lives here and is shared with the pass: it turns an SDK failure into a `RouterError` with a plain-words `reason`, and keeps the HTTP `status` so the fallback can tell a 5xx from a 4xx.
 
-**`server/consolidator.mjs`** is the pass's model call: it relabels memories as integers, builds the prompt with both the observation date and today's date, calls the model with a structured schema, and `validate()` maps labels back and drops anything whose source is not in the user's words, whose label does not exist, which touches a memory a second time in one run, or which retires something that is not an `intent`. A validator that refuses to let a completion retire a fact is the guard the prompt cannot be trusted to be.
+**`server/consolidator.mjs`** is the pass's model call: it relabels memories as integers, builds the prompt with both the observation date and today's date and, on each memory line, the day the row was made next to how often and how recently it was said, calls the model with a structured schema, and `validate()` maps labels back and drops anything whose source is not in the user's words, whose label does not exist, which touches a memory a second time in one run, or which retires something that is not an `intent`. A validator that refuses to let a completion retire a fact is the guard the prompt cannot be trusted to be.
 
 **`server/consolidation.mjs`** applies it. `consolidateDocument` for one document, `consolidateStep` for one call's share of a job, `consolidatePending` for a plain batch with a clock, which nothing in production calls any more. It returns what it did rather than throwing, because one document failing must not end the others.
 
