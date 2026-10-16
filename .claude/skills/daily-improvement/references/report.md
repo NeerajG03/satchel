@@ -37,6 +37,8 @@ Blind changes you judged over-reach, in one line each, so tomorrow's reviewer do
 
 Existing memories the conversation affirmed, extended, contradicted or finished, that the pass left alone.
 
+Said again: <n> affirms on <n> rules at 2+ · complaint <n> · up-front <n> · top <handle> x<n>, in block <n> of <n>
+
 ## Topics
 
 From `topics.md`. One line each, with a verdict.

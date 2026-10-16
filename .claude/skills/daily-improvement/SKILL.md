@@ -50,6 +50,7 @@ It picks up where the last review stopped (`~/satchel-daily/state.json`), or the
 
 ```bash
 node $SKILL/scripts/topics.mjs F
+node $SKILL/scripts/said-again.mjs F
 ```
 
 It holds:
@@ -65,6 +66,7 @@ It holds:
 | `F/pipeline/<name>.md` | what the pass did: what landed, the job's report entry, the Langfuse trace, the raw answer |
 | `F/pipeline/<name>.prompt.txt` | the exact prompt the model was sent |
 | `F/topics.md`, `F/topics.json` | every topic with its memories, tasks and repositories; the topics made, the memories moved and the merges in the window, each with its reason; what personal holds now; thin topics and name overlaps to judge |
+| `F/said-again.md` | the last four weeks of affirms, per rule per week, read off the run prompts and responses: handle, statement, affirms, mentions now, how many landed while the rule was already in that session's start block, and under each rule one line per affirm with its source and an empty `mark:` for the reviewer to fill with `complaint` or `up-front`; plus the runs whose `affirmed` count the response does not explain |
 
 If it says nothing ran, write a three-line report (the window, the sessions waiting now that it prints, and "no run to review"), add the log entry and mark it (step 9), and stop. A second review on the same day always lands here, because the first one marked the window.
 
@@ -113,6 +115,7 @@ Every review answers all of these with numbers, even when the answer is "fine":
    - **Merged.** Each merge: really one subject? A merge someone undid is a wrong merge, and the strongest evidence there is.
    - **Sprawl.** Thin topics and name overlaps from the signals table: one subject under two names, or two real subjects? A topic made by Satchel that never got a second memory was usually named too narrowly.
    - **Enhancements.** Anything the topics could do better that is not a miss: a brief that no longer says what the topic holds, a topic that has grown into two subjects, a repository that clearly belongs to a topic but is not linked. These are TODOs for the person or for the code, never writes by the review.
+10. **Following.** From `F/said-again.md`: affirms per rule this week, complaint share, falling or not. Read each affirm's source and fill its `mark:` with `complaint` (the person corrected the agent after it answered) or `up-front` (the person stated the rule by habit before any answer), then re-run the script so the headline counts them. A rule affirmed while it was already in the start block, and marked `complaint`, is the agent not following a rule it was shown; that is the only following signal there is (D42). The up-front share may stay flat, that is habit. Compare with last week's headline in the previous report.
 
 ### 6. Find the cause
 
