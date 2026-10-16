@@ -240,7 +240,7 @@ test('a prompt is retrieved against and recorded, and the reply is captured', as
       sent.push({path: req.url, auth: req.headers.authorization, body: JSON.parse(body)});
       res.writeHead(200, {'content-type': 'application/json'});
       res.end(JSON.stringify(req.url === '/api/hook-retrieve'
-        ? {context: '\u25ea retrieved \u00b7 1 shown \u00b7 4 matched \u00b7 30 in scope\n  abc123  Do not bump Go.',
+        ? {context: '\u25a3 retrieved \u00b7 1 shown \u00b7 4 matched \u00b7 30 in scope\n  abc123  Do not bump Go.',
            notice: 'Satchel recalled 1 of 4 matching'}
         : {captured: 1, notice: 'Satchel noted 1 thing you said \u00b7 unconfirmed'}));
     });

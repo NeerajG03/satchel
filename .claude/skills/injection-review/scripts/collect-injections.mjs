@@ -95,7 +95,8 @@ const idsIn = text => [...String(text).matchAll(/^\s{2}([0-9a-f]{6})\s/gm)]
 
 const textOf = content => typeof content === 'string' ? content
   : Array.isArray(content) ? content.filter(x => x?.type === 'text').map(x => x.text).join('\n') : '';
-const MARK = /<satchel>|◪ retrieved|Satchel memory/;
+// ◪ is the mark the block carried until 16 October and old sessions still hold.
+const MARK = /<satchel>|[▣◪] retrieved|Satchel memory/;
 // Written into the transcript by the host and never sent to the prompt hook.
 const NOT_A_PROMPT = /^\s*\[Request interrupted by user/;
 // The person typed it, but into the shell, not to the agent.

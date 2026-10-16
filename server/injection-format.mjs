@@ -85,7 +85,7 @@ export function draftMarker(row, now = new Date()) {
  *  silently truncated top-5 causes. */
 export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25, slugs = {}, now = new Date()} = {}) {
   if (!rows.length) return '';
-  const lines = [`◪ retrieved · ${rows.length} shown · ${matched} matched · ${inScope} in scope`];
+  const lines = [`▣ retrieved · ${rows.length} shown · ${matched} matched · ${inScope} in scope`];
   const whereOf = row => (row.topic_id ? slugs[row.topic_id] ?? 'topic' : 'personal');
   // A `[task closed, may be fixed]` hint used to hang off rows whose task had
   // been completed. It was the only thing the memory-to-task link ever
