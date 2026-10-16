@@ -6,7 +6,7 @@
 // and says what should move and what should merge. The database does the
 // moving, inside the same grant every other write goes through.
 import {z} from 'zod';
-import {askModel, nearSlug} from './consolidator.mjs';
+import {askModel, nearSlug, STATEMENT_LIMIT} from './consolidator.mjs';
 import {asBaseUrl} from './model-provider.mjs';
 import {asModelError} from './router.mjs';
 import {tidyPrompt, localTextFor, TIDY_PROMPT} from './prompt-store.mjs';
@@ -44,7 +44,7 @@ export function buildTidyPrompt({topics = [], memories = [], instructions = INST
   // A statement may be 500 long. Cut shorter, the tail that says what the
   // memory is about is the part the move depends on.
   memories.forEach((memory, index) =>
-    lines.push(`  #${index + 1}  [${memory.kind ?? 'fact'}]  ${String(memory.statement).slice(0, 500)}`));
+    lines.push(`  #${index + 1}  [${memory.kind ?? 'fact'}]  ${String(memory.statement).slice(0, STATEMENT_LIMIT)}`));
   return {system: instructions, prompt: lines.join('\n')};
 }
 
