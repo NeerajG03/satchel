@@ -171,6 +171,24 @@ test('the stand-in serves what existed at the moment, not today', async () => {
   assert.ok((await service.search({query: 'x', gate: 0.9, limit: 5})).some(r => r.id === E));
 });
 
+test('the twin serves ages from the snapshot, so the labels read as they would in production', async () => {
+  const service = replayService({snapshot: dated, vectors: {...vectors, [E]: unit(1, 0.2)}, queryVector: async () => unit(1, 0.2)});
+  assert.deepEqual(await service.ages([A, E, 'nobody']), [
+    {id: A, created_at: '2026-10-01', mentions: 2}, {id: E, created_at: '2026-10-08T00:00:00.000Z', mentions: 1}]);
+  assert.deepEqual(await service.ages([]), []);
+  // Through the real hooks: a heard topic row made two days before the prompt
+  // is a draft on that day, and nothing of the kind a month later.
+  const scoped = {...dated, settings: {...dated.settings, gate: 0.5}};
+  const young = replayService({snapshot: scoped, vectors, queryVector: async () => unit(1, 0.25)});
+  young.state.at = '2026-10-03T00:00:00.000Z';
+  const then = await retrieve(young, {sessionKey: 's', prompt: 'topic two', repository: 'acme/none', now: () => new Date('2026-10-03T00:00:00.000Z')});
+  assert.match(then.context, /\(two, picked up\) {2}topic two fact\n {10}\[picked up 2 days ago, said once/);
+  const old = replayService({snapshot: scoped, vectors, queryVector: async () => unit(1, 0.25)});
+  const later = await retrieve(old, {sessionKey: 's', prompt: 'topic two', repository: 'acme/none', now: () => new Date('2026-11-01T00:00:00.000Z')});
+  assert.match(later.context, /\(two, picked up\) {2}topic two fact/);
+  assert.doesNotMatch(later.context, /not confirmed since/);
+});
+
 test('gold needs that did not exist yet are dropped, and a prompt left with none is unlabelled', () => {
   const ts = '2026-10-03T00:00:00.000Z';
   const g = asOf({must: [B, E], helps: [D], traps: [C], topic: T1}, ts, byId);

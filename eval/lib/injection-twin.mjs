@@ -97,6 +97,14 @@ export function replayService({snapshot, vectors, queryVector, at = snapshot.tak
     topics: async () => topics,
     personal: async () => personal(snapshot.memories, state.at),
     index: async topicId => ({memories: snapshot.memories.filter(m => m.topic_id === topicId && live(m, state.at))}),
+    // The second read the labels need. `search` above maps to production's
+    // columns and so drops created_at and mentions, exactly as search_memories
+    // does; this is where the real service gets them back too.
+    ages: async (ids = []) => {
+      const wanted = new Set(ids);
+      return snapshot.memories.filter(m => wanted.has(m.id))
+        .map(m => ({id: m.id, created_at: m.created_at ?? null, mentions: m.mentions ?? 1}));
+    },
     search: async args => search(snapshot.memories, vectors, await queryVector(args.query), {...args, at: state.at}),
     recordTurn: async () => {},
     logInjection: entry => { log.push(entry); },

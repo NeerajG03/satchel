@@ -149,7 +149,9 @@ for (const s of sessions) {
       if (resets.has(e.how)) { front = new Set(); shipFront = new Set(); pending = []; shipPending = []; resetBefore = true; }
       if (plugin?.RESETS.has(e.how)) sent = [];
       const mark = service.log.length;
-      await sessionStart(service, {sessionKey: s.session, repository: s.repository});
+      // The block's own clock is the prompt's time, so a row's age reads as it
+      // did that day and not as it does on the day of the run.
+      await sessionStart(service, {sessionKey: s.session, repository: s.repository, now: () => new Date(e.ts)});
       for (const entry of service.log.slice(mark)) for (const id of entry.memory_ids) { front.add(id); pending.push(id); }
       for (const id of e.loaded ?? []) { shipFront.add(id); shipPending.push(id); }
       shipActive = e.active ?? shipActive;
@@ -163,7 +165,7 @@ for (const s of sessions) {
       const mark = service.log.length;
       const prompt = asSent(e.text);
       const out = prompt
-        ? await retrieve(service, {sessionKey: s.session, prompt, repository: s.repository, exclude: sent})
+        ? await retrieve(service, {sessionKey: s.session, prompt, repository: s.repository, exclude: sent, now: () => new Date(e.ts)})
         : {context: ''};
       const shown = service.log.slice(mark).flatMap(entry => entry.memory_ids);
       if (plugin) sent = plugin.remember(sent, out.shown ?? shown);
