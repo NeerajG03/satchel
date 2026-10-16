@@ -46,7 +46,9 @@ const description='Personal and topic memory, tasks and topics across your agent
 // and asks the agent to mark an answer a retrieved row shaped with ▣.
 // 0.5.5 puts when to search into the shipped skill's description, the one
 // part of a skill the agent always sees, in the shape of a trigger list.
-const versions={claude:'0.5.5',codex:'0.5.5'};
+// 0.5.6 drops a session-start line that sent the agent to read_memory for
+// detail, left over from when the block held only names.
+const versions={claude:'0.5.6',codex:'0.5.6'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
