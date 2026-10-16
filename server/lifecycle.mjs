@@ -18,7 +18,7 @@
 // `{…, hook_event_name:"UserPromptSubmit", prompt, session_title}`, which the
 // binary settles and no amount of reading the docs did. Nothing about this
 // needs the transcript, which is why capture does not read one.
-import {sessionStartBlock, personalLoad, topicLoad, promptBlock, estimateTokens, noticeFor} from './injection-format.mjs';
+import {sessionStartBlock, personalLoad, topicLoad, unionLoad, promptBlock, estimateTokens, noticeFor} from './injection-format.mjs';
 import {classifyPrompt, machineTurnNote} from './machine-prompt.mjs';
 import {errorText} from './error-text.mjs';
 
@@ -30,6 +30,12 @@ const TOPIC_BLOCK = 15;
 // How long a prompt waits for the active topic's rows before skipping nothing
 // extra. The hook gives up at 8 seconds.
 const TOPIC_SKIP_MS = 1500;
+
+// How long session start waits for the rules of several candidate topics.
+// Longer than the prompt-time bound because this hook has more room (it gives
+// up at 6 seconds) and a block with no rules is the thing being fixed; still
+// well inside it, because index() alone may wait 8 on a cold function.
+const UNION_LOAD_MS = 2500;
 
 // A memory from a topic this repository is not linked to has to be a much
 // closer match than the gate. With no topic picked the search reaches every
@@ -108,14 +114,31 @@ export async function resolveScope(service, {sessionKey, repository}) {
   return {topic: selected?.topic_id ?? null, linked, candidates: selected ? [] : rows};
 }
 
+/** The preferences of several candidate topics, when the repository names
+ *  more than one and nothing picked between them. One index() per topic, in
+ *  parallel, so the cost is the slowest call and not the sum; each failure
+ *  caught to nothing, since index() refuses a topic this connection was not
+ *  granted and the others must still load; the whole thing under one bound,
+ *  because a block without rules is better than a hook that is late. Only
+ *  rows that are that topic's own and are preferences: facts wait for a
+ *  pick (D40). */
+async function unionRules(service, ids, ms) {
+  if (ids.length < 2 || typeof service.index !== 'function') return [];
+  const one = id => Promise.resolve().then(() => service.index(id))
+    .then(out => (out?.memories ?? []).filter(r => r.topic_id === id && r.kind === 'preference'), () => []);
+  return withinTime(Promise.all(ids.map(one)).then(parts => parts.flat()), ms, []);
+}
+
 /** What the agent is told when its workspace could be either of two topics.
  *  Named by slug, chosen by topic_id, because the id is what select_topic
- *  takes and a slug it had to look up is a second place to go wrong. */
-const chooseTopicLine = candidates => candidates.length < 2 ? ''
+ *  takes and a slug it had to look up is a second place to go wrong. Says
+ *  whether the rules block above it loaded, so a timed-out load never leaves
+ *  the line claiming rules that are not there. */
+const chooseTopicLine = (candidates, rules = 0) => candidates.length < 2 ? ''
   : `\nThis workspace's repository belongs to ${candidates.length} topics: `
     + candidates.map(c => `${c.slug} (${c.topic_id})`).join(', ')
-    + `. Nothing is scoped to a topic until you call select_topic with one of those topic_id values.`
-    + ` Do not guess, and do not treat memory as topic-scoped before then.`;
+    + (rules ? `. Their rules are loaded above; their facts are not.` : `. No topic rules are loaded, and nothing is scoped to a topic.`)
+    + ` Call select_topic with one of those topic_id values when the work is clearly in one, so its ${rules ? 'facts' : 'memories'} come into scope. Do not guess.`;
 
 /** Session start, after compaction, and after a clear.
  *
@@ -138,7 +161,7 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
         const scope = topic !== undefined ? {topic, linked: [], candidates: []}
           : await resolveScope(service, {sessionKey, repository});
         active = scope.topic;
-        const [topics, personal, own] = await Promise.all([
+        const [topics, personal, own, union] = await Promise.all([
           // all_topics is its own scope: a blanket grant keeps no list, so
           // checking topic_ids alone would load nothing for the connection
           // that was given everything.
@@ -154,21 +177,30 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
           active && service.index
             ? service.index(active).then(out => (out?.memories ?? []).filter(r => r.topic_id === active), () => [])
             : [],
+          // Or, with several candidates and nothing picked, the rules of all
+          // of them. The repository said which topics; the pick says which
+          // facts, and that has not happened yet.
+          !active && (scope.candidates?.length ?? 0) > 1
+            ? unionRules(service, scope.candidates.map(c => c.topic_id), UNION_LOAD_MS)
+            : [],
         ]);
         const here = topics.find(p => p.id === active) ?? null;
+        const candidates = active ? [] : scope.candidates ?? [];
         // Only the picked-up topic rows said once can be drafts, so only they
         // are asked about: the block's own cut of them, so a row past the cap
         // is not read for a line that will never print.
-        const firstCut = here ? topicLoad(own, TOPIC_BLOCK) : {said: [], heard: []};
-        const dated = await withAges(service, own, firstCut.heard.filter(m => (m.mentions ?? 1) === 1).map(m => m.id));
+        const firstCut = here ? topicLoad(own, TOPIC_BLOCK) : unionLoad(union, TOPIC_BLOCK);
+        const datedAll = await withAges(service, [...own, ...union], firstCut.heard.filter(m => (m.mentions ?? 1) === 1).map(m => m.id));
+        const dated = datedAll.slice(0, own.length), unionDated = datedAll.slice(own.length);
         const block = sessionStartBlock({topics, personal, linked: scope.linked ?? [],
-          cap: settings.block_size, topic: here, topicMemories: dated, topicCap: TOPIC_BLOCK, now: now()});
+          cap: settings.block_size, topic: here, topicMemories: dated, topicCap: TOPIC_BLOCK,
+          candidates, unionMemories: unionDated, now: now()});
         const tokens = estimateTokens(block);
         // What the block actually injects, which is not all of it once the
         // cap is reached. The log has to say what reached the model, not what
         // was fetched, or "why did it not know that" stops being answerable.
         const load = personalLoad(personal, settings.block_size);
-        const ownLoad = here ? topicLoad(dated, TOPIC_BLOCK) : {said: [], heard: []};
+        const ownLoad = here ? topicLoad(dated, TOPIC_BLOCK) : unionLoad(unionDated, TOPIC_BLOCK);
         const loaded = [...load.said, ...load.heard, ...ownLoad.said, ...ownLoad.heard];
         notice = noticeFor('SessionStart', {topics: topics.length,
           personal: load.said.length + load.heard.length,
@@ -186,7 +218,7 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
             in_scope: loaded.length, tokens};
         }
         if (active) context += `\nactive topic: ${active}`;
-        else context += chooseTopicLine(scope.candidates);
+        else context += chooseTopicLine(candidates, block ? ownLoad.said.length + ownLoad.heard.length : 0);
       } catch (error) {
         context = 'Satchel memory unavailable. ' + errorText(error) + ' Do not claim that memory loaded.';
         notice = noticeFor(event, {error: errorText(error)});
@@ -265,12 +297,17 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
             // failure only means nothing extra is skipped.
             // Bounded well inside the hook's own timeout: a slow list costs a
             // repeat, never the whole prompt's memory.
-            scoped.then(({topic: active}) => active && service.index ? withinTime(
+            // With several candidates and no pick, the rules of all of them
+            // loaded instead, through the same cut, so block and skip list
+            // cannot disagree about which rows are already in front.
+            scoped.then(({topic: active, candidates = []}) => active && service.index ? withinTime(
               service.index(active).then(out => (out?.memories ?? []).filter(r => r.topic_id === active)),
-              TOPIC_SKIP_MS, []) : []).catch(() => []),
+              TOPIC_SKIP_MS, [])
+              : candidates.length > 1 ? unionRules(service, candidates.map(c => c.topic_id), TOPIC_SKIP_MS)
+              : []).catch(() => []),
           ]);
           const load = personalLoad(personal, settings.block_size);
-          const ownLoad = topicLoad(own, TOPIC_BLOCK);
+          const ownLoad = scope.topic ? topicLoad(own, TOPIC_BLOCK) : unionLoad(own, TOPIC_BLOCK);
           const already = [...new Set([...exclude, ...load.said.map(m => m.id), ...load.heard.map(m => m.id),
             ...ownLoad.said.map(m => m.id), ...ownLoad.heard.map(m => m.id)])];
           const lookup = retrieval?.('retrieve-memory', {input: query,

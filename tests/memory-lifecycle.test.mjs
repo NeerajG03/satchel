@@ -812,21 +812,95 @@ test('an ages that throws, hangs or is missing still injects, without a label', 
   assert.deepEqual(logged[0].memory_ids, [row.id], 'the log is ids only, label or no label');
 });
 
-test('with two candidate topics no topic block loads', async () => {
-  let asked = false;
-  const result = await sessionStart({
-    ...scopeStubs,
-    status: async () => connected,
-    settings: async () => baseSettings,
-    resolveRepository: async () => [
-      {topic_id: 'p1', slug: 'a', name: 'A', brief: '', selected: false},
-      {topic_id: 'p2', slug: 'b', name: 'B', brief: '', selected: false}],
-    topics: async () => [{id: 'p1', slug: 'a', brief: ''}, {id: 'p2', slug: 'b', brief: ''}],
-    personal: async () => [],
-    index: async () => { asked = true; return {memories: [], complete: true}; },
-  }, {sessionKey: 's', repository: 'acme/mono'});
-  assert.equal(asked, false, 'nothing is scoped, so nothing topic-scoped loads');
-  assert.doesNotMatch(result.context, /applies to work in this codebase/);
+// A repository in several topics selects none of them, and for a while that
+// meant no topic rules loaded there at all: 741 of 1,302 labelled prompts on
+// the 16 October retro. The rules of every candidate load as one block now,
+// each row naming its topic; facts still wait for a pick (D40).
+
+const monoRepo = (byTopic, extra = {}) => ({
+  ...scopeStubs,
+  status: async () => connected,
+  settings: async () => baseSettings,
+  resolveRepository: async () => Object.keys(byTopic).map(id => ({topic_id: id, slug: `slug-${id}`, name: id, brief: '', selected: false})),
+  topics: async () => Object.keys(byTopic).map(id => ({id, slug: `slug-${id}`, brief: ''})),
+  personal: async () => [],
+  index: async id => ({memories: byTopic[id], complete: true}),
+  ...extra,
+});
+const rule = (id, topic, band = 'said', mentions = 1, more = {}) =>
+  ({id, topic_id: topic, kind: 'preference', band, mentions, statement: `Rule ${handleOfTest(id)}.`, ...more});
+const handleOfTest = id => String(id).replace(/-/g, '').slice(0, 6);
+
+test('with two candidate topics the rules of both load, labelled by topic, and their facts do not', async () => {
+  const asked = [];
+  const logged = [];
+  const result = await sessionStart(monoRepo({
+    p1: [rule('a1000000-0000-4000-8000-000000000001', 'p1'),
+      {id: 'a2000000-0000-4000-8000-000000000002', topic_id: 'p1', kind: 'fact', band: 'said', mentions: 4, statement: 'A fact in p1.'}],
+    p2: [rule('b1000000-0000-4000-8000-000000000001', 'p2', 'heard', 1, {created_at: '2026-10-15T08:00:00Z'}),
+      {id: 'b2000000-0000-4000-8000-000000000002', topic_id: 'p2', kind: 'intent', band: 'said', mentions: 1, statement: 'An intent in p2.'}],
+  }, {index: async id => { asked.push(id); return {memories: id === 'p1'
+    ? [rule('a1000000-0000-4000-8000-000000000001', 'p1'), {id: 'a2000000-0000-4000-8000-000000000002', topic_id: 'p1', kind: 'fact', band: 'said', mentions: 4, statement: 'A fact in p1.'}]
+    : [rule('b1000000-0000-4000-8000-000000000001', 'p2', 'heard', 1, {created_at: '2026-10-15T08:00:00Z'}), {id: 'b2000000-0000-4000-8000-000000000002', topic_id: 'p2', kind: 'intent', band: 'said', mentions: 1, statement: 'An intent in p2.'}]}; },
+    logInjection: async e => { logged.push(e); }}),
+  {sessionKey: 's', repository: 'acme/mono', now: () => new Date('2026-10-16T12:00:00Z')});
+  assert.equal(result.active_topic, null, 'nothing is picked');
+  assert.deepEqual(asked.sort(), ['p1', 'p2'], 'every candidate is asked');
+  assert.match(result.context, /rules from the 2 topics in this codebase, confirmed, apply to work here\n {2}a10000 {2}\(slug-p1\) {2}Rule a10000\./);
+  assert.match(result.context, /rules from the 2 topics in this codebase, picked up from what you said, use unless told otherwise\n {2}b10000 {2}\(slug-p2\) {2}Rule b10000\.\n {10}\[picked up 1 day ago, said once/,
+    'a picked-up rule is labelled by topic, not again as picked up, and a young one is a draft');
+  assert.doesNotMatch(result.context, /A fact in p1|An intent in p2/, 'facts and intents wait for a pick');
+  assert.doesNotMatch(result.context, /applies to work in this codebase/, 'no single-topic block');
+  assert.match(result.context, /belongs to 2 topics: slug-p1 \(p1\), slug-p2 \(p2\)\. Their rules are loaded above; their facts are not\. Call select_topic/);
+  assert.doesNotMatch(result.context, /active topic:/);
+  assert.deepEqual(new Set(logged[0].memory_ids), new Set(['a1000000-0000-4000-8000-000000000001', 'b1000000-0000-4000-8000-000000000001']), 'the log names the union rows');
+  assert.match(result.notice, /2 topic memories/);
+});
+
+test('the union is capped at 15 across topics, confirmed first', async () => {
+  const many = Array.from({length: 12}, (_, i) => rule(`c${i.toString(16)}000000-0000-4000-8000-00000000000${i % 10}`, 'p1', i < 10 ? 'said' : 'heard', 12 - i));
+  const other = Array.from({length: 8}, (_, i) => rule(`d${i}000000-0000-4000-8000-00000000000${i}`, 'p2', i < 4 ? 'said' : 'heard', 20 - i));
+  // p1: 10 confirmed (said 12 down to 3) and 2 picked up; p2: 4 confirmed
+  // (said 20 down to 17) and 4 picked up (16 down to 13). 20 rules, 14 confirmed.
+  const result = await sessionStart(monoRepo({p1: many, p2: other}), {sessionKey: 's', repository: 'acme/mono'});
+  const handles = result.context.split('\n').map(l => l.match(/^ {2}([cd][0-9a-f]{5}) {2}\(slug-/)?.[1]).filter(Boolean);
+  assert.equal(handles.length, 15, 'fifteen across both topics');
+  const expected = [...Array.from({length: 10}, (_, i) => `c${i}0000`), 'd00000', 'd10000', 'd20000', 'd30000', 'd40000'];
+  assert.deepEqual(new Set(handles), new Set(expected), 'every confirmed rule, then the most said picked-up one');
+  assert.equal(handles[0], 'd00000', 'most said first, across topics');
+  assert.match(result.context, /d00000 {2}\(slug-p2, said 20 times\)/);
+  assert.match(result.context, /picked up from what you said, use unless told otherwise\n {2}d40000 {2}\(slug-p2, said 16 times\)/, 'the one picked-up rule that fit');
+  assert.match(result.context, /5 more topic rules not loaded, search satchel for them/);
+});
+
+test('a topic index() refuses does not take the rules block down', async () => {
+  const result = await sessionStart(monoRepo({p1: [rule('a1000000-0000-4000-8000-000000000001', 'p1')], p2: []},
+    {index: async id => { if (id === 'p2') throw {code: '42501'}; return {memories: [rule('a1000000-0000-4000-8000-000000000001', 'p1')], complete: true}; }}),
+  {sessionKey: 's', repository: 'acme/mono'});
+  assert.match(result.context, /a10000 {2}\(slug-p1\) {2}Rule a10000\./, 'the granted topic\'s rules still load');
+  assert.match(result.context, /Their rules are loaded above/);
+});
+
+test('retrieve skips the union rows session start loaded', async () => {
+  const searched = [];
+  const service = monoRepo({
+    p1: [rule('a1000000-0000-4000-8000-000000000001', 'p1'), {id: 'a2000000-0000-4000-8000-000000000002', topic_id: 'p1', kind: 'fact', band: 'said', mentions: 1, statement: 'A fact.'}],
+    p2: [rule('b1000000-0000-4000-8000-000000000001', 'p2')],
+  }, {recordTurn: async () => {}, search: async args => { searched.push(args); return []; }});
+  await retrieve(service, {sessionKey: 's', prompt: 'how do we do things here', repository: 'acme/mono'});
+  assert.deepEqual(new Set(searched[0].exclude), new Set(['a1000000-0000-4000-8000-000000000001', 'b1000000-0000-4000-8000-000000000001']),
+    'the rules of both topics are skipped; the fact was never loaded, so it can still be found');
+  assert.equal(searched[0].in_scope, null, 'and the search is still unscoped');
+});
+
+test('a slow union load gives no rules and no false claim', async () => {
+  const started = Date.now();
+  const result = await sessionStart(monoRepo({p1: [], p2: []}, {index: () => new Promise(() => {})}), {sessionKey: 's', repository: 'acme/mono'});
+  assert.ok(Date.now() - started < 5000, 'given up on, not waited for');
+  assert.doesNotMatch(result.context, /rules from the 2 topics/);
+  assert.doesNotMatch(result.context, /loaded above/, 'the line does not claim rules that are not there');
+  assert.match(result.context, /belongs to 2 topics[^\n]*No topic rules are loaded, and nothing is scoped to a topic\. Call select_topic/);
+  assert.equal(result.active_topic, null);
 });
 
 test('forgottenTwin finds a forgotten row in the embedder\'s space, and asks nothing when there are none', async () => {

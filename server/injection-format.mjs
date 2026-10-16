@@ -43,12 +43,10 @@ const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
  *  says both the scope and the band, so the start block passes no `where` and
  *  only the count prints. An empty label prints nothing at all, so a start
  *  block row said once looks exactly as it did before the count existed. */
-export function rowLabel(row, {where = null} = {}) {
+export function rowLabel(row, {where = null, band = Boolean(where)} = {}) {
   const parts = [];
-  if (where) {
-    parts.push(where);
-    if (row.band === 'heard') parts.push('picked up');
-  }
+  if (where) parts.push(where);
+  if (band && row.band === 'heard') parts.push('picked up');
   if ((row.mentions ?? 1) >= 2) parts.push(`said ${row.mentions} times`);
   return parts.length ? `(${parts.join(', ')})` : '';
 }
@@ -151,9 +149,32 @@ export function topicLoad(memories = [], cap = 15) {
   return {said, heard, past: memories.length - said.length - heard.length};
 }
 
+/** Which rules load when the workspace's repository names several topics.
+ *
+ *  A repository in several topics selects none of them (D29), and for a
+ *  while that meant nothing topic-scoped loaded there at all. On the 16
+ *  October retro 741 of 1,302 labelled prompts ran in such a repository, and
+ *  what they lost was the rules: a fact is reached by search when a prompt
+ *  mentions it, a rule about how work is done here never is. So the
+ *  preferences of every candidate topic load as one block, each row naming
+ *  its topic, and facts wait for a pick. One cap across all of them, so four
+ *  busy topics cannot turn the start block into a manual: confirmed before
+ *  picked up, then most said, then newest. */
+export function unionLoad(memories = [], cap = 15) {
+  const room = Math.max(0, cap);
+  const rules = memories.filter(m => m.kind === 'preference');
+  const ordered = [...rules].sort((a, b) => (a.band === 'heard') - (b.band === 'heard')
+    || (b.mentions ?? 1) - (a.mentions ?? 1)
+    || String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? '')));
+  const kept = ordered.slice(0, room);
+  return {said: kept.filter(m => m.band !== 'heard'), heard: kept.filter(m => m.band === 'heard'), past: rules.length - kept.length};
+}
+
 /** Session start. What applies no matter what you do today: the topics
  *  that exist, every personal memory up to the cap, and, when the workspace
  *  is one topic, that topic's own rules under a smaller cap of their own.
+ *  When it is several topics, the rules of all of them instead, under the
+ *  same cap, each row naming its topic.
  *
  *  `linked` is the topics this workspace's repository belongs to. When it is
  *  known, the others are counted rather than listed. A flat list of every
@@ -166,10 +187,12 @@ export function topicLoad(memories = [], cap = 15) {
  *  With nothing linked, which is every non-Git and unlinked workspace, there is
  *  nothing to filter by and the full list is the honest answer. */
 export function sessionStartBlock({topics = [], personal = [], linked = [], cap = 30,
-  topic = null, topicMemories = [], topicCap = 15, now = new Date()} = {}) {
+  topic = null, topicMemories = [], topicCap = 15, candidates = [], unionMemories = [], now = new Date()} = {}) {
   const lines = [];
-  // The header says the scope and the band, so the row carries only its count.
-  const rowLine = memory => '  ' + [handleOf(memory.id), rowLabel(memory), clip(memory.statement, 300)].filter(Boolean).join('  ');
+  // The header says the scope and the band, so the row carries only its count,
+  // or, in the rules block that spans several topics, its topic and its count.
+  const rowLine = (memory, where = null) =>
+    '  ' + [handleOf(memory.id), rowLabel(memory, {where, band: false}), clip(memory.statement, 300)].filter(Boolean).join('  ');
   const ids = new Set(linked);
   const here = ids.size ? topics.filter(p => ids.has(p.id)) : topics;
   const elsewhere = ids.size ? topics.length - here.length : 0;
@@ -228,6 +251,29 @@ export function sessionStartBlock({topics = [], personal = [], linked = [], cap 
       }
     }
     if (own.past) lines.push(`  ${plural(own.past, 'more topic memory', 'more topic memories')} not loaded, search satchel for them`);
+  }
+  // Several candidate topics and no pick: the rules of all of them, each row
+  // naming its topic so the agent can tie it to the list above. Facts stay
+  // out until select_topic says which topic the work is in.
+  if (!topic && candidates.length > 1) {
+    const slugOf = new Map([...topics.map(p => [p.id, p.slug ?? p.name]), ...candidates.map(c => [c.topic_id, c.slug ?? c.name])]);
+    const all = unionLoad(unionMemories, topicCap);
+    const from = `rules from the ${candidates.length} topics in this codebase`;
+    if (all.said.length) {
+      if (lines.length) lines.push('');
+      lines.push(`${from}, confirmed, apply to work here`);
+      for (const memory of all.said) lines.push(rowLine(memory, slugOf.get(memory.topic_id) ?? 'topic'));
+    }
+    if (all.heard.length) {
+      if (lines.length) lines.push('');
+      lines.push(`${from}, picked up from what you said, use unless told otherwise`);
+      for (const memory of all.heard) {
+        lines.push(rowLine(memory, slugOf.get(memory.topic_id) ?? 'topic'));
+        const draft = draftMarker(memory, now);
+        if (draft) lines.push(draft);
+      }
+    }
+    if (all.past) lines.push(`  ${plural(all.past, 'more topic rule')} not loaded, search satchel for them`);
   }
   if (!lines.length) return '';
   lines.push('');

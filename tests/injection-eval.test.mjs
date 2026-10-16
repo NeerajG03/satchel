@@ -66,6 +66,21 @@ test('the real hooks run on the stand-in service: one linked topic scopes, two d
   assert.match(unscoped.context, /select_topic/);
 });
 
+test('a two-topic start logs a preference from each topic, with active_topic still null', async () => {
+  const P1 = '00000000-0000-4000-8000-0000000000f1', P2 = '00000000-0000-4000-8000-0000000000f2';
+  const ruled = {...snapshot, memories: [...memories,
+    {id: P1, topic_id: T1, statement: 'rule of one', band: 'said', kind: 'preference', mentions: 2, created_at: '2026-10-01'},
+    {id: P2, topic_id: T2, statement: 'rule of two', band: 'heard', kind: 'preference', mentions: 1, created_at: '2026-10-01'}]};
+  const service = replayService({snapshot: ruled, vectors, queryVector: async () => unit(1, 0.2)});
+  const start = await sessionStart(service, {sessionKey: 's', repository: 'acme/both'});
+  assert.equal(start.active_topic, null);
+  assert.deepEqual(service.log[0].memory_ids.sort(), [A, P1, P2].sort(), 'the personal row and one rule from each topic');
+  assert.match(start.context, /confirmed, apply to work here\n {2}\w{6} {2}\(one, said 2 times\) {2}rule of one/);
+  assert.match(start.context, /use unless told otherwise\n {2}\w{6} {2}\(two\) {2}rule of two/);
+  assert.doesNotMatch(start.context, /topic one fact|topic two fact/, 'facts wait for a pick');
+  assert.match(start.context, /Their rules are loaded above/);
+});
+
 test('retrieve skips the personal rows session start loaded, and host messages search nothing', async () => {
   const service = replayService({snapshot, vectors, queryVector: async () => unit(1, 0.2)});
   await sessionStart(service, {sessionKey: 's', repository: 'acme/one'});
