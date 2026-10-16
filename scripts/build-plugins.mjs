@@ -44,7 +44,9 @@ const description='Personal and topic memory, tasks and topics across your agent
 // Claude (Codex rejects an allow from PreToolUse), says in the blocks when a
 // search is worth making, says once per session when a prompt matched nothing,
 // and asks the agent to mark an answer a retrieved row shaped with ▣.
-const versions={claude:'0.5.4',codex:'0.5.4'};
+// 0.5.5 puts when to search into the shipped skill's description, the one
+// part of a skill the agent always sees, in the shape of a trigger list.
+const versions={claude:'0.5.5',codex:'0.5.5'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
