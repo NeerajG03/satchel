@@ -196,7 +196,10 @@ export function buildConsolidationPrompt({topic = null, topics = [], codebase = 
       // it a fact one day old and one three weeks old read the same, and in
       // one topic 9 of 11 replaces landed on rows a day old or less: the
       // pass was rewording claims still in flux as if they were settled.
-      const made = memory.created_at ? `, made on ${day(memory.created_at)}` : '';
+      // A date that does not parse is left out rather than thrown, so one bad
+      // row cannot take the whole prompt down.
+      const madeOn = memory.created_at ? new Date(memory.created_at).getTime() : NaN;
+      const made = Number.isNaN(madeOn) ? '' : `, made on ${day(memory.created_at)}`;
       const seen = memory.mentions > 1 ? `, said ${memory.mentions} times` : '';
       const last = memory.affirmed_at ?? memory.updated_at;
       const when = last ? `, last on ${day(last)}` : '';

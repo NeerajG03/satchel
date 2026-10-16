@@ -345,12 +345,11 @@ export function memoryService(db, embedder = null, router = null) {
     // touches them, then delete this.
     async ages(ids = []) {
       const wanted = [...new Set(ids.filter(Boolean))];
-      const rows = [];
-      for (let i = 0; i < wanted.length; i += 100) {
-        rows.push(...(await result(db.from('memories').select('id,created_at,mentions')
-          .in('id', wanted.slice(i, i + 100))) ?? []));
-      }
-      return rows;
+      const chunks = [];
+      for (let i = 0; i < wanted.length; i += 100) chunks.push(wanted.slice(i, i + 100));
+      const read = await Promise.all(chunks.map(chunk =>
+        result(db.from('memories').select('id,created_at,mentions').in('id', chunk))));
+      return read.flatMap(rows => rows ?? []);
     },
     // Ending and extending carry the revision, so a pass working from a list
     // it read a minute ago cannot overwrite something the person changed since.

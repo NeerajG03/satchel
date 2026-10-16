@@ -51,6 +51,10 @@ test('the model is told what day it is, and how old each memory is', () => {
   const second = prompt.split('\n').find(line => line.includes('#2 '));
   assert.doesNotMatch(second, /made on/, 'a row with no created_at says nothing about when it was made');
   assert.match(second, /last on 2026-09-21/);
+  const {prompt: unparsed} = buildConsolidationPrompt({...context,
+    memories: [{...memories[0], created_at: 'not a date', affirmed_at: '2026-09-21T08:00:00Z'}]});
+  assert.doesNotMatch(unparsed, /made on/, 'a created_at that does not parse is left out, not thrown');
+  assert.match(unparsed, /#1 {2}\[preference, personal, said 2 times, last on 2026-09-21\]/);
 });
 
 test('the model is shown numbers, never ids', () => {
