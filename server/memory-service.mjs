@@ -13,6 +13,15 @@ import {indexedText, toVectorLiteral} from './vector.mjs';
 // embedding model changes.
 export const DEDUPE_GATE = 0.85;
 
+/** A pgvector column comes back as the literal it was written with, a
+ *  bracketed list in a string. Anything that is not a list of numbers is no
+ *  vector, and a row without one is simply not comparable. */
+const parseVector = value => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string') return null;
+  try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : null; } catch { return null; }
+};
+
 // Request-scoped adapter. RLS remains authoritative even for direct RPC calls.
 export function memoryService(db, embedder = null, router = null) {
   async function result(query) {
@@ -202,6 +211,32 @@ export function memoryService(db, embedder = null, router = null) {
       // proposed add down with it; none is the answer that lets the add land.
       const [row] = await result(db.from('memories').select('id,revision,kind,topic_id,statement,band').eq('id', near.id).limit(1)) ?? [];
       return row ? {...near, ...row, score: near.score} : null;
+    },
+    // A claim the person forgot, when the one about to be written is the same
+    // claim. search_memories only sees live rows, so the twin check above
+    // could not see a row the person had ended: the em-dash rule was forgotten
+    // on 27 September and the pass wrote it again on 6 October. Forgotten
+    // rows are few and have no search function of their own, so they are read
+    // whole and compared here. Vectors are L2 normalised on write, so the dot
+    // product is the cosine, the same number search_memories ranks by. Only
+    // rows in this embedder's space count: a vector from another model is not
+    // comparable, and a row with none cannot be found either way.
+    async forgottenTwin(statement, {gate = DEDUPE_GATE} = {}) {
+      if (!embedder) return null;
+      const rows = await result(db.from('memories').select('id,topic_id,statement,ended_at,embedding')
+        .eq('ended_reason', 'forgotten').eq('embedding_model', embedder.model).not('embedding', 'is', null).limit(200));
+      if (!rows?.length) return null;
+      const vector = await embedder.embedQuery(statement);
+      let best = null;
+      for (const row of rows) {
+        const stored = parseVector(row.embedding);
+        if (stored?.length !== vector.length) continue;
+        let score = 0;
+        for (let i = 0; i < vector.length; i++) score += vector[i] * stored[i];
+        if (score >= gate && (!best || score > best.score))
+          best = {id: row.id, topic_id: row.topic_id, statement: row.statement, ended_at: row.ended_at, score};
+      }
+      return best;
     },
     // Rows saved while the embedder was down or out of quota. embedRow swallows
     // its failure so the write lands, which left four live memories invisible

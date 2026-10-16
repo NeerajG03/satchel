@@ -27,6 +27,16 @@ const untraced = (_name, _options, run) => run(() => {}, () => {}, null);
 async function apply(service, change, {topics, trace, document, consolidator = null, deadline = null, now}) {
   const slug = change.topic ?? null;
   if (change.action === 'add') {
+    // Forgotten before? The twin check below only sees live rows, so a claim
+    // the person had ended from the archive came straight back the next time
+    // they said it: "do not use em dashes" was forgotten on 27 September and
+    // written again on 6 October. A forget is the person's decision about
+    // this claim, and the pass does not get to overrule it by hearing the
+    // words again. Restoring it from the archive is how it comes back.
+    const gone = await forgottenClaim(service, change, topics);
+    if (gone) return {did: 'rejected', on: gone.id,
+      why: `the person forgot this claim on ${String(gone.ended_at ?? '').slice(0, 10) || 'an earlier day'}; `
+        + `restore it from the archive to bring it back · proposed: "${String(change.statement).slice(0, 120)}"`};
     // Said before, in other words? The model's own check is an exact match,
     // so a paraphrase of a live memory reached the database as a second row
     // and both then loaded. When a live memory in the same scope, or a
@@ -101,15 +111,31 @@ async function apply(service, change, {topics, trace, document, consolidator = n
   return null;
 }
 
+/** Whether a row found near this add is in a scope that makes it a twin: the
+ *  same topic the add is going to, or personal, which loads everywhere. A
+ *  row in another topic is not, because the same rule can hold in two topics. */
+function inScopeOf(near, change, topics) {
+  const target = change.topic ? topics.find(p => p.slug === change.topic)?.id ?? null : null;
+  return near.topic_id == null || near.topic_id === target;
+}
+
 /** A live memory that already says what this add says, when the service can
  *  look. Optional, so a replay or a test without an embedder adds as before. */
 async function sameClaim(service, change, topics) {
   if (!service.nearest) return null;
   let near;
   try { near = await service.nearest(change.statement); } catch { return null; }
-  if (!near) return null;
-  const target = change.topic ? topics.find(p => p.slug === change.topic)?.id ?? null : null;
-  return near.topic_id == null || near.topic_id === target ? near : null;
+  return near && inScopeOf(near, change, topics) ? near : null;
+}
+
+/** A memory the person forgot that already says what this add says. Same
+ *  scope rule as a live twin. Optional, and a lookup that fails lets the add
+ *  through, which is how every add went before the check existed. */
+async function forgottenClaim(service, change, topics) {
+  if (!service.forgottenTwin) return null;
+  let gone;
+  try { gone = await service.forgottenTwin(change.statement); } catch { return null; }
+  return gone && inScopeOf(gone, change, topics) ? gone : null;
 }
 
 /** Whether this pass may make a topic of its own. Only on a connection that
@@ -338,6 +364,14 @@ export async function consolidateDocument(service, consolidator, document,
           const out = await apply(service, change, {topics, trace: traceId, document: document.id,
             consolidator, deadline, now: turns.at(-1)?.created_at});
           const did = typeof out === 'string' ? out : out?.did;
+          // Refused by the pass itself, not by validation: the person had
+          // forgotten this claim. Counted with the drops, named in the run so
+          // the activity feed says which row and why, and nothing landed.
+          if (did === 'rejected') {
+            counts.dropped += 1;
+            actions.push({did, on: out.on ?? null, statement: change.statement, why: out.why});
+            continue;
+          }
           if (did) {
             counts[did] += 1;
             // Where the change went, and whether it wrote a new row there. An

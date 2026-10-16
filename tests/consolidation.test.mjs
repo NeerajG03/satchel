@@ -365,6 +365,48 @@ test('a twin in another topic does not stop the add, and no twin adds as before'
   assert.equal(plain.of('capture').length, 1);
 });
 
+test('a claim the person forgot is not written again, and the run says why', async () => {
+  // The em-dash rule was forgotten from the archive on 27 September and the
+  // pass wrote it again on 6 October, because the twin check only sees live
+  // rows. A forget is the person's decision, so the add is refused, named in
+  // the run, and the model is not asked about it.
+  const {service, consolidator, of, calls} = fake({changes: [
+    {action: 'add', statement: 'Do not use em dashes in text.', source: 'no em dashes please',
+     kind: 'preference', topic: null, why: 'said again'}]});
+  service.forgottenTwin = async statement => {
+    calls.push({call: 'forgotten', statement});
+    return {id: 'm7', topic_id: null, statement: 'Do not use em dashes.', ended_at: '2026-09-27T10:00:00Z', score: 0.93};
+  };
+  service.nearest = async () => { throw new Error('the live check must not run for a forgotten claim'); };
+  consolidator.reconsider = async () => { throw new Error('the model must not be asked about a forgotten claim'); };
+  const result = await consolidateDocument(service, consolidator, document, {topics});
+  assert.equal(result.added, 0);
+  assert.equal(result.dropped, 1, 'counted with the drops');
+  assert.equal(of('capture').length, 0, 'nothing written');
+  assert.equal(of('forgotten')[0].statement, 'Do not use em dashes in text.');
+  const [action] = result.actions;
+  assert.equal(action.did, 'rejected');
+  assert.equal(action.on, 'm7', 'the run names the forgotten row');
+  assert.match(action.why, /forgot this claim on 2026-09-27/);
+  assert.match(action.why, /restore it from the archive/);
+  assert.equal(of('marked').length, 1, 'the document is still marked read');
+});
+
+test('a forgotten claim in another topic does not stop the add, and a failed lookup lets it through', async () => {
+  const across = fake({changes: [
+    {action: 'add', statement: 'Deploys go through the shared pipeline.', source: 'deploy through the shared pipeline',
+     kind: 'fact', topic: 'ledger', why: 'a rule'}]});
+  across.service.forgottenTwin = async () => ({id: 'm6', topic_id: 'p2', statement: 'Deploys go through the shared pipeline.', score: 0.99});
+  const other = await consolidateDocument(across.service, across.consolidator, document, {topics});
+  assert.equal(other.added, 1, 'a forget in one topic says nothing about another');
+
+  const broken = fake({changes: [
+    {action: 'add', statement: 'Something new.', source: 'something new', kind: 'fact', topic: null, why: 'new'}]});
+  broken.service.forgottenTwin = async () => { throw new Error('timeout'); };
+  const result = await consolidateDocument(broken.service, broken.consolidator, document, {topics});
+  assert.equal(result.added, 1, 'a lookup that fails is the old behaviour, not a refusal');
+});
+
 test('a topic the model named is made once, and its memory goes into it', async () => {
   const {service, consolidator, of} = fake({changes: [
     {action: 'add', statement: 'Base images come from the infra-images repository.', source: 's', kind: 'fact',
