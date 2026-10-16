@@ -23,12 +23,20 @@
 // Production is scored too, from what the transcripts say was injected, so
 // the first column is what people actually got and the second is what this
 // code would give them.
+//
+// Every prompt is judged as of its own time: the stand-in serves the memories
+// that existed then, and a label naming a row written later is dropped, since
+// nothing could have shown it. Start block rows are charged on the first
+// scored prompt after they load. A run records which ruler it used, and a
+// baseline scored with another one is not compared.
 import {readFileSync, writeFileSync, readdirSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {replayService, time} from './lib/injection-twin.mjs';
 import {promptKey, promptEmbedder} from './lib/injection-cache.mjs';
-import {summarise, pair, gate} from './lib/injection-scoring.mjs';
+import {summarise, pair, gate, asOf, aheadNeeds, comparable} from './lib/injection-scoring.mjs';
 import {paired} from './lib/metrics.mjs';
+
+const METHOD = 'as-of-1';
 
 const DIR = process.env.SATCHEL_INJECTION_EVAL_DIR ?? join(process.env.HOME, 'satchel-daily', 'injection-eval');
 const args = process.argv.slice(2);
@@ -68,39 +76,45 @@ const byHandle = new Map();
 for (const m of snapshot.memories) { const h = handleOf(m.id); byHandle.set(h, byHandle.has(h) ? null : m.id); }
 const bySlug = new Map(snapshot.topics.map(t => [t.slug, t.id]));
 const endedBy = (id, at) => { const m = byId.get(id); return Boolean(m?.ended_at && time(m.ended_at) <= time(at)); };
-const isEnded = id => endedBy(id, snapshot.taken_at);
 
 // ---- gold ---------------------------------------------------------------------
 
 const unknown = new Set();
-let endedInGold = 0;
 const toIds = handles => (handles ?? []).map(h => {
   const id = byHandle.get(String(h).toLowerCase().trim());
   if (!id) unknown.add(h);
   return id;
 }).filter(Boolean);
+// As labelled, against today's memory set. Each prompt takes its own view of
+// it through asOf() at the prompt's time, below.
 function loadGold(prefix) {
   const out = new Map();
   for (const file of readdirSync(join(DIR, 'gold')).filter(f => f.startsWith(prefix) && f.endsWith('.json')))
     for (const s of read(`gold/${file}`)) {
       const topic = s.topic ? bySlug.get(s.topic) ?? null : null;
-      for (const p of s.prompts ?? []) {
-        // A memory ended since labelling cannot be needed any more, and
-        // showing it now would hand the agent something no longer true.
-        const must = toIds(p.must), helps = toIds(p.helps), traps = toIds(p.traps);
-        const ended = [...must, ...helps].filter(isEnded);
-        endedInGold += ended.length;
+      for (const p of s.prompts ?? [])
         out.set(`${s.session}:${p.n}`, {
-          must: must.filter(id => !isEnded(id)), helps: helps.filter(id => !isEnded(id)),
-          traps: [...traps, ...ended],
+          must: toIds(p.must), helps: toIds(p.helps), traps: toIds(p.traps),
           topic: p.topic !== undefined ? (p.topic ? bySlug.get(p.topic) ?? null : null) : topic,
         });
-      }
     }
   return out;
 }
 const gold = loadGold('gold-');
 const check = loadGold('check-');
+let endedInGold = 0;
+const leftOut = new Set();
+// A memory ended before the prompt cannot be needed, and showing it would
+// hand the agent something no longer true, so it counts as a trap. One
+// written after the prompt is dropped; a prompt left with nothing is left out.
+const goldAt = (key, ts) => {
+  const raw = gold.get(key);
+  if (!raw) return null;
+  const g = asOf(raw, ts, byId);
+  if (!g) { leftOut.add(key); return null; }
+  endedInGold += g.traps.length - raw.traps.length;
+  return g;
+};
 
 // ---- prompt vectors --------------------------------------------------------------
 
@@ -122,25 +136,30 @@ const sessions = readdirSync(join(DIR, 'sessions')).map(f => read(`sessions/${f}
 
 const resets = new Set(['startup', 'clear', 'compact', null, undefined]);
 const linkCount = repository => repository ? snapshot.links.filter(l => l.repository === repository).length : 0;
-const replayed = [], production = [];
+let replayed = [], production = [];
 for (const s of sessions) {
   const service = replayService({snapshot, vectors, queryVector});
   let front = new Set(), shipFront = new Set(), shipActive = null, sent = [];
+  // Start block rows waiting to be charged on the next scored prompt. A block
+  // nobody scored before a reset is not charged: no scored prompt saw it.
+  let pending = [], shipPending = [], resetBefore = false;
   for (const e of s.events) {
     if (e.kind === 'start') {
-      if (resets.has(e.how)) { front = new Set(); shipFront = new Set(); }
+      service.state.at = e.ts;
+      if (resets.has(e.how)) { front = new Set(); shipFront = new Set(); pending = []; shipPending = []; resetBefore = true; }
       if (plugin?.RESETS.has(e.how)) sent = [];
       const mark = service.log.length;
       await sessionStart(service, {sessionKey: s.session, repository: s.repository});
-      for (const entry of service.log.slice(mark)) for (const id of entry.memory_ids) front.add(id);
-      for (const id of e.loaded ?? []) shipFront.add(id);
+      for (const entry of service.log.slice(mark)) for (const id of entry.memory_ids) { front.add(id); pending.push(id); }
+      for (const id of e.loaded ?? []) { shipFront.add(id); shipPending.push(id); }
       shipActive = e.active ?? shipActive;
     } else if (e.kind === 'select' && e.ok !== false && e.topic_id) {
       service.state.active = e.topic_id;
       shipActive = e.topic_id;
     } else if (e.kind === 'prompt') {
+      service.state.at = e.ts;
       const id = `${s.session}:${e.n ?? e.uuid}`;
-      const g = e.typed ? gold.get(`${s.session}:${e.n}`) ?? null : null;
+      const g = e.typed ? goldAt(`${s.session}:${e.n}`, e.ts) : null;
       const mark = service.log.length;
       const prompt = asSent(e.text);
       const out = prompt
@@ -148,19 +167,24 @@ for (const s of sessions) {
         : {context: ''};
       const shown = service.log.slice(mark).flatMap(entry => entry.memory_ids);
       if (plugin) sent = plugin.remember(sent, out.shown ?? shown);
-      replayed.push({id, session: s.session, n: e.n, typed: e.typed, gold: g, shown, before: [...front], links: linkCount(s.repository),
-        active: service.state.active, tokens: out.context ? estimateTokens(out.context) : 0});
+      const loaded = g ? pending : [], shipLoaded = g ? shipPending : [];
+      if (g) { pending = []; shipPending = []; }
+      replayed.push({id, session: s.session, n: e.n, ts: e.ts, typed: e.typed, gold: g, shown, loaded, before: [...front], resetBefore,
+        links: linkCount(s.repository), active: service.state.active, tokens: out.context ? estimateTokens(out.context) : 0});
       for (const m of shown) front.add(m);
       const shipShown = e.shown ?? [];
-      production.push({id, session: s.session, n: e.n, typed: e.typed, gold: g,
+      production.push({id, session: s.session, n: e.n, ts: e.ts, typed: e.typed, gold: g,
         shown: shipShown.filter(m => !endedBy(m, e.ts)),
         ended: shipShown.filter(m => endedBy(m, e.ts)),
-        before: [...shipFront], active: shipActive, tokens: e.shownText ? estimateTokens(e.shownText) : 0});
+        loaded: shipLoaded, before: [...shipFront], resetBefore, active: shipActive, tokens: e.shownText ? estimateTokens(e.shownText) : 0});
       for (const m of shipShown) shipFront.add(m);
+      resetBefore = false;
     }
   }
 }
 if (embeddedNow) writeFileSync(join(DIR, 'vectors', 'prompts.json'), JSON.stringify(cache));
+replayed = aheadNeeds(replayed);
+production = aheadNeeds(production);
 
 // ---- report ---------------------------------------------------------------------------
 
@@ -171,6 +195,7 @@ const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath
 
 const pct = v => v == null ? '-' : `${(100 * v).toFixed(1)}%`;
 const num = v => v == null ? '-' : String(v);
+const dec = v => v == null ? '-' : v.toFixed(3);
 const rows = [
   ['reached', 'must memories in front of the agent', pct],
   ['helpsReached', 'helps memories in front of the agent', pct],
@@ -181,15 +206,19 @@ const rows = [
   ['topicRight', 'prompts on the right topic', pct],
   ['tokens', 'median tokens of a prompt block', num],
   ['slots', 'prompt slots shown', num],
+  ['blockRows', 'start block rows charged to a scored prompt', num],
+  ['blockUseful', 'block rows a prompt in that stretch needed', pct],
   ['harmful', 'traps or ended memories shown (bar is 0)', num],
-  ['utility', 'headline, per typed prompt', v => v == null ? '-' : v.toFixed(3)],
+  ['utility', 'headline, per typed prompt, block rows charged', dec],
+  ['utilityFree', 'the same with block rows free (the old headline)', dec],
 ];
 console.log(`injection eval · ${sessions.length} sessions · ${now.typed} labelled prompts (${now.answerable} needed something) · ${now.host} host messages`);
 console.log(`snapshot ${snapshot.taken_at.slice(0, 10)} · checkout ${CHECKOUT}${embeddedNow ? ` · ${embeddedNow} new query vectors` : ''}`
   + (overrides.length ? ` · settings ${overrides.map(kv => kv.join('=')).join(', ')}` : ''));
+console.log(`as of each prompt · ${now.typed} scored · ${leftOut.size} left out, nothing they needed existed yet`);
 if (unknown.size) console.log(`gold names ${unknown.size} handles that are not in the snapshot: ${[...unknown].slice(0, 8).join(', ')}`);
-if (endedInGold) console.log(`${endedInGold} gold labels name memories ended since; counted as traps`);
-const unlabelled = replayed.filter(r => r.typed && !r.gold).length;
+if (endedInGold) console.log(`${endedInGold} gold labels name memories ended by the prompt's time; counted as traps`);
+const unlabelled = replayed.filter(r => r.typed && !r.gold && !leftOut.has(r.id)).length;
 if (unlabelled) console.log(`${unlabelled} typed prompts have no label yet and are not scored`);
 console.log('');
 console.log(`  ${''.padEnd(56)} ${'production'.padStart(11)} ${'replay'.padStart(9)} ${'baseline'.padStart(9)}`);
@@ -239,7 +268,10 @@ if (harmful.length) {
 let overlap = null;
 if (check.size) {
   const ids = new Set([...check.keys()].filter(key => gold.has(key)));
-  const relabel = moments => moments.filter(m => ids.has(m.id)).map(m => ({...m, gold: check.get(m.id)}));
+  // The second labeller's gold takes the same as-of view, and the stretch each
+  // block row is judged on is rebuilt from it before the other prompts go.
+  const relabel = moments => aheadNeeds(moments.map(m => ids.has(m.id) ? {...m, gold: asOf(check.get(m.id), m.ts, byId)} : m))
+    .filter(m => ids.has(m.id));
   const keep = moments => moments.filter(m => ids.has(m.id));
   const card = {shipA: summarise(keep(production)), nowA: summarise(keep(replayed)),
     shipB: summarise(relabel(production)), nowB: summarise(relabel(replayed))};
@@ -255,20 +287,15 @@ if (check.size) {
   console.log(flips.length ? `  the labellers disagree on which is better for ${flips.join(', ')}: do not gate on those`
     : '  both labellers agree on which is better on every number');
   // Kept per prompt so a later run can ask the same question of its own change.
-  for (const r of now.rows) if (ids.has(r.id)) {
-    const m = replayed.find(x => x.id === r.id);
-    r.checkUtility = summarise([{...m, gold: check.get(r.id)}]).rows[0].utility;
-  }
+  const second = new Map(card.nowB.rows.map(r => [r.id, r.utility]));
+  for (const r of now.rows) if (second.has(r.id) && second.get(r.id) != null) r.checkUtility = second.get(r.id);
 }
 
 // The gate, against the baseline, on the prompts both runs scored.
 let verdict = null;
-// A baseline taken on another snapshot measured another memory set, so a
-// difference would be the data moving, not the code. Score main again first.
-const comparable = baseline && baseline.snapshot === snapshot.taken_at;
-if (baseline && !comparable)
-  console.log(`\n  the baseline is from the ${String(baseline.snapshot).slice(0, 16)} snapshot, not this one: run main with --update-baseline, then this checkout`);
-if (comparable) {
+const fit = comparable(baseline, {snapshot: snapshot.taken_at, method: METHOD});
+if (baseline && !fit.ok) console.log(`\n  ${fit.reason}: run main with --update-baseline, then this checkout`);
+if (fit.ok) {
   const {a, b, compared, unmatched} = pair(now.rows, baseline.rows);
   const significance = compared > 1 ? paired(a, b) : null;
   verdict = gate(now, baseline.summary, significance);
@@ -289,8 +316,8 @@ if (comparable) {
 }
 
 const strip = s => { const {rows: _rows, ...rest} = s; return rest; };
-const record = {at: new Date().toISOString(), checkout: CHECKOUT, snapshot: snapshot.taken_at,
-  summary: strip(now), production: strip(ship),
+const record = {at: new Date().toISOString(), checkout: CHECKOUT, snapshot: snapshot.taken_at, method: METHOD,
+  leftOut: leftOut.size, summary: strip(now), production: strip(ship),
   overlap, rows: now.rows.map(r => ({id: r.id, labelled: r.labelled, utility: r.utility ?? null,
     ...(r.checkUtility != null ? {checkUtility: r.checkUtility} : {})}))};
 writeFileSync(join(DIR, 'runs', `run-${record.at.replace(/[:.]/g, '-')}.json`), JSON.stringify(record));

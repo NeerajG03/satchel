@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {search, personal, replayService} from '../eval/lib/injection-twin.mjs';
-import {scoreMoment, summarise, pair, gate} from '../eval/lib/injection-scoring.mjs';
+import {scoreMoment, summarise, pair, gate, asOf, aheadNeeds, comparable} from '../eval/lib/injection-scoring.mjs';
 import {sessionStart, retrieve} from '../server/lifecycle.mjs';
 
 const A = '00000000-0000-4000-8000-00000000000a';
@@ -147,4 +147,85 @@ test('a row from a topic the repository is not linked to needs a closer match th
   const bare = replayService({snapshot: scoped, vectors: loose, queryVector: async () => unit(1, 0.2)});
   const out = await retrieve(bare, {sessionKey: 'b', prompt: 'what about the first topic', repository: 'acme/none'});
   assert.ok(out.shown.includes(C), 'with no link nothing is a stranger');
+});
+
+// The as-of replay: each prompt is judged against the memories of its own
+// day, and the start block's rows are paid for where they load.
+
+const E = '00000000-0000-4000-8000-00000000000e';
+const later = {id: E, topic_id: T1, statement: 'written on the eighth', band: 'said', kind: 'fact', mentions: 1, created_at: '2026-10-08T00:00:00.000Z'};
+const dated = {...snapshot, memories: [...memories, later]};
+const byId = new Map(dated.memories.map(m => [m.id, m]));
+
+test('the stand-in serves what existed at the moment, not today', async () => {
+  const service = replayService({snapshot: dated, vectors: {...vectors, [E]: unit(1, 0.2)}, queryVector: async () => unit(1, 0.2)});
+  assert.equal(service.state.at, at, 'left alone it is the snapshot time');
+  assert.deepEqual((await service.personal()).map(m => m.id), [A], 'today the ended rule is gone');
+  assert.deepEqual((await service.index(T1)).memories.map(m => m.id), [B, E]);
+  service.state.at = '2026-10-03T00:00:00.000Z';
+  assert.deepEqual((await service.personal()).map(m => m.id), [D, A], 'on the third the rule had not been ended yet');
+  assert.deepEqual((await service.index(T1)).memories.map(m => m.id), [B], 'and the eighth\'s row did not exist');
+  const found = await service.search({query: 'x', gate: 0.9, limit: 5});
+  assert.ok(!found.some(r => r.id === E), 'search is as of the moment too');
+  service.state.at = '2026-10-09T00:00:00.000Z';
+  assert.ok((await service.search({query: 'x', gate: 0.9, limit: 5})).some(r => r.id === E));
+});
+
+test('gold needs that did not exist yet are dropped, and a prompt left with none is unlabelled', () => {
+  const ts = '2026-10-03T00:00:00.000Z';
+  const g = asOf({must: [B, E], helps: [D], traps: [C], topic: T1}, ts, byId);
+  assert.deepEqual(g.must, [B], 'E was written five days after the prompt');
+  assert.deepEqual(g.helps, [D], 'D was still live on the third');
+  assert.deepEqual(g.traps, [C]);
+  assert.equal(g.topic, T1);
+  assert.equal(asOf({must: [E], helps: [], traps: []}, ts, byId), null, 'nothing it needed existed yet');
+  assert.equal(asOf({must: [], helps: [E], traps: [C]}, ts, byId), null);
+  assert.deepEqual(asOf({must: [], helps: [], traps: [C]}, ts, byId), {must: [], helps: [], traps: [C]},
+    'a prompt that needed nothing is still a quiet prompt, not left out');
+  const ended = asOf({must: [D], helps: [A], traps: []}, '2026-10-06T00:00:00.000Z', byId);
+  assert.deepEqual([ended.must, ended.helps, ended.traps], [[], [A], [D]], 'a need ended by then is a trap');
+  assert.equal(asOf(null, ts, byId), null);
+  const card = summarise([{id: 'u', typed: true, shown: [A], gold: null}, {id: 'q', typed: true, shown: [], gold: {must: [], helps: [], traps: []}}]);
+  assert.equal(card.typed, 1, 'the left-out prompt is not scored');
+  assert.equal(card.slots, 1, 'but its slots still count');
+  assert.equal(card.quiet, 1);
+});
+
+test('a block row is charged where it loads, and is useful when a later prompt needs it', () => {
+  const session = aheadNeeds([
+    {id: 's:1', session: 's', typed: true, shown: [], loaded: [A, B], resetBefore: true, gold: {must: [], helps: [], traps: []}},
+    {id: 's:2', session: 's', typed: true, shown: [], loaded: [], gold: {must: [A], helps: [], traps: []}, before: [A, B]},
+    {id: 's:3', session: 's', typed: true, shown: [], loaded: [C], resetBefore: true, gold: {must: [], helps: [], traps: []}},
+    {id: 's:4', session: 's', typed: true, shown: [], loaded: [], gold: {must: [B], helps: [], traps: []}},
+  ]);
+  assert.deepEqual(session[0].ahead, [A], 'the first stretch needs A; B is needed only after the compact');
+  assert.deepEqual(session[2].ahead, [B], 'the compact starts a new stretch');
+  const [first, second, third, fourth] = session.map(scoreMoment);
+  assert.equal(first.utilityFree, 1, 'free, a quiet prompt with an empty prompt block is perfect');
+  assert.equal(first.utility, 0.5, 'charged, one of the two rows the block loaded was needed in the stretch');
+  assert.equal(first.blockRows, 2);
+  assert.equal(first.blockUseful, 1);
+  assert.equal(second.utility, 1, 'the row was in front of the agent, and this prompt loaded nothing');
+  assert.equal(third.utility, 0, 'the row loaded after the compact was needed by nobody');
+  assert.equal(fourth.utility, 0, 'B was needed and the compact had taken it out of front');
+  const answerable = scoreMoment({id: 'a', typed: true, shown: [B], loaded: [A, C], ahead: [A, B], before: [A, C],
+    gold: {must: [A, B], helps: [], traps: []}});
+  assert.equal(answerable.utilityFree, 1);
+  assert.equal(answerable.utility, 2 / 3, 'two of the three rows in front earned their room');
+  const card = summarise(session);
+  assert.equal(card.blockRows, 3);
+  assert.equal(card.blockUseful, 1 / 3);
+  assert.equal(card.utilityFree, 0.75);
+  assert.equal(card.utility, 0.375);
+});
+
+test('a baseline scored the old way is not compared', () => {
+  const here = {snapshot: at, method: 'as-of-1'};
+  assert.equal(comparable(null, here).ok, false);
+  const old = comparable({snapshot: at, summary: {}}, here);
+  assert.equal(old.ok, false);
+  assert.match(old.reason, /scored the old way/);
+  const other = comparable({snapshot: '2026-10-01T00:00:00.000Z', method: 'as-of-1'}, here);
+  assert.match(other.reason, /snapshot, not this one/);
+  assert.equal(comparable({snapshot: at, method: 'as-of-1'}, here).ok, true);
 });

@@ -107,9 +107,11 @@ When they are back, check that each output file parses and names every session i
 node $WORK/eval/injection-real.mjs --checkout $WORK --update-baseline
 ```
 
-This is the baseline for this snapshot. Do not collect again after this step: a new snapshot makes this baseline incomparable, and the eval will refuse to gate. Typed prompts with no label yet (a failed batch) are listed and left out; say how many in the report. Read the whole output:
+This is the baseline for this snapshot. Do not collect again after this step: a new snapshot makes this baseline incomparable, and the eval will refuse to gate. Typed prompts with no label yet (a failed batch) are listed and left out; say how many in the report.
 
-- **The scorecard**, production against replay. Production is what people got; the replay is what main gives today on the same prompts. A gap between them is either code that has already shipped, or the memory set having changed since.
+The replay is as of each prompt. The stand-in serves the memories that existed at that prompt's own time, a label that names a memory written later is dropped (nothing could have shown it), and a prompt left with no need at all is left out rather than scored as quiet; the `as of each prompt` line says how many were scored and how many left out. A need that had been ended by then counts as a trap. Production is judged on the same as-of gold, so the two columns stay comparable. Every run records its ruler (`method: as-of-1`); a baseline scored the old way, or on another snapshot, is not compared, and the eval says to run main with `--update-baseline` first. Read the whole output:
+
+- **The scorecard**, production against replay. Production is what people got; the replay is what main gives today on the same prompts. A gap between them is either code that has already shipped, or the memory set having changed since. `utility` charges the start block's rows on the first scored prompt after they load, and a charged row earns its room when any prompt before the next reset needed it; `utilityFree` is the same number with block rows free, the old headline, kept so a block that grows reads as a cost. `blockRows` is how many rows were charged and `blockUseful` how many of them some prompt in that stretch needed. The gate uses `utility`.
 - **Shown and not needed.** The memories that cost the most room. A memory here every run is either too general for retrieval (a data finding) or a sign the gate or the skip list is wrong (a code TODO).
 - **Needed and not in front of the agent.** Usually a topic not being picked, or a gate too high for short prompts.
 - **Traps shown.** Each one is a wrong instruction handed to the agent.
@@ -142,7 +144,7 @@ Pick the highest TODO that one small PR can close. Skip one that needs a product
 **Ask before a radical change.** If the real fix is a different approach, not a small tweak (a new way to pick a topic, a new shape for the block, a change in who decides what), do not default to a smaller fix that will hit a wall, and do not build the radical one alone. Put the idea in the report with the options side by side (pros and cons), ask Neeraj in the final message, and build the next TODO that is safe. In a session where the person is present, use AskUserQuestion instead. A small fix that only moves a number a little inside a known limit is fine to build; a fix that the replay already shows cannot reach the gap is not.
 
 1. **Build** in a worktree from `origin/main`. Add or extend a test in `tests/injection-eval.test.mjs` or beside the code it changes.
-2. **Prove.** `node eval/injection-real.mjs --checkout <worktree>` from the worktree, against step 4's baseline (same snapshot, or it refuses). The gate must pass and the number the TODO named must move. If it does not move, do not open the PR; log what you tried. Then `npm test` and `npm run build`.
+2. **Prove.** `node eval/injection-real.mjs --checkout <worktree>` from the worktree, against step 4's baseline (same snapshot and same method, or it refuses). The gate must pass and the number the TODO named must move. If it does not move, do not open the PR; log what you tried. Then `npm test` and `npm run build`.
 3. **Open the PR** with the scorecard before and after, what is not proven (the replay cannot see whether the agent follows a memory it was shown), and what a user will feel, as a before and after (what the person got on a typical prompt then, what they get now, with a real example from the replay in a few words).
 4. **Review it** with the `code-review` skill at `high`, fix every real finding, and re-run the eval after the fixes.
 5. **Merge on green**, as its own command. Mark the TODO built in the report and remove the worktree.
@@ -182,6 +184,8 @@ Finish with a short message: the scorecard row, the top three gaps, what step 7 
 | harmful | 8 | 24 |
 
 Production's low reached is mostly history: 152 of the 246 "must" labels (62%) name a memory that did not exist yet when that prompt ran, because the labels are judged against today's memory set. So read production's reached as a lower bound, and compare code on the replay. The replay's low clean and quiet are today's problem.
+
+Those numbers were scored against today's memory set. Since 16 October the replay is as of each prompt (D37): on the same sessions main's replay reached went from 80.9% to 89.0% and quiet from 86.1% to 96.6%, production's reached from 25.0% to 87.7%, and 340 of 1302 labelled prompts were left out because nothing they needed existed yet.
 
 Labellers agreed on the topic 93% of the time and on "this prompt needs nothing" 79%, but on only a third of the exact "must" calls, mostly over weak "helps" on vague prompts. So absolute numbers carry the labeller's taste. Both labellers agreed on which version was better on every number, which is what a gate needs.
 
