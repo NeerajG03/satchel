@@ -335,6 +335,45 @@ test('the reads the hook allows are exactly the tools the server marks read only
   } finally { await client.close(); }
 });
 
+test('a server older than 0.5.4 still serves a 0.5.4 plugin', async () => {
+  // The old server refuses any key it does not know. A plugin that updates
+  // before the server deploys must not lose every prompt for it.
+  const SATCHEL_HOME = home();
+  const seen = [];
+  const {createServer} = await import('node:http');
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      const parsed = JSON.parse(body);
+      seen.push({path: req.url, keys: Object.keys(parsed).sort()});
+      if ('reads' in parsed || 'hinted' in parsed) { res.writeHead(400); return res.end(); }
+      res.writeHead(200, {'content-type': 'application/json'});
+      res.end(JSON.stringify(req.url === '/api/hook-retrieve'
+        ? {context: '\u25a3 retrieved \u00b7 1 shown \u00b7 1 matched \u00b7 3 in scope\n  abc123  Keep it short.', notice: ''}
+        : {context: '<satchel>\nhello\n</satchel>', notice: 'Satchel loaded'}));
+    });
+  });
+  await new Promise(done => server.listen(0, '127.0.0.1', done));
+  writeFileSync(join(SATCHEL_HOME, 'credentials.json'), JSON.stringify({
+    client_id: 'c', refresh_token: 'r', access_token: 'test-token', expires_at: Date.now() + 3600_000}));
+  const env = {SATCHEL_HOME, SATCHEL_URL: `http://127.0.0.1:${server.address().port}`};
+  try {
+    const asked = await run('retrieve.mjs', JSON.stringify({session_id: 'old-server', hook_event_name: 'UserPromptSubmit', prompt: 'short or long?'}), env);
+    assert.match(JSON.parse(asked.stdout).hookSpecificOutput.additionalContext, /Keep it short/);
+    assert.deepEqual(seen.map(s => s.keys), [
+      ['exclude', 'hinted', 'prompt', 'reads', 'repository', 'session_key'],
+      ['exclude', 'prompt', 'repository', 'session_key']]);
+    const started = await run('session-start.mjs', JSON.stringify({session_id: 'old-server', hook_event_name: 'SessionStart', source: 'startup'}), env);
+    assert.match(JSON.parse(started.stdout).hookSpecificOutput.additionalContext, /hello/);
+    assert.deepEqual(seen.slice(2).filter(s => s.path === '/api/hook-index').map(s => s.keys), [
+      ['event', 'reads', 'repository', 'session_key'], ['event', 'repository', 'session_key']]);
+  } finally {
+    rmSync(SATCHEL_HOME, {recursive: true, force: true});
+    await new Promise(done => server.close(done));
+  }
+});
+
 test('no hook script ever opens the transcript file', async () => {
   // Satchel says it does not read the transcript, in the security skill, in
   // the shipped skill and in the text injected into every session. It did, for

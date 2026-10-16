@@ -129,7 +129,7 @@ const approval = readsApproved => (readsApproved ? '. it needs no approval' : ''
  *  never reaches for the tool. Once, because a miss is the common case and a
  *  line on every one of them would be a cost on every prompt. */
 export function missNote({readsApproved = false} = {}) {
-  return `▣ nothing in Satchel matched this message closely enough to show\n`
+  return `▣ nothing new in Satchel matched this message closely enough to show\n`
     + `  other words or another topic may still find something. retrieve_memory is worth a call ${WHEN_TO_SEARCH},`
     + ` and not for work that stands on its own${approval(readsApproved)}`;
 }

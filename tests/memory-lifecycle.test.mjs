@@ -245,7 +245,7 @@ test('a miss says once a session that a search can still find more, and only whe
   assert.equal(old.context, '');
   assert.equal(old.hint, undefined);
   const first = await retrieve(service, {sessionKey: 's', prompt: 'what did we decide about Go', hinted: false});
-  assert.match(first.context, /^▣ nothing in Satchel matched this message/);
+  assert.match(first.context, /^▣ nothing new in Satchel matched this message/);
   assert.match(first.context, /retrieve_memory is worth a call when the user points back/);
   assert.doesNotMatch(first.context, /approval/, 'a host where reads may ask is not told they do not');
   assert.equal(first.hint, true, 'the hook is told to remember it was said');
