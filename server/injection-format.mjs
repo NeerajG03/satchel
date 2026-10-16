@@ -108,6 +108,32 @@ export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25, sl
   return lines.join('\n');
 }
 
+/** When a search is worth making, said inside the blocks rather than only in
+ *  the shipped skill, which the agent may never load.
+ *
+ *  The blocks used to say only that more exists, and the skill said "you do
+ *  not have to go and get context", so an agent read the two together as
+ *  "do not search". The cue is what the person says, not what the work is
+ *  about: a sentence that points back at an earlier choice is the one case
+ *  retrieval on the prompt's own words most often misses.
+ *
+ *  `readsApproved` is true only when the plugin's PreToolUse hook is
+ *  installed, which is Claude today. On Codex a read may still ask, and
+ *  saying otherwise would be a claim the agent finds false on its first call. */
+const WHEN_TO_SEARCH = 'when the user points back to an earlier decision or session, or says remember, we decided or last time';
+const approval = readsApproved => (readsApproved ? '. it needs no approval' : '');
+
+/** Said once a session, on the first prompt that matched nothing.
+ *
+ *  Silence after a miss reads as "there is nothing to find", so the agent
+ *  never reaches for the tool. Once, because a miss is the common case and a
+ *  line on every one of them would be a cost on every prompt. */
+export function missNote({readsApproved = false} = {}) {
+  return `▣ nothing in Satchel matched this message closely enough to show\n`
+    + `  other words or another topic may still find something. retrieve_memory is worth a call ${WHEN_TO_SEARCH},`
+    + ` and not for work that stands on its own${approval(readsApproved)}`;
+}
+
 /** Which personal memories the session block injects. One function, used by
  *  the block and by the log, so the two cannot disagree about what the model
  *  saw.
@@ -166,7 +192,7 @@ export function topicLoad(memories = [], cap = 15) {
  *  With nothing linked, which is every non-Git and unlinked workspace, there is
  *  nothing to filter by and the full list is the honest answer. */
 export function sessionStartBlock({topics = [], personal = [], linked = [], cap = 30,
-  topic = null, topicMemories = [], topicCap = 15, now = new Date()} = {}) {
+  topic = null, topicMemories = [], topicCap = 15, now = new Date(), readsApproved = false} = {}) {
   const lines = [];
   // The header says the scope and the band, so the row carries only its count.
   const rowLine = memory => '  ' + [handleOf(memory.id), rowLabel(memory), clip(memory.statement, 300)].filter(Boolean).join('  ');
@@ -231,7 +257,10 @@ export function sessionStartBlock({topics = [], personal = [], linked = [], cap 
   }
   if (!lines.length) return '';
   lines.push('');
-  lines.push('more exists, search satchel for anything not listed above');
+  lines.push(`more exists than is listed here. search it with retrieve_memory ${WHEN_TO_SEARCH}${approval(readsApproved)}`);
+  // The mark is the only way to tell, from a transcript, that a row did work.
+  // The injection review counts it.
+  lines.push('when a Satchel row shaped your answer, mark that part with ▣');
   return `<satchel>\n${lines.join('\n')}\n</satchel>`;
 }
 

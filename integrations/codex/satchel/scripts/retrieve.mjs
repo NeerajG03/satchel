@@ -16,7 +16,7 @@
 // silently took capture with it for that reason.
 import {call} from './auth.mjs';
 import {repositoryFrom, readHookInput, sessionIdOf, cwdOf, emit} from './workspace.mjs';
-import {shownSoFar, recordShown} from './shown.mjs';
+import {shownSoFar, recordShown, hintSent, recordHint, readsMode} from './shown.mjs';
 
 const event = await readHookInput();
 const sessionKey = sessionIdOf(event);
@@ -38,6 +38,9 @@ try {
     // What earlier prompts in this session already showed, so it is not
     // shown again. Ids only.
     exclude: shownSoFar(sessionKey),
+    // Whether the once-a-session note on a miss was already given.
+    hinted: hintSent(sessionKey),
+    reads: readsMode(),
   }, {timeout: 8000});
   // Not connected is silent here. Session start already said so once, and
   // repeating it on every prompt is how a person learns to ignore the line
@@ -49,6 +52,7 @@ try {
     process.exit(0);
   }
   recordShown(sessionKey, response.data.shown);
+  if (response.data.hint) recordHint(sessionKey);
   // Finding nothing is the common case and costs nothing: no block, no line.
   emit({event: 'UserPromptSubmit', context: response.data.context ?? '', notice: response.data.notice ?? ''});
 } catch (error) {

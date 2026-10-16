@@ -363,7 +363,8 @@ personal — confirmed, use freely
 
 1 unconfirmed memory not loaded · retrieve_memory finds one if it turns out to matter
 
-more exists — search satchel for anything not listed above
+more exists than is listed here. search it with retrieve_memory when the user points back to an earlier decision or session, or says remember, we decided or last time. it needs no approval
+when a Satchel row shaped your answer, mark that part with ▣
 </satchel>
 ```
 

@@ -191,7 +191,13 @@ for (const {path} of files) {
       events.push(lastPrompt);
     } else if (d.type === 'assistant') {
       for (const x of d.message?.content ?? []) {
-        if (x?.type === 'text' && x.text?.trim()) events.push({kind: 'reply', ts, text: x.text});
+        if (x?.type === 'text' && x.text?.trim()) {
+          events.push({kind: 'reply', ts, text: x.text});
+          // The agent is asked to mark the part of an answer a Satchel row
+          // shaped. A marked reply is the one sign in a transcript that a row
+          // did work, rather than only being shown.
+          if (lastPrompt && x.text.includes('▣')) lastPrompt.cited = true;
+        }
         else if (x?.type === 'tool_use' && /satchel/i.test(x.name ?? '') && /select_(topic|project)$/.test(x.name)) {
           const call = {kind: 'select', ts, topic_id: x.input?.topic_id ?? x.input?.project_id ?? null};
           satchelCalls.set(x.id, call);
@@ -234,7 +240,9 @@ for (const s of parsed) {
 
 const slugOf = Object.fromEntries(topics.map(t => [t.id, t.slug]));
 const linkedTo = repo => links.filter(l => l.repository === repo).map(l => slugOf[l.topic_id]).filter(Boolean);
-const clipReply = text => text.length > 700 ? text.slice(0, 700) + ' [reply cut]' : text;
+// The mark comes off too: it says Satchel helped, and the labeller must judge
+// the need without knowing what was shown.
+const clipReply = raw => { const text = raw.replace(/▣\s?/g, ''); return text.length > 700 ? text.slice(0, 700) + ' [reply cut]' : text; };
 // What the person typed, without the reminders the host wraps round it.
 const REMINDER = /<system-reminder\b[^>]*>[\s\S]*?<\/system-reminder>\s*/g;
 

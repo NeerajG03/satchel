@@ -155,14 +155,15 @@ export async function handleHookIndex(req, res) {
   const connection = await connect(req, res);
   if (!connection) return;
   let input;
-  try { input = parseHookBody(req.body, new Set(['session_key', 'event', 'repository'])); }
+  try { input = parseHookBody(req.body, new Set(['session_key', 'event', 'repository', 'reads'])); }
   catch { res.writeHead(400); return res.end(); }
   let sessionKey;
   try { sessionKey = readSession(input.session_key); }
   catch { res.writeHead(400); return res.end(); }
   const event = EVENTS.has(input.event) ? input.event : 'SessionStart';
   const result = await sessionStart(connection.service, {
-    sessionKey, event, repository: readRepository(input.repository), ownerId: connection.ownerId});
+    sessionKey, event, repository: readRepository(input.repository), ownerId: connection.ownerId,
+    readsApproved: input.reads === 'auto'});
   send(res, {context: result.context, notice: result.notice, active_topic: result.active_topic});
 }
 
@@ -173,7 +174,7 @@ export async function handleHookRetrieve(req, res, {embedder = null, traced, ret
   const connection = await connect(req, res, {embedder});
   if (!connection) return;
   let input;
-  try { input = parseHookBody(req.body, new Set(['session_key', 'prompt', 'repository', 'exclude'])); }
+  try { input = parseHookBody(req.body, new Set(['session_key', 'prompt', 'repository', 'exclude', 'hinted', 'reads'])); }
   catch { res.writeHead(400); return res.end(); }
   let sessionKey;
   try { sessionKey = readSession(input.session_key); }
@@ -188,8 +189,11 @@ export async function handleHookRetrieve(req, res, {embedder = null, traced, ret
     .filter(id => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)).slice(0, 50);
   const result = await retrieve(connection.service, {
     sessionKey, prompt, repository: readRepository(input.repository), exclude,
+    // Strictly a boolean: anything else, including an older plugin that sends
+    // nothing, means no note.
+    hinted: typeof input.hinted === 'boolean' ? input.hinted : undefined, readsApproved: input.reads === 'auto',
     ownerId: connection.ownerId, ...(traced ? {traced} : {}), ...(retrieval ? {retrieval} : {})});
-  send(res, {context: result.context, notice: result.notice, shown: result.shown ?? []});
+  send(res, {context: result.context, notice: result.notice, shown: result.shown ?? [], ...(result.hint ? {hint: true} : {})});
 }
 
 /** Where the next call in a consolidation chain is sent.
