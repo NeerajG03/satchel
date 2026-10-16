@@ -231,6 +231,37 @@ test('retrieval records the prompt whether or not it finds anything', async () =
   assert.equal(recorded.length, 2);
 });
 
+test('a miss says once a session that a search can still find more, and only when the hook asks', async () => {
+  const service = {
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    recordTurn: async () => {},
+    search: async () => [],
+    topics: async () => [],
+  };
+  // An older plugin sends nothing and keeps the silence it always had.
+  const old = await retrieve(service, {sessionKey: 's', prompt: 'what did we decide about Go'});
+  assert.equal(old.context, '');
+  assert.equal(old.hint, undefined);
+  const first = await retrieve(service, {sessionKey: 's', prompt: 'what did we decide about Go', hinted: false});
+  assert.match(first.context, /^▣ nothing new in Satchel matched this message/);
+  assert.match(first.context, /retrieve_memory is worth a call when the user points back/);
+  assert.doesNotMatch(first.context, /approval/, 'a host where reads may ask is not told they do not');
+  assert.equal(first.hint, true, 'the hook is told to remember it was said');
+  assert.equal(first.notice, '', 'the person sees nothing for a miss');
+  const claude = await retrieve(service, {sessionKey: 's', prompt: 'what did we decide about Go', hinted: false, readsApproved: true});
+  assert.match(claude.context, /it needs no approval/);
+  const again = await retrieve(service, {sessionKey: 's', prompt: 'and the other thing', hinted: true});
+  assert.equal(again.context, '', 'once a session, not on every miss');
+  const host = await retrieve(service, {sessionKey: 's', prompt: '<task-notification>done</task-notification>', hinted: false});
+  assert.equal(host.context, '', 'a host message is not searched, so it did not miss');
+  service.search = async () => [{id: crypto.randomUUID(), statement: 'Do not bump Go.', band: 'said', score: 0.9, matched: 1, in_scope: 3}];
+  const hit = await retrieve(service, {sessionKey: 's', prompt: 'can we bump Go', hinted: false});
+  assert.match(hit.context, /^▣ retrieved/);
+  assert.equal(hit.hint, undefined, 'a hit does not spend the note');
+});
+
 test('retrieval passes the prompt as the query and nothing else', async () => {
   const searched = [];
   await retrieve({

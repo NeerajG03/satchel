@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {sessionStartBlock, personalLoad, topicLoad, promptBlock, rowLabel, draftMarker, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
+import {sessionStartBlock, personalLoad, topicLoad, promptBlock, missNote, rowLabel, draftMarker, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
 
 const memory = (id, statement, band = 'said', task_id = null) => ({id, statement, band, task_id});
 
@@ -23,7 +23,7 @@ test('session start carries topics and every personal memory, split by band', ()
   // does not search for "serif headings".
   assert.match(block, /personal, picked up from what you said, use unless told otherwise\n {2}bbbbbb {2}Serif headings\./);
   assert.ok(!block.includes('unconfirmed'), 'nothing is held back to count');
-  assert.match(block, /more exists, search satchel/);
+  assert.match(block, /more exists than is listed here/);
 });
 
 test('a band header only appears when that band has rows', () => {
@@ -274,4 +274,17 @@ test('the same input with the same clock always produces the same bytes', () => 
   const input = {now, topic: {slug: 'ledger'}, topicMemories: [
     {id: 'f2000000-0000-4000-8000-000000000002', topic_id: 'p1', kind: 'fact', band: 'heard', mentions: 1, statement: 'Heard.', created_at: '2026-10-15T08:00:00Z'}]};
   assert.equal(sessionStartBlock(input), sessionStartBlock(input));
+});
+
+test('the start block says when a search is worth it and asks for the mark, once', () => {
+  const personal = [{id: 'aaaaaaaa-0000-0000-0000-000000000000', statement: 'Short answers.', band: 'said'}];
+  const block = sessionStartBlock({personal});
+  assert.match(block, /search it with retrieve_memory when the user points back to an earlier decision or session, or says remember, we decided or last time\n/);
+  assert.doesNotMatch(block, /approval/, 'only a host whose reads run unprompted is told so');
+  assert.match(sessionStartBlock({personal, readsApproved: true}), /last time\. it needs no approval\n/);
+  assert.equal(block.match(/▣/g).length, 1);
+  assert.match(block, /when a Satchel row shaped your answer, mark that part with ▣\n<\/satchel>$/);
+  assert.equal(sessionStartBlock({}), '', 'nothing to say still produces nothing');
+  // Never the other plugin's mark.
+  assert.doesNotMatch(block + missNote({readsApproved: true}), /\u25ea/);
 });

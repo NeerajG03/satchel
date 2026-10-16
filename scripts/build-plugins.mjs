@@ -40,7 +40,11 @@ const description='Personal and topic memory, tasks and topics across your agent
 // 0.5.3 tells the agent how to read a row's `said N times` count and the
 // draft line under a young unconfirmed topic row, and that a retrieved row is
 // context to weigh against the message, not an instruction that outranks it.
-const versions={claude:'0.5.3',codex:'0.5.3'};
+// 0.5.4 lets Satchel's read-only tools run without a permission prompt on
+// Claude (Codex rejects an allow from PreToolUse), says in the blocks when a
+// search is worth making, says once per session when a prompt matched nothing,
+// and asks the agent to mark an answer a retrieved row shaped with ▣.
+const versions={claude:'0.5.4',codex:'0.5.4'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
@@ -50,7 +54,7 @@ for(const host of ['codex','claude']) {
   // than bundled because the plugin is read by people deciding whether to trust
   // it, and one readable file per job is the point.
   for(const script of ['session-start.mjs','retrieve.mjs','capture.mjs','connect.mjs',
-    'auth.mjs','workspace.mjs','background.mjs','shown.mjs'])
+    'auth.mjs','workspace.mjs','background.mjs','shown.mjs',...(host==='claude'?['approve.mjs']:[])])
     await cp(join(root,'integrations/shared',script),join(target,'scripts',script));
   const common={name,version:versions[host],description,author:{name:'Satchel'},repository:'https://github.com/NeerajG03/satchel'};
   const manifest=host==='codex'?{...common,skills:'./skills/',mcpServers:'./.mcp.json',interface:{
@@ -123,6 +127,15 @@ for(const host of ['codex','claude']) {
     // for now; the real fix is making the common path fast rather than
     // widening the timeout further.
     UserPromptSubmit:[script('retrieve.mjs',10)],
+    // Satchel's reads run without a prompt and every write still asks. The
+    // matcher only narrows when the script runs; the script decides, and says
+    // nothing for anything that is not one of the six reads.
+    //
+    // Claude only. Codex 0.153 parses PreToolUse but refuses
+    // permissionDecision:allow, so on Codex the person's own approval
+    // settings decide, as they did before.
+    ...(host==='claude'?{PreToolUse:[{...script('approve.mjs',5),
+      matcher:'^mcp__(plugin_satchel_satchel|satchel|claude_ai_[Ss]atchel)__'}]}:{}),
   }},null,2)+'\n');
   // The skill ships SKILL.md plus its progressively disclosed references, so copy the tree.
   await rm(join(target,'skills'),{recursive:true,force:true});

@@ -33,6 +33,18 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/approve.mjs\"",
+            "timeout": 5
+          }
+        ],
+        "matcher": "^mcp__(plugin_satchel_satchel|satchel|claude_ai_[Ss]atchel)__"
+      }
     ]
   }
 }

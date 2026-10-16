@@ -137,9 +137,14 @@ const sessions = readdirSync(join(DIR, 'sessions')).map(f => read(`sessions/${f}
 const resets = new Set(['startup', 'clear', 'compact', null, undefined]);
 const linkCount = repository => repository ? snapshot.links.filter(l => l.repository === repository).length : 0;
 let replayed = [], production = [];
+// What the wording costs, which the scorecard cannot see: it scores which rows
+// were shown, and a line of guidance shows no row. The start block's size, and
+// the once-a-session note a miss gets (replayed as the Claude plugin, which
+// asks for it and lets reads run unprompted).
+const startTokens = [], notes = [];
 for (const s of sessions) {
   const service = replayService({snapshot, vectors, queryVector});
-  let front = new Set(), shipFront = new Set(), shipActive = null, sent = [];
+  let front = new Set(), shipFront = new Set(), shipActive = null, sent = [], hinted = false;
   // Start block rows waiting to be charged on the next scored prompt. A block
   // nobody scored before a reset is not charged: no scored prompt saw it.
   let pending = [], shipPending = [], resetBefore = false;
@@ -147,11 +152,12 @@ for (const s of sessions) {
     if (e.kind === 'start') {
       service.state.at = e.ts;
       if (resets.has(e.how)) { front = new Set(); shipFront = new Set(); pending = []; shipPending = []; resetBefore = true; }
-      if (plugin?.RESETS.has(e.how)) sent = [];
+      if (plugin?.RESETS.has(e.how)) { sent = []; hinted = false; }
       const mark = service.log.length;
       // The block's own clock is the prompt's time, so a row's age reads as it
       // did that day and not as it does on the day of the run.
-      await sessionStart(service, {sessionKey: s.session, repository: s.repository, now: () => new Date(e.ts)});
+      const started = await sessionStart(service, {sessionKey: s.session, repository: s.repository, now: () => new Date(e.ts), readsApproved: true});
+      if (started?.context) startTokens.push(estimateTokens(started.context));
       for (const entry of service.log.slice(mark)) for (const id of entry.memory_ids) { front.add(id); pending.push(id); }
       for (const id of e.loaded ?? []) { shipFront.add(id); shipPending.push(id); }
       shipActive = e.active ?? shipActive;
@@ -165,8 +171,10 @@ for (const s of sessions) {
       const mark = service.log.length;
       const prompt = asSent(e.text);
       const out = prompt
-        ? await retrieve(service, {sessionKey: s.session, prompt, repository: s.repository, exclude: sent, now: () => new Date(e.ts)})
+        ? await retrieve(service, {sessionKey: s.session, prompt, repository: s.repository, exclude: sent, now: () => new Date(e.ts),
+          hinted, readsApproved: true})
         : {context: ''};
+      if (out.hint) { hinted = true; notes.push(estimateTokens(out.context)); }
       const shown = service.log.slice(mark).flatMap(entry => entry.memory_ids);
       if (plugin) sent = plugin.remember(sent, out.shown ?? shown);
       const loaded = g ? pending : [], shipLoaded = g ? shipPending : [];
@@ -178,7 +186,8 @@ for (const s of sessions) {
       production.push({id, session: s.session, n: e.n, ts: e.ts, typed: e.typed, gold: g,
         shown: shipShown.filter(m => !endedBy(m, e.ts)),
         ended: shipShown.filter(m => endedBy(m, e.ts)),
-        loaded: shipLoaded, before: [...shipFront], resetBefore, active: shipActive, tokens: e.shownText ? estimateTokens(e.shownText) : 0});
+        loaded: shipLoaded, before: [...shipFront], resetBefore, active: shipActive, tokens: e.shownText ? estimateTokens(e.shownText) : 0,
+        cited: Boolean(e.cited)});
       for (const m of shipShown) shipFront.add(m);
       resetBefore = false;
     }
@@ -221,6 +230,9 @@ console.log(`injection eval · ${sessions.length} sessions · ${now.typed} label
 console.log(`snapshot ${snapshot.taken_at.slice(0, 10)} · checkout ${CHECKOUT}${embeddedNow ? ` · ${embeddedNow} new query vectors` : ''}`
   + (overrides.length ? ` · settings ${overrides.map(kv => kv.join('=')).join(', ')}` : ''));
 console.log(`as of each prompt · ${now.typed} scored · ${leftOut.size} left out, nothing they needed existed yet`);
+const middle = list => list.length ? [...list].sort((a, b) => a - b)[Math.floor(list.length / 2)] : 0;
+console.log(`wording · start block median ${middle(startTokens)} tokens over ${startTokens.length} starts`
+  + ` · ${notes.length} miss notes, ${notes.reduce((a, b) => a + b, 0)} tokens in all`);
 if (unknown.size) console.log(`gold names ${unknown.size} handles that are not in the snapshot: ${[...unknown].slice(0, 8).join(', ')}`);
 if (endedInGold) console.log(`${endedInGold} gold labels name memories ended by the prompt's time; counted as traps`);
 const unlabelled = replayed.filter(r => r.typed && !r.gold && !leftOut.has(r.id)).length;
@@ -229,6 +241,18 @@ console.log('');
 console.log(`  ${''.padEnd(56)} ${'production'.padStart(11)} ${'replay'.padStart(9)} ${'baseline'.padStart(9)}`);
 for (const [key, label, fmt] of rows)
   console.log(`  ${`${key}  ${label}`.padEnd(56)} ${fmt(ship[key]).padStart(11)} ${fmt(now[key]).padStart(9)} ${fmt(baseline?.summary?.[key]).padStart(9)}`);
+
+// The agent's own word that a row did work: replies marked ▣, from the
+// transcripts, so production only. Read beside the gold, never instead of it:
+// a mark on a prompt the labeller said needed nothing is a row the agent
+// leaned on that a careful reader would not have.
+{
+  const cited = production.filter(m => m.cited);
+  const typedCited = cited.filter(m => m.gold);
+  const needed = typedCited.filter(m => m.gold.must.length || m.gold.helps.length);
+  console.log(`\n  replies marked ▣, production: ${cited.length} prompts`
+    + (typedCited.length ? `, ${needed.length} of the ${typedCited.length} labelled ones needed a memory` : ''));
+}
 
 // What to look at first: the memories that cost the most room, the ones most
 // often needed and missing, and every harmful slot.
@@ -327,7 +351,8 @@ if (fit.ok) {
 
 const strip = s => { const {rows: _rows, ...rest} = s; return rest; };
 const record = {at: new Date().toISOString(), checkout: CHECKOUT, snapshot: snapshot.taken_at, method: METHOD,
-  leftOut: leftOut.size, summary: strip(now), production: strip(ship),
+  leftOut: leftOut.size, wording: {startMedian: middle(startTokens), starts: startTokens.length,
+    notes: notes.length, noteTokens: notes.reduce((a, b) => a + b, 0)}, summary: strip(now), production: strip(ship),
   overlap, rows: now.rows.map(r => ({id: r.id, labelled: r.labelled, utility: r.utility ?? null,
     ...(r.checkUtility != null ? {checkUtility: r.checkUtility} : {})}))};
 writeFileSync(join(DIR, 'runs', `run-${record.at.replace(/[:.]/g, '-')}.json`), JSON.stringify(record));

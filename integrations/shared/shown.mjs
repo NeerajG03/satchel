@@ -9,8 +9,9 @@
 // a new session, a clear, or a compact drops what was shown, and a memory may
 // be shown again after that. A resume keeps it, because the transcript, and
 // what was in it, comes back.
-import {readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, rmSync} from 'node:fs';
-import {join} from 'node:path';
+import {readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, rmSync, existsSync} from 'node:fs';
+import {join, dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {satchelHome} from './auth.mjs';
 
 /** The server takes at most this many. The oldest go first: they are the ones
@@ -48,11 +49,28 @@ export function recordShown(sessionKey, ids) {
   } catch { /* best effort */ }
 }
 
+// Whether this session was already told, once, that a miss is not the end of
+// it. Same life as the list: a clear or a compact drops it, so the note comes
+// back when the agent no longer has it in front of it.
+const hintOf = sessionKey => join(dir(), `${sessionKey}.hint`);
+export const hintSent = sessionKey => existsSync(hintOf(sessionKey));
+export function recordHint(sessionKey) {
+  try {
+    mkdirSync(dir(), {recursive: true, mode: 0o700});
+    writeFileSync(hintOf(sessionKey), '', {mode: 0o600});
+  } catch { /* a lost marker only means the note comes once more */ }
+}
+
+/** `auto` when this package lets Satchel's reads run without a prompt, which
+ *  is when the PreToolUse script ships beside this one. The server only says
+ *  a read needs no approval when that is true. */
+export const readsMode = () => existsSync(join(dirname(fileURLToPath(import.meta.url)), 'approve.mjs')) ? 'auto' : 'ask';
+
 /** Called at session start. Clears this session's list when its context was
  *  dropped, and removes lists nobody has touched in two days. */
 export function startShown(sessionKey, source) {
   try {
-    if (RESETS.has(source)) rmSync(fileOf(sessionKey), {force: true});
+    if (RESETS.has(source)) { rmSync(fileOf(sessionKey), {force: true}); rmSync(hintOf(sessionKey), {force: true}); }
     const old = Date.now() - 2 * 86400e3;
     for (const name of readdirSync(dir())) {
       const path = join(dir(), name);

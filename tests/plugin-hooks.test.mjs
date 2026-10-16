@@ -128,10 +128,11 @@ test('the repository is read from the origin and its credentials never leave', a
     assert.equal(asked.length, 1);
     assert.equal(asked[0].path, '/api/hook-index');
     assert.equal(asked[0].auth, 'Bearer test-token', 'the script authenticates as itself');
-    // Exactly three fields, and the repository normalized. Not the remote URL,
-    // not the path, not the prompt.
+    // Exactly four fields, and the repository normalized. Not the remote URL,
+    // not the path, not the prompt. `reads` says whether this package lets
+    // Satchel's reads run unprompted, so the block does not claim it on Codex.
     assert.deepEqual(asked[0].body,
-      {session_key: 'linked-session', event: 'SessionStart', repository: 'neerajg03/satchel'});
+      {session_key: 'linked-session', event: 'SessionStart', repository: 'neerajg03/satchel', reads: 'auto'});
     assert.doesNotMatch(JSON.stringify(asked), /PRIVATE_TOKEN|user:/);
     const output = JSON.parse(stdout);
     assert.match(output.hookSpecificOutput.additionalContext, /^<satchel>/);
@@ -283,13 +284,103 @@ test('a prompt is retrieved against and recorded, and the reply is captured', as
   }
 });
 
+test('a Satchel read runs without asking, a write still asks, and other tools are left alone', async () => {
+  // Every shape the same server arrives under: inside the plugin, added by
+  // hand, and as a claude.ai connector.
+  const pre = tool_name => run('approve.mjs', JSON.stringify({session_id: 's', hook_event_name: 'PreToolUse', tool_name, tool_input: {}}));
+  for (const prefix of ['mcp__plugin_satchel_satchel__', 'mcp__satchel__', 'mcp__claude_ai_Satchel__'])
+    for (const tool of ['retrieve_memory', 'read_memory', 'memory_index', 'list_topics', 'list_tasks', 'read_task']) {
+      const {code, stdout} = await pre(prefix + tool);
+      assert.equal(code, 0);
+      const out = JSON.parse(stdout).hookSpecificOutput;
+      assert.equal(out.hookEventName, 'PreToolUse');
+      assert.equal(out.permissionDecision, 'allow', `${prefix}${tool} is a read`);
+    }
+  // A write says nothing, so the host asks exactly as it did before. So does
+  // every tool that is not Satchel's, including another server's tool with the
+  // same name and a name that only ends like ours.
+  for (const tool_name of ['mcp__plugin_satchel_satchel__save_memory', 'mcp__satchel__forget_memory',
+    'mcp__satchel__correct_memory', 'mcp__satchel__confirm_memory', 'mcp__satchel__create_task',
+    'mcp__satchel__edit_task', 'mcp__satchel__record_task_update', 'mcp__satchel__add_task_resource',
+    'mcp__satchel__upsert_topic', 'mcp__satchel__select_topic',
+    'mcp__other__retrieve_memory', 'mcp__notsatchel__read_memory', 'mcp__satchel__read_memory_x',
+    'mcp__3d2a2d4f-2280__retrieve_memory', 'Bash', 'Read', '']) {
+    const {code, stdout} = await pre(tool_name);
+    assert.equal(code, 0);
+    assert.equal(stdout, '', `${tool_name || 'no name'} must keep the host's own prompt`);
+  }
+  // Only on PreToolUse, and a malformed event is silent.
+  for (const input of [JSON.stringify({hook_event_name: 'PostToolUse', tool_name: 'mcp__satchel__read_memory'}), 'nope']) {
+    const {code, stdout} = await run('approve.mjs', input);
+    assert.equal(code, 0);
+    assert.equal(stdout, '');
+  }
+});
+
+test('the reads the hook allows are exactly the tools the server marks read only', async () => {
+  // If a tool is added or its annotation changes, the allow list has to be
+  // looked at again. A write slipping into it would skip the person's prompt.
+  const {createMemoryServer} = await import('../server/mcp-server.mjs');
+  const {Client} = await import('@modelcontextprotocol/sdk/client/index.js');
+  const {InMemoryTransport} = await import('@modelcontextprotocol/sdk/inMemory.js');
+  const server = createMemoryServer({tasks: {}});
+  const client = new Client({name: 'test', version: '1'});
+  const [left, right] = InMemoryTransport.createLinkedPair();
+  await server.connect(right); await client.connect(left);
+  try {
+    const reads = (await client.listTools()).tools.filter(t => t.annotations?.readOnlyHint).map(t => t.name).sort();
+    const source = readFileSync(scriptPath('approve.mjs'), 'utf8');
+    const allowed = JSON.parse(source.match(/READS = new Set\((\[[^\]]*\])\)/)[1].replace(/'/g, '"')).sort();
+    assert.deepEqual(allowed, reads);
+  } finally { await client.close(); }
+});
+
+test('a server older than 0.5.4 still serves a 0.5.4 plugin', async () => {
+  // The old server refuses any key it does not know. A plugin that updates
+  // before the server deploys must not lose every prompt for it.
+  const SATCHEL_HOME = home();
+  const seen = [];
+  const {createServer} = await import('node:http');
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      const parsed = JSON.parse(body);
+      seen.push({path: req.url, keys: Object.keys(parsed).sort()});
+      if ('reads' in parsed || 'hinted' in parsed) { res.writeHead(400); return res.end(); }
+      res.writeHead(200, {'content-type': 'application/json'});
+      res.end(JSON.stringify(req.url === '/api/hook-retrieve'
+        ? {context: '\u25a3 retrieved \u00b7 1 shown \u00b7 1 matched \u00b7 3 in scope\n  abc123  Keep it short.', notice: ''}
+        : {context: '<satchel>\nhello\n</satchel>', notice: 'Satchel loaded'}));
+    });
+  });
+  await new Promise(done => server.listen(0, '127.0.0.1', done));
+  writeFileSync(join(SATCHEL_HOME, 'credentials.json'), JSON.stringify({
+    client_id: 'c', refresh_token: 'r', access_token: 'test-token', expires_at: Date.now() + 3600_000}));
+  const env = {SATCHEL_HOME, SATCHEL_URL: `http://127.0.0.1:${server.address().port}`};
+  try {
+    const asked = await run('retrieve.mjs', JSON.stringify({session_id: 'old-server', hook_event_name: 'UserPromptSubmit', prompt: 'short or long?'}), env);
+    assert.match(JSON.parse(asked.stdout).hookSpecificOutput.additionalContext, /Keep it short/);
+    assert.deepEqual(seen.map(s => s.keys), [
+      ['exclude', 'hinted', 'prompt', 'reads', 'repository', 'session_key'],
+      ['exclude', 'prompt', 'repository', 'session_key']]);
+    const started = await run('session-start.mjs', JSON.stringify({session_id: 'old-server', hook_event_name: 'SessionStart', source: 'startup'}), env);
+    assert.match(JSON.parse(started.stdout).hookSpecificOutput.additionalContext, /hello/);
+    assert.deepEqual(seen.slice(2).filter(s => s.path === '/api/hook-index').map(s => s.keys), [
+      ['event', 'reads', 'repository', 'session_key'], ['event', 'repository', 'session_key']]);
+  } finally {
+    rmSync(SATCHEL_HOME, {recursive: true, force: true});
+    await new Promise(done => server.close(done));
+  }
+});
+
 test('no hook script ever opens the transcript file', async () => {
   // Satchel says it does not read the transcript, in the security skill, in
   // the shipped skill and in the text injected into every session. It did, for
   // one afternoon, on the false premise that a command hook is not given the
   // prompt. This is the assertion that keeps the claim true.
   const {readFileSync: read} = await import('node:fs');
-  for (const script of ['session-start.mjs', 'retrieve.mjs', 'capture.mjs', 'connect.mjs', 'auth.mjs', 'workspace.mjs']) {
+  for (const script of ['session-start.mjs', 'retrieve.mjs', 'capture.mjs', 'connect.mjs', 'auth.mjs', 'workspace.mjs', 'approve.mjs']) {
     const source = read(scriptPath(script), 'utf8');
     assert.doesNotMatch(source, /transcript_path/,
       `${script} reads transcript_path; both halves of a turn arrive in the hook input instead`);
@@ -329,9 +420,24 @@ test('built packages stay in sync with their shared sources', () => {
   const scripts = ['session-start.mjs', 'retrieve.mjs', 'capture.mjs', 'connect.mjs', 'auth.mjs', 'workspace.mjs']
     .map(file => [file, `scripts/${file}`]);
   for (const host of ['codex', 'claude'])
-    for (const [source, built] of [...scripts, ...skillFiles])
+    for (const [source, built] of [...scripts, ...skillFiles, ...(host === 'claude' ? [['approve.mjs', 'scripts/approve.mjs']] : [])])
       assert.equal(readFileSync(new URL(`../integrations/${host}/satchel/${built}`, import.meta.url), 'utf8'), shared(source),
         `integrations/${host}/satchel/${built} is stale; run node scripts/build-plugins.mjs`);
+});
+
+test('only the Claude package lets reads run unprompted, and only for Satchel', () => {
+  const hooksOf = host => JSON.parse(readFileSync(new URL(`../integrations/${host}/satchel/hooks/hooks.json`, import.meta.url))).hooks;
+  const [entry] = hooksOf('claude').PreToolUse;
+  assert.ok(entry.hooks[0].command.includes('${CLAUDE_PLUGIN_ROOT}/scripts/approve.mjs'));
+  const matcher = new RegExp(entry.matcher);
+  for (const name of ['mcp__plugin_satchel_satchel__retrieve_memory', 'mcp__satchel__read_task', 'mcp__claude_ai_Satchel__list_topics'])
+    assert.match(name, matcher);
+  for (const name of ['Bash', 'mcp__other__retrieve_memory', 'mcp__github__list_issues'])
+    assert.doesNotMatch(name, matcher);
+  // Codex refuses an allow from PreToolUse, so the script would do nothing
+  // there, and the session block must not tell the agent its reads are free.
+  assert.equal(hooksOf('codex').PreToolUse, undefined);
+  assert.throws(() => readFileSync(new URL('../integrations/codex/satchel/scripts/approve.mjs', import.meta.url)));
 });
 
 test('installed packages run every hook as a local script and none through MCP', () => {

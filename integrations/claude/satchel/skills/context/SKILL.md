@@ -32,15 +32,17 @@ Grants are separate and independently denied. Memory access does not imply task 
 
 ## What arrives on its own
 
-You do not have to go and get context. It arrives once, at the start.
+Most context arrives on its own, so you rarely have to go and get it. But what arrives is a cut, not everything, and a search is cheap.
 
 **At the start of a conversation, after a clear, after compaction and on resume**, you receive the list of topics and the personal memories, up to a cap: the confirmed ones first, then the ones Satchel picked up from what the user said, under their own header. When the workspace is one topic, that topic's own rules follow under a smaller cap. A local Satchel script reads the workspace's GitHub origin and resolves it, so the active topic is named too. If the block says the repository belongs to several topics, none was chosen: call `select_topic` with one of the `topic_id` values it listed, and never substitute a similar name.
 
 Nothing from any other topic loads here, and nothing about tasks. A picked-up row is used unless the user says otherwise; a retrieved row says `picked up` beside its scope when that is what it is.
 
-**On every message the user types**, memories relevant to what they said are retrieved and handed to you, with counts and with each row's scope. Messages from the host or another agent, such as a subagent's report or a task notification, are not searched. Read the counts. Each retrieved row is context, true when it was said and maybe about other work, so weigh it against what the user just typed; when the two disagree, the message in front of you wins. `0 matched` is a real answer and means no such memory exists, which is not the same as one existing and being held back.
+**On every message the user types**, memories relevant to what they said are retrieved and handed to you, with counts and with each row's scope. Messages from the host or another agent, such as a subagent's report or a task notification, are not searched. Read the counts. Each retrieved row is context, true when it was said and maybe about other work, so weigh it against what the user just typed; when the two disagree, the message in front of you wins. `0 matched` is a real answer: nothing saved is close to these words, which is not the same as one existing and being held back. Other words can still find it.
 
-So do not add per-turn freshness checks, and do not re-read a scope you were already given. Search with `retrieve_memory` when you need something this conversation has not surfaced. Companion or phone edits appear at the next fresh context or on an explicit refresh request.
+So do not add per-turn freshness checks, and do not re-read a scope you were already given. Search with `retrieve_memory` when you need something this conversation has not surfaced, and above all when the user points back to an earlier decision or session, or says remember, we decided or last time: the words that point back are the ones a search on the message itself most often misses. Satchel's read tools are read only, and with the Claude Code plugin they run without a permission prompt. The first message in a session that matches nothing gets a one-time note saying so.
+
+When a Satchel row shaped your answer, mark that part with ▣, so the user can see which part came from their own memory. Companion or phone edits appear at the next fresh context or on an explicit refresh request.
 
 Never claim memory or tasks loaded when a hook is disabled, untrusted, incomplete or unavailable. Say what actually happened and fall back to explicit scoped calls.
 

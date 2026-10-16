@@ -25,12 +25,12 @@ Every row also has a six-character handle, the start of its id. That is what the
 
 ## Reading
 
-You are given memories two ways and should not ask for them a third.
+You are given memories two ways. A search is the third, for what those two missed.
 
 1. **At the start of a conversation**, and after compaction, you receive the personal memories and the list of topics. Personal memories apply whatever you are working on, so they are not searched for, they are simply present. Ones Satchel picked up from what the user said come under their own header: follow them unless the user tells you otherwise, and do not ask them to confirm one. The block is capped, so a personal memory can exist without being in it: search when the user refers to one you were not given.
-2. **On each message**, anything relevant to what the user just said is retrieved and handed to you, with counts: `2 shown · 5 matched · 130 in scope`. Those counts are the point. `0 matched` means there is no such memory, which is different from one existing and not being shown.
+2. **On each message**, anything relevant to what the user just said is retrieved and handed to you, with counts: `2 shown · 5 matched · 130 in scope`. Those counts are the point. `0 matched` means nothing saved is close to these words, which is different from one existing and not being shown. A search in other words can still find it.
 
-Call `retrieve_memory` yourself only when you need something the turn did not surface, for example a subject the user has not named yet in this conversation. Pass `exclude` with ids already in the conversation so nothing arrives twice. Do not read a whole scope with `memory_index` to go looking; search instead.
+Call `retrieve_memory` yourself when you need something the turn did not surface: a subject the user has not named yet in this conversation, or the user pointing back at an earlier decision or session (remember, we decided, last time). When a row you were given or found shaped your answer, mark that part with ▣. Pass `exclude` with ids already in the conversation so nothing arrives twice. Do not read a whole scope with `memory_index` to go looking; search instead.
 
 A topic memory can arrive with a note that its repository has moved some number of commits since it was last confirmed. That is a doubt, not a verdict. Check the code before relying on it, and if it is still true and the user agrees, `confirm_memory` clears the doubt.
 

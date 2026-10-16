@@ -16,7 +16,7 @@
 // silently took capture with it for that reason.
 import {call} from './auth.mjs';
 import {repositoryFrom, readHookInput, sessionIdOf, cwdOf, emit} from './workspace.mjs';
-import {shownSoFar, recordShown} from './shown.mjs';
+import {shownSoFar, recordShown, hintSent, recordHint, readsMode} from './shown.mjs';
 
 const event = await readHookInput();
 const sessionKey = sessionIdOf(event);
@@ -31,14 +31,21 @@ const prompt = [event.prompt, event.user_prompt]
 if (!prompt) process.exit(0);
 
 try {
-  const response = await call('/api/hook-retrieve', {
+  const body = {
     session_key: sessionKey,
     prompt,
     repository: process.env.SATCHEL_DISABLE_REPOSITORY_STAGING === '1' ? null : repositoryFrom(cwdOf(event)),
     // What earlier prompts in this session already showed, so it is not
     // shown again. Ids only.
     exclude: shownSoFar(sessionKey),
-  }, {timeout: 8000});
+  };
+  // Whether the once-a-session note on a miss was already given, and whether
+  // this package lets reads run unprompted.
+  let response = await call('/api/hook-retrieve', {...body, hinted: hintSent(sessionKey), reads: readsMode()}, {timeout: 8000});
+  // A server older than 0.5.4 refuses keys it does not know, and a refused
+  // call would also lose the record of what the person said. Once more
+  // without them.
+  if (response.status === 400) response = await call('/api/hook-retrieve', body, {timeout: 8000});
   // Not connected is silent here. Session start already said so once, and
   // repeating it on every prompt is how a person learns to ignore the line
   // that matters.
@@ -49,6 +56,7 @@ try {
     process.exit(0);
   }
   recordShown(sessionKey, response.data.shown);
+  if (response.data.hint) recordHint(sessionKey);
   // Finding nothing is the common case and costs nothing: no block, no line.
   emit({event: 'UserPromptSubmit', context: response.data.context ?? '', notice: response.data.notice ?? ''});
 } catch (error) {

@@ -19,7 +19,7 @@
 import {call, refreshEagerly} from './auth.mjs';
 import {repositoryFrom, readHookInput, sessionIdOf, cwdOf, emit} from './workspace.mjs';
 import {connectState, recordConnectAttempt} from './connect.mjs';
-import {startShown} from './shown.mjs';
+import {startShown, readsMode} from './shown.mjs';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {dirname, join} from 'node:path';
@@ -81,10 +81,13 @@ try {
   // Runs alongside the index call, not before it: refreshEagerly() is a no-op
   // on the common path (a token with most of its hour still ahead), so this
   // must not add a sequential round trip to every SessionStart just to check.
-  const [response] = await Promise.all([
-    call('/api/hook-index', {session_key: sessionKey, event: hookEvent, repository}, {timeout: 6000}),
+  const body = {session_key: sessionKey, event: hookEvent, repository};
+  let [response] = await Promise.all([
+    call('/api/hook-index', {...body, reads: readsMode()}, {timeout: 6000}),
     refreshEagerly(),
   ]);
+  // A server older than 0.5.4 refuses the `reads` key. Once more without it.
+  if (response.status === 400) response = await call('/api/hook-index', body, {timeout: 6000});
 
   if (!response.connected) {
     const {context, notice} = notConnected();

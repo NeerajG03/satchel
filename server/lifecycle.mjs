@@ -18,7 +18,7 @@
 // `{…, hook_event_name:"UserPromptSubmit", prompt, session_title}`, which the
 // binary settles and no amount of reading the docs did. Nothing about this
 // needs the transcript, which is why capture does not read one.
-import {sessionStartBlock, personalLoad, topicLoad, promptBlock, estimateTokens, noticeFor} from './injection-format.mjs';
+import {sessionStartBlock, personalLoad, topicLoad, promptBlock, missNote, estimateTokens, noticeFor} from './injection-format.mjs';
 import {classifyPrompt, machineTurnNote} from './machine-prompt.mjs';
 import {errorText} from './error-text.mjs';
 
@@ -130,7 +130,7 @@ const chooseTopicLine = candidates => candidates.length < 2 ? ''
  *  every personal memory. Anything scoped to a topic is earned by asking for
  *  it, which is what retrieve_memory is for. */
 export async function sessionStart(service, {sessionKey, event = 'SessionStart', repository = null,
-  topic, ownerId, traced = untraced, now = () => new Date()} = {}) {
+  topic, ownerId, traced = untraced, now = () => new Date(), readsApproved = false} = {}) {
   return traced(`satchel.${event}`,
     {sessionId: sessionKey, userId: ownerId, metadata: {event, repository}, tags: ['satchel', event], input: null},
     async setOutput => {
@@ -169,7 +169,7 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
         const firstCut = here ? topicLoad(own, TOPIC_BLOCK) : {said: [], heard: []};
         const dated = await withAges(service, own, firstCut.heard.filter(m => (m.mentions ?? 1) === 1).map(m => m.id));
         const block = sessionStartBlock({topics, personal, linked: scope.linked ?? [],
-          cap: settings.block_size, topic: here, topicMemories: dated, topicCap: TOPIC_BLOCK, now: now()});
+          cap: settings.block_size, topic: here, topicMemories: dated, topicCap: TOPIC_BLOCK, now: now(), readsApproved});
         const tokens = estimateTokens(block);
         // What the block actually injects, which is not all of it once the
         // cap is reached. The log has to say what reached the model, not what
@@ -219,7 +219,8 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
  *  the point: they separate "there is no rule about this" from "nothing scored
  *  high enough". */
 export async function retrieve(service, {sessionKey, prompt, repository = null,
-  exclude = [], topic, ownerId, traced = untraced, retrieval, now = () => new Date()} = {}) {
+  exclude = [], topic, ownerId, traced = untraced, retrieval, now = () => new Date(),
+  hinted, readsApproved = false} = {}) {
   return traced('satchel.UserPromptSubmit',
     {sessionId: sessionKey, userId: ownerId, metadata: {event: 'UserPromptSubmit'},
      tags: ['satchel', 'UserPromptSubmit'], input: prompt},
@@ -227,6 +228,7 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
       let context = '';
       let notice = '';
       let logged = null;
+      let hint = false;
       let unrecorded = '';
       try {
         const status = await service.status();
@@ -312,10 +314,17 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
               slugs: Object.fromEntries(topics.map(p => [p.id, p.slug]))});
             logged = {query, memory_ids: rows.map(r => r.id),
               matched: rows[0].matched, in_scope: rows[0].in_scope, tokens: estimateTokens(context)};
+          } else if (hinted === false) {
+            // Only when the hook says this session has not had it yet. An
+            // older plugin sends nothing, and gets the silence it always got
+            // rather than the note on every miss.
+            context = missNote({readsApproved});
+            hint = true;
           }
         }
       } catch (error) {
         context = '';
+        hint = false;
         notice = noticeFor('UserPromptSubmit', {error: errorText(error)});
       }
       // Said last because it outranks the rest. "recalled 2 of 9" is
@@ -328,7 +337,7 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
       // The ids as well as the text, so the hook can send them back as
       // `exclude` on the next prompt: the server cannot see what earlier
       // prompts showed, because the log is the person's and not the app's.
-      return {context, notice, shown: logged?.memory_ids ?? []};
+      return {context, notice, shown: logged?.memory_ids ?? [], ...(hint ? {hint} : {})};
     });
 }
 
