@@ -34,6 +34,9 @@ import {providerFor, asBaseUrl, worthWaiting} from './model-provider.mjs';
 import {salvage, asModelError} from './router.mjs';
 import {consolidatePrompt, localTextFor, CONSOLIDATE_PROMPT} from './prompt-store.mjs';
 
+// The longest a memory statement may be, and the most of one the model is shown.
+export const STATEMENT_LIMIT = 500;
+
 export const KINDS = ['fact', 'preference', 'intent'];
 
 // The least a retry is worth starting for. The second call is cut off by the
@@ -91,10 +94,10 @@ export function buildReconsiderPrompt({proposed, existing, now = new Date()} = {
   const day = value => new Date(value).toISOString().slice(0, 10);
   const lines = [`today is ${day(now)}`, ''];
   lines.push('existing memory');
-  lines.push(`  [${existing.kind ?? 'fact'}, ${existing.topic_slug ?? (existing.topic_id ? 'topic' : 'personal')}]  ${String(existing.statement).slice(0, 500)}`);
+  lines.push(`  [${existing.kind ?? 'fact'}, ${existing.topic_slug ?? (existing.topic_id ? 'topic' : 'personal')}]  ${String(existing.statement).slice(0, STATEMENT_LIMIT)}`);
   lines.push('');
   lines.push('proposed memory');
-  lines.push(`  [${proposed.kind}]  ${String(proposed.statement).slice(0, 500)}`);
+  lines.push(`  [${proposed.kind}]  ${String(proposed.statement).slice(0, STATEMENT_LIMIT)}`);
   lines.push('');
   lines.push('what the person typed, that the proposal came from');
   lines.push(`  "${String(proposed.source).slice(0, 1000)}"`);
@@ -199,7 +202,7 @@ export function buildConsolidationPrompt({topic = null, topics = [], codebase = 
       const moved = memory.commits_since >= churn ? `, repo +${memory.commits_since} commits since` : '';
       // A statement may be 500 long. Cutting it shorter here made the model
       // rewrite an extended memory from half a sentence and drop its ending.
-      lines.push(`  #${index + 1}  [${memory.kind}, ${scope}${seen}${when}${moved}]  ${String(memory.statement).slice(0, 500)}`);
+      lines.push(`  #${index + 1}  [${memory.kind}, ${scope}${seen}${when}${moved}]  ${String(memory.statement).slice(0, STATEMENT_LIMIT)}`);
     });
     lines.push('');
     // R3's comparative pressure, stated only when it is true. The block holds
@@ -318,7 +321,7 @@ export function validateConsolidation(payload, {turns = [], memories = [], topic
     if (action !== 'retire' && action !== 'affirm' && agreed(source)) { drop('source is only agreement'); continue; }
     // A retire and an affirm change no wording, so neither carries one.
     if (action !== 'retire' && action !== 'affirm') {
-      if (!statement || statement.length > 500) { drop('statement missing or too long'); continue; }
+      if (!statement || statement.length > STATEMENT_LIMIT) { drop('statement missing or too long'); continue; }
     }
     if (action === 'add') {
       if (existing.has(normalize(statement))) { drop('already remembered'); continue; }
@@ -428,7 +431,7 @@ export function createConsolidator({
       const statement = String(verdict.statement ?? '').trim();
       // A verdict that needs a statement and has none, or has one too long
       // for the row, falls back to the safe answer for that direction.
-      const held = (verdict.action === 'extend' || verdict.action === 'replace') && (!statement || statement.length > 500);
+      const held = (verdict.action === 'extend' || verdict.action === 'replace') && (!statement || statement.length > STATEMENT_LIMIT);
       const answer = held
         ? {action: 'add', statement: '', why: 'the reworded claim did not hold up'}
         : {action: verdict.action, statement, why: String(verdict.why ?? '').slice(0, 500)};
