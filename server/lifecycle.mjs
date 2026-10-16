@@ -35,10 +35,17 @@ const TOPIC_SKIP_MS = 1500;
 // closer match than the gate. With no topic picked the search reaches every
 // topic, and on a prompt about the codebase in front of the agent a loosely
 // related row from another topic is mostly noise.
+//
+// That holds with no link at all, too. The floor used to apply only when the
+// repository named some topic, so a non-git workspace or an unlinked repo got
+// every topic's rows at the plain gate; on the 16 October retro the
+// observability rule was handed to a session in such a workspace as a trap.
+// Personal rows are unscoped and always pass; an explicit select_topic still
+// puts its topic in `own` (D41).
 const UNLINKED_FLOOR = 0.75;
 export const withoutStrangers = (rows, scope) => {
   const own = new Set([...(scope.linked ?? []), scope.topic].filter(Boolean));
-  return own.size ? rows.filter(r => !r.topic_id || own.has(r.topic_id) || r.score >= UNLINKED_FLOOR) : rows;
+  return rows.filter(r => !r.topic_id || own.has(r.topic_id) || r.score >= UNLINKED_FLOOR);
 };
 const withinTime = (promise, ms, fallback) => {
   let timer;

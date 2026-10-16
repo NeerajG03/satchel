@@ -17,7 +17,7 @@ import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
 import {createMemoryServer} from '../server/mcp-server.mjs';
 import {memoryService} from '../server/memory-service.mjs';
 import {createEmbedder} from '../server/embedding.mjs';
-import {sessionStart, retrieve, capture} from '../server/lifecycle.mjs';
+import {sessionStart, retrieve, capture, withoutStrangers} from '../server/lifecycle.mjs';
 
 /** Records what the service actually sends, the way supabase-js would take it. */
 function recorder(responses = {}) {
@@ -772,7 +772,7 @@ test('retrieve merges the count and the date from ages, so a row said twice is c
     // search_memories returns neither mentions nor created_at.
     search: async () => [
       {id: 'cccccccc-0000-4000-8000-000000000003', topic_id: 'p1', band: 'heard', statement: 'Said twice.', score: 0.8, matched: 2, in_scope: 9},
-      {id: 'dddddddd-0000-4000-8000-000000000004', topic_id: 'p1', band: 'heard', statement: 'Heard once, yesterday.', score: 0.7, matched: 2, in_scope: 9},
+      {id: 'dddddddd-0000-4000-8000-000000000004', topic_id: 'p1', band: 'heard', statement: 'Heard once, yesterday.', score: 0.76, matched: 2, in_scope: 9},
     ],
     ages: async ids => {
       asked.push(ids);
@@ -787,7 +787,7 @@ test('retrieve merges the count and the date from ages, so a row said twice is c
 
 test('an ages that throws, hangs or is missing still injects, without a label', async () => {
   const now = new Date('2026-10-16T12:00:00Z');
-  const row = {id: 'dddddddd-0000-4000-8000-000000000004', topic_id: 'p1', band: 'heard', statement: 'Heard once.', score: 0.7, matched: 1, in_scope: 1};
+  const row = {id: 'dddddddd-0000-4000-8000-000000000004', topic_id: 'p1', band: 'heard', statement: 'Heard once.', score: 0.76, matched: 1, in_scope: 1};
   const base = {...scopeStubs, status: async () => connected, settings: async () => baseSettings, recordTurn: async () => {},
     personal: async () => [], topics: async () => [{id: 'p1', slug: 'ledger', brief: ''}], search: async () => [row]};
   const expectRow = result => {
@@ -810,6 +810,23 @@ test('an ages that throws, hangs or is missing still injects, without a label', 
   assert.match(start.context, /dddddd {2}Heard once\./);
   assert.doesNotMatch(start.context, /not confirmed since/);
   assert.deepEqual(logged[0].memory_ids, [row.id], 'the log is ids only, label or no label');
+});
+
+test('with no link a topic row needs the stranger floor, and a personal row never does', () => {
+  // The floor used to switch off when the repository named no topic, so a
+  // non-git workspace got every topic's rows at the plain gate, and on the
+  // retro one of them was a trap. An explicit pick still makes its topic own.
+  const rows = [
+    {id: 'a', topic_id: null, score: 0.68},
+    {id: 'b', topic_id: 'p1', score: 0.70},
+    {id: 'c', topic_id: 'p2', score: 0.76},
+  ];
+  assert.deepEqual(withoutStrangers(rows, {topic: null, linked: []}).map(r => r.id), ['a', 'c'],
+    'personal kept, a topic row at 0.70 dropped, one at 0.76 kept');
+  assert.deepEqual(withoutStrangers(rows, {topic: 'p1', linked: []}).map(r => r.id), ['a', 'b', 'c'],
+    'a chosen topic is own, so its row at 0.70 comes through');
+  assert.deepEqual(withoutStrangers(rows, {topic: null, linked: ['p1']}).map(r => r.id), ['a', 'b', 'c']);
+  assert.deepEqual(withoutStrangers([{id: 'd', topic_id: 'p1', score: 0.75}], {topic: null, linked: []}).map(r => r.id), ['d'], 'the floor is inclusive');
 });
 
 test('with two candidate topics no topic block loads', async () => {
