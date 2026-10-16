@@ -377,7 +377,7 @@ test('a claim the person forgot is not written again, and the run says why', asy
     calls.push({call: 'forgotten', statement});
     return {id: 'm7', topic_id: null, statement: 'Do not use em dashes.', ended_at: '2026-09-27T10:00:00Z', score: 0.93};
   };
-  service.nearest = async () => { throw new Error('the live check must not run for a forgotten claim'); };
+  service.nearest = async () => null;
   consolidator.reconsider = async () => { throw new Error('the model must not be asked about a forgotten claim'); };
   const result = await consolidateDocument(service, consolidator, document, {topics});
   assert.equal(result.added, 0);
@@ -390,6 +390,36 @@ test('a claim the person forgot is not written again, and the run says why', asy
   assert.match(action.why, /forgot this claim on 2026-09-27/);
   assert.match(action.why, /restore it from the archive/);
   assert.equal(of('marked').length, 1, 'the document is still marked read');
+});
+
+test('a live twin wins over a forgotten one, and a replace cannot bring a forgotten claim back', async () => {
+  // The em-dash rule was forgotten on 27 September and written again on
+  // 6 October, before the forgotten check existed. Both rows exist now. The
+  // next time the person says it, the live row is what they mean, so it is
+  // affirmed; refusing it for the ghost beside it would freeze its count.
+  const {service, consolidator, of} = fake({changes: [
+    {action: 'add', statement: 'Do not use em dashes in text.', source: 'no em dashes please',
+     kind: 'preference', topic: null, why: 'said again'}]});
+  service.nearest = async () => ({id: 'm9', topic_id: null, revision: 2, kind: 'preference', statement: 'Do not use em dashes in text, summaries, or communications.', score: 0.9});
+  service.forgottenTwin = async () => { throw new Error('the forgotten check must not run when a live twin claims the add'); };
+  service.affirmMemory = async () => {};
+  consolidator.reconsider = async () => ({action: 'affirm', statement: '', why: 'same rule'});
+  const result = await consolidateDocument(service, consolidator, document, {topics});
+  assert.equal(result.affirmed, 1);
+  assert.equal(result.dropped, 0);
+  assert.equal(of('capture').length, 0);
+
+  // A replace writes a new claim as well, and the same door is shut there.
+  const viaReplace = fake({changes: [
+    {action: 'replace', target: 'm2', revision: 1, statement: 'Em dashes are fine in summaries.', source: 'em dashes are fine in summaries',
+     kind: 'preference', topic: null, why: 'changed their mind'}]});
+  viaReplace.service.forgottenTwin = async () => ({id: 'm7', topic_id: null, statement: 'Em dashes are fine.', ended_at: '2026-10-01T10:00:00Z', score: 0.9});
+  const replaced = await consolidateDocument(viaReplace.service, viaReplace.consolidator, document, {topics});
+  assert.equal(replaced.replaced, 0);
+  assert.equal(replaced.dropped, 1);
+  assert.equal(viaReplace.of('capture').length, 0, 'nothing written');
+  assert.equal(viaReplace.of('end').length, 0, 'the old row is left as it was');
+  assert.equal(replaced.actions[0].did, 'rejected');
 });
 
 test('a forgotten claim in another topic does not stop the add, and a failed lookup lets it through', async () => {
