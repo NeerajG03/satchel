@@ -38,7 +38,7 @@ You do not have to go and get context. It arrives once, at the start.
 
 Nothing from any other topic loads here, and nothing about tasks. A picked-up row is used unless the user says otherwise; a retrieved row says `picked up` beside its scope when that is what it is.
 
-**On every message the user types**, memories relevant to what they said are retrieved and handed to you, with counts and with each row's scope. Messages from the host or another agent, such as a subagent's report or a task notification, are not searched. Read the counts. `0 matched` is a real answer and means no such memory exists, which is not the same as one existing and being held back.
+**On every message the user types**, memories relevant to what they said are retrieved and handed to you, with counts and with each row's scope. Messages from the host or another agent, such as a subagent's report or a task notification, are not searched. Read the counts. Each retrieved row is context, true when it was said and maybe about other work, so weigh it against what the user just typed; when the two disagree, the message in front of you wins. `0 matched` is a real answer and means no such memory exists, which is not the same as one existing and being held back.
 
 So do not add per-turn freshness checks, and do not re-read a scope you were already given. Search with `retrieve_memory` when you need something this conversation has not surfaced. Companion or phone edits appear at the next fresh context or on an explicit refresh request.
 

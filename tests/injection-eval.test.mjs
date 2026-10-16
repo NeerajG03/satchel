@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {search, personal, replayService} from '../eval/lib/injection-twin.mjs';
-import {scoreMoment, summarise, pair, gate, asOf, aheadNeeds, comparable} from '../eval/lib/injection-scoring.mjs';
+import {scoreMoment, summarise, pair, sides, gate, asOf, aheadNeeds, comparable} from '../eval/lib/injection-scoring.mjs';
+import {paired} from '../eval/lib/metrics.mjs';
 import {sessionStart, retrieve} from '../server/lifecycle.mjs';
 
 const A = '00000000-0000-4000-8000-00000000000a';
@@ -252,4 +253,36 @@ test('a baseline scored the old way is not compared', () => {
   const other = comparable({snapshot: '2026-10-01T00:00:00.000Z', method: 'as-of-1'}, here);
   assert.match(other.reason, /snapshot, not this one/);
   assert.equal(comparable({snapshot: at, method: 'as-of-1'}, here).ok, true);
+});
+
+test('each labeller is paired only on the prompts both runs scored, so a zero change reads 0.000 and not NaN', () => {
+  // Prompt 2 is labelled by the second labeller only: the first labeller's
+  // needs did not exist yet, so its utility is missing now and null in the
+  // baseline. Pairing it anyway made `undefined - null`, and one NaN in the
+  // differences turned a delta of exactly zero into NaN.
+  const now = [
+    {id: '1', labelled: true, utility: 0.5, checkUtility: 1},
+    {id: '2', labelled: false, checkUtility: 0.5},
+    {id: '3', labelled: true, utility: 1, checkUtility: 0.25},
+    {id: '4', labelled: true, utility: 0.75},
+  ];
+  const base = [
+    {id: '1', labelled: true, utility: 0.5, checkUtility: 1},
+    {id: '2', labelled: false, utility: null, checkUtility: 0.5},
+    {id: '3', labelled: true, utility: 1, checkUtility: 0.25},
+    {id: '4', labelled: true, utility: 0.75},
+  ];
+  const first = sides(now, base, 'utility');
+  assert.deepEqual(first, {a: [0.5, 1, 0.75], b: [0.5, 1, 0.75], compared: 3}, 'the unscored prompt is left out');
+  const second = sides(now, base, 'checkUtility');
+  assert.equal(second.compared, 3, 'the second labeller scored prompts 1, 2 and 3');
+  for (const s of [first, second]) {
+    const d = paired(s.a, s.b);
+    assert.equal(d.delta, 0);
+    assert.deepEqual([d.lo, d.hi], [0, 0], 'a zero change has a zero range');
+    assert.equal(d.significant, false);
+    assert.equal(`${d.delta >= 0 ? '+' : ''}${d.delta.toFixed(3)} [${d.lo.toFixed(3)}, ${d.hi.toFixed(3)}]`, '+0.000 [0.000, 0.000]');
+  }
+  // The old way, for the record: one unscored prompt and the delta is NaN.
+  assert.ok(Number.isNaN(paired(now.map(r => r.utility), base.map(r => r.utility)).delta));
 });

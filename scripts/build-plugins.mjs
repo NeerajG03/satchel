@@ -37,7 +37,10 @@ const description='Personal and topic memory, tasks and topics across your agent
 // database says topic as well.
 // 0.5.2 remembers which memories a session was already shown and asks the
 // server to skip them, until a compact or a clear.
-const versions={claude:'0.5.2',codex:'0.5.2'};
+// 0.5.3 tells the agent how to read a row's `said N times` count and the
+// draft line under a young unconfirmed topic row, and that a retrieved row is
+// context to weigh against the message, not an instruction that outranks it.
+const versions={claude:'0.5.3',codex:'0.5.3'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
