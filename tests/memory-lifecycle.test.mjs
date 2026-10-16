@@ -404,8 +404,8 @@ test('picked-up memories load, and the log and the notice say so', async () => {
     ],
     logInjection: async entry => { logged.push(entry); },
   }, {sessionKey: 's', topic: null});
-  assert.match(result.context, /cccccc {2}Comments only when needed\./);
-  assert.match(result.context, /dddddd {2}Pros and cons\./);
+  assert.match(result.context, /cccccc {2}\(said 3 times\) {2}Comments only when needed\./, 'a row said again carries its count');
+  assert.match(result.context, /dddddd {2}Pros and cons\./, 'a row said once carries nothing');
   assert.deepEqual(logged[0].memory_ids, ['aaaaaa11-0000-4000-8000-000000000001',
     'cccccc33-0000-4000-8000-000000000003', 'dddddd44-0000-4000-8000-000000000004']);
   assert.equal(result.notice, 'Satchel loaded · 0 topics, 3 personal memories');
@@ -719,12 +719,97 @@ test('session start loads the active topic\'s own rules under their own cap', as
     index: async topicId => { assert.equal(topicId, 'p1'); return {memories: own, complete: true}; },
     logInjection: async entry => { logged.push(entry); },
   }, {sessionKey: 's', repository: 'acme/ledger'});
-  assert.match(result.context, /topic ledger, confirmed, applies to work in this codebase\n {2}f20000 {2}One QA run per commit is enough\./);
+  assert.match(result.context, /topic ledger, confirmed, applies to work in this codebase\n {2}f20000 {2}\(said 2 times\) {2}One QA run per commit is enough\./);
   assert.match(result.context, /topic ledger, picked up from what you said, use unless told otherwise\n {2}f10000 {2}Deploys go through infra-configurations\./);
   assert.doesNotMatch(result.context, /A personal row memories_in_scope/, 'only the topic\'s own rows go in its block');
   assert.doesNotMatch(result.context, /personal, confirmed/, 'the personal block is empty here, and the topic rows did not leak into it');
   assert.match(result.notice, /2 topic memories/);
   assert.deepEqual(new Set(logged[0].memory_ids), new Set([own[0].id, own[1].id]), 'the log names what loaded');
+});
+
+// The labels from the 16 October retro. The read functions return no
+// created_at and search_memories no count, so both come from a second read
+// by id, bounded like the topic skip list: a slow or failing read costs the
+// label and nothing else.
+
+const yesterday = now => new Date(now.getTime() - 26 * 60 * 60 * 1000).toISOString();
+
+test('session start asks ages only for picked-up topic rows said once, and the block carries the marker', async () => {
+  const now = new Date('2026-10-16T12:00:00Z');
+  const own = [
+    {id: 'f1000000-0000-4000-8000-000000000001', topic_id: 'p1', kind: 'fact', band: 'heard', mentions: 1, statement: 'Heard yesterday.'},
+    {id: 'f2000000-0000-4000-8000-000000000002', topic_id: 'p1', kind: 'preference', band: 'said', mentions: 2, statement: 'Confirmed.'},
+    {id: 'f3000000-0000-4000-8000-000000000003', topic_id: 'p1', kind: 'fact', band: 'heard', mentions: 3, statement: 'Heard and said again.'},
+  ];
+  const asked = [];
+  const result = await sessionStart({
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    resolveRepository: async () => [{topic_id: 'p1', slug: 'ledger', name: 'Ledger', brief: 'Payments', selected: true}],
+    topics: async () => [{id: 'p1', slug: 'ledger', brief: 'Payments'}],
+    personal: async () => [{id: 'a1000000-0000-4000-8000-000000000001', band: 'heard', mentions: 1, statement: 'A personal row.'}],
+    index: async () => ({memories: own, complete: true}),
+    ages: async ids => { asked.push(ids); return ids.map(id => ({id, created_at: yesterday(now), mentions: 1})); },
+  }, {sessionKey: 's', repository: 'acme/ledger', now: () => now});
+  assert.deepEqual(asked, [[own[0].id]], 'only the picked-up topic row said once; not the confirmed one, not the one said again, not the personal row');
+  assert.match(result.context, /f10000 {2}Heard yesterday\.\n {10}\[picked up 1 day ago, said once, not confirmed since, check before relying on it\]/);
+  assert.match(result.context, /f30000 {2}\(said 3 times\) {2}Heard and said again\.$/m, 'the count prints from the row the index already carried');
+  assert.doesNotMatch(result.context, /a10000 {2}A personal row\.\n {10}\[/, 'a personal row is never a draft');
+  assert.equal((result.context.match(/not confirmed since/g) ?? []).length, 1);
+});
+
+test('retrieve merges the count and the date from ages, so a row said twice is counted and not a draft', async () => {
+  const now = new Date('2026-10-16T12:00:00Z');
+  const asked = [];
+  const result = await retrieve({
+    ...scopeStubs,
+    status: async () => connected,
+    settings: async () => baseSettings,
+    recordTurn: async () => {},
+    personal: async () => [],
+    topics: async () => [{id: 'p1', slug: 'ledger', brief: ''}],
+    // search_memories returns neither mentions nor created_at.
+    search: async () => [
+      {id: 'cccccccc-0000-4000-8000-000000000003', topic_id: 'p1', band: 'heard', statement: 'Said twice.', score: 0.8, matched: 2, in_scope: 9},
+      {id: 'dddddddd-0000-4000-8000-000000000004', topic_id: 'p1', band: 'heard', statement: 'Heard once, yesterday.', score: 0.7, matched: 2, in_scope: 9},
+    ],
+    ages: async ids => {
+      asked.push(ids);
+      return [{id: 'cccccccc-0000-4000-8000-000000000003', created_at: yesterday(now), mentions: 2},
+        {id: 'dddddddd-0000-4000-8000-000000000004', created_at: yesterday(now), mentions: 1}];
+    },
+  }, {sessionKey: 's', prompt: 'can we bump Go', now: () => now});
+  assert.deepEqual(asked, [['cccccccc-0000-4000-8000-000000000003', 'dddddddd-0000-4000-8000-000000000004']], 'the rows that will print, after the cut');
+  assert.match(result.context, /cccccc {2}\(ledger, picked up, said 2 times\) {2}Said twice\.\n {2}dddddd/, 'said twice: counted, and no draft line between it and the next row');
+  assert.match(result.context, /dddddd {2}\(ledger, picked up\) {2}Heard once, yesterday\.\n {10}\[picked up 1 day ago, said once, not confirmed since, check before relying on it\]/);
+});
+
+test('an ages that throws, hangs or is missing still injects, without a label', async () => {
+  const now = new Date('2026-10-16T12:00:00Z');
+  const row = {id: 'dddddddd-0000-4000-8000-000000000004', topic_id: 'p1', band: 'heard', statement: 'Heard once.', score: 0.7, matched: 1, in_scope: 1};
+  const base = {...scopeStubs, status: async () => connected, settings: async () => baseSettings, recordTurn: async () => {},
+    personal: async () => [], topics: async () => [{id: 'p1', slug: 'ledger', brief: ''}], search: async () => [row]};
+  const expectRow = result => {
+    assert.match(result.context, /dddddd {2}\(ledger, picked up\) {2}Heard once\./, 'the row is still injected');
+    assert.doesNotMatch(result.context, /\[/, 'and carries no marker, since nothing says how old it is');
+    assert.equal(result.notice, 'Satchel recalled 1 of 1 matching');
+  };
+  expectRow(await retrieve({...base, ages: async () => { throw new Error('column missing'); }}, {sessionKey: 's', prompt: 'x', now: () => now}));
+  expectRow(await retrieve({...base, ages: () => { throw new Error('sync throw'); }}, {sessionKey: 's', prompt: 'x', now: () => now}));
+  const started = Date.now();
+  expectRow(await retrieve({...base, ages: () => new Promise(() => {})}, {sessionKey: 's', prompt: 'x', now: () => now}));
+  assert.ok(Date.now() - started < 3000, 'a hung read is given up on, not waited for');
+  expectRow(await retrieve(base, {sessionKey: 's', prompt: 'x', now: () => now}));
+  // And the same at session start: the block prints, the log names the row.
+  const logged = [];
+  const start = await sessionStart({...base, logInjection: async e => { logged.push(e); },
+    resolveRepository: async () => [{topic_id: 'p1', slug: 'ledger', name: 'Ledger', brief: '', selected: true}],
+    index: async () => ({memories: [{...row, kind: 'fact', mentions: 1}], complete: true}),
+    ages: async () => { throw new Error('column missing'); }}, {sessionKey: 's', repository: 'acme/ledger', now: () => now});
+  assert.match(start.context, /dddddd {2}Heard once\./);
+  assert.doesNotMatch(start.context, /not confirmed since/);
+  assert.deepEqual(logged[0].memory_ids, [row.id], 'the log is ids only, label or no label');
 });
 
 test('with two candidate topics no topic block loads', async () => {

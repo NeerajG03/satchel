@@ -27,22 +27,66 @@ export const estimateTokens = text => Math.ceil(text.length / 3.8);
 
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 
+/** What sits in the parentheses between a row's handle and its statement.
+ *
+ *  Where a row came from, whether anyone confirmed it, and how often it has
+ *  been said, in that order. Measured over a week of real prompts, rows from
+ *  the wrong topic were injected into sessions about another one, and nothing
+ *  in the line said so; and a picked-up row read exactly like a confirmed one,
+ *  so the agent could not apply the rule the session-start header gives it.
+ *  The count came later, from the 16 October retro: a rule the person had said
+ *  twelve times and a fact heard once the night before were printed the same
+ *  way, and the agent had no way to weigh one against the other.
+ *
+ *  `where` is the topic's slug or `personal`, for a row standing on its own in
+ *  the prompt block. In the start block rows sit under a header that already
+ *  says both the scope and the band, so the start block passes no `where` and
+ *  only the count prints. An empty label prints nothing at all, so a start
+ *  block row said once looks exactly as it did before the count existed. */
+export function rowLabel(row, {where = null} = {}) {
+  const parts = [];
+  if (where) {
+    parts.push(where);
+    if (row.band === 'heard') parts.push('picked up');
+  }
+  if ((row.mentions ?? 1) >= 2) parts.push(`said ${row.mentions} times`);
+  return parts.length ? `(${parts.join(', ')})` : '';
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DRAFT_DAYS = 7;
+
+/** The line under a young, unconfirmed topic row.
+ *
+ *  A draft is a topic row that was picked up, said once, and made under seven
+ *  days ago. On the 16 October retro six such rows were shown 45 times while
+ *  the decision they recorded was still being changed, and nothing in the
+ *  block said they were a day old. The row stays: hiding it would take the
+ *  current decision out of a sprint. The line tells the agent what it is and
+ *  what to do, in the spot where it already reads the commits marker.
+ *
+ *  A row with no readable created_at gets no line, and a date in the future
+ *  (clock skew between two servers) reads as today rather than as nonsense. */
+export function draftMarker(row, now = new Date()) {
+  if (!row.topic_id || row.band !== 'heard' || (row.mentions ?? 1) !== 1 || row.created_at == null) return '';
+  // PostgREST writes `2026-10-15T08:00:00.1+00:00`; a raw dump writes
+  // `2026-10-15 08:00:00+00`, which Date.parse refuses. Both read.
+  const made = Date.parse(String(row.created_at).replace(' ', 'T').replace(/(:\d\d(?:\.\d+)?)([+-]\d\d)$/, '$1$2:00'));
+  const at = now instanceof Date ? now.getTime() : Date.parse(String(now));
+  if (!Number.isFinite(made) || !Number.isFinite(at)) return '';
+  const days = Math.max(0, Math.floor((at - made) / DAY_MS));
+  if (days >= DRAFT_DAYS) return '';
+  const age = days === 0 ? 'today' : days === 1 ? '1 day ago' : `${days} days ago`;
+  return `          [picked up ${age}, said once, not confirmed since, check before relying on it]`;
+}
+
 /** Per prompt. The counts are the point: they let the agent tell "there is no
  *  rule about this" from "nothing scored high enough", which is the failure a
  *  silently truncated top-5 causes. */
-export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25, slugs = {}} = {}) {
+export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25, slugs = {}, now = new Date()} = {}) {
   if (!rows.length) return '';
   const lines = [`◪ retrieved · ${rows.length} shown · ${matched} matched · ${inScope} in scope`];
-  // Where a row came from, and whether anyone confirmed it. Measured over a
-  // week of real prompts, rows from the wrong topic were injected into
-  // sessions about another one, and nothing in the line said so; and a
-  // picked-up row read exactly like a confirmed one, so the agent could not
-  // apply the rule the session-start header gives it. The label is the
-  // topic's slug, or "personal", with "picked up" when it is still heard.
-  const labelOf = row => {
-    const where = row.topic_id ? slugs[row.topic_id] ?? 'topic' : 'personal';
-    return row.band === 'heard' ? `${where}, picked up` : where;
-  };
+  const whereOf = row => (row.topic_id ? slugs[row.topic_id] ?? 'topic' : 'personal');
   // A `[task closed, may be fixed]` hint used to hang off rows whose task had
   // been completed. It was the only thing the memory-to-task link ever
   // produced, and the link cost a scope the model could get wrong.
@@ -52,9 +96,12 @@ export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25, sl
   // production were made false by a migration and a commit, and nothing
   // anyone said contradicted either of them. The marker says how far the
   // repository has moved and stops there: a merge is a reason to check a
-  // claim, never a reason to know it is wrong.
+  // claim, never a reason to know it is wrong. The draft line is the same
+  // kind of doubt, raised by the row being young rather than the repo moving.
   for (const row of rows) {
-    lines.push(`  ${handleOf(row.id)}  (${labelOf(row)})  ${clip(row.statement, 300)}`);
+    lines.push(`  ${handleOf(row.id)}  ${rowLabel(row, {where: whereOf(row)})}  ${clip(row.statement, 300)}`);
+    const draft = draftMarker(row, now);
+    if (draft) lines.push(draft);
     if (row.commits_since >= churn)
       lines.push(`          [${row.anchor_repository ?? 'the repo'} has moved ${row.commits_since} commits since this was confirmed, check before relying on it]`);
   }
@@ -119,8 +166,10 @@ export function topicLoad(memories = [], cap = 15) {
  *  With nothing linked, which is every non-Git and unlinked workspace, there is
  *  nothing to filter by and the full list is the honest answer. */
 export function sessionStartBlock({topics = [], personal = [], linked = [], cap = 30,
-  topic = null, topicMemories = [], topicCap = 15} = {}) {
+  topic = null, topicMemories = [], topicCap = 15, now = new Date()} = {}) {
   const lines = [];
+  // The header says the scope and the band, so the row carries only its count.
+  const rowLine = memory => '  ' + [handleOf(memory.id), rowLabel(memory), clip(memory.statement, 300)].filter(Boolean).join('  ');
   const ids = new Set(linked);
   const here = ids.size ? topics.filter(p => ids.has(p.id)) : topics;
   const elsewhere = ids.size ? topics.length - here.length : 0;
@@ -137,7 +186,7 @@ export function sessionStartBlock({topics = [], personal = [], linked = [], cap 
   if (said.length) {
     if (lines.length) lines.push('');
     lines.push('personal, confirmed, use freely');
-    for (const memory of said) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
+    for (const memory of said) lines.push(rowLine(memory));
   }
   // Picked up from what the person said, and not yet said again. Loaded,
   // because memory is hands off: nobody is asked to approve a row, and a
@@ -153,7 +202,7 @@ export function sessionStartBlock({topics = [], personal = [], linked = [], cap 
   if (heard.length) {
     if (lines.length) lines.push('');
     lines.push('personal, picked up from what you said, use unless told otherwise');
-    for (const memory of heard) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
+    for (const memory of heard) lines.push(rowLine(memory));
   }
   if (past) lines.push(`  ${plural(past, 'older memory', 'older memories')} past the block, search satchel for them`);
   // The active topic's own block, after personal. Only when one topic was
@@ -165,12 +214,18 @@ export function sessionStartBlock({topics = [], personal = [], linked = [], cap 
     if (own.said.length) {
       if (lines.length) lines.push('');
       lines.push(`topic ${slug}, confirmed, applies to work in this codebase`);
-      for (const memory of own.said) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
+      for (const memory of own.said) lines.push(rowLine(memory));
     }
+    // The only group a draft can sit in: a draft is a topic row nobody has
+    // confirmed, and said rows and personal rows are never drafts.
     if (own.heard.length) {
       if (lines.length) lines.push('');
       lines.push(`topic ${slug}, picked up from what you said, use unless told otherwise`);
-      for (const memory of own.heard) lines.push(`  ${handleOf(memory.id)}  ${clip(memory.statement, 300)}`);
+      for (const memory of own.heard) {
+        lines.push(rowLine(memory));
+        const draft = draftMarker(memory, now);
+        if (draft) lines.push(draft);
+      }
     }
     if (own.past) lines.push(`  ${plural(own.past, 'more topic memory', 'more topic memories')} not loaded, search satchel for them`);
   }

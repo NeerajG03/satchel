@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {sessionStartBlock, personalLoad, topicLoad, promptBlock, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
+import {sessionStartBlock, personalLoad, topicLoad, promptBlock, rowLabel, draftMarker, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
 
 const memory = (id, statement, band = 'said', task_id = null) => ({id, statement, band, task_id});
 
@@ -195,8 +195,83 @@ test('the topic block puts preferences first, then the most said, under its own 
   assert.deepEqual(load.heard, [], 'confirmed rows fill the cap first');
   assert.equal(load.past, 2);
   const block = sessionStartBlock({topic: {slug: 'ledger'}, topicMemories: rows, topicCap: 3});
-  assert.match(block, /topic ledger, confirmed, applies to work in this codebase\n {2}d20000 {2}A preference\.\n {2}d10000 {2}Fact said five times\.\n {2}d40000 {2}An intent\./);
+  assert.match(block, /topic ledger, confirmed, applies to work in this codebase\n {2}d20000 {2}A preference\.\n {2}d10000 {2}\(said 5 times\) {2}Fact said five times\.\n {2}d40000 {2}An intent\./);
   assert.match(block, /1 more topic memory not loaded/);
   assert.doesNotMatch(block, /picked up/, 'no room was left for the picked-up row');
   assert.equal(sessionStartBlock({topic: {slug: 'ledger'}, topicMemories: []}), '', 'an empty topic adds nothing');
+});
+
+// The labels from the 16 October retro: a rule said twelve times and a fact
+// heard once the night before used to print the same way.
+
+test('the row label names scope, then picked up, then the count, and prints nothing when none apply', () => {
+  const heard = {id: 'x', topic_id: 'p1', band: 'heard', mentions: 3};
+  assert.equal(rowLabel(heard, {where: 'ledger'}), '(ledger, picked up, said 3 times)', 'the order is fixed');
+  assert.equal(rowLabel({...heard, band: 'said'}, {where: 'ledger'}), '(ledger, said 3 times)');
+  assert.equal(rowLabel({...heard, mentions: 1}, {where: 'ledger'}), '(ledger, picked up)');
+  assert.equal(rowLabel({id: 'x', topic_id: null, band: 'said', mentions: 12}, {where: 'personal'}), '(personal, said 12 times)');
+  // The start block's header already says the scope and the band, so with no
+  // `where` only the count is left, and a row said once has no label at all.
+  assert.equal(rowLabel(heard), '(said 3 times)');
+  assert.equal(rowLabel({...heard, mentions: 1}), '');
+  assert.equal(rowLabel({id: 'x', band: 'said'}), '', 'a missing count is one mention');
+  assert.equal(rowLabel({id: 'x', band: 'said', mentions: 2}), '(said 2 times)', 'two is where the count starts');
+});
+
+test('a young, unconfirmed topic row carries its age; everything else carries nothing', () => {
+  const now = new Date('2026-10-16T12:00:00Z');
+  const draft = {id: 'x', topic_id: 'p1', band: 'heard', mentions: 1, created_at: '2026-10-16T08:00:00Z'};
+  assert.equal(draftMarker(draft, now), '          [picked up today, said once, not confirmed since, check before relying on it]');
+  assert.equal(draftMarker({...draft, created_at: '2026-10-15T08:00:00Z'}, now), '          [picked up 1 day ago, said once, not confirmed since, check before relying on it]');
+  assert.equal(draftMarker({...draft, created_at: '2026-10-13T08:00:00Z'}, now), '          [picked up 3 days ago, said once, not confirmed since, check before relying on it]');
+  assert.equal(draftMarker({...draft, created_at: '2026-10-10T08:00:00Z'}, now), '          [picked up 6 days ago, said once, not confirmed since, check before relying on it]');
+  assert.equal(draftMarker({...draft, created_at: '2026-10-09T11:00:00Z'}, now), '', 'seven days is no longer a draft');
+  assert.equal(draftMarker({...draft, band: 'said'}, now), '', 'a confirmed row is not a draft');
+  assert.equal(draftMarker({...draft, topic_id: null}, now), '', 'a personal row is not a draft');
+  assert.equal(draftMarker({...draft, mentions: 2}, now), '', 'said again is not a draft');
+  assert.match(draftMarker({...draft, mentions: undefined}, now), /said once/, 'a missing count is one mention');
+  assert.equal(draftMarker({...draft, created_at: null}, now), '', 'no date, no line');
+  assert.equal(draftMarker({...draft, created_at: 'yesterday-ish'}, now), '', 'an unreadable date, no line');
+  assert.equal(draftMarker({...draft, created_at: '2026-10-17T08:00:00Z'}, now), '          [picked up today, said once, not confirmed since, check before relying on it]',
+    'a date in the future reads as today, not as a negative age');
+  assert.match(draftMarker({...draft, created_at: '2026-10-15 08:00:00+00'}, now), /1 day ago/, 'the database form of the date reads too');
+});
+
+test('the prompt block puts the draft line under the row and before the commits line', () => {
+  const now = new Date('2026-10-16T12:00:00Z');
+  const rows = [{id: 'e1000000-0000-4000-8000-000000000001', topic_id: 'p1', band: 'heard', mentions: 1,
+    created_at: '2026-10-15T08:00:00Z', anchor_repository: 'acme/ledger', commits_since: 140, statement: 'Deploys go through infra.'}];
+  const block = promptBlock({rows, slugs: {p1: 'ledger'}, matched: 1, inScope: 1, churn: 25, now});
+  assert.match(block, /e10000 {2}\(ledger, picked up\) {2}Deploys go through infra\.\n {10}\[picked up 1 day ago, said once, not confirmed since, check before relying on it\]\n {10}\[acme\/ledger has moved 140 commits/);
+  const said = promptBlock({rows: [{...rows[0], band: 'said', mentions: 4, commits_since: 0}], slugs: {p1: 'ledger'}, matched: 1, inScope: 1, now});
+  assert.match(said, /e10000 {2}\(ledger, said 4 times\) {2}Deploys go through infra\./);
+  assert.doesNotMatch(said, /\[/, 'a confirmed row has no marker of either kind');
+});
+
+test('session start labels only the topic picked-up group with age, and counts on any row', () => {
+  const now = new Date('2026-10-16T12:00:00Z');
+  const block = sessionStartBlock({now,
+    personal: [
+      {id: 'bf351a00-0000-4000-8000-000000000001', band: 'said', mentions: 12, statement: 'Plan docs are simple.', created_at: '2026-10-15T08:00:00Z'},
+      {id: 'bf351a00-0000-4000-8000-000000000002', band: 'heard', mentions: 1, statement: 'A personal row heard yesterday.', created_at: '2026-10-15T08:00:00Z'},
+    ],
+    topic: {slug: 'ledger'}, topicMemories: [
+      {id: 'f1000000-0000-4000-8000-000000000001', topic_id: 'p1', kind: 'preference', band: 'said', mentions: 1, statement: 'Confirmed yesterday.', created_at: '2026-10-15T08:00:00Z'},
+      {id: 'f2000000-0000-4000-8000-000000000002', topic_id: 'p1', kind: 'fact', band: 'heard', mentions: 1, statement: 'Heard yesterday.', created_at: '2026-10-15T08:00:00Z'},
+      {id: 'f3000000-0000-4000-8000-000000000003', topic_id: 'p1', kind: 'fact', band: 'heard', mentions: 1, statement: 'Heard a month ago.', created_at: '2026-09-15T08:00:00Z'},
+    ]});
+  assert.match(block, /^ {2}bf351a {2}\(said 12 times\) {2}Plan docs are simple\.$/m, 'the count, and nothing else, on a personal row');
+  assert.match(block, /^ {2}bf351a {2}A personal row heard yesterday\.$/m, 'a personal row is never a draft');
+  assert.match(block, /^ {2}f10000 {2}Confirmed yesterday\.$/m, 'a confirmed topic row is never a draft');
+  assert.match(block, /^ {2}f20000 {2}Heard yesterday\.\n {10}\[picked up 1 day ago, said once, not confirmed since, check before relying on it\]$/m);
+  assert.match(block, /^ {2}f30000 {2}Heard a month ago\.$/m);
+  assert.equal((block.match(/not confirmed since/g) ?? []).length, 1, 'one draft, one line');
+  assert.equal(sessionStartBlock({now, personal: [], topic: {slug: 'ledger'}, topicMemories: []}), '');
+});
+
+test('the same input with the same clock always produces the same bytes', () => {
+  const now = new Date('2026-10-16T12:00:00Z');
+  const input = {now, topic: {slug: 'ledger'}, topicMemories: [
+    {id: 'f2000000-0000-4000-8000-000000000002', topic_id: 'p1', kind: 'fact', band: 'heard', mentions: 1, statement: 'Heard.', created_at: '2026-10-15T08:00:00Z'}]};
+  assert.equal(sessionStartBlock(input), sessionStartBlock(input));
 });

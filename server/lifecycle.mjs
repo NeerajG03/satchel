@@ -46,6 +46,27 @@ const withinTime = (promise, ms, fallback) => {
     .finally(() => clearTimeout(timer));
 };
 
+// How long a block waits for the rows' ages before printing them unlabelled.
+// Same bound as the topic skip list, for the same reason: the label is worth
+// having and not worth a late prompt.
+const AGES_MS = 1500;
+
+/** The rows with `created_at` and `mentions` folded in from `service.ages`,
+ *  for the ids asked about. None of the four read functions returns
+ *  created_at, and search_memories returns no count either, so the labels
+ *  need a second read by primary key. A service without `ages`, a read that
+ *  fails and a read that is slow all mean the same thing: the row prints as
+ *  it would have before the label existed. Never a failed hook. */
+async function withAges(service, rows, ids) {
+  if (!ids.length || typeof service.ages !== 'function') return rows;
+  const found = await withinTime(Promise.resolve().then(() => service.ages(ids)).catch(() => []), AGES_MS, []);
+  const byId = new Map((found ?? []).map(r => [r.id, r]));
+  return rows.map(r => {
+    const age = byId.get(r.id);
+    return age ? {...r, created_at: age.created_at ?? r.created_at ?? null, mentions: age.mentions ?? r.mentions} : r;
+  });
+}
+
 const PROVIDER = 'github';
 
 // Tracing is passed in, not imported. tracing.mjs pulls in `ai`, the
@@ -102,7 +123,7 @@ const chooseTopicLine = candidates => candidates.length < 2 ? ''
  *  every personal memory. Anything scoped to a topic is earned by asking for
  *  it, which is what retrieve_memory is for. */
 export async function sessionStart(service, {sessionKey, event = 'SessionStart', repository = null,
-  topic, ownerId, traced = untraced} = {}) {
+  topic, ownerId, traced = untraced, now = () => new Date()} = {}) {
   return traced(`satchel.${event}`,
     {sessionId: sessionKey, userId: ownerId, metadata: {event, repository}, tags: ['satchel', event], input: null},
     async setOutput => {
@@ -135,14 +156,19 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
             : [],
         ]);
         const here = topics.find(p => p.id === active) ?? null;
+        // Only the picked-up topic rows said once can be drafts, so only they
+        // are asked about: the block's own cut of them, so a row past the cap
+        // is not read for a line that will never print.
+        const firstCut = here ? topicLoad(own, TOPIC_BLOCK) : {said: [], heard: []};
+        const dated = await withAges(service, own, firstCut.heard.filter(m => (m.mentions ?? 1) === 1).map(m => m.id));
         const block = sessionStartBlock({topics, personal, linked: scope.linked ?? [],
-          cap: settings.block_size, topic: here, topicMemories: own, topicCap: TOPIC_BLOCK});
+          cap: settings.block_size, topic: here, topicMemories: dated, topicCap: TOPIC_BLOCK, now: now()});
         const tokens = estimateTokens(block);
         // What the block actually injects, which is not all of it once the
         // cap is reached. The log has to say what reached the model, not what
         // was fetched, or "why did it not know that" stops being answerable.
         const load = personalLoad(personal, settings.block_size);
-        const ownLoad = here ? topicLoad(own, TOPIC_BLOCK) : {said: [], heard: []};
+        const ownLoad = here ? topicLoad(dated, TOPIC_BLOCK) : {said: [], heard: []};
         const loaded = [...load.said, ...load.heard, ...ownLoad.said, ...ownLoad.heard];
         notice = noticeFor('SessionStart', {topics: topics.length,
           personal: load.said.length + load.heard.length,
@@ -186,7 +212,7 @@ export async function sessionStart(service, {sessionKey, event = 'SessionStart',
  *  the point: they separate "there is no rule about this" from "nothing scored
  *  high enough". */
 export async function retrieve(service, {sessionKey, prompt, repository = null,
-  exclude = [], topic, ownerId, traced = untraced, retrieval} = {}) {
+  exclude = [], topic, ownerId, traced = untraced, retrieval, now = () => new Date()} = {}) {
   return traced('satchel.UserPromptSubmit',
     {sessionId: sessionKey, userId: ownerId, metadata: {event: 'UserPromptSubmit'},
      tags: ['satchel', 'UserPromptSubmit'], input: prompt},
@@ -263,6 +289,9 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
             .map(r => ({...r, matched}));
           lookup?.end(rows.map(r => ({id: r.id, statement: r.statement, score: r.score})),
             {metadata: {shown: rows.length, matched: rows[0]?.matched ?? 0, inScope: rows[0]?.in_scope ?? 0}});
+          // search_memories returns neither the count nor the date, and both
+          // labels need them. Read for the rows that will print, after the cut.
+          rows = await withAges(service, rows, rows.map(r => r.id));
           // Nothing relevant is a real answer, and the common one. It costs
           // nothing and says nothing.
           if (rows.length) {
@@ -272,7 +301,7 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
               ? await service.topics().catch(() => []) : [];
             notice = noticeFor('UserPromptSubmit', {shown: rows.length, matched: rows[0].matched});
             context = promptBlock({rows, matched: rows[0].matched, inScope: rows[0].in_scope,
-              churn: settings.staleness_commits,
+              churn: settings.staleness_commits, now: now(),
               slugs: Object.fromEntries(topics.map(p => [p.id, p.slug]))});
             logged = {query, memory_ids: rows.map(r => r.id),
               matched: rows[0].matched, in_scope: rows[0].in_scope, tokens: estimateTokens(context)};
