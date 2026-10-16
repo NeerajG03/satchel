@@ -335,6 +335,22 @@ export function memoryService(db, embedder = null, router = null) {
     // against half the set.
     memoriesInScope: (topicId = null, limit = 60) =>
       result(db.rpc('memories_in_scope', {p_topic_id:topicId, p_limit:limit})),
+    // When each memory was made, and how often it has been said, by id. None
+    // of the four read functions (personal_memories, list_memories,
+    // search_memories, memories_in_scope) returns created_at, and changing
+    // what one returns means dropping and recreating all four with their
+    // grants, applied by hand before the push. So this is a second read off
+    // the table by primary key, chunked so a pass holding 200 ids is not one
+    // long `in` list. Fold created_at into the functions when a migration next
+    // touches them, then delete this.
+    async ages(ids = []) {
+      const wanted = [...new Set(ids.filter(Boolean))];
+      const chunks = [];
+      for (let i = 0; i < wanted.length; i += 100) chunks.push(wanted.slice(i, i + 100));
+      const read = await Promise.all(chunks.map(chunk =>
+        result(db.from('memories').select('id,created_at,mentions').in('id', chunk))));
+      return read.flatMap(rows => rows ?? []);
+    },
     // Ending and extending carry the revision, so a pass working from a list
     // it read a minute ago cannot overwrite something the person changed since.
     endMemory: args => result(db.rpc('end_memory', {

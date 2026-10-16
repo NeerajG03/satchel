@@ -250,6 +250,52 @@ test('a session with no topic is shown every topic\'s memories, once each', asyn
   assert.deepEqual(limits, {null: 60, p1: 61, p2: 61}, 'personal rows do not crowd out a topic\'s own');
 });
 
+test('the pass asks how old each memory it was shown is, and the prompt says so', async () => {
+  // None of the read functions returns created_at, so the pass reads it by
+  // id after the scoped read and merges it onto the rows. A row the read did
+  // not return keeps none and is shown as before.
+  const {service, consolidator, calls, of} = fake();
+  service.ages = async ids => {
+    calls.push({call: 'ages', ids});
+    return [{id: 'm1', created_at: '2026-09-21T08:00:00Z', mentions: 1}];
+  };
+  consolidator.consolidate = async input => {
+    calls.push({call: 'consolidate', input, options: {}});
+    const {buildConsolidationPrompt} = await import('../server/consolidator.mjs');
+    const {prompt} = buildConsolidationPrompt({...input, now: new Date('2026-09-22T09:00:00Z')});
+    return {changes: [], dropped: [], prompt, raw: '{}', usage: {}};
+  };
+  await consolidateDocument(service, consolidator, document, {topics});
+  assert.deepEqual(of('ages').map(c => c.ids), [['m1', 'm2']], 'asked once, for exactly the rows it was shown');
+  const [{input}] = of('consolidate');
+  assert.equal(input.memories[0].created_at, '2026-09-21T08:00:00Z');
+  assert.equal(input.memories[0].revision, 3, 'the read\'s own fields survive the merge');
+  assert.equal('created_at' in input.memories[1], false, 'a row ages did not return keeps none');
+  const [logged] = of('logged');
+  assert.match(logged.prompt, /#1 {2}\[intent, personal, made on 2026-09-21\]/);
+  assert.match(logged.prompt, /#2 {2}\[preference, personal\] {2}No em dashes\./);
+});
+
+test('a service without ages, or whose ages throws, still runs the pass', async () => {
+  // The dates are the newest thing in the prompt and the least load bearing.
+  // A fake service or an older one has no ages; a read that fails must cost
+  // the dates and nothing else.
+  const without = fake();
+  assert.equal('ages' in without.service, false);
+  const quiet = await consolidateDocument(without.service, without.consolidator, document, {topics});
+  assert.equal(quiet.skipped, undefined);
+  assert.equal(without.of('consolidate').length, 1);
+  assert.equal('created_at' in without.of('consolidate')[0].input.memories[0], false);
+
+  const failing = fake();
+  failing.service.ages = async () => { throw new Error('connection reset'); };
+  const result = await consolidateDocument(failing.service, failing.consolidator, document, {topics});
+  assert.equal(result.skipped, undefined);
+  assert.equal(result.error, undefined, 'a failed age read is not a failed pass');
+  assert.equal(failing.of('consolidate').length, 1, 'the model is still asked');
+  assert.equal(failing.of('marked').length, 1, 'and the document is still marked read');
+});
+
 test('a person with no topics is judged against personal memory alone', async () => {
   const {service, consolidator, of} = fake();
   await consolidateDocument(service, consolidator, {...document, topic_id: null}, {topics: []});
