@@ -67,9 +67,14 @@ export function personal(memories, at) {
 /** The service one session sees. `queryVector` turns prompt text into the
  *  cached vector production would have made for it; a prompt with no cached
  *  vector throws, because searching for nothing is the silent failure the
- *  real service once had. */
+ *  real service once had.
+ *
+ *  `state.at` is the moment being replayed. The runner sets it to each start
+ *  and prompt event's own time before calling the hook, so the stand-in serves
+ *  the memories that existed then, not the snapshot's. Left alone it is the
+ *  snapshot time, which is what parity wants. */
 export function replayService({snapshot, vectors, queryVector, at = snapshot.taken_at}) {
-  const state = {active: null};
+  const state = {active: null, at};
   const log = [];
   const topics = [...snapshot.topics].sort((a, b) => String(a.name).localeCompare(String(b.name)));
   const byId = new Map(topics.map(t => [t.id, t]));
@@ -90,9 +95,9 @@ export function replayService({snapshot, vectors, queryVector, at = snapshot.tak
         .map(t => ({topic_id: t.id, slug: t.slug, name: t.name, brief: t.brief, selected: t.id === chosen}));
     },
     topics: async () => topics,
-    personal: async () => personal(snapshot.memories, at),
-    index: async topicId => ({memories: snapshot.memories.filter(m => m.topic_id === topicId && live(m, at))}),
-    search: async args => search(snapshot.memories, vectors, await queryVector(args.query), {...args, at}),
+    personal: async () => personal(snapshot.memories, state.at),
+    index: async topicId => ({memories: snapshot.memories.filter(m => m.topic_id === topicId && live(m, state.at))}),
+    search: async args => search(snapshot.memories, vectors, await queryVector(args.query), {...args, at: state.at}),
     recordTurn: async () => {},
     logInjection: entry => { log.push(entry); },
   };
