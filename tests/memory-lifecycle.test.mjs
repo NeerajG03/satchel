@@ -31,7 +31,10 @@ function recorder(responses = {}) {
         select(columns) {
           calls.select.push({table, columns});
           const rows = responses[table] ?? [];
-          return {limit: () => answer(rows), ...answer(rows)};
+          // Filters are recorded and not applied: the test supplies the rows
+          // a real query would return, and asserts on what was asked for.
+          const chain = {...answer(rows), limit: () => chain, eq: () => chain, not: () => chain};
+          return chain;
         },
         // Writing the vector is an update, and it was the one call this
         // recorder could not see. That blind spot is why capture shipped
@@ -738,4 +741,33 @@ test('with two candidate topics no topic block loads', async () => {
   }, {sessionKey: 's', repository: 'acme/mono'});
   assert.equal(asked, false, 'nothing is scoped, so nothing topic-scoped loads');
   assert.doesNotMatch(result.context, /applies to work in this codebase/);
+});
+
+test('forgottenTwin finds a forgotten row in the embedder\'s space, and asks nothing when there are none', async () => {
+  // Vectors are normalised on write, so the dot product is the cosine. A
+  // forgotten row with the query's own vector scores 1; one at right angles
+  // scores 0 and is not a twin; a row from another model, or with no vector,
+  // never reaches the comparison because the query filters it out.
+  const same = Array(768).fill(0).map((_, i) => (i === 0 ? 1 : 0));
+  const other = Array(768).fill(0).map((_, i) => (i === 1 ? 1 : 0));
+  const pointed = {...embedder, embedQuery: async () => same};
+  const db = recorder({memories: [
+    {id: 'f1', topic_id: null, statement: 'Do not use em dashes.', ended_at: '2026-09-27T10:00:00Z', embedding: `[${same.join(',')}]`},
+    {id: 'f2', topic_id: 'p1', statement: 'Something else.', ended_at: '2026-09-28T10:00:00Z', embedding: `[${other.join(',')}]`},
+    {id: 'f3', topic_id: null, statement: 'Garbage.', ended_at: '2026-09-29T10:00:00Z', embedding: 'not a vector'},
+  ]});
+  const service = memoryService(db, pointed);
+  const twin = await service.forgottenTwin('Never use em dashes in text.');
+  assert.equal(twin.id, 'f1');
+  assert.equal(twin.score, 1);
+  assert.equal(twin.ended_at, '2026-09-27T10:00:00Z', 'the day it was forgotten travels, so the run can say it');
+  assert.equal(db.calls.select[0].table, 'memories');
+  assert.match(db.calls.select[0].columns, /embedding/);
+
+  let embedded = 0;
+  const quiet = memoryService(recorder({memories: []}), {...embedder, embedQuery: async () => { embedded += 1; return same; }});
+  assert.equal(await quiet.forgottenTwin('anything'), null);
+  assert.equal(embedded, 0, 'with no forgotten rows there is nothing to compare, so no embedding is paid for');
+
+  assert.equal(await memoryService(db, null).forgottenTwin('anything'), null, 'no embedder, no comparison');
 });
