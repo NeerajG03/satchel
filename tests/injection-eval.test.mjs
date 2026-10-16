@@ -144,9 +144,15 @@ test('a row from a topic the repository is not linked to needs a closer match th
   };
   assert.ok(!(await ask(loose)).shown.includes(C), 'a loose match from the other topic is dropped');
   assert.ok((await ask(vectors)).shown.includes(C), 'a close match from the other topic still gets through');
+  // With no link every topic row is a stranger: the floor used to switch off
+  // here, and an unlinked workspace got every topic's rows at the plain gate.
   const bare = replayService({snapshot: scoped, vectors: loose, queryVector: async () => unit(1, 0.2)});
   const out = await retrieve(bare, {sessionKey: 'b', prompt: 'what about the first topic', repository: 'acme/none'});
-  assert.ok(out.shown.includes(C), 'with no link nothing is a stranger');
+  assert.ok(!out.shown.includes(C), 'with no link a loose topic row is dropped');
+  assert.ok(out.shown.includes(B), 'a topic row at 0.75 or better still comes through with no link');
+  const close = replayService({snapshot: scoped, vectors, queryVector: async () => unit(1, 0.2)});
+  const through = await retrieve(close, {sessionKey: 'b', prompt: 'what about the first topic', repository: 'acme/none'});
+  assert.ok(through.shown.includes(C), 'and so does a close row from any topic');
 });
 
 // The as-of replay: each prompt is judged against the memories of its own
