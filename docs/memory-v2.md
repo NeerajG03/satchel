@@ -376,7 +376,7 @@ Six-character handles so a delete or correction can name a row. No UUIDs, no tim
 ### 6.2 What `UserPromptSubmit` injects
 
 ```
-◪ retrieved · 2 shown · 5 matched · 130 in scope
+▣ retrieved · 2 shown · 5 matched · 130 in scope
   0c28d1  no personas in v1
   4d1b77  the consent page has a corner leak on .paper
             [fix-consent-layout · closed 20 Sep, may be fixed]
