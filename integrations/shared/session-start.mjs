@@ -25,9 +25,10 @@ import {fileURLToPath} from 'node:url';
 import {dirname, join} from 'node:path';
 
 // Said on every branch, because the guardrails do not depend on which branch
-// was taken.
-const RULES = ' Read relevant more info with read_memory; only names and descriptions belong in the automatic index.'
-  + ' Never read host credentials or write memory automatically.';
+// was taken. It used to open by sending the agent to read_memory for detail,
+// from when the block held only names; the block carries whole statements now,
+// and read_memory is for the rare row with more_info.
+const RULES = ' Never read host credentials or write memory automatically.';
 
 /** The browser flow, detached, so the hook can return now. A session cannot
  *  wait for someone to click Allow, and holding it open until they do would
