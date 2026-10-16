@@ -148,6 +148,18 @@ export function pair(current, baseline) {
     unmatched: current.filter(r => r.labelled && !was.has(r.id)).length};
 }
 
+/** The two sides of one per-moment number, for paired(), on the moments both
+ *  runs scored it. A moment one side did not score (the labeller's needs did
+ *  not exist yet, so its value is null or missing) is left out: one null minus
+ *  a number is NaN, and one NaN turns the whole delta into NaN, which is how a
+ *  change of exactly zero once printed as `NaN` instead of `0.000`. */
+export function sides(current, baseline, key) {
+  const number = v => typeof v === 'number' && Number.isFinite(v);
+  const was = new Map((baseline ?? []).filter(r => number(r[key])).map(r => [r.id, r[key]]));
+  const now = current.filter(r => number(r[key]) && was.has(r.id));
+  return {a: now.map(r => r[key]), b: now.map(r => was.get(r.id)), compared: now.length};
+}
+
 /** Whether a baseline can gate this run. One taken on another snapshot
  *  measured another memory set; one scored with another ruler measured the
  *  same prompts another way. Either difference would be the measure moving,

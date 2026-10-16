@@ -34,6 +34,8 @@ Call `retrieve_memory` yourself only when you need something the turn did not su
 
 A topic memory can arrive with a note that its repository has moved some number of commits since it was last confirmed. That is a doubt, not a verdict. Check the code before relying on it, and if it is still true and the user agrees, `confirm_memory` clears the doubt.
 
+A row that says `said N times` beside its scope is one the user has stated that many times, so it carries more weight than a row heard once. A line under a row reading `[picked up N days ago, said once, not confirmed since, check before relying on it]` means Satchel picked it up once within the last week and nobody has said it again; it may be a decision still in flux, so check before relying on it, the same way you would with the commits note.
+
 `read_memory` takes a scope and an id, and is only for the rare row whose `has_more_info` is true.
 
 ## Saving

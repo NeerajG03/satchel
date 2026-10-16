@@ -33,7 +33,7 @@ import {readFileSync, writeFileSync, readdirSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {replayService, time} from './lib/injection-twin.mjs';
 import {promptKey, promptEmbedder} from './lib/injection-cache.mjs';
-import {summarise, pair, gate, asOf, aheadNeeds, comparable} from './lib/injection-scoring.mjs';
+import {summarise, pair, sides, gate, asOf, aheadNeeds, comparable} from './lib/injection-scoring.mjs';
 import {paired} from './lib/metrics.mjs';
 
 const METHOD = 'as-of-1';
@@ -198,6 +198,9 @@ const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath
 const pct = v => v == null ? '-' : `${(100 * v).toFixed(1)}%`;
 const num = v => v == null ? '-' : String(v);
 const dec = v => v == null ? '-' : v.toFixed(3);
+// A paired delta with its interval: `+0.004 [-0.000, 0.009]`. A change of exactly
+// zero reads `+0.000 [0.000, 0.000]`.
+const range = s => `${s.delta >= 0 ? '+' : ''}${s.delta.toFixed(3)} [${s.lo.toFixed(3)}, ${s.hi.toFixed(3)}]`;
 const rows = [
   ['reached', 'must memories in front of the agent', pct],
   ['helpsReached', 'helps memories in front of the agent', pct],
@@ -303,17 +306,22 @@ if (fit.ok) {
   verdict = gate(now, baseline.summary, significance);
   // The same change judged on the second labeller's labels. If the two point
   // different ways, the change is inside the labellers' disagreement.
-  const was = new Map(baseline.rows.filter(r => r.checkUtility != null).map(r => [r.id, r.checkUtility]));
-  const both = now.rows.filter(r => r.checkUtility != null && was.has(r.id));
-  if (both.length > 1 && significance) {
-    const second = paired(both.map(r => r.checkUtility), both.map(r => was.get(r.id)));
-    const first = paired(both.map(r => r.utility), both.map(r => baseline.rows.find(x => x.id === r.id).utility));
+  // Each labeller is paired only on the prompts both runs scored on that
+  // labeller's gold; the first labeller's as-of view can leave a double-labelled
+  // prompt unscored, and pairing it anyway made the delta NaN.
+  const onSecond = sides(now.rows, baseline.rows, 'checkUtility');
+  const double = new Set(now.rows.filter(r => r.checkUtility != null).map(r => r.id));
+  const onFirst = sides(now.rows.filter(r => double.has(r.id)), baseline.rows.filter(r => double.has(r.id)), 'utility');
+  if (onSecond.compared > 1 && onFirst.compared > 1 && significance) {
+    const second = paired(onSecond.a, onSecond.b);
+    const first = paired(onFirst.a, onFirst.b);
     const agree = Math.sign(first.delta) === Math.sign(second.delta) || (!first.significant && !second.significant);
-    console.log(`  on the ${both.length} double-labelled prompts: first labeller ${first.delta >= 0 ? '+' : ''}${first.delta.toFixed(3)}, second ${second.delta >= 0 ? '+' : ''}${second.delta.toFixed(3)}${agree ? '' : '  · they disagree'}`);
+    const fewer = onFirst.compared < onSecond.compared ? ` (on ${onFirst.compared} the first scored)` : '';
+    console.log(`  on the ${onSecond.compared} double-labelled prompts: first labeller ${range(first)}${fewer}, second ${range(second)}${agree ? '' : '  · they disagree'}`);
     if (!agree) verdict.reasons.push('the two labellers disagree on the direction');
     verdict.pass = verdict.reasons.length === 0;
   }
-  console.log(`\n  against baseline on ${compared} prompts${unmatched ? ` (${unmatched} new since)` : ''}: utility ${significance ? `${significance.delta >= 0 ? '+' : ''}${significance.delta.toFixed(3)} [${significance.lo.toFixed(3)}, ${significance.hi.toFixed(3)}]${significance.significant ? '' : ' noise'}` : '-'}`);
+  console.log(`\n  against baseline on ${compared} prompts${unmatched ? ` (${unmatched} new since)` : ''}: utility ${significance ? `${range(significance)}${significance.significant ? '' : ' noise'}` : '-'}`);
   console.log(`  gate: ${verdict.pass ? 'pass' : `fail · ${verdict.reasons.join('; ')}`}`);
 }
 
