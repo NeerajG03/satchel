@@ -24,6 +24,7 @@ const MARKERS = [
   ['[Subagent hand-back]', 'agent message'],
   ['<ci-monitor-event>', 'ci event'],
   ['<scheduled-task', 'scheduled task'],
+  ['Background (from the session that started this one)', 'session brief'],
   ['<local-command-stdout>', 'command output'],
   ['<local-command-caveat>', 'command output'],
 ];
