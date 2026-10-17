@@ -25,6 +25,15 @@ test('a subagent report, a task notification and a CI event are not the person',
   assert.equal(scheduled.query, null);
 });
 
+test('the brief a parent session hands a spawned one is not the person', () => {
+  // 16 October: the first turn of a spawned session was a written brief with a
+  // shared-notes line the app appends, and the pass saved both as the person's
+  // rules. The person's own turns come after it and stay theirs.
+  const brief = 'Background (from the session that started this one):\nA side by side…\n\nTask:\nBuild three small changes. No co-author lines.';
+  assert.deepEqual(classifyPrompt(brief), {kind: 'session brief', query: null});
+  assert.equal(classifyPrompt('the skill description can lead on how to use it, right?').kind, null);
+});
+
 test('a reminder block in front of a real message is cut out, and the message is the person\'s', () => {
   // All five prompts that began with a reminder in the week this shipped
   // carried a real message after it. The host prepends; it does not replace.
