@@ -47,7 +47,7 @@ export function Consent() {
     if (details.error) throw details.error;
     return { topics, details: details.data };
   }, [stores, authorizationId]);
-  const action = useAction();
+  const action = useAction('action');
   const [memory, setMemory] = useState<Group>(NONE);
   const [tasks, setTasks] = useState<Group>(NONE);
   const [memoryWrite, setMemoryWrite] = useState(false);
@@ -86,7 +86,7 @@ export function Consent() {
     });
   }
 
-  if (page.error) return <><h1>An app wants to connect.</h1><LoadError what="The request" onReload={page.reload} /></>;
+  if (page.error) return <><h1>An app wants to connect.</h1><LoadError what="The request" message={page.error} onReload={page.reload} /></>;
   if (!details) return <><h1>An app wants to connect.</h1><Skeleton rows={5} /></>;
 
   return <>
@@ -123,7 +123,7 @@ export function Consent() {
           <p className="fine">Tasks: {anyTasks ? `${scopeText(tasks)} · ${taskWrite ? 'read and write' : 'read only'}${taskUpload ? ' · uploads' : ''}` : 'nothing'}</p></div>
       </aside>
     </div>
-    {action.error && <SaveError message={action.error} />}
+    {action.error && <SaveError title="Could not finish connecting." message={action.error} />}
     <div className="row wrap">
       <Button look="primary" disabled={action.busy || (!anyMemory && !anyTasks)} onClick={() => void decide(true)}>{action.busy ? 'Working…' : 'Allow this access'}</Button>
       <Button disabled={action.busy} onClick={() => void decide(false)}>Deny</Button>

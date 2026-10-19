@@ -21,18 +21,22 @@ export function Archive() {
   const stores = useStores();
   const { announce } = useReadout();
   const archived = useLoad(() => stores.memories.archived(), [stores]);
-  const action = useAction();
+  const action = useAction('action');
   const [destroying, setDestroying] = useState<string | null>(null);
+  // The entry the last failure belongs to, so its error shows under its buttons.
+  const [lastId, setLastId] = useState<string | null>(null);
   const rows = archived.data ?? [];
   useFooter(archived.data ? `${count(rows.length, 'archived', 'archived')}` : '');
 
   async function restore(memory: ArchivedMemory) {
+    setLastId(memory.id);
     const done = await action.run(async () => { await stores.memories.restore(memory); return true; });
     if (!done) return;
     archived.replace(items => items.filter(item => item.id !== memory.id));
     announce('Back in your book');
   }
   async function destroy(memory: ArchivedMemory) {
+    setLastId(memory.id);
     const done = await action.run(async () => { await stores.memories.destroy(memory); return true; });
     if (!done) return;
     archived.replace(items => items.filter(item => item.id !== memory.id));
@@ -51,9 +55,8 @@ export function Archive() {
       <Button onClick={archived.reload} disabled={archived.loading}>Reload</Button>
     </div>
 
-    {archived.error && <LoadError what="The archive" onReload={archived.reload} />}
+    {archived.error && <LoadError what="The archive" message={archived.error} onReload={archived.reload} />}
     {archived.loading && !archived.data && <Skeleton rows={3} />}
-    {action.error && <SaveError message={action.error} />}
 
     {archived.data && rows.length === 0 && <Empty title="Nothing has been put aside">
       When you forget a memory, or Satchel replaces one with something newer, or something you
@@ -79,6 +82,7 @@ export function Archive() {
           <Button look="danger" small disabled={action.busy} onClick={() => void destroy(memory)}>Delete for good</Button>
         </div>
       </div>}
+      {action.error && lastId === memory.id && <SaveError title="Could not change the archive." message={action.error} />}
     </article>)}</div>
 
     <p className="fine muted" style={{ paddingTop: 16 }}><Link to="/book">Back to the book</Link>.</p>

@@ -49,7 +49,7 @@ export function Apps() {
     const [connections, topics] = await Promise.all([stores.connections.list(), stores.topics.list()]);
     return { connections, topics };
   }, [stores]);
-  const action = useAction();
+  const action = useAction('action');
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const data = page.data;
   const live = data?.connections.filter(c => !c.revoked_at) ?? [];
@@ -68,9 +68,8 @@ export function Apps() {
   return <>
     <div className="head"><div className="col"><span className="eyebrow">Apps</span><h1>Apps.</h1>
       <p className="lede">Each app gets only the scopes you chose. A permission here applies to every installation using that app identity.</p></div></div>
-    {page.error && <LoadError what="Your apps" onReload={page.reload} />}
+    {page.error && <LoadError what="Your apps" message={page.error} onReload={page.reload} />}
     {page.loading && !data && <Skeleton rows={3} />}
-    {action.error && <SaveError message={action.error} />}
     {data && live.length === 0 && <p className="muted" style={{ maxWidth: 620 }}>Nothing is connected yet. An app gets only the memory and task scopes you grant when it first asks. You can revoke later.</p>}
     {data && live.length > 0 && <div className="between wrap">
       <p className="fine muted">To connect another app, install the plugin there and run its login command. It sends you here to a consent page. <Link to="/settings">Settings</Link> explains export and forgetting.</p>
@@ -91,8 +90,12 @@ export function Apps() {
       <Notice>What a connected app can never do: read scopes you didn’t grant, save without both write permission and your explicit ask, or see More info in bulk. Hooks read names and descriptions only.</Notice>
     </>}
     {data && live.length > 0 && <div className="cards">
-      {live.map(app => <AppCard key={app.client_id} app={app} topics={data.topics} busy={action.busy} confirming={confirmId === app.client_id}
-        onAskRevoke={ask => setConfirmId(ask ? app.client_id : null)} onRevoke={() => void revoke(app)} />)}
+      {live.map(app => <div className="stack-tight" key={app.client_id}>
+        <AppCard app={app} topics={data.topics} busy={action.busy} confirming={confirmId === app.client_id}
+          onAskRevoke={ask => { setConfirmId(ask ? app.client_id : null); action.clear(); }} onRevoke={() => void revoke(app)} />
+        {/* Under the card whose Revoke failed. The confirm stays open on a failure. */}
+        {action.error && confirmId === app.client_id && <SaveError title="Could not revoke." message={action.error} />}
+      </div>)}
     </div>}
   </>;
 }

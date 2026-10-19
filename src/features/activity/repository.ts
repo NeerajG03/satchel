@@ -1,6 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
+import { Sentence } from '../../errorText.mjs';
 import { moveBack } from './moveBack';
+
+const SIGNED_OUT = 'Your sign-in has expired. Sign in again, then press Consolidate now. Nothing was started.';
+// What /api/consolidate answers when it will not start, by status.
+const CONSOLIDATE_REFUSED: Record<number, string> = {
+  400: 'Satchel could not read this request, so nothing was started. Reload the page and try again.',
+  401: SIGNED_OUT,
+  403: 'Satchel would not start a pass for this sign-in. Sign out, sign in again, and retry. Nothing was started.',
+  404: 'That pass is no longer on record, so there is nothing to carry on. Press Consolidate now to start a new one.',
+  503: 'No consolidation model is configured for this deployment, so nothing was started. Contact the instance owner.',
+};
 import type { Activity, ActivityPage, ConsolidationJob, ConsolidationRun, DocumentRow, DocumentTurn, Injection, MemoryEvent, RouterRun, RunText } from './model';
 import { quotaDayStart, type LiveMemory, type ModelCall, type Overview, type ScheduleStatus, type WaitingDoc } from './overview';
 
@@ -174,10 +185,10 @@ export function createActivityRepository(db: SupabaseClient) {
      *  stops halfway and says it stalled, which is true and unhelpful. */
     async consolidate({ job, idleMinutes = 30 }: { job?: string; idleMinutes?: number } = {}): Promise<ConsolidationJob> {
       let { data, error: authError } = await db.auth.getSession();
-      if (authError || !data.session) throw new Error('Sign in again to run this.');
+      if (authError || !data.session) throw new Sentence(SIGNED_OUT);
       if ((data.session.expires_at ?? 0) * 1000 - Date.now() < 35 * 60 * 1000) {
         const refreshed = await db.auth.refreshSession();
-        if (refreshed.error || !refreshed.data.session) throw new Error('Sign in again to run this.');
+        if (refreshed.error || !refreshed.data.session) throw new Sentence(SIGNED_OUT);
         data = { session: refreshed.data.session };
       }
       const response = await requestWithTimeout(signal => fetch('/api/consolidate', {
@@ -191,16 +202,17 @@ export function createActivityRepository(db: SupabaseClient) {
       // token <", which is a confusing way to learn you are on the wrong
       // server.
       if (response.ok && !response.headers.get('content-type')?.includes('json')) {
-        throw new Error('This server does not run the endpoints. Use npm run serve, or the deployed app.');
+        throw new Sentence('This server does not run the endpoints. Use npm run serve, or the deployed app.');
       }
       // 409 is a carry on that lost a race with the chain it meant to
       // replace. The job it names is still the one to show.
       if (!response.ok && response.status !== 409) {
         // 503 is the honest one to name: it means no model key is configured,
         // which is a deployment fact rather than anything the person did.
-        throw new Error(response.status === 503
-          ? 'No consolidation model is configured for this deployment.'
-          : `Satchel answered ${response.status}.`);
+        // The other 503 is a job row that could not be written.
+        if (response.status === 503 && (await response.text().catch(() => '')).startsWith('Could not start'))
+          throw new Sentence('Satchel could not start the pass, so nothing was read. Try again in a minute.');
+        throw new Sentence(CONSOLIDATE_REFUSED[response.status] ?? `Satchel answered ${response.status}, so nothing was started. Reload and try again.`);
       }
       return (await response.json() as { job: ConsolidationJob }).job;
     },
