@@ -1,6 +1,6 @@
 # Following first · 18 October 2026
 
-**Status:** decided 19 Oct (section 6), nothing built yet. **Decides:** Neeraj. **Reviewed by:** an independent reviewer and a cold reader. What changed because of them is in section 7.
+**Status:** decided 19 Oct (section 6), built and merged 19 Oct (section 8). **Decides:** Neeraj. **Reviewed by:** an independent reviewer and a cold reader. What changed because of them is in section 7.
 
 This is the design for the next goal: **when Satchel shows a rule, the agent follows it, so you never have to say it twice.** It has two parts:
 
@@ -114,7 +114,7 @@ But not all of it is history. The fourth session, d1ec1aa9 (13 to 16 Oct, resume
 
 And the replay builds the start block and the prompt blocks from the same moment in time, so its 0.4% may be low partly by construction.
 
-The counts in the report also need a recount. It says repeats fell from 51.2% to 28.9% over 97 slots after the fix, and that 26 of 81 repeat slots were in sessions started after it. Those two do not add up to one story.
+The counts in the report also need a recount. It says repeats fell from 51.2% to 28.9% over 97 slots after the fix, and that 26 of 81 repeat slots were in sessions started after it. Those two do not add up to one story. (Later: they do. "26 of 81" means 26 repeats out of 81 shown memories, not 81 repeats. I misread it. See section 8.)
 
 ### A1 · Split the real-sessions column by date · Changed
 
@@ -284,3 +284,25 @@ Each piece gets a row in `docs/decisions.md` when it ships.
 | Count distinct sessions; label every affirm in the script; keep new rules out of the score | B1, B2 and the score's side counts |
 | The rule-to-complaint mapping in the first draft was off | Section 1 now uses the said-again counts only |
 | Terms, decisions and references needed outside context | Glossary at the top, one "You decide" table, no unexplained IDs |
+
+---
+
+## 8. What shipped and what we found · 19 October
+
+```
+ A1 split column      PR 64  merged   measurement fix, no replay number moved
+ A3 commits line      PR 65  merged   reached, harmful, utility unchanged; prompt-block tokens 1.0% less
+ B1 to B3 score       PR 66  see below
+ A2 repeat cause      no PR           nothing to build
+```
+
+**A2, why real sessions still repeated after the 11 Oct fix.** Every repeat after the fix (28 of 97 shown memories) came from a session still running plugin 0.4.9, which never sends the "already shown" list. Sessions on 0.5.2 or newer had 0 repeats in 12 slots. A replay that acts like 0.4.9 gives back the same repeated rows in 4 of the 5 sessions. The other suspects showed nothing: 0 start-block repeats after the fix, and 0 topic picks. So the version stamp stays not built, unless a repeat shows up in a session on 0.5.2 or newer. Full notes, numbers only: `~/satchel-daily/a2-repeats-2026-10-19.md`.
+
+**A1.** The real-sessions column is now split by when each session started, not each message, because a session keeps the plugin it started with. On the 19 Oct snapshot only 3 scored messages fall after the 16 Oct cut, and on those production and the replay match exactly (repeat 0%, harmful 0). So the gap between the two columns was old sessions. The "since" column needs the next labelling run before it means much.
+
+**A3.** The design guessed most commits lines were about other repos. The replay says no: 181 of 191 lines sit under facts and plans about the session's own repo, which keep the full line. So the change took off 5 lines on preferences and shortened 5 about other repos. Plans (intents) keep the line, because commits are how a plan gets done. Plugin 0.5.7.
+
+**B.** The first real score, 21 Sep to 17 Oct: **13 complaints over 194 sessions, 6.7 per 100.** By week: 1 of 91, 0 of 39, 10 of 50, 2 of 14 sessions. 11 affirms are still not labelled. The weekly numbers now go into `~/satchel-daily/following.json`, so "4 weeks before" fills in after about four weeks of reviews.
+
+What this means for the goal: the noise and repeat problems seem to be mostly fixed already, by plugin updates. Following is still the open problem, and now it has a number. The first change to judge against it is showing a rule again at the message where it applies (section 4).
+

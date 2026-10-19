@@ -8,10 +8,12 @@ It holds no conversation text. Session ids, numbers, file paths, commit hashes a
 
 ## Shape
 
-Append this to the end of the file. Leave out a line only when it says "none".
+Append this to the end of the file. Leave out a line only when it says "none". The `following:` line opens every entry: the same line as the top of that day's report, so the score reads down the log at a glance. A day with no run still has one, since step 1 runs `said-again.mjs` before it knows.
 
 ```markdown
 ## <date> · <folder name>
+
+following: <n> complaints in 4 weeks · per 100 sessions: <x> · 4 weeks before: <y> · up-front <n> · unlabelled <n>
 
 - window: <since> to <until> · <n> jobs · <n> runs · <n> sessions read · <n> waiting now
 - blind reads: <n> agents · <n> changes · or "skipped, nothing ran"

@@ -310,7 +310,7 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
               ? await service.topics().catch(() => []) : [];
             notice = noticeFor('UserPromptSubmit', {shown: rows.length, matched: rows[0].matched});
             context = promptBlock({rows, matched: rows[0].matched, inScope: rows[0].in_scope,
-              churn: settings.staleness_commits, now: now(),
+              churn: settings.staleness_commits, now: now(), repository,
               slugs: Object.fromEntries(topics.map(p => [p.id, p.slug]))});
             logged = {query, memory_ids: rows.map(r => r.id),
               matched: rows[0].matched, in_scope: rows[0].in_scope, tokens: estimateTokens(context)};

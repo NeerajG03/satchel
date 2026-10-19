@@ -48,7 +48,9 @@ const description='Personal and topic memory, tasks and topics across your agent
 // part of a skill the agent always sees, in the shape of a trigger list.
 // 0.5.6 drops a session-start line that sent the agent to read_memory for
 // detail, left over from when the block held only names.
-const versions={claude:'0.5.6',codex:'0.5.6'};
+// 0.5.7 tells the agent preferences never carry the commits note, and that
+// it is short for a memory about another repository.
+const versions={claude:'0.5.7',codex:'0.5.7'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});

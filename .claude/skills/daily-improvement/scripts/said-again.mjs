@@ -1,25 +1,39 @@
 #!/usr/bin/env node
-// How often each rule is said again, for step 5's following question. Reads only.
+// How often each rule is said again, and the following score, for step 5's
+// following question. Reads only.
 //
-//   node said-again.mjs <folder> [--weeks 4] [--min 2]
+//   node said-again.mjs <folder> [--weeks 4] [--min 2] [--following <file>]
 //
 // An affirm bumps `mentions` and `affirmed_at` and writes no memory_events row,
 // so the only record of one is the run that made it: the prompt head lists the
 // memories as `  #n  [kind, scope, said N times, ...]  statement` and the
 // response names `#n` as the target of an `affirm`. This joins the two, the
 // way scenario E did by hand, and counts affirms per rule per week over the
-// last --weeks weeks ending at the folder's window. A rule affirmed fewer than
-// --min times in that span is folded into one line per week.
+// last --weeks calendar weeks (Monday to Sunday, UTC), the last one running up
+// to the folder's window end. A rule affirmed fewer than --min times in that
+// span is left out of the week's table, but every affirm still gets a line and
+// a `mark:` to fill.
+//
+// The following score (D50): complaints on a rule that was in that session's
+// start block, per 100 sessions. Sessions are distinct session keys with a
+// SessionStart row in memory_injections, each counted in the week of its first
+// start in the window, since a resume or a clear writes another row for the
+// same session. Each week's numbers are kept in --following (default
+// ~/satchel-daily/following.json), one entry per week, so the 4 weeks before
+// can be read after the run text that made them is blanked.
 //
 // What it cannot see: an affirm the twin check made (`reconsider`) is not in
 // the response, so a run whose `affirmed` column exceeds the parsed affirms
-// shows the difference as `missing`; and run text is blanked at 30 days, so
-// the count looks no further back than that.
+// shows the difference as `missing`; run text is blanked at 30 days, so the
+// count looks no further back than that; and an add says nothing about whether
+// the person was correcting the agent, so complaints about rules not yet in
+// memory are not counted.
 //
 // Writes <folder>/said-again.md. It holds the person's own words (the `source`
-// of each affirm), so it stays in the folder. Stdout gets the numbers only.
-import {readFileSync, writeFileSync} from 'node:fs';
-import {join, resolve} from 'node:path';
+// of each affirm), so it stays in the folder. Stdout and following.json get
+// the numbers only.
+import {readFileSync, writeFileSync, readdirSync, realpathSync, mkdirSync, renameSync} from 'node:fs';
+import {join, dirname, basename} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {sql, lit} from './db.mjs';
 
@@ -93,9 +107,116 @@ export function byWeek(affirms) {
       .sort((a, b) => b.count - a.count || String(a.statement).localeCompare(String(b.statement)))}));
 }
 
+/** The start of the window: the Monday that starts the week `weeks - 1`
+ *  weeks before the one holding `until`, so every week but the last is whole.
+ *  A millisecond back, so an `until` of exactly Monday 00:00 ends the week
+ *  before it rather than opening an empty one. */
+export const windowStart = (until, weeks) =>
+  new Date(Date.parse(weekOf(Date.parse(until) - 1)) - (weeks - 1) * 7 * DAY).toISOString();
+
+/** Each session's first ever start, from SessionStart rows. */
+export function firstStarts(rows) {
+  const first = new Map();
+  for (const {session_key: key, created_at: when} of rows) {
+    if (!key) continue;
+    if (!first.has(key) || Date.parse(when) < Date.parse(first.get(key))) first.set(key, when);
+  }
+  return first;
+}
+
+/** Distinct sessions per week, each in the week of its first ever start, and
+ *  only when that start is inside [since, until]. A session that began before
+ *  the window and resumed inside it belongs to an earlier window, so two
+ *  overlapping runs never count it twice in following.json. */
+export function sessionsByWeek(first, since, until) {
+  const weeks = new Map();
+  for (const when of first.values()) {
+    const t = Date.parse(when);
+    if (t < Date.parse(since) || t > Date.parse(until)) continue;
+    weeks.set(weekOf(when), (weeks.get(weekOf(when)) ?? 0) + 1);
+  }
+  return weeks;
+}
+
+/** One entry per week from `since` to `until`: numbers only, never words.
+ *  An affirm is dated by its session's first start when that is known, the
+ *  same date the session is counted under, else by the run that read it. */
+export function followingWeeks({since, until, affirms, inBlock, sessions}) {
+  const entries = [];
+  const dated = a => weekOf(a.started ?? a.when);
+  const loaded = a => Boolean(a.id && a.session_key && inBlock.has(`${a.session_key} ${a.id}`));
+  for (let t = Date.parse(since); t <= Date.parse(until); t += 7 * DAY) {
+    const week = new Date(t).toISOString().slice(0, 10);
+    const these = affirms.filter(a => dated(a) === week);
+    entries.push({week, sessions: sessions.get(week) ?? 0, affirms: these.length,
+      complaints_in_block: these.filter(a => a.mark === 'complaint' && loaded(a)).length,
+      complaints: these.filter(a => a.mark === 'complaint').length,
+      up_front: these.filter(a => a.mark === 'up-front').length,
+      unlabelled: these.filter(a => !a.mark).length,
+      ...(t + 7 * DAY > Date.parse(until) ? {partial: true, through: day(until)} : {})});
+  }
+  return entries;
+}
+
+const per100 = entries => {
+  const sessions = entries.reduce((n, e) => n + e.sessions, 0);
+  const complaints = entries.reduce((n, e) => n + e.complaints_in_block, 0);
+  return sessions ? (complaints / sessions * 100).toFixed(1) : 'n/a';
+};
+
+/** The one line the report and the log open with. `before` is what
+ *  following.json kept for the weeks ahead of the window; a week it does not
+ *  hold is said, not guessed. */
+export function followingLine({weeks, entries, before}) {
+  const sum = key => entries.reduce((n, e) => n + e[key], 0);
+  const was = before.length === 0 ? 'none kept yet'
+    : `${per100(before)}${before.length < weeks ? ` (${before.length} of ${weeks} weeks kept)` : ''}`;
+  const last = entries.at(-1);
+  return `following: ${sum('complaints_in_block')} complaints in ${weeks} weeks · per 100 sessions: ${per100(entries)} · `
+    + `${weeks} weeks before: ${was} · up-front ${sum('up_front')} · unlabelled ${sum('unlabelled')}`
+    + (last?.partial ? ` · last week through ${last.through}` : '');
+}
+
+/** following.json with this run's weeks put in. A week is replaced only by
+ *  numbers as of the same moment or later, so re-running an older folder
+ *  cannot overwrite a newer count. The rest are kept, oldest first. */
+export function upsertFollowing(doc, entries, asOf) {
+  const weeks = new Map((doc?.weeks ?? []).map(e => [e.week, e]));
+  for (const e of entries) {
+    const stored = weeks.get(e.week);
+    if (!stored?.as_of || Date.parse(asOf) >= Date.parse(stored.as_of)) weeks.set(e.week, {...e, as_of: asOf});
+  }
+  return {weeks: [...weeks.values()].sort((a, b) => a.week.localeCompare(b.week))};
+}
+
+/** following.json, or an empty one when the file does not exist yet. A file
+ *  that is there but unreadable throws: its history cannot be rebuilt, so it
+ *  is never quietly replaced. */
+export function readFollowing(file) {
+  let text;
+  try { text = readFileSync(file, 'utf8'); } catch (error) {
+    if (error.code === 'ENOENT') return {weeks: []};
+    throw error;
+  }
+  let doc;
+  try { doc = JSON.parse(text); } catch (error) { throw new Error(`${file} is not valid JSON, fix or move it first: ${error.message}`); }
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc) || !Array.isArray(doc.weeks)) {
+    throw new Error(`${file} is not {"weeks": [...]}, fix or move it first`);
+  }
+  return doc;
+}
+
+/** Written beside itself and renamed in, so a run cut short never leaves half a file. */
+export function writeFollowing(file, doc) {
+  mkdirSync(dirname(file), {recursive: true});
+  const temp = `${file}.${process.pid}.tmp`;
+  writeFileSync(temp, JSON.stringify(doc, null, 2) + '\n', {mode: 0o600});
+  renameSync(temp, file);
+}
+
 /** The markdown. Everything with the person's words in it goes here and
  *  nowhere else; `headline` is the part that may be printed. */
-export function render({since, until, weeks, min, runs, parsed, affirms, live, inBlock}) {
+export function render({since, until, weeks, min, runs, parsed, affirms, live, inBlock, following = null}) {
   const totals = new Map();
   for (const a of affirms) totals.set(a.key, (totals.get(a.key) ?? 0) + 1);
   const atMin = [...totals.entries()].filter(([, n]) => n >= min);
@@ -112,11 +233,12 @@ export function render({since, until, weeks, min, runs, parsed, affirms, live, i
   const onAtMin = atMin.reduce((n, [, c]) => n + c, 0);
   const topText = top ? `top ${isId(top[0]) ? handleOf(top[0]) : 'text only'} x${top[1]}` : 'top none';
   const headline = [
+    ...(following ? [following, ''] : []),
     `# Said again · ${day(since)} to ${day(until)} · ${weeks} weeks`, '',
     `${runs.total} runs · ${withText.length} with an affirm read · ${runs.expired} expired (text blanks at 30 days, ${expiredAffirms} affirms in them not counted)`,
     `${affirms.length} affirms parsed · ${missing} missing (counted by the run, not in its response: the twin check made them)`,
     `${atMin.length} rules at ${min}+ · in block ${loaded.length} of ${blockable.length} (affirmed while the rule was already in that session's start block) · ${topText}`,
-    `marks: complaint ${share('complaint')} · up-front ${share('up-front')} · unmarked ${affirms.length - marks.length} (fill the mark lines below, then re-run to count them)`, '',
+    `marks: complaint ${share('complaint')} · up-front ${share('up-front')} · unmarked ${affirms.length - marks.length} (fill every mark line below, then re-run to count them)`, '',
     `report line: Said again: ${onAtMin} affirms on ${atMin.length} rules at ${min}+ · complaint ${share('complaint')} · up-front ${share('up-front')} · ${topText}, in block ${loaded.length} of ${blockable.length}`,
   ];
 
@@ -137,7 +259,8 @@ export function render({since, until, weeks, min, runs, parsed, affirms, live, i
     lines.push(`## Week of ${week}`, '',
       table(['handle', 'statement', 'affirms', 'mentions now', 'in block'],
         shown.map(r => [handle(r), clip(r.statement ?? r.key, 60).replace(/\|/g, '/'), r.count, mentionsNow(r), inBlockOf(r)])), '');
-    for (const rule of shown) {
+    if (folded.length) lines.push(`${folded.length} more under ${min} in this span: ${folded.map(r => `${handle(r)} x${r.count}`).join(', ')}`, '');
+    for (const rule of [...shown, ...folded]) {
       lines.push(`### ${handle(rule)} · ${clip(rule.statement ?? rule.key, 60)}`, '');
       for (const a of rule.affirms) {
         const where = a.id && a.session_key ? (inBlock.has(`${a.session_key} ${a.id}`) ? 'in block' : 'not in block') : 'no key';
@@ -147,7 +270,6 @@ export function render({since, until, weeks, min, runs, parsed, affirms, live, i
       }
       lines.push('');
     }
-    if (folded.length) lines.push(`${folded.length} more under ${min} in this span: ${folded.map(r => `${handle(r)} x${r.count}`).join(', ')}`, '');
   }
 
   lines.push('## Missing', '', 'Runs whose `affirmed` count is more than the affirms the response names. The twin check (`reconsider`) affirms outside the response; the job report entry in `pipeline/<name>.md` says which memory.', '',
@@ -170,6 +292,28 @@ export function readMarks(text) {
   return marks;
 }
 
+/** Marks from this folder's file, with any blank one filled from the newest
+ *  earlier review's file, so a new day starts with what was already marked. */
+export function mergeMarks(current, earlier) {
+  const merged = new Map(earlier);
+  for (const [key, marks] of current) {
+    const old = earlier.get(key) ?? [];
+    merged.set(key, Array.from({length: Math.max(marks.length, old.length)}, (_, i) => marks[i] ?? old[i] ?? null));
+  }
+  return merged;
+}
+
+/** The newest sibling folder before this one that has a said-again.md. */
+export function earlierFolder(folder) {
+  const parent = dirname(folder);
+  const name = basename(folder);
+  let names = [];
+  try { names = readdirSync(parent); } catch { return null; }
+  const found = names.filter(n => n < name && /^\d{4}-\d{2}-\d{2}/.test(n)).sort().reverse()
+    .find(n => { try { readFileSync(join(parent, n, 'said-again.md')); return true; } catch { return false; } });
+  return found ? join(parent, found) : null;
+}
+
 /** Puts the kept marks back on this run's affirms. */
 export function applyMarks(parsed, kept) {
   for (const p of parsed) {
@@ -186,14 +330,18 @@ export function applyMarks(parsed, kept) {
 
 async function main() {
   const args = process.argv.slice(2);
-  const folder = args.find(a => !a.startsWith('--'));
-  if (!folder) throw new Error('usage: said-again.mjs <folder> [--weeks 4] [--min 2]');
-  const flag = (name, fallback) => { const i = args.indexOf(`--${name}`); return i >= 0 ? Number(args[i + 1]) : fallback; };
-  const weeks = flag('weeks', 4);
-  const min = flag('min', 2);
+  const given = args.find((a, i) => !a.startsWith('--') && !args[i - 1]?.startsWith('--'));
+  if (!given) throw new Error('usage: said-again.mjs <folder> [--weeks 4] [--min 2] [--following <file>]');
+  // /var is a link to /private/var on macOS: resolve it so sibling folders and
+  // the paths printed are the real ones.
+  const folder = realpathSync(given);
+  const option = name => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
+  const weeks = Number(option('weeks') ?? 4);
+  const min = Number(option('min') ?? 2);
+  const followingFile = option('following') ?? join(process.env.HOME, 'satchel-daily', 'following.json');
   const {until} = JSON.parse(readFileSync(join(folder, 'window.json'), 'utf8'));
-  const since = new Date(Date.parse(until) - weeks * 7 * DAY).toISOString();
-  const inWindow = `r.created_at > ${lit(since)} and r.created_at <= ${lit(until)}`;
+  const since = windowStart(until, weeks);
+  const inWindow = `r.created_at >= ${lit(since)} and r.created_at <= ${lit(until)}`;
 
   // The head only: the prompt is cut before the conversation in the database,
   // so the turns never leave it. A blanked prompt has no marker and comes whole.
@@ -226,16 +374,33 @@ async function main() {
     where event = 'SessionStart' and session_key in (${keys.map(lit).join(', ')})`) : [];
   const inBlock = new Set(injections.flatMap(i => (i.memory_ids ?? []).map(id => `${i.session_key} ${id}`)));
 
-  // Marks a reviewer wrote last time stay.
-  const out = join(folder, 'said-again.md');
-  let previous = '';
-  try { previous = readFileSync(out, 'utf8'); } catch { previous = ''; }
-  applyMarks(parsed, readMarks(previous));
+  // The denominator: every session whose first ever start block is in the
+  // window. Grouped over all time, so a resume does not make a session new.
+  const first = firstStarts(await sql(`select session_key, min(created_at) created_at from public.memory_injections
+    where event = 'SessionStart' and created_at <= ${lit(until)} group by session_key`));
+  const sessions = sessionsByWeek(first, since, until);
+  for (const a of affirms) a.started = a.session_key ? first.get(a.session_key) ?? null : null;
 
-  const {headline, text} = render({since, until, weeks, min, runs: counts, parsed, affirms, live, inBlock});
+  // Marks a reviewer wrote last time stay, and a new day starts from the last day's.
+  const out = join(folder, 'said-again.md');
+  const marksIn = file => { try { return readMarks(readFileSync(file, 'utf8')); } catch { return new Map(); } };
+  const earlier = earlierFolder(folder);
+  applyMarks(parsed, mergeMarks(marksIn(out), earlier ? marksIn(join(earlier, 'said-again.md')) : new Map()));
+
+  const entries = followingWeeks({since, until, affirms, inBlock, sessions});
+  const kept = readFollowing(followingFile);
+  const beforeFrom = new Date(Date.parse(since) - weeks * 7 * DAY).toISOString().slice(0, 10);
+  const before = (kept.weeks ?? []).filter(e => e.week >= beforeFrom && e.week < since.slice(0, 10));
+  const following = followingLine({weeks, entries, before});
+
+  const {headline, text} = render({since, until, weeks, min, runs: counts, parsed, affirms, live, inBlock, following});
   writeFileSync(out, text, {mode: 0o600});
+  writeFollowing(followingFile, upsertFollowing(kept, entries, until));
   console.log(headline);
-  console.log(`\nwritten to ${out}`);
+  console.log(`\nweeks: ${entries.map(e => `${e.week} ${e.complaints_in_block} of ${e.sessions} sessions`).join(' · ')}`);
+  console.log(`written to ${out} and ${followingFile}`);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();
+// Compared through realpath: node runs the real file, so under a linked path
+// such as /var the two names differ and main would silently never run.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) await main();
