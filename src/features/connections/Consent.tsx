@@ -73,15 +73,17 @@ export function Consent() {
   async function decide(approve: boolean) {
     if (!details) return;
     await action.run(async () => {
-      if (approve) await stores.connections.grant({ clientId: details.client.id, label: details.client.name,
+      if (!approve) {
+        const result = await stores.db.auth.oauth.denyAuthorization(authorizationId, { skipBrowserRedirect: true });
+        if (result.error) throw result.error;
+        location.assign(result.data.redirect_url);
+        return;
+      }
+      const result = await stores.connections.approve(authorizationId, { clientId: details.client.id, label: details.client.name,
         personal: memory.personal, allTopics: memory.all, topicIds: memory.ids, canWrite: memoryWrite,
         taskPersonal: tasks.personal, taskAllTopics: tasks.all, taskTopicIds: tasks.ids,
         taskCanWrite: taskWrite, taskCanUpload: taskUpload });
-      const result = approve ? await stores.db.auth.oauth.approveAuthorization(authorizationId, { skipBrowserRedirect: true })
-        : await stores.db.auth.oauth.denyAuthorization(authorizationId, { skipBrowserRedirect: true });
-      if (result.error) throw result.error;
-      if (!approve) { location.assign(result.data.redirect_url); return; }
-      try { sessionStorage.setItem(RETURN_URL_KEY, JSON.stringify({ url: result.data.redirect_url, name: details.client.name })); } catch { /* The page still offers Back to Apps. */ }
+      try { sessionStorage.setItem(RETURN_URL_KEY, JSON.stringify({ url: result.redirectUrl, name: details.client.name })); } catch { /* The page still offers Back to Apps. */ }
       navigate(`/apps/connected/${partnerSlug(details.client.name)}`, { replace: true });
     });
   }
