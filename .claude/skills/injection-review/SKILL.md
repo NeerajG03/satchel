@@ -73,6 +73,8 @@ SH
 
 Shell variables do not survive between commands. Start every later command with `source <the WORK path>/env.sh &&`.
 
+If Google rejects `GEMINI_API_KEY` (401 on every call), embed through OpenRouter instead, in the process only: `export SATCHEL_EMBEDDING_PROVIDER=openai SATCHEL_EMBEDDING_URL=https://openrouter.ai/api/v1 SATCHEL_EMBEDDING_MODEL=google/gemini-embedding-001 SATCHEL_EMBEDDING_KEY="$OPENROUTER_API_KEY"` before collect and parity. Parity must still match; if it does not, stop.
+
 Stop and log, without building anything, when: collect or parity fails on a missing `SB_TOKEN` or `GEMINI_API_KEY`; a label batch fails twice; parity does not match and the twin cannot be fixed in this run; or step 4 says the baseline is from another snapshot after you already re-collected.
 
 ## Steps

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {search, personal, replayService} from '../eval/lib/injection-twin.mjs';
 import {scoreMoment, summarise, pair, sides, gate, asOf, aheadNeeds, comparable} from '../eval/lib/injection-scoring.mjs';
 import {paired} from '../eval/lib/metrics.mjs';
+import {promptEmbedder} from '../eval/lib/injection-cache.mjs';
 import {sessionStart, retrieve} from '../server/lifecycle.mjs';
 
 const A = '00000000-0000-4000-8000-00000000000a';
@@ -285,4 +286,18 @@ test('each labeller is paired only on the prompts both runs scored, so a zero ch
   }
   // The old way, for the record: one unscored prompt and the delta is NaN.
   assert.ok(Number.isNaN(paired(now.map(r => r.utility), base.map(r => r.utility)).delta));
+});
+
+test('a key in the process is used for prompt vectors without reading ~/.config/env', async () => {
+  const saved = {HOME: process.env.HOME, key: process.env.SATCHEL_EMBEDDING_KEY};
+  process.env.HOME = '/nonexistent-home';
+  try {
+    process.env.SATCHEL_EMBEDDING_KEY = 'test-key';
+    assert.equal(typeof (await promptEmbedder()).embed, 'function');
+    delete process.env.SATCHEL_EMBEDDING_KEY;
+    await assert.rejects(promptEmbedder(), /ENOENT/, 'with no key in the process it reads the env file, as before');
+  } finally {
+    process.env.HOME = saved.HOME;
+    if (saved.key === undefined) delete process.env.SATCHEL_EMBEDDING_KEY; else process.env.SATCHEL_EMBEDDING_KEY = saved.key;
+  }
 });
