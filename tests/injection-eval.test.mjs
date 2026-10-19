@@ -4,7 +4,7 @@ import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {search, personal, replayService} from '../eval/lib/injection-twin.mjs';
-import {scoreMoment, summarise, pair, sides, gate, asOf, aheadNeeds, comparable, splitAt} from '../eval/lib/injection-scoring.mjs';
+import {scoreMoment, summarise, pair, sides, gate, asOf, aheadNeeds, comparable, splitAt, parseCut, sameMoments} from '../eval/lib/injection-scoring.mjs';
 import {paired} from '../eval/lib/metrics.mjs';
 import {promptEmbedder} from '../eval/lib/injection-cache.mjs';
 import {sessionStart, retrieve} from '../server/lifecycle.mjs';
@@ -248,7 +248,7 @@ test('a block row is charged where it loads, and is useful when a later prompt n
   assert.equal(card.utility, 0.375);
 });
 
-test('real sessions split at the cut by each prompt\'s own time, and a block row keeps its whole stretch', () => {
+test('with no session start, moments split at the cut by their own time, and a block row keeps its whole stretch', () => {
   const cut = '2026-10-16T18:27:00Z';
   const session = aheadNeeds([
     {id: 's:1', session: 's', ts: '2026-10-16T18:00:00Z', typed: true, shown: [], loaded: [A], resetBefore: true, gold: {must: [], helps: [], traps: []}},
@@ -267,6 +267,36 @@ test('real sessions split at the cut by each prompt\'s own time, and a block row
   assert.equal(card.repeat, 1 / 2, 'the host message repeated B');
   assert.deepEqual(splitAt(session, '2026-10-20T00:00:00Z').since, []);
   assert.throws(() => splitAt(session, 'last tuesday'), /not a date/);
+});
+
+test('a session stays on the side of the cut it started on, and the crossings are counted', () => {
+  const cut = '2026-10-16T18:27:00Z';
+  const moments = [
+    {id: 'old:1', session: 'old', started: '2026-10-15T09:00:00Z', ts: '2026-10-15T09:01:00Z', typed: true, shown: []},
+    {id: 'old:2', session: 'old', started: '2026-10-15T09:00:00Z', ts: '2026-10-17T10:00:00Z', typed: true, shown: [A]},
+    {id: 'old:3', session: 'old', started: '2026-10-15T09:00:00Z', ts: '2026-10-17T11:00:00Z', typed: true, shown: [B]},
+    {id: 'new:1', session: 'new', started: '2026-10-16T20:00:00Z', ts: '2026-10-16T20:01:00Z', typed: true, shown: []},
+    {id: 'early:1', session: 'early', started: '2026-10-10T09:00:00Z', ts: '2026-10-10T09:05:00Z', typed: true, shown: []},
+  ];
+  const {since, before, crossed} = splitAt(moments, cut);
+  assert.deepEqual(since.map(m => m.id), ['new:1']);
+  assert.deepEqual(before.map(m => m.id), ['old:1', 'old:2', 'old:3', 'early:1'], 'prompts after the cut in a session that began before it ran the old hooks');
+  assert.equal(crossed, 1, 'one session, counted once, however many of its prompts ran past the cut');
+});
+
+test('a cut must say its zone, and a bare date is midnight UTC', () => {
+  assert.equal(parseCut('2026-10-16T18:27:00Z'), '2026-10-16T18:27:00.000Z');
+  assert.equal(parseCut('2026-10-16T20:27:00+02:00'), '2026-10-16T18:27:00.000Z');
+  assert.equal(parseCut('2026-10-16'), '2026-10-16T00:00:00.000Z');
+  for (const bad of ['2026-10-16T18:27:00', '2026-10-16 18:27', 'last tuesday', '', undefined, '--only'])
+    assert.throws(() => parseCut(bad), /--since takes a date/, String(bad));
+  assert.throws(() => parseCut('2026-13-40'), /not a date/);
+});
+
+test('the replay is read on the same prompts as a production column', () => {
+  const replay = [{id: 'a'}, {id: 'b'}, {id: 'c'}];
+  assert.deepEqual(sameMoments(replay, [{id: 'c'}, {id: 'a'}, {id: 'z'}]).map(m => m.id), ['a', 'c'], 'in the replay\'s order, and an id only one side has is dropped');
+  assert.deepEqual(sameMoments(replay, []), []);
 });
 
 test('a baseline scored the old way is not compared', () => {

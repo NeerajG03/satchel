@@ -183,15 +183,42 @@ export function gate(now, base, significance) {
   return {pass: reasons.length === 0, reasons};
 }
 
-/** Real-sessions moments either side of a cut, by each prompt's own time, so
- *  the scorecard can show what people get since a plugin or server fix shipped
- *  apart from what older code gave them. A moment with no readable time cannot
- *  be shown to be after the cut and goes in `before`. Run after aheadNeeds(),
- *  so a block row is still judged on its whole stretch. */
+/** The cut for splitAt, as an instant. A full time must carry a Z or an
+ *  offset, or the machine's own zone would move the cut without a word; a bare
+ *  date (2026-10-16) is midnight UTC. Anything else is refused. */
+export function parseCut(value) {
+  const text = String(value ?? '').trim();
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(text);
+  const zoned = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/.test(text);
+  if (!dateOnly && !zoned) throw new Error(`--since takes a date (2026-10-16, read as UTC) or a time with Z or an offset (2026-10-16T18:27:00Z), got ${value ?? 'nothing'}`);
+  const at = Date.parse(dateOnly ? `${text}T00:00:00Z` : text);
+  if (!Number.isFinite(at)) throw new Error(`not a date: ${value}`);
+  return new Date(at).toISOString();
+}
+
+/** Real-sessions moments either side of a cut, so the scorecard can show what
+ *  people get since a plugin or server fix shipped apart from what older code
+ *  gave them. A session keeps the plugin it started with, so every moment goes
+ *  on the side of its session's start (`started`), not of its own time; a
+ *  moment with no `started` falls back to its own `ts`, and one with neither
+ *  goes in `before`, since it cannot be shown to be after the cut. `crossed`
+ *  counts the sessions that started before the cut and had prompts after it.
+ *  Run after aheadNeeds(), so a block row is still judged on its whole stretch. */
 export function splitAt(moments, cut) {
   const at = instant(cut);
   if (!Number.isFinite(at)) throw new Error(`not a date: ${cut}`);
-  const since = [], before = [];
-  for (const m of moments) (instant(m.ts) >= at ? since : before).push(m);
-  return {since, before};
+  const since = [], before = [], crossed = new Set();
+  for (const m of moments) {
+    const start = instant(m.started ?? m.ts);
+    if (start >= at) since.push(m);
+    else { before.push(m); if (instant(m.ts) >= at) crossed.add(m.session); }
+  }
+  return {since, before, crossed: crossed.size};
+}
+
+/** The moments of `moments` that are also in `like`, by id: the replay on the
+ *  same prompts as a production column. */
+export function sameMoments(moments, like) {
+  const ids = new Set(like.map(m => m.id));
+  return moments.filter(m => ids.has(m.id));
 }

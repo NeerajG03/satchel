@@ -34,7 +34,7 @@ import {readFileSync, writeFileSync, readdirSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {replayService, time} from './lib/injection-twin.mjs';
 import {promptKey, promptEmbedder} from './lib/injection-cache.mjs';
-import {summarise, pair, sides, gate, asOf, aheadNeeds, comparable, splitAt} from './lib/injection-scoring.mjs';
+import {summarise, pair, sides, gate, asOf, aheadNeeds, comparable, splitAt, parseCut, sameMoments} from './lib/injection-scoring.mjs';
 import {paired} from './lib/metrics.mjs';
 
 const METHOD = 'as-of-1';
@@ -49,7 +49,8 @@ const args = process.argv.slice(2);
 const flag = name => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : null; };
 const CHECKOUT = flag('checkout') ?? join(import.meta.dirname, '..');
 const ONLY = flag('only')?.split(',');
-const CUT = flag('since') ?? SINCE;
+if (args.includes('--since') && !/^[^-]/.test(flag('since') ?? '')) throw new Error('--since needs a date after it');
+const CUT = parseCut(flag('since') ?? SINCE);
 const read = path => JSON.parse(readFileSync(join(DIR, path), 'utf8'));
 
 if (!existsSync(join(DIR, 'snapshot.json'))) throw new Error(`no corpus in ${DIR}; run collect-injections.mjs first`);
@@ -150,6 +151,7 @@ let replayed = [], production = [];
 // asks for it and lets reads run unprompted).
 const startTokens = [], notes = [];
 for (const s of sessions) {
+  const started = s.events.find(e => e.ts)?.ts ?? s.first;
   const service = replayService({snapshot, vectors, queryVector});
   let front = new Set(), shipFront = new Set(), shipActive = null, sent = [], hinted = false;
   // Start block rows waiting to be charged on the next scored prompt. A block
@@ -190,7 +192,7 @@ for (const s of sessions) {
         links: linkCount(s.repository), active: service.state.active, tokens: out.context ? estimateTokens(out.context) : 0});
       for (const m of shown) front.add(m);
       const shipShown = e.shown ?? [];
-      production.push({id, session: s.session, n: e.n, ts: e.ts, typed: e.typed, gold: g,
+      production.push({id, session: s.session, n: e.n, ts: e.ts, started, typed: e.typed, gold: g,
         shown: shipShown.filter(m => !endedBy(m, e.ts)),
         ended: shipShown.filter(m => endedBy(m, e.ts)),
         loaded: shipLoaded, before: [...shipFront], resetBefore, active: shipActive, tokens: e.shownText ? estimateTokens(e.shownText) : 0,
@@ -211,8 +213,7 @@ const ship = summarise(production);
 const split = splitAt(production, CUT);
 const shipSince = summarise(split.since), shipBefore = summarise(split.before);
 // Today's code on the same prompts as the since column, so the two read side by side.
-const sinceIds = new Set(split.since.map(m => m.id));
-const nowSince = summarise(replayed.filter(m => sinceIds.has(m.id)));
+const nowSince = summarise(sameMoments(replayed, split.since));
 const baselinePath = join(DIR, 'baseline.json');
 const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')) : null;
 
@@ -249,7 +250,8 @@ if (unknown.size) console.log(`gold names ${unknown.size} handles that are not i
 if (endedInGold) console.log(`${endedInGold} gold labels name memories ended by the prompt's time; counted as traps`);
 const unlabelled = replayed.filter(r => r.typed && !r.gold && !leftOut.has(r.id)).length;
 if (unlabelled) console.log(`${unlabelled} typed prompts have no label yet and are not scored`);
-console.log(`real sessions split at ${CUT} · ${shipSince.typed} scored prompts since, ${shipBefore.typed} before`);
+console.log(`real sessions split at ${CUT} · ${shipSince.typed} scored prompts since, ${shipBefore.typed} before, by when their session started`
+  + ` · ${split.crossed} session${split.crossed === 1 ? '' : 's'} started before and ran past it, counted before`);
 console.log('');
 console.log(`  ${''.padEnd(56)} ${'production'.padStart(11)} ${'since'.padStart(9)} ${'before'.padStart(9)} ${'replay'.padStart(9)} ${'baseline'.padStart(9)}`);
 for (const [key, label, fmt] of rows)
