@@ -25,8 +25,8 @@ export async function stillSignedIn(): Promise<boolean | undefined> {
 }
 
 /** The sentence for a failure. "Sign in again" comes only from the session:
- *  a refusal whose text cannot say whether it was the sign-in is settled by
- *  asking the auth client, never guessed from the error code. */
+ *  a refusal whose hint says satchel:session, or an older one that cannot say,
+ *  is settled by asking the auth client, never guessed from the error code. */
 export async function explain(error: unknown, operation: Operation = 'save'): Promise<string> {
   const signedIn = needsSessionCheck(error) ? await stillSignedIn() : undefined;
   return errorMessage(error, operation, signedIn);

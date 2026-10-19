@@ -8,3 +8,8 @@ export const personSentences: RegExp;
 export const constraintText: Record<string, string>;
 export function needsSessionCheck(error: unknown): boolean;
 export function errorMessage(error: unknown, operation?: Operation, signedIn?: boolean): string;
+export const reasonText: Record<string, string>;
+export const SESSION_REASON: string;
+export const APP_TOKEN_REASON: string;
+export const PERSON_REASON: string;
+export function reasonOf(error: unknown): string;
