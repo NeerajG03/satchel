@@ -66,9 +66,10 @@ It holds:
 | `F/pipeline/<name>.md` | what the pass did: what landed, the job's report entry, the Langfuse trace, the raw answer |
 | `F/pipeline/<name>.prompt.txt` | the exact prompt the model was sent |
 | `F/topics.md`, `F/topics.json` | every topic with its memories, tasks and repositories; the topics made, the memories moved and the merges in the window, each with its reason; what personal holds now; thin topics and name overlaps to judge |
-| `F/said-again.md` | the last four weeks of affirms, per rule per week, read off the run prompts and responses: handle, statement, affirms, mentions now, how many landed while the rule was already in that session's start block, and under each rule one line per affirm with its source and an empty `mark:` for the reviewer to fill with `complaint` or `up-front`; plus the runs whose `affirmed` count the response does not explain |
+| `F/said-again.md` | the following score first (see step 10), then the last four calendar weeks of affirms, per rule per week, read off the run prompts and responses: handle, statement, affirms, mentions now, how many landed while the rule was already in that session's start block, and one line per affirm with its source and a `mark:` to fill with `complaint` or `up-front`, for every affirm, not only rules said twice; plus the runs whose `affirmed` count the response does not explain. Marks the last review filled carry over |
+| `~/satchel-daily/following.json` | one entry per week, numbers only: sessions with a start block, affirms, complaints in block, complaints, up-front, unlabelled. `said-again.mjs` replaces this run's weeks and keeps the rest, so the trend outlives the 30-day run text |
 
-If it says nothing ran, write a three-line report (the window, the sessions waiting now that it prints, and "no run to review"), add the log entry and mark it (step 9), and stop. A second review on the same day always lands here, because the first one marked the window.
+If it says nothing ran, write a short report (the `following:` line `said-again.mjs` printed, the window, the sessions waiting now that it prints, and "no run to review"), add the log entry and mark it (step 9), and stop. A second review on the same day always lands here, because the first one marked the window.
 
 ### 2. Start the blind reads
 
@@ -115,7 +116,13 @@ Every review answers all of these with numbers, even when the answer is "fine":
    - **Merged.** Each merge: really one subject? A merge someone undid is a wrong merge, and the strongest evidence there is.
    - **Sprawl.** Thin topics and name overlaps from the signals table: one subject under two names, or two real subjects? A topic made by Satchel that never got a second memory was usually named too narrowly.
    - **Enhancements.** Anything the topics could do better that is not a miss: a brief that no longer says what the topic holds, a topic that has grown into two subjects, a repository that clearly belongs to a topic but is not linked. These are TODOs for the person or for the code, never writes by the review.
-10. **Following.** From `F/said-again.md`: affirms per rule this week, complaint share, falling or not. Read each affirm's source and fill its `mark:` with `complaint` (the person corrected the agent after it answered) or `up-front` (the person stated the rule by habit before any answer), then re-run the script so the headline counts them. A rule affirmed while it was already in the start block, and marked `complaint`, is the agent not following a rule it was shown; that is the only following signal there is (D42). The up-front share may stay flat, that is habit. Compare with last week's headline in the previous report.
+10. **Following.** This is the headline of the review. `said-again.mjs` prints it first:
+
+    ```
+    following: 13 complaints in 4 weeks · per 100 sessions: 6.7 · 4 weeks before: none kept yet · up-front 8 · unlabelled 0
+    ```
+
+    The score is complaints on a rule that was in that session's start block, per 100 sessions that got a start block, over the last 4 weeks (D50). Lower is better. At about 3 complaints a week it shows a direction, not a pass or fail. "4 weeks before" comes from `following.json`; until it holds those weeks it says so. Read each affirm's source in `F/said-again.md` and fill its `mark:` with `complaint` (the person corrected the agent after it answered) or `up-front` (the person stated the rule by habit before any answer). When a line is unclear: if the person was giving an instruction rather than correcting the agent's answer, the label is `up-front`. Fill every mark, then re-run the script so the line counts them and `following.json` keeps them; `unlabelled` should be 0 when the report is written. A rule affirmed while it was already in the start block, and marked `complaint`, is the agent not following a rule it was shown; that is the only following signal there is (D42). The up-front count may stay flat, that is habit. "In the start block" means any start of that session, a resume days later too, so it is a hint, not proof the agent had the rule fresh. Complaints about rules Satchel did not hold yet are not counted: an add does not say whether the person was correcting the agent. Compare with the last report's line.
 
 ### 6. Find the cause
 
@@ -143,7 +150,7 @@ Pick the highest open TODO that one small PR can close and that a slice of the e
 
 ### 9. Report and mark
 
-Write `F/report.md` in the shape in [references/report.md](references/report.md), with step 8's PR and its state in it. Then append this run's entry to `~/satchel-daily/log.md` in the shape in [references/log.md](references/log.md): the window, the numbers, the TODOs that moved, and every change beyond the review. Read the last few entries while you are there. They are the quickest way to see what the previous days did, and what someone changed between reviews. Answer the last entry's "watch next" in this report, and write a new one. Then record the window as reviewed:
+Write `F/report.md` in the shape in [references/report.md](references/report.md), with step 8's PR and its state in it. Its first line is the `following:` line from step 10, after the marks are filled and the script re-run. Then append this run's entry to `~/satchel-daily/log.md` in the shape in [references/log.md](references/log.md), opening with the same `following:` line: the window, the numbers, the TODOs that moved, and every change beyond the review. Read the last few entries while you are there. They are the quickest way to see what the previous days did, and what someone changed between reviews. Answer the last entry's "watch next" in this report, and write a new one. Then record the window as reviewed:
 
 ```bash
 node $SKILL/scripts/collect.mjs --mark F
