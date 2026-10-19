@@ -4,26 +4,36 @@ import {readFile,readdir} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
 import {applyMigrations} from './helpers/migrations.mjs';
 import {Sentence,errorMessage,needsSessionCheck,raisedText,raisedPatterns,sessionGuards,personSentences,
-  constraintText,LOAD_FAILED} from '../src/errorText.mjs';
+  constraintText,LOAD_FAILED,reasonText,reasonOf,SESSION_REASON,APP_TOKEN_REASON,PERSON_REASON} from '../src/errorText.mjs';
 
 const SIGN_IN=/sign in again/i;
 
 // Routines whose `raise exception '%', problem` passes on a sentence that
-// private.schedule_problem wrote for the person. Anything else raising a bare
-// '%' would reach the page unmapped, so it has to be added here on purpose.
+// private.schedule_problem wrote for the person, with hint satchel:person.
+// Anything else raising a bare '%' would reach the page unmapped, so it has to
+// be added here on purpose.
 const PASS_THROUGH=new Set(['public.set_consolidation_schedule','public.enable_consolidation']);
+// The last migration before every raise carried a hint. The sentences raised
+// as of this file are what an older database still sends.
+const BEFORE_HINTS='20261019090000_task_files_leave_through_storage.sql';
 
-// Every raise in the latest definition of every routine, read from the
-// database after all migrations ran, so a raise that a later migration
-// replaced does not count and one it added does.
-async function latestRaises() {
+async function database(through) {
   const db=new PGlite();
   await db.exec(`create role anon; create role authenticated; create role supabase_auth_admin;
     create schema auth; create table auth.users(id uuid primary key);
-    create function auth.jwt() returns jsonb language sql stable as $$ select '{}'::jsonb $$;
-    create function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
+    create function auth.jwt() returns jsonb language sql stable as
+      $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
+    create function auth.uid() returns uuid language sql stable as $$select (auth.jwt()->>'sub')::uuid$$;
     grant usage on schema auth, public to anon, authenticated;`);
-  await applyMigrations(db);
+  await applyMigrations(db,{through});
+  return db;
+}
+
+// Every raise in the latest definition of every routine, read from the
+// database after the migrations ran, so a raise that a later migration
+// replaced does not count and one it added does.
+async function latestRaises(through) {
+  const db=await database(through);
   const {rows}=await db.query(`select n.nspname||'.'||p.proname as name,p.prosrc as src from pg_proc p
     join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private')`);
   await db.close();
@@ -31,26 +41,83 @@ async function latestRaises() {
   for(const {name,src} of rows)
     for(const m of src.matchAll(/raise exception '((?:[^']|'')*)'([^;]*);/g)){
       const code=/errcode\s*=\s*'([^']+)'/.exec(m[2])?.[1]??'P0001';
-      raises.push({routine:name,message:m[1].replaceAll("''","'"),code});
+      const hint=/hint\s*=\s*'([^']*)'/.exec(m[2])?.[1]??'';
+      raises.push({routine:name,message:m[1].replaceAll("''","'"),code,hint});
     }
   return {raises,routines:new Set(rows.map(r=>r.name))};
 }
 
-const covered=message=>sessionGuards.has(message)||Boolean(raisedText[message])
-  ||raisedPatterns.some(([pattern])=>pattern.test(message.replaceAll('%','2')));
-
-test('every refusal a routine can raise has a sentence for the person',async()=>{
+test('every refusal a routine can raise says why, and the reason has a sentence',async()=>{
   const {raises}=await latestRaises();
   assert.ok(raises.length>50,'the scan found the raises');
   const missing=[];
   for(const r of raises){
-    if(r.message==='%'){
-      if(!PASS_THROUGH.has(r.routine))missing.push(`${r.routine} raises a bare '%' (${r.code})`);
+    const at=`${r.routine}: '${r.message}' (${r.code})`;
+    if(!r.hint.startsWith('satchel:')){missing.push(`${at} has no satchel: hint`);continue;}
+    const reason=r.hint.slice('satchel:'.length);
+    if(reason===PERSON_REASON){
+      if(!PASS_THROUGH.has(r.routine)||r.message!=='%')missing.push(`${at} passes its message to the person`);
       continue;
     }
-    if(!covered(r.message))missing.push(`${r.routine}: '${r.message}' (${r.code})`);
+    if(r.message==='%')missing.push(`${at} raises a bare '%' without satchel:person`);
+    if(reason!==SESSION_REASON&&reason!==APP_TOKEN_REASON&&!Object.hasOwn(reasonText,reason))
+      missing.push(`${at} gives reason '${reason}', which has no line in reasonText`);
   }
-  assert.deepEqual(missing,[],'Add a line to raisedText in src/errorText.mjs for each of these');
+  assert.deepEqual(missing,[],'Give each raise a hint, and each reason a line in reasonText in src/errorText.mjs');
+});
+
+test('a database from before the hints still gets a sentence for every refusal',async()=>{
+  const {raises}=await latestRaises(BEFORE_HINTS);
+  assert.ok(raises.length>50,'the scan found the raises');
+  const covered=message=>sessionGuards.has(message)||Boolean(raisedText[message])
+    ||raisedPatterns.some(([pattern])=>pattern.test(message.replaceAll('%','2')));
+  const missing=raises.filter(r=>r.message==='%'?!PASS_THROUGH.has(r.routine):!covered(r.message))
+    .map(r=>`${r.routine}: '${r.message}' (${r.code})`);
+  assert.deepEqual(missing,[]);
+});
+
+test('a guard says which it was: no session, or an app token',async()=>{
+  const db=await database();
+  const owner=crypto.randomUUID();
+  async function hintFor(claims,sql) {
+    await db.exec('begin; set local role authenticated;');
+    try {
+      await db.query("select set_config('request.jwt.claims',$1,true)",[JSON.stringify(claims)]);
+      await db.query(sql);
+      return 'no error';
+    } catch(error) { return error.hint; } finally { await db.exec('rollback'); }
+  }
+  for(const sql of ["select revoke_agent('x')","select recent_documents()",
+    "select authorize_agent_v3('x','x',false,false,'{}'::uuid[],false,false,false,'{}'::uuid[],false,false)"]){
+    assert.equal(await hintFor({},sql),'satchel:session',sql);
+    assert.equal(await hintFor({sub:owner,client_id:'x'},sql),'satchel:app_token',sql);
+  }
+  assert.equal(await hintFor({},"select set_slug('topic',gen_random_uuid(),'a-b')"),'satchel:session');
+  await db.close();
+});
+
+test('the hint decides, whatever the sentence says',()=>{
+  const reworded=(code,hint)=>({code,hint,message:'Some sentence that was reworded'});
+  assert.match(errorMessage(reworded('42501','satchel:refused:topic_write'),'action'),/topics/);
+  assert.match(errorMessage(reworded('P0002','satchel:gone:topic'),'action'),/topic is already gone/);
+  assert.match(errorMessage(reworded('PT409','satchel:conflict:task'),'save'),/task changed/);
+  assert.match(errorMessage(reworded('23514','satchel:invalid:parent_cycle')),/parent/);
+  // A guard's old sentence with the new hint is not a session check.
+  const app={code:'42501',hint:'satchel:app_token',message:'Companion sign-in required'};
+  assert.equal(needsSessionCheck(app),false);
+  assert.doesNotMatch(errorMessage(app,'action'),SIGN_IN);
+  const session={code:'42501',hint:'satchel:session',message:'Some sentence that was reworded'};
+  assert.equal(needsSessionCheck(session),true);
+  assert.match(errorMessage(session,'action',false),SIGN_IN);
+  assert.doesNotMatch(errorMessage(session,'action',true),SIGN_IN);
+  assert.equal(errorMessage({code:'22023',hint:'satchel:person',message:'Choose one time.'}),'Choose one time.');
+  assert.equal(reasonOf({hint:'not ours'}),'');
+});
+
+test('a reason from a newer database falls back to the sentence and the code',()=>{
+  assert.match(errorMessage({code:'P0002',hint:'satchel:gone:something_new',message:'Topic not found'},'action'),/topic is already gone/);
+  assert.match(errorMessage({code:'42501',hint:'satchel:refused:something_new',message:'New'},'action'),/refused/);
+  assert.doesNotMatch(errorMessage({code:'42501',hint:'satchel:toString',message:'New'},'action'),/function/);
 });
 
 test('every routine the web app calls exists',async()=>{
@@ -71,7 +138,7 @@ test('every routine the web app calls exists',async()=>{
 });
 
 test('no refusal sentence tells a person to sign in again',()=>{
-  for(const [message,text] of Object.entries(raisedText))assert.doesNotMatch(text,SIGN_IN,message);
+  for(const [reason,text] of Object.entries(reasonText))assert.doesNotMatch(text,SIGN_IN,reason);
   for(const [,text] of raisedPatterns.filter(([p])=>!p.test('JWT expired')))assert.doesNotMatch(text,SIGN_IN);
   for(const text of Object.values(constraintText))assert.doesNotMatch(text,SIGN_IN);
 });
