@@ -80,10 +80,34 @@ export function draftMarker(row, now = new Date()) {
   return `          [picked up ${age}, said once, not confirmed since, check before relying on it]`;
 }
 
+/** The line under a row whose repository has moved since it was confirmed.
+ *
+ *  A preference never gets one: commits do not make a rule wrong. Facts and
+ *  intents do, and an intent most of all, since commits are what complete a
+ *  plan. Before 19 October this line sat under every row past the threshold,
+ *  whatever its kind and whichever repository the session was in. A row about
+ *  the repository this session is in keeps the full line, because the agent
+ *  can check it right here. A row about another repository gets a short one:
+ *  the doubt is the same, but a commit count for a repo the agent is not in
+ *  is room spent on a number it cannot use. An unknown session repository
+ *  counts as another one.
+ *
+ *  Both sides are the hook's normalized lowercase `owner/name`, which is also
+ *  what the database stores in `anchor_repository`. */
+export function commitsMarker(row, {churn = 25, repository = null} = {}) {
+  if (!(row.commits_since >= churn) || row.kind === 'preference') return '';
+  const here = Boolean(repository && row.anchor_repository)
+    && String(repository).toLowerCase() === String(row.anchor_repository).toLowerCase();
+  return here
+    ? `          [${row.anchor_repository} has moved ${row.commits_since} commits since this was confirmed, check before relying on it]`
+    : '          [may be out of date]';
+}
+
 /** Per prompt. The counts are the point: they let the agent tell "there is no
  *  rule about this" from "nothing scored high enough", which is the failure a
- *  silently truncated top-5 causes. */
-export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25, slugs = {}, now = new Date()} = {}) {
+ *  silently truncated top-5 causes. `repository` is the session's own, from the
+ *  hook, and decides how much the commits line says. */
+export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25, slugs = {}, now = new Date(), repository = null} = {}) {
   if (!rows.length) return '';
   const lines = [`▣ retrieved · ${rows.length} shown · ${matched} matched · ${inScope} in scope`];
   const whereOf = row => (row.topic_id ? slugs[row.topic_id] ?? 'topic' : 'personal');
@@ -102,8 +126,8 @@ export function promptBlock({rows = [], matched = 0, inScope = 0, churn = 25, sl
     lines.push(`  ${handleOf(row.id)}  ${rowLabel(row, {where: whereOf(row)})}  ${clip(row.statement, 300)}`);
     const draft = draftMarker(row, now);
     if (draft) lines.push(draft);
-    if (row.commits_since >= churn)
-      lines.push(`          [${row.anchor_repository ?? 'the repo'} has moved ${row.commits_since} commits since this was confirmed, check before relying on it]`);
+    const moved = commitsMarker(row, {churn, repository});
+    if (moved) lines.push(moved);
   }
   return lines.join('\n');
 }

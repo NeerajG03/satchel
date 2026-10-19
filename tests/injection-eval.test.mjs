@@ -160,6 +160,16 @@ test('a row from a topic the repository is not linked to needs a closer match th
   assert.ok(through.shown.includes(C), 'and so does a close row from any topic');
 });
 
+test('retrieve hands the session repository to the commits line', async () => {
+  const moved = {...snapshot, settings: {...snapshot.settings, gate: 0.5},
+    memories: memories.map(m => (m.id === C ? {...m, anchor_repository: 'acme/none', commits_since: 140} : m))};
+  const ask = repository => retrieve(replayService({snapshot: moved, vectors, queryVector: async () => unit(1, 0.2)}),
+    {sessionKey: 's', prompt: 'what about the first topic', repository});
+  assert.match((await ask('acme/none')).context, /topic two fact\n {10}\[acme\/none has moved 140 commits/, 'in the same repository');
+  assert.match((await ask('acme/other')).context, /topic two fact\n {10}\[may be out of date\]/, 'in another one');
+  assert.match((await ask(null)).context, /topic two fact\n {10}\[may be out of date\]/, 'with none known');
+});
+
 // The as-of replay: each prompt is judged against the memories of its own
 // day, and the start block's rows are paid for where they load.
 
