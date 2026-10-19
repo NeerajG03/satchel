@@ -172,7 +172,7 @@ test('a memory whose repository moved is flagged, and nothing more than flagged'
     'the threshold is a setting, not a constant');
 });
 
-test('the commits line goes on facts only, in full for this repository and short for any other', () => {
+test('the commits line skips preferences, and is in full for this repository and short for any other', () => {
   const moved = {id: 'f1000000-0000-4000-8000-000000000001', anchor_repository: 'acme/ledger', commits_since: 140};
   const full = '          [acme/ledger has moved 140 commits since this was confirmed, check before relying on it]';
   const short = '          [may be out of date]';
@@ -183,8 +183,13 @@ test('the commits line goes on facts only, in full for this repository and short
   assert.equal(commitsMarker({...moved, kind: 'fact'}, {churn: 25}), short, 'an unknown repository is another one');
   assert.equal(commitsMarker({...moved, kind: 'fact'}, {churn: 25, repository: null}), short);
   assert.equal(commitsMarker({...moved, kind: 'preference'}, {churn: 25, repository: 'acme/ledger'}), '', 'commits do not make a preference wrong');
-  assert.equal(commitsMarker({...moved, kind: 'intent'}, {churn: 25, repository: 'acme/ledger'}), '', 'or an intent');
   assert.equal(commitsMarker({...moved, kind: 'preference'}, {churn: 25, repository: 'acme/web'}), '');
+  assert.equal(commitsMarker({...moved, kind: 'preference'}, {churn: 25}), '');
+  // Commits are what complete a plan, so an intent keeps the doubt, same as a fact.
+  assert.equal(commitsMarker({...moved, kind: 'intent'}, {churn: 25, repository: 'acme/ledger'}), full, 'an intent about this repository');
+  assert.equal(commitsMarker({...moved, kind: 'intent'}, {churn: 25, repository: 'acme/web'}), short, 'an intent about another repository');
+  assert.equal(commitsMarker({...moved, kind: 'intent'}, {churn: 25}), short, 'an intent with no session repository');
+  assert.equal(commitsMarker({...moved, kind: 'intent', commits_since: 3}, {churn: 25, repository: 'acme/ledger'}), '', 'an intent under the threshold');
   assert.equal(commitsMarker({...moved, kind: 'fact', commits_since: 24}, {churn: 25, repository: 'acme/ledger'}), '', 'under the threshold');
   assert.equal(commitsMarker({...moved, kind: 'fact', commits_since: null}, {churn: 25}), '', 'no count, no line');
 
@@ -192,10 +197,12 @@ test('the commits line goes on facts only, in full for this repository and short
     {...moved, kind: 'fact', statement: 'The hook reads the transcript.'},
     {...moved, id: 'f2000000-0000-4000-8000-000000000002', kind: 'preference', statement: 'Keep comments rare.'},
     {...moved, id: 'f3000000-0000-4000-8000-000000000003', kind: 'fact', anchor_repository: 'acme/web', statement: 'The web app uses Vite.'},
+    {...moved, id: 'f4000000-0000-4000-8000-000000000004', kind: 'intent', statement: 'Move the hooks to scripts next.'},
   ]});
   assert.match(block, /The hook reads the transcript\.\n {10}\[acme\/ledger has moved 140 commits/);
   assert.match(block, /Keep comments rare\.\n {2}f30000/, 'nothing hangs under the preference');
-  assert.match(block, /The web app uses Vite\.\n {10}\[may be out of date\]$/);
+  assert.match(block, /The web app uses Vite\.\n {10}\[may be out of date\]\n {2}f40000/);
+  assert.match(block, /Move the hooks to scripts next\.\n {10}\[acme\/ledger has moved 140 commits/, 'an intent keeps the full line');
   assert.doesNotMatch(block, /acme\/web has moved/);
 });
 

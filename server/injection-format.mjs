@@ -82,11 +82,12 @@ export function draftMarker(row, now = new Date()) {
 
 /** The line under a row whose repository has moved since it was confirmed.
  *
- *  Only a fact gets one. Commits do not make a preference or an intent wrong,
- *  and before 19 October this line sat under every row past the threshold,
- *  whatever its kind and whichever repository the session was in. A fact about
+ *  A preference never gets one: commits do not make a rule wrong. Facts and
+ *  intents do, and an intent most of all, since commits are what complete a
+ *  plan. Before 19 October this line sat under every row past the threshold,
+ *  whatever its kind and whichever repository the session was in. A row about
  *  the repository this session is in keeps the full line, because the agent
- *  can check it right here. A fact about another repository gets a short one:
+ *  can check it right here. A row about another repository gets a short one:
  *  the doubt is the same, but a commit count for a repo the agent is not in
  *  is room spent on a number it cannot use. An unknown session repository
  *  counts as another one.
@@ -94,7 +95,7 @@ export function draftMarker(row, now = new Date()) {
  *  Both sides are the hook's normalized lowercase `owner/name`, which is also
  *  what the database stores in `anchor_repository`. */
 export function commitsMarker(row, {churn = 25, repository = null} = {}) {
-  if (!(row.commits_since >= churn) || (row.kind ?? 'fact') !== 'fact') return '';
+  if (!(row.commits_since >= churn) || row.kind === 'preference') return '';
   const here = Boolean(repository && row.anchor_repository)
     && String(repository).toLowerCase() === String(row.anchor_repository).toLowerCase();
   return here
