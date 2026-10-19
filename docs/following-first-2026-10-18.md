@@ -1,6 +1,6 @@
 # Following first · 18 October 2026
 
-**Status:** proposed, nothing built. **Decides:** Neeraj. **Reviewed by:** an independent reviewer and a cold reader. What changed because of them is in section 7.
+**Status:** decided 19 Oct (section 6), nothing built yet. **Decides:** Neeraj. **Reviewed by:** an independent reviewer and a cold reader. What changed because of them is in section 7.
 
 This is the design for the next goal: **when Satchel shows a rule, the agent follows it, so you never have to say it twice.** It has two parts:
 
@@ -43,6 +43,8 @@ Neither part changes which memories exist or which ones get picked.
 The finding part is working. The following part is not. And neither report shows that on its first line today.
 
 ### You decide
+
+All four were answered on 19 Oct, each as the lean below. See section 6.
 
 | # | Question | Yes means | No means | My lean |
 |---|---|---|---|---|
@@ -262,6 +264,10 @@ Each piece gets a row in `docs/decisions.md` when it ships.
 | When | What |
 |---|---|
 | 18 Oct | The next goal is following, not finding (this doc) |
+| 19 Oct | A3: drop the commits line from preferences and rules (decision 1, yes) |
+| 19 Oct | A3: facts about another repo get the short `[may be out of date]` line (decision 2, yes) |
+| 19 Oct | A2: no version stamp for now; check the repeat cause locally first (decision 3, no) |
+| 19 Oct | B4: changes that claim to help following report the score's 4-week direction, not a gate (decision 4, yes) |
 
 ---
 
