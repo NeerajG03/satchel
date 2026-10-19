@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {sessionStartBlock, personalLoad, topicLoad, promptBlock, missNote, rowLabel, draftMarker, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
+import {sessionStartBlock, personalLoad, topicLoad, promptBlock, missNote, rowLabel, draftMarker, commitsMarker, handleOf, estimateTokens, noticeFor} from '../server/injection-format.mjs';
 
 const memory = (id, statement, band = 'said', task_id = null) => ({id, statement, band, task_id});
 
@@ -164,12 +164,39 @@ test('a memory whose repository moved is flagged, and nothing more than flagged'
     {id: 'bbbbbb22-0000-4000-8000-000000000002', statement: 'Deploys are on Tuesdays.',
      anchor_repository: 'acme/ledger', commits_since: 3, matched: 2, in_scope: 9},
   ];
-  const block = promptBlock({rows, matched: 2, inScope: 9, churn: 25});
+  const block = promptBlock({rows, matched: 2, inScope: 9, churn: 25, repository: 'acme/ledger'});
   assert.match(block, /The hook reads the transcript\.\n {10}\[acme\/ledger has moved 140 commits since this was confirmed/);
   assert.doesNotMatch(block, /Deploys are on Tuesdays\.\n {10}\[/, 'three commits is not a reason to doubt anything');
   assert.match(block, /Deploys are on Tuesdays\./, 'and it is still injected');
-  assert.doesNotMatch(promptBlock({rows, matched: 2, inScope: 9, churn: 500}), /has moved/,
+  assert.doesNotMatch(promptBlock({rows, matched: 2, inScope: 9, churn: 500, repository: 'acme/ledger'}), /\n {10}\[/,
     'the threshold is a setting, not a constant');
+});
+
+test('the commits line goes on facts only, in full for this repository and short for any other', () => {
+  const moved = {id: 'f1000000-0000-4000-8000-000000000001', anchor_repository: 'acme/ledger', commits_since: 140};
+  const full = '          [acme/ledger has moved 140 commits since this was confirmed, check before relying on it]';
+  const short = '          [may be out of date]';
+  assert.equal(commitsMarker({...moved, kind: 'fact'}, {churn: 25, repository: 'acme/ledger'}), full, 'a fact about this repository');
+  assert.equal(commitsMarker(moved, {churn: 25, repository: 'acme/ledger'}), full, 'a row with no kind is a fact');
+  assert.equal(commitsMarker({...moved, kind: 'fact'}, {churn: 25, repository: 'Acme/Ledger'}), full, 'case does not matter');
+  assert.equal(commitsMarker({...moved, kind: 'fact'}, {churn: 25, repository: 'acme/web'}), short, 'a fact about another repository');
+  assert.equal(commitsMarker({...moved, kind: 'fact'}, {churn: 25}), short, 'an unknown repository is another one');
+  assert.equal(commitsMarker({...moved, kind: 'fact'}, {churn: 25, repository: null}), short);
+  assert.equal(commitsMarker({...moved, kind: 'preference'}, {churn: 25, repository: 'acme/ledger'}), '', 'commits do not make a preference wrong');
+  assert.equal(commitsMarker({...moved, kind: 'intent'}, {churn: 25, repository: 'acme/ledger'}), '', 'or an intent');
+  assert.equal(commitsMarker({...moved, kind: 'preference'}, {churn: 25, repository: 'acme/web'}), '');
+  assert.equal(commitsMarker({...moved, kind: 'fact', commits_since: 24}, {churn: 25, repository: 'acme/ledger'}), '', 'under the threshold');
+  assert.equal(commitsMarker({...moved, kind: 'fact', commits_since: null}, {churn: 25}), '', 'no count, no line');
+
+  const block = promptBlock({matched: 3, inScope: 9, churn: 25, repository: 'acme/ledger', rows: [
+    {...moved, kind: 'fact', statement: 'The hook reads the transcript.'},
+    {...moved, id: 'f2000000-0000-4000-8000-000000000002', kind: 'preference', statement: 'Keep comments rare.'},
+    {...moved, id: 'f3000000-0000-4000-8000-000000000003', kind: 'fact', anchor_repository: 'acme/web', statement: 'The web app uses Vite.'},
+  ]});
+  assert.match(block, /The hook reads the transcript\.\n {10}\[acme\/ledger has moved 140 commits/);
+  assert.match(block, /Keep comments rare\.\n {2}f30000/, 'nothing hangs under the preference');
+  assert.match(block, /The web app uses Vite\.\n {10}\[may be out of date\]$/);
+  assert.doesNotMatch(block, /acme\/web has moved/);
 });
 
 test('a retrieved row says which scope it came from and whether it was picked up', () => {
@@ -241,7 +268,7 @@ test('the prompt block puts the draft line under the row and before the commits 
   const now = new Date('2026-10-16T12:00:00Z');
   const rows = [{id: 'e1000000-0000-4000-8000-000000000001', topic_id: 'p1', band: 'heard', mentions: 1,
     created_at: '2026-10-15T08:00:00Z', anchor_repository: 'acme/ledger', commits_since: 140, statement: 'Deploys go through infra.'}];
-  const block = promptBlock({rows, slugs: {p1: 'ledger'}, matched: 1, inScope: 1, churn: 25, now});
+  const block = promptBlock({rows, slugs: {p1: 'ledger'}, matched: 1, inScope: 1, churn: 25, now, repository: 'acme/ledger'});
   assert.match(block, /e10000 {2}\(ledger, picked up\) {2}Deploys go through infra\.\n {10}\[picked up 1 day ago, said once, not confirmed since, check before relying on it\]\n {10}\[acme\/ledger has moved 140 commits/);
   const said = promptBlock({rows: [{...rows[0], band: 'said', mentions: 4, commits_since: 0}], slugs: {p1: 'ledger'}, matched: 1, inScope: 1, now});
   assert.match(said, /e10000 {2}\(ledger, said 4 times\) {2}Deploys go through infra\./);
