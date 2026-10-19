@@ -5,6 +5,7 @@
 //   node eval/injection-real.mjs --checkout <dir>      score another tree's injection code
 //   node eval/injection-real.mjs --only <session,...>
 //   node eval/injection-real.mjs --update-baseline
+//   node eval/injection-real.mjs --since 2026-10-16T18:27:00Z   where the real sessions split
 //
 // The golden set is built from production: collect-injections.mjs in the
 // injection-review skill turns the person's own Claude Code sessions into
@@ -33,16 +34,23 @@ import {readFileSync, writeFileSync, readdirSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {replayService, time} from './lib/injection-twin.mjs';
 import {promptKey, promptEmbedder} from './lib/injection-cache.mjs';
-import {summarise, pair, sides, gate, asOf, aheadNeeds, comparable} from './lib/injection-scoring.mjs';
+import {summarise, pair, sides, gate, asOf, aheadNeeds, comparable, splitAt, parseCut, sameMoments} from './lib/injection-scoring.mjs';
 import {paired} from './lib/metrics.mjs';
 
 const METHOD = 'as-of-1';
+// Production is scored in two columns, since this cut and before it, so the
+// one the server and plugin of today answer for is not mixed with weeks of
+// older code. Move it by hand when a plugin or server fix ships. This one is
+// when plugin 0.5.6 was installed; 11 October still had 0.4.9 sessions in it.
+const SINCE = '2026-10-16T18:27:00Z';
 
 const DIR = process.env.SATCHEL_INJECTION_EVAL_DIR ?? join(process.env.HOME, 'satchel-daily', 'injection-eval');
 const args = process.argv.slice(2);
 const flag = name => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : null; };
 const CHECKOUT = flag('checkout') ?? join(import.meta.dirname, '..');
 const ONLY = flag('only')?.split(',');
+if (args.includes('--since') && !/^[^-]/.test(flag('since') ?? '')) throw new Error('--since needs a date after it');
+const CUT = parseCut(flag('since') ?? SINCE);
 const read = path => JSON.parse(readFileSync(join(DIR, path), 'utf8'));
 
 if (!existsSync(join(DIR, 'snapshot.json'))) throw new Error(`no corpus in ${DIR}; run collect-injections.mjs first`);
@@ -143,6 +151,7 @@ let replayed = [], production = [];
 // asks for it and lets reads run unprompted).
 const startTokens = [], notes = [];
 for (const s of sessions) {
+  const started = s.events.find(e => e.ts)?.ts ?? s.first;
   const service = replayService({snapshot, vectors, queryVector});
   let front = new Set(), shipFront = new Set(), shipActive = null, sent = [], hinted = false;
   // Start block rows waiting to be charged on the next scored prompt. A block
@@ -183,7 +192,7 @@ for (const s of sessions) {
         links: linkCount(s.repository), active: service.state.active, tokens: out.context ? estimateTokens(out.context) : 0});
       for (const m of shown) front.add(m);
       const shipShown = e.shown ?? [];
-      production.push({id, session: s.session, n: e.n, ts: e.ts, typed: e.typed, gold: g,
+      production.push({id, session: s.session, n: e.n, ts: e.ts, started, typed: e.typed, gold: g,
         shown: shipShown.filter(m => !endedBy(m, e.ts)),
         ended: shipShown.filter(m => endedBy(m, e.ts)),
         loaded: shipLoaded, before: [...shipFront], resetBefore, active: shipActive, tokens: e.shownText ? estimateTokens(e.shownText) : 0,
@@ -201,6 +210,10 @@ production = aheadNeeds(production);
 
 const now = summarise(replayed);
 const ship = summarise(production);
+const split = splitAt(production, CUT);
+const shipSince = summarise(split.since), shipBefore = summarise(split.before);
+// Today's code on the same prompts as the since column, so the two read side by side.
+const nowSince = summarise(sameMoments(replayed, split.since));
 const baselinePath = join(DIR, 'baseline.json');
 const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')) : null;
 
@@ -237,10 +250,16 @@ if (unknown.size) console.log(`gold names ${unknown.size} handles that are not i
 if (endedInGold) console.log(`${endedInGold} gold labels name memories ended by the prompt's time; counted as traps`);
 const unlabelled = replayed.filter(r => r.typed && !r.gold && !leftOut.has(r.id)).length;
 if (unlabelled) console.log(`${unlabelled} typed prompts have no label yet and are not scored`);
+console.log(`real sessions split at ${CUT} · ${shipSince.typed} scored prompts since, ${shipBefore.typed} before, by when their session started`
+  + ` · ${split.crossed} session${split.crossed === 1 ? '' : 's'} started before and ran past it, counted before`);
 console.log('');
-console.log(`  ${''.padEnd(56)} ${'production'.padStart(11)} ${'replay'.padStart(9)} ${'baseline'.padStart(9)}`);
+console.log(`  ${''.padEnd(56)} ${'production'.padStart(11)} ${'since'.padStart(9)} ${'before'.padStart(9)} ${'replay'.padStart(9)} ${'baseline'.padStart(9)}`);
 for (const [key, label, fmt] of rows)
-  console.log(`  ${`${key}  ${label}`.padEnd(56)} ${fmt(ship[key]).padStart(11)} ${fmt(now[key]).padStart(9)} ${fmt(baseline?.summary?.[key]).padStart(9)}`);
+  console.log(`  ${`${key}  ${label}`.padEnd(56)} ${fmt(ship[key]).padStart(11)} ${fmt(shipSince[key]).padStart(9)} ${fmt(shipBefore[key]).padStart(9)}`
+    + ` ${fmt(now[key]).padStart(9)} ${fmt(baseline?.summary?.[key]).padStart(9)}`);
+console.log(`\n  since the cut, production -> replay on the same ${nowSince.typed} scored prompts:`
+  + ` repeat ${pct(shipSince.repeat)} -> ${pct(nowSince.repeat)} · harmful ${num(shipSince.harmful)} -> ${num(nowSince.harmful)}`
+  + ` · utility ${dec(shipSince.utility)} -> ${dec(nowSince.utility)}`);
 
 // The agent's own word that a row did work: replies marked ▣, from the
 // transcripts, so production only. Read beside the gold, never instead of it:
@@ -353,6 +372,7 @@ const strip = s => { const {rows: _rows, ...rest} = s; return rest; };
 const record = {at: new Date().toISOString(), checkout: CHECKOUT, snapshot: snapshot.taken_at, method: METHOD,
   leftOut: leftOut.size, wording: {startMedian: middle(startTokens), starts: startTokens.length,
     notes: notes.length, noteTokens: notes.reduce((a, b) => a + b, 0)}, summary: strip(now), production: strip(ship),
+  since: CUT, productionSince: strip(shipSince), productionBefore: strip(shipBefore), replaySince: strip(nowSince),
   overlap, rows: now.rows.map(r => ({id: r.id, labelled: r.labelled, utility: r.utility ?? null,
     ...(r.checkUtility != null ? {checkUtility: r.checkUtility} : {})}))};
 writeFileSync(join(DIR, 'runs', `run-${record.at.replace(/[:.]/g, '-')}.json`), JSON.stringify(record));
