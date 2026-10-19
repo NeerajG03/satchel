@@ -1,9 +1,13 @@
 // The review's "said again" count, on two made-up runs small enough to count by hand.
 // Nothing here touches the database: the pure parts are imported and fed fixtures.
+// The following.json and folder tests use a temporary folder of their own.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseRun, byWeek, render, readMarks, applyMarks, mergeMarks, weekOf, windowStart, sessionsByWeek,
-  followingWeeks, followingLine, upsertFollowing} from '../.claude/skills/daily-improvement/scripts/said-again.mjs';
+import {mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {parseRun, byWeek, render, readMarks, applyMarks, mergeMarks, weekOf, windowStart, firstStarts, sessionsByWeek,
+  followingWeeks, followingLine, upsertFollowing, readFollowing, writeFollowing, earlierFolder} from '../.claude/skills/daily-improvement/scripts/said-again.mjs';
 
 const RULE = 'Keep a plan to one page with a picture before any code.';
 const head = [
@@ -107,11 +111,13 @@ test('marks a reviewer wrote survive a re-run', () => {
 
 test('the window starts on a Monday so every week but the last is whole', () => {
   assert.equal(windowStart('2026-10-17T07:35:00Z', 4), '2026-09-21T00:00:00.000Z');
-  assert.equal(windowStart('2026-10-12T00:00:00Z', 1), '2026-10-12T00:00:00.000Z');
+  assert.equal(windowStart('2026-10-13T00:00:00Z', 1), '2026-10-12T00:00:00.000Z');
+  assert.equal(windowStart('2026-10-19T00:00:00Z', 4), '2026-09-21T00:00:00.000Z',
+    'an until of exactly Monday 00:00 ends the week before, not an empty fifth week');
 });
 
 test('a session counts once, in the week of its first start, however many resumes and clears it had', () => {
-  const weeks = sessionsByWeek([
+  const first = firstStarts([
     {session_key: 's1', created_at: '2026-10-13T09:00:00Z'},
     {session_key: 's1', created_at: '2026-10-13T11:00:00Z'},
     {session_key: 's1', created_at: '2026-10-20T09:00:00Z'},
@@ -120,7 +126,24 @@ test('a session counts once, in the week of its first start, however many resume
     {session_key: 's3', created_at: '2026-10-19T08:00:00Z'},
     {session_key: null, created_at: '2026-10-19T08:00:00Z'},
   ]);
+  const weeks = sessionsByWeek(first, '2026-10-12T00:00:00Z', '2026-10-25T00:00:00Z');
   assert.deepEqual([...weeks.entries()].sort(), [['2026-10-12', 2], ['2026-10-19', 1]]);
+});
+
+test('a session that began before the window and resumed inside it is not counted twice across two overlapping windows', () => {
+  const first = firstStarts([
+    {session_key: 'old', created_at: '2026-09-18T09:00:00Z'},
+    {session_key: 'old', created_at: '2026-09-23T09:00:00Z'},
+    {session_key: 'new', created_at: '2026-09-23T10:00:00Z'},
+  ]);
+  const early = sessionsByWeek(first, '2026-09-14T00:00:00Z', '2026-10-10T00:00:00Z');
+  const later = sessionsByWeek(first, '2026-09-21T00:00:00Z', '2026-10-17T00:00:00Z');
+  assert.deepEqual([...early.entries()].sort(), [['2026-09-14', 1], ['2026-09-21', 1]]);
+  assert.deepEqual([...later.entries()].sort(), [['2026-09-21', 1]], 'the resumed session belongs to the week it began, outside this window');
+  const doc = upsertFollowing(upsertFollowing(undefined,
+    [{week: '2026-09-14', sessions: early.get('2026-09-14')}, {week: '2026-09-21', sessions: early.get('2026-09-21')}], '2026-10-10T00:00:00Z'),
+  [{week: '2026-09-21', sessions: later.get('2026-09-21')}], '2026-10-17T00:00:00Z');
+  assert.equal(doc.weeks.reduce((n, e) => n + e.sessions, 0), 2, 'two sessions, two counts');
 });
 
 const marked = () => {
@@ -136,12 +159,24 @@ test('each week gets sessions, complaints in block, up-front and unlabelled, and
   assert.deepEqual(entries.map(e => e.week), ['2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12']);
   assert.deepEqual(entries[2], {week: '2026-10-05', sessions: 40, affirms: 2, complaints_in_block: 0, complaints: 1, up_front: 0, unlabelled: 1},
     'a complaint in a session whose start block did not hold the rule is not a following miss');
-  assert.deepEqual(entries[3], {week: '2026-10-12', sessions: 60, affirms: 2, complaints_in_block: 1, complaints: 1, up_front: 1, unlabelled: 0});
+  assert.deepEqual(entries[3], {week: '2026-10-12', sessions: 60, affirms: 2, complaints_in_block: 1, complaints: 1, up_front: 1, unlabelled: 0,
+    partial: true, through: '2026-10-17'});
   assert.equal(followingLine({weeks: 4, entries, before: []}),
-    'following: 1 complaints in 4 weeks · per 100 sessions: 1.0 · 4 weeks before: none kept yet · up-front 1 · unlabelled 1');
+    'following: 1 complaints in 4 weeks · per 100 sessions: 1.0 · 4 weeks before: none kept yet · up-front 1 · unlabelled 1 · last week through 2026-10-17');
   const before = [{week: '2026-09-07', sessions: 50, complaints_in_block: 2}, {week: '2026-09-14', sessions: 50, complaints_in_block: 1}];
   assert.match(followingLine({weeks: 4, entries, before}), /4 weeks before: 3\.0 \(2 of 4 weeks kept\)/);
   assert.match(followingLine({weeks: 4, entries: entries.map(e => ({...e, sessions: 0})), before: []}), /per 100 sessions: n\/a/);
+});
+
+test('an affirm is dated by its session\'s first start, the same week the session is counted under', () => {
+  const [, two] = keyed(parseRun(runA).affirms);
+  const late = {...two, mark: 'complaint', when: '2026-10-13T02:00:00Z', started: '2026-10-11T22:00:00Z'};
+  const before = {...two, mark: 'complaint', when: '2026-09-22T02:00:00Z', started: '2026-09-19T22:00:00Z'};
+  const entries = followingWeeks({since: '2026-09-21T00:00:00Z', until: '2026-10-17T07:35:00Z', affirms: [late, before],
+    inBlock: new Set([`session-a ${MEMORY}`]), sessions: new Map()});
+  assert.equal(entries.find(e => e.week === '2026-10-05').complaints, 1, 'read on Tuesday, started on Sunday: counted in the Sunday week');
+  assert.equal(entries.find(e => e.week === '2026-10-12').complaints, 0);
+  assert.equal(entries.reduce((n, e) => n + e.complaints, 0), 1, 'a session that began before the window is not in it');
 });
 
 test('the headline opens the file, and the person\'s words stay out of it', () => {
@@ -159,8 +194,47 @@ test('following.json keeps one entry per week and a re-run replaces that week', 
   assert.deepEqual(second.weeks.map(e => [e.week, e.sessions, e.as_of]), [
     ['2026-10-05', 40, '2026-10-14T00:00:00Z'], ['2026-10-12', 60, '2026-10-20T00:00:00Z'], ['2026-10-19', 5, '2026-10-20T00:00:00Z']]);
   const words = JSON.stringify(upsertFollowing(second, followingWeeks({since: '2026-10-12T00:00:00Z', until: '2026-10-17T00:00:00Z',
-    affirms: marked(), inBlock: new Set(), sessions: new Map()}), 'now'));
+    affirms: marked(), inBlock: new Set(), sessions: new Map()}), '2026-10-21T00:00:00Z'));
   assert.doesNotMatch(words, /one page|plan short|Keep a plan/, 'numbers only, never the person\'s words or the rule');
+});
+
+test('an older run never overwrites a week a newer run wrote, and the same moment does', () => {
+  const newer = upsertFollowing(undefined, [{week: '2026-10-12', sessions: 60}], '2026-10-20T00:00:00Z');
+  const older = upsertFollowing(newer, [{week: '2026-10-12', sessions: 14}, {week: '2026-10-05', sessions: 50}], '2026-10-17T00:00:00Z');
+  assert.deepEqual(older.weeks.map(e => [e.week, e.sessions, e.as_of]), [
+    ['2026-10-05', 50, '2026-10-17T00:00:00Z'], ['2026-10-12', 60, '2026-10-20T00:00:00Z']]);
+  const same = upsertFollowing(older, [{week: '2026-10-12', sessions: 61}], '2026-10-20T00:00:00Z');
+  assert.equal(same.weeks[1].sessions, 61, 'a re-run of the same folder replaces its own week');
+});
+
+test('following.json: missing is empty, a corrupt file throws and is left as it was, a write is whole', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'following-'));
+  try {
+    const file = join(dir, 'nested', 'following.json');
+    assert.deepEqual(readFollowing(file), {weeks: []});
+    writeFollowing(file, {weeks: [{week: '2026-10-12', sessions: 3}]});
+    assert.deepEqual(readFollowing(file), {weeks: [{week: '2026-10-12', sessions: 3}]});
+    assert.deepEqual(readdirSync(join(dir, 'nested')), ['following.json'], 'no temp file left behind');
+    writeFileSync(file, '{"weeks": [{"week": "2026-10-12"');
+    assert.throws(() => readFollowing(file), /not valid JSON/);
+    assert.equal(readFileSync(file, 'utf8'), '{"weeks": [{"week": "2026-10-12"', 'the history is not touched');
+    writeFileSync(file, '[1, 2]');
+    assert.throws(() => readFollowing(file), /is not \{"weeks"/);
+    writeFileSync(file, '{"weeks": 3}');
+    assert.throws(() => readFollowing(file), /is not \{"weeks"/);
+  } finally { rmSync(dir, {recursive: true, force: true}); }
+});
+
+test('the earlier folder is the newest dated sibling before this one that has a said-again.md', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'daily-'));
+  try {
+    for (const name of ['2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17', '2026-10-18', 'real-eval']) mkdirSync(join(dir, name));
+    for (const name of ['2026-10-14', '2026-10-15', '2026-10-18']) writeFileSync(join(dir, name, 'said-again.md'), '');
+    writeFileSync(join(dir, 'real-eval', 'said-again.md'), '');
+    assert.equal(earlierFolder(join(dir, '2026-10-17')), join(dir, '2026-10-15'), 'skips a day with no file and anything after');
+    assert.equal(earlierFolder(join(dir, '2026-10-14')), null);
+    assert.equal(earlierFolder(join(dir, 'missing', '2026-10-17')), null, 'no parent folder is no earlier folder');
+  } finally { rmSync(dir, {recursive: true, force: true}); }
 });
 
 test('a new day starts from the marks the last day left, and its own marks win', () => {
