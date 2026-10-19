@@ -17,7 +17,7 @@
 // So every raise in our routines carries its reason in the hint, as
 // satchel:<reason>, and that decides. The sentence is a log line that can be
 // reworded, so it is only read when a database older than
-// 20261019100000_refusals_say_why.sql sent no hint.
+// 20261019120000_refusals_say_why.sql sent no hint.
 //
 // Only `message` and `hint` are read from a database error, and neither is
 // shown, except a satchel:person message, which a routine wrote for the
@@ -103,7 +103,7 @@ export const APP_TOKEN_REASON='app_token';
 export const PERSON_REASON='person';
 
 // The fallback for a database that sends no hint: the sentence each routine
-// raised before 20261019100000_refusals_say_why.sql, with the reason it now
+// raised before 20261019120000_refusals_say_why.sql, with the reason it now
 // gives. The four *_tasks and *_memory lines are thrown by the MCP server
 // rather than raised, and have no hint at all.
 const reasonBySentence={

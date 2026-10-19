@@ -15,7 +15,7 @@ const SIGN_IN=/sign in again/i;
 const PASS_THROUGH=new Set(['public.set_consolidation_schedule','public.enable_consolidation']);
 // The last migration before every raise carried a hint. The sentences raised
 // as of this file are what an older database still sends.
-const BEFORE_HINTS='20261019090000_task_files_leave_through_storage.sql';
+const BEFORE_HINTS='20261019110000_one_save_one_transaction.sql';
 
 async function database(through) {
   const db=new PGlite();
