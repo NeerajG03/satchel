@@ -4,7 +4,7 @@ import { useStores } from '../../app/stores';
 import { isConflict, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
 import { topicScope, scopeName, scopeQuery } from '../../app/scope';
-import { errorMessage } from '../../client';
+import { explain } from '../../client';
 import { count } from '../../app/format';
 import { Button, LinkButton } from '../../ui/Button';
 import { LoadError, Notice, Skeleton } from '../../ui/Notice';
@@ -38,11 +38,11 @@ export function TaskDelete() {
       navigate(`/tasks${scopeQuery(scope)}`, { replace: true });
     } catch (reason) {
       if (isConflict(reason)) { setConflict(true); page.reload(); }
-      else setError(errorMessage(reason));
+      else setError(await explain(reason, 'action'));
     } finally { setBusy(false); }
   }
 
-  if (page.error) return <><LinkButton to="/tasks" look="quiet">← Tasks</LinkButton><LoadError what="This task" onReload={page.reload} /></>;
+  if (page.error) return <><LinkButton to="/tasks" look="quiet">← Tasks</LinkButton><LoadError what="This task" message={page.error} onReload={page.reload} /></>;
   if (!task) return <><LinkButton to="/tasks" look="quiet">← Tasks</LinkButton><Skeleton rows={4} /></>;
 
   const children = task.scope_tasks.filter(item => item.parent_id === task.id);

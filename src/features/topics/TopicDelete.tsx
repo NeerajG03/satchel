@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { useStores } from '../../app/stores';
 import { isConflict, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
-import { errorMessage } from '../../client';
+import { explain } from '../../client';
 import { count } from '../../app/format';
 import { Button, LinkButton } from '../../ui/Button';
 import { TextField } from '../../ui/Field';
@@ -37,11 +37,11 @@ export function TopicDelete() {
       navigate('/topics', { replace: true });
     } catch (reason) {
       if (isConflict(reason)) { setConflict(true); page.reload(); }
-      else setError(errorMessage(reason));
+      else setError(await explain(reason, 'action'));
     } finally { setBusy(false); }
   }
 
-  if (page.error) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><LoadError what="This topic" onReload={page.reload} /></>;
+  if (page.error) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><LoadError what="This topic" message={page.error} onReload={page.reload} /></>;
   if (!data) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><Skeleton rows={4} /></>;
   if (!topic) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><Notice look="error" title="That topic is not here.">It may already be gone. Nothing else changed.</Notice></>;
 

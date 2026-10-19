@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useStores } from '../../app/stores';
-import { errorMessage } from '../../client';
+import { explain } from '../../client';
 import { useFooter } from '../../app/readout';
 import { SaveError, Skeleton } from '../../ui/Notice';
 import { finishEnable } from './consolidationConnect';
@@ -29,7 +29,7 @@ export function ConsolidationCallback() {
       runs.set(key, run);
     }
     run.then(() => navigate('/settings', { replace: true, state: { overnightOn: true } }))
-      .catch(reason => setError(errorMessage(reason)));
+      .catch(async reason => setError(await explain(reason)));
   }, [params, stores, navigate]);
 
   return <>

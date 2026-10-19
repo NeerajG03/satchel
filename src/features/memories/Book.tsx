@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useStores } from '../../app/stores';
 import { useAction, useLoad } from '../../app/useLoad';
@@ -11,7 +11,7 @@ import { Composer } from './Composer';
 import { MemoryEntry } from './MemoryEntry';
 import { Segments } from '../../ui/Segments';
 import { Empty } from '../../ui/Empty';
-import { LoadError, Skeleton } from '../../ui/Notice';
+import { LoadError, Notice, Skeleton } from '../../ui/Notice';
 import { Button } from '../../ui/Button';
 
 const PROMPTS: MemoryContent[] = [
@@ -41,6 +41,10 @@ export function Book() {
   const memories = useLoad(() => searchAll ? stores.memories.listAll() : stores.memories.list(scope), [stores, scope.kind, scope.kind === 'topic' ? scope.topicId : '', searchAll]);
   const counts = useLoad(() => stores.memories.listAll(), [stores]);
   const action = useAction();
+  // Reading and forgetting one entry. Their failure shows under that entry,
+  // because the composer that shows save errors is often closed or hidden.
+  const entry = useAction('action');
+  const [entryId, setEntryId] = useState<string | null>(null);
 
   const [content, setContent] = useState<MemoryContent>(EMPTY_CONTENT);
   const [draftId, setDraftId] = useState(() => crypto.randomUUID());
@@ -87,7 +91,8 @@ export function Book() {
   }
 
   async function read(memory: MemorySummary, edit = false) {
-    const current = await action.run(() => stores.memories.read(memory));
+    setEntryId(memory.id);
+    const current = await entry.run(() => stores.memories.read(memory));
     if (!current) return;
     memories.replace(items => replaceSummary(items, current));
     if (edit) { setEditing(current); setContent({ statement: current.statement, name: current.name ?? '', more_info: current.more_info, kind: current.kind }); setExpanded(null); }
@@ -103,7 +108,8 @@ export function Book() {
     announce(`Saved to your book · revision ${saved.revision}`);
   }
   async function forget(memory: MemorySummary) {
-    const done = await action.run(async () => { await stores.memories.forget(memory); return true; });
+    setEntryId(memory.id);
+    const done = await entry.run(async () => { await stores.memories.forget(memory); return true; });
     if (!done) return;
     memories.replace(items => items.filter(item => item.id !== memory.id));
     counts.reload();
@@ -149,7 +155,7 @@ export function Book() {
       </div>
     </div>}
 
-    {memories.error && <LoadError what="Your book" onReload={memories.reload} />}
+    {memories.error && <LoadError what="Your book" message={memories.error} onReload={memories.reload} />}
     {memories.loading && !memories.data && <Skeleton rows={4} />}
 
     {memories.data && !query && all.length === 0 && <Empty title="Ideas for a first memory">
@@ -166,11 +172,12 @@ export function Book() {
       {visible.map(memory => editing?.id === memory.id
         ? <Composer key={memory.id} content={content} scopeLabel={label} open busy={action.busy} error={action.error} editing={editing}
           onOpen={() => undefined} onChange={setContent} onDiscard={clearDraft} onSave={() => void save()} />
-        : <MemoryEntry key={memory.id} memory={memory} expanded={expanded} busy={action.busy}
+        : <Fragment key={memory.id}><MemoryEntry memory={memory} expanded={expanded} busy={action.busy || entry.busy}
         dim={Boolean(editing) && editing?.id !== memory.id} fresh={freshId === memory.id} confirmingForget={forgetId === memory.id}
         canCorrect={!hasDraft} highlight={highlight}
         onRead={() => void read(memory)} onHide={() => setExpanded(null)} onCorrect={() => void read(memory, true)}
-        onAskForget={ask => setForgetId(ask ? memory.id : null)} onForget={() => void forget(memory)} />)}
+        onAskForget={ask => setForgetId(ask ? memory.id : null)} onForget={() => void forget(memory)} />
+        {entry.error && entryId === memory.id && <Notice look="error" title="Could not finish that.">{entry.error}</Notice>}</Fragment>)}
     </div>
     {searchAll && query && <p className="fine muted">Results from every scope. <Link to={`/book${scopeQuery(scope)}`}>Back to {label}</Link>.</p>}
     {!query && <p className="fine muted" style={{ paddingTop: 16 }}>

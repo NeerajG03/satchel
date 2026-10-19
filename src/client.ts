@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { errorMessage, needsSessionCheck, type Operation } from './errorText.mjs';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -8,26 +9,25 @@ export const client = url && key && !url.includes('your-topic') && key !== 'your
   ? createClient(url, key, { auth: { flowType: 'pkce', detectSessionInUrl: true } })
   : null;
 
-/** An error whose message is already a sentence for the person, written by us.
- *  Everything else is mapped from its code, because a raw database message is
- *  never something to show on a page. */
-export class Sentence extends Error {}
+// The mapping lives in a plain module so node --test can check it.
+export { Sentence, errorMessage, type Operation } from './errorText.mjs';
 
-export function errorMessage(error: unknown, operation: 'load' | 'save' = 'save'): string {
-  if (error instanceof Sentence) return error.message;
-  const code = error && typeof error === 'object' && 'code' in error ? error.code : '';
-  if (code === 'SATCHEL_TIMEOUT') return operation === 'load'
-    ? 'Loading took too long. Reload to try again.'
-    : 'The request took too long. Your draft is still here. Reload to check whether the change reached your book before retrying.';
-  if (code === 'PGRST205' || code === 'PGRST202' || code === '42P01') return 'This Satchel instance needs its database setup completed. Contact the instance owner, then reload.';
-  if (code === '23505') return 'That memory name is already used in this scope. Choose a different name.';
-  if (code === 'P0002') return 'That memory was renamed, deleted or is no longer accessible. Reload the book.';
-  if (code === 'PT409' || code === '40001') return 'This record changed elsewhere or conflicts with an earlier save. Reload to see the latest version. Your draft is still here; discard it before starting a fresh correction.';
-  if (code === '23514') return 'Check the text length and try again.';
-  if (code === '42501' || code === 'PGRST301') return 'Your access could not be verified. Sign in again and retry.';
-  if (error instanceof Error && (error.message.startsWith('Files are limited') || error.message.startsWith('The uploaded file did not pass')))
-    return error.message;
-  return operation === 'load'
-    ? 'Your book could not be loaded. Check your connection and reload.'
-    : 'Satchel could not complete that request. Check your connection and retry. Your draft is still here.';
+/** Whether this browser still holds a live session, from the auth client
+ *  itself. getSession refreshes an expired token first, so no session here
+ *  means the refresh failed too. undefined when it cannot be asked. */
+export async function stillSignedIn(): Promise<boolean | undefined> {
+  if (!client) return undefined;
+  try {
+    const { data, error } = await client.auth.getSession();
+    if (error) return undefined;
+    return Boolean(data.session);
+  } catch { return undefined; }
+}
+
+/** The sentence for a failure. "Sign in again" comes only from the session:
+ *  a refusal whose text cannot say whether it was the sign-in is settled by
+ *  asking the auth client, never guessed from the error code. */
+export async function explain(error: unknown, operation: Operation = 'save'): Promise<string> {
+  const signedIn = needsSessionCheck(error) ? await stillSignedIn() : undefined;
+  return errorMessage(error, operation, signedIn);
 }

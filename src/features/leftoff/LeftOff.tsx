@@ -36,7 +36,7 @@ export function LeftOff() {
   useFooter(data ? `${count(data.memories.length, 'in the book', 'in the book')} · ${count(moving, 'task', 'tasks')} moving · ${count(live.length, 'app')}` : '',
     firstRun ? { light: 'amber', word: 'Nothing saved yet' } : undefined);
 
-  if (page.error) return <><h1>Where you left off.</h1><LoadError what="Your tasks and book" onReload={page.reload} /><Skeleton rows={4} /></>;
+  if (page.error) return <><h1>Where you left off.</h1><LoadError what="Your tasks and book" message={page.error} onReload={page.reload} /><Skeleton rows={4} /></>;
   if (!data) return <><h1>Where you left off.</h1><Skeleton rows={5} /></>;
   if (firstRun) return <LeftOffEmpty name={accountHandle(user)} topics={data.topics} />;
 

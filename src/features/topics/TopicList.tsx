@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useStores } from '../../app/stores';
 import { useAction, useLoad } from '../../app/useLoad';
@@ -20,6 +21,9 @@ export function TopicList() {
     return { topics, memories, tasks, connections };
   }, [stores]);
   const action = useAction();
+  // Undo merge has no draft, and its error belongs in the Merged section.
+  const undo = useAction('action');
+  const [undoId, setUndoId] = useState<string | null>(null);
   const data = page.data;
   const live = data?.topics.filter(p => !p.merged_into) ?? [];
   const merged = data?.topics.filter(p => p.merged_into) ?? [];
@@ -34,7 +38,8 @@ export function TopicList() {
   async function unmerge(id: string) {
     const topic = data?.topics.find(p => p.id === id);
     if (!topic) return;
-    const done = await action.run(async () => { await stores.topics.unmerge(topic); return true; });
+    setUndoId(id);
+    const done = await undo.run(async () => { await stores.topics.unmerge(topic); return true; });
     if (!done) return;
     announce(`Merge undone · ${topic.name} is back`);
     page.reload();
@@ -53,7 +58,7 @@ export function TopicList() {
         <p className="lede">A topic is a subject your memories are about. Satchel makes one when a work fact fits none of these. You can also link a codebase or add tasks to it.</p></div>
       <Button look="primary" onClick={() => navigate('/topics/new')}>+ New topic</Button>
     </div>
-    {page.error && <LoadError what="Your topics" onReload={page.reload} />}
+    {page.error && <LoadError what="Your topics" message={page.error} onReload={page.reload} />}
     {page.loading && !data && <Skeleton rows={4} />}
     {data && live.length === 0 && <Empty title="No topics yet." action={<Button onClick={() => navigate('/topics/new')}>New topic</Button>}>
       “For me” already holds everything that applies everywhere. Satchel makes a topic when a work fact needs one, or you can make one now.
@@ -76,12 +81,14 @@ export function TopicList() {
     </table>}
     {merged.length > 0 && <section className="section">
       <div className="between"><h2>Merged</h2><span className="eyebrow">kept so you can undo</span></div>
-      {action.error && !creating && <SaveError message={action.error} />}
       {merged.map(topic => {
         const into = data?.topics.find(p => p.id === topic.merged_into);
-        return <div className="between" key={topic.id}>
-          <span>{topic.name} <span className="muted fine">went into {into?.name ?? 'another topic'}</span></span>
-          <Button small disabled={action.busy} onClick={() => void unmerge(topic.id)}>Undo merge</Button>
+        return <div className="stack-tight" key={topic.id}>
+          <div className="between">
+            <span>{topic.name} <span className="muted fine">went into {into?.name ?? 'another topic'}</span></span>
+            <Button small disabled={undo.busy} onClick={() => void unmerge(topic.id)}>Undo merge</Button>
+          </div>
+          {undo.error && undoId === topic.id && <SaveError title="Could not undo the merge." message={undo.error} />}
         </div>;
       })}
     </section>}

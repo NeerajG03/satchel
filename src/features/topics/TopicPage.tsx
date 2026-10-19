@@ -5,7 +5,8 @@ import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
 import { count, whenText } from '../../app/format';
 import { scopeQuery } from '../../app/scope';
-import type { TopicRepositoryLink } from './repository';
+import { normalizeGitHubRepository, type TopicRepositoryLink } from './repository';
+import { Sentence } from '../../client';
 import { Button, LinkButton } from '../../ui/Button';
 import { TornPageIcon } from '../../ui/TornPageIcon';
 import { TextArea } from '../../ui/Field';
@@ -24,6 +25,9 @@ export function TopicPage() {
     return { topics, memories, tasks, connections: connections.filter(c => !c.revoked_at) };
   }, [stores, id]);
   const action = useAction();
+  // Its own, so a link or unlink failure shows next to the codebases and not
+  // inside a brief form that is usually closed.
+  const repos = useAction('action');
   const [editingBrief, setEditingBrief] = useState(false);
   const [brief, setBrief] = useState('');
 
@@ -44,20 +48,23 @@ export function TopicPage() {
   }
   async function link(value: string): Promise<boolean> {
     if (!topic) return false;
-    const added = await action.run(() => stores.topics.linkRepository(topic.id, value));
+    const added = await repos.run(() => {
+      if (!normalizeGitHubRepository(value)) throw new Sentence('Enter a GitHub repository as owner/name or a GitHub URL. Nothing was linked.');
+      return stores.topics.linkRepository(topic.id, value);
+    });
     if (!added) return false;
     page.replace(current => ({ ...current, topics: current.topics.map(p => p.id === topic.id ? { ...p, topic_repositories: [...p.topic_repositories.filter(l => l.repository !== added.repository), added] } : p) }));
     announce(`Linked ${added.repository}`); return true;
   }
   async function unlink(target: TopicRepositoryLink) {
     if (!topic) return;
-    const ok = await action.run(async () => { await stores.topics.unlinkRepository(topic.id, target); return true; });
+    const ok = await repos.run(async () => { await stores.topics.unlinkRepository(topic.id, target); return true; });
     if (!ok) return;
     page.replace(current => ({ ...current, topics: current.topics.map(p => p.id === topic.id ? { ...p, topic_repositories: p.topic_repositories.filter(l => l.repository !== target.repository) } : p) }));
     announce(`Unlinked ${target.repository}`);
   }
 
-  if (page.error) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><LoadError what="This topic" onReload={page.reload} /></>;
+  if (page.error) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><LoadError what="This topic" message={page.error} onReload={page.reload} /></>;
   if (!data) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><Skeleton rows={6} /></>;
   if (!topic) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><Notice look="error" title="That topic is not here.">It may have been removed. Nothing else changed.</Notice></>;
 
@@ -102,7 +109,7 @@ export function TopicPage() {
 
     <div className="two">
       <div className="stack" style={{ gap: 28 }}>
-        <RepositoryLinks topic={topic} busy={action.busy} onLink={link} onUnlink={target => void unlink(target)} />
+        <RepositoryLinks topic={topic} busy={repos.busy} error={repos.error} onLink={link} onUnlink={target => void unlink(target)} />
         {!isEmpty && <section className="section">
           <div className="between"><h2>Activity</h2><span className="eyebrow">newest first</span></div>
           {activity.map(item => <div className="relation" key={item.id}><Link to={item.to} className="clamp">{item.text}</Link><Provenance parts={[item.tag]} at={item.at} /></div>)}

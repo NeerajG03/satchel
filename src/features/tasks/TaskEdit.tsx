@@ -4,7 +4,7 @@ import { useStores } from '../../app/stores';
 import { isConflict, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
 import { topicScope, scopeQuery } from '../../app/scope';
-import { errorMessage } from '../../client';
+import { explain } from '../../client';
 import { actorLabel, fullDate } from '../../app/format';
 import type { TaskDetail, TaskDraft } from './model';
 import { Button, LinkButton } from '../../ui/Button';
@@ -65,7 +65,7 @@ export function TaskEdit() {
         setConflict({ revision: latest?.revision ?? base.revision + 1, by: latest ? actorLabel(latest.updated_by, page.data?.apps ?? []) : 'someone', at: latest?.updated_at ?? new Date().toISOString() });
         if (latest) setBase(latest);
       } else {
-        setError(errorMessage(reason));
+        setError(await explain(reason));
         const latest = await stores.tasks.read(id).catch(() => null);
         if (latest) setBase(latest);
       }
@@ -79,7 +79,7 @@ export function TaskEdit() {
     setDraft(base); setDoneWhen(base.done_when.join('\n')); setParentId(base.parent_id); setDependencyIds(base.dependency_ids); setConflict(null);
   }
 
-  if (page.error) return <><LinkButton to="/tasks" look="quiet">← Tasks</LinkButton><LoadError what="This task" onReload={page.reload} /></>;
+  if (page.error) return <><LinkButton to="/tasks" look="quiet">← Tasks</LinkButton><LoadError what="This task" message={page.error} onReload={page.reload} /></>;
   if (!base || !draft || !page.data) return <><LinkButton to="/tasks" look="quiet">← Tasks</LinkButton><Skeleton rows={6} /></>;
   const others = base.scope_tasks.filter(task => task.id !== base.id);
 
