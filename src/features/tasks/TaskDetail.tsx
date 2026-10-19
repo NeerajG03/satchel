@@ -47,7 +47,10 @@ export function TaskDetail() {
     return { task, topics, apps };
   }, [stores, id]);
   const action = useAction();
-  const move = useAction();
+  const move = useAction('action');
+  // Links, uploads and downloads show their failure in the Resources block,
+  // next to the button, not in the update composer.
+  const files = useAction('action');
   const [blocking, setBlocking] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
 
@@ -98,7 +101,7 @@ export function TaskDetail() {
   async function attachLink(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!task) return;
     const form = new FormData(event.currentTarget);
-    const ok = await action.run(async () => {
+    const ok = await files.run(async () => {
       await stores.tasks.addLink(task, crypto.randomUUID(), crypto.randomUUID(), String(form.get('label')), String(form.get('url')));
       await refresh('Link attached'); return true;
     });
@@ -108,11 +111,11 @@ export function TaskDetail() {
     event.preventDefault(); if (!task) return;
     const form = new FormData(event.currentTarget); const file = form.get('file');
     if (!(file instanceof File) || !file.size) return;
-    const ok = await action.run(async () => { await stores.tasks.upload(task, crypto.randomUUID(), crypto.randomUUID(), String(form.get('label') ?? ''), file); await refresh('File uploaded and verified'); return true; });
+    const ok = await files.run(async () => { await stores.tasks.upload(task, crypto.randomUUID(), crypto.randomUUID(), String(form.get('label') ?? ''), file); await refresh('File uploaded and verified'); return true; });
     if (ok) setLinkOpen(false);
   }
 
-  if (page.error) return <><LinkButton to="/tasks" look="quiet">← Tasks</LinkButton><LoadError what="This task" onReload={page.reload} /></>;
+  if (page.error) return <><LinkButton to="/tasks" look="quiet">← Tasks</LinkButton><LoadError what="This task" message={page.error} onReload={page.reload} /></>;
   if (!task || !page.data) return <><LinkButton to="/tasks" look="quiet">← Tasks</LinkButton><Skeleton rows={6} /></>;
 
   const { topics, apps } = page.data;
@@ -172,18 +175,19 @@ export function TaskDetail() {
           {task.resources.map(resource => <div className="relation" key={resource.id}>
             <span>{resource.label} <span className="fine muted">· {resource.kind === 'external_url' ? 'link' : resource.upload_status}</span></span>
             {resource.kind === 'external_url' ? <a href={resource.external_url ?? '#'} target="_blank" rel="noreferrer" className="fine">Open ↗</a>
-              : resource.upload_status === 'verified' && <Button look="link" small onClick={() => void action.run(() => stores.tasks.download(resource))}>Download</Button>}
+              : resource.upload_status === 'verified' && <Button look="link" small disabled={files.busy} onClick={() => void files.run(() => stores.tasks.download(resource))}>Download</Button>}
           </div>)}
+          {files.error && <Notice look="error" title="Could not finish that.">{files.error}</Notice>}
           {linkOpen && <div className="stack">
             <form className="stack-tight" onSubmit={attachLink}>
-              <TextField label="Link label" name="label" required limit={200} disabled={action.busy} />
-              <TextField label="HTTPS URL" name="url" type="url" required pattern="https://.*" disabled={action.busy} />
-              <Button type="submit" small disabled={action.busy}>Attach link</Button>
+              <TextField label="Link label" name="label" required limit={200} disabled={files.busy} />
+              <TextField label="HTTPS URL" name="url" type="url" required pattern="https://.*" disabled={files.busy} />
+              <Button type="submit" small disabled={files.busy}>Attach link</Button>
             </form>
             <form className="stack-tight" onSubmit={upload}>
-              <TextField label="File label" name="label" limit={200} disabled={action.busy} />
-              <label className="f">File <span className="hint">max 6 MB</span><input className="field" name="file" type="file" required disabled={action.busy} /></label>
-              <Button type="submit" small disabled={action.busy}>Upload file</Button>
+              <TextField label="File label" name="label" limit={200} disabled={files.busy} />
+              <label className="f">File <span className="hint">max 6 MB</span><input className="field" name="file" type="file" required disabled={files.busy} /></label>
+              <Button type="submit" small disabled={files.busy}>Upload file</Button>
             </form>
           </div>}
         </div>

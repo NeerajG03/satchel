@@ -17,7 +17,7 @@ export function Settings() {
   const stores = useStores();
   const { announce } = useReadout();
   const topics = useLoad(() => stores.topics.list(), [stores]);
-  const action = useAction();
+  const action = useAction('action');
   const dev = useDevMode();
   const [pick, setPick] = useState('');
   useFooter('Settings');
@@ -58,7 +58,7 @@ export function Settings() {
             </SelectField>
             <Button disabled={action.busy} onClick={() => void exportOne()}>Export this one</Button>
           </div>
-          {action.error && <SaveError message={action.error} />}
+          {action.error && <SaveError title="Could not export." message={action.error} />}
         </div>
       </div>
       <Overnight />

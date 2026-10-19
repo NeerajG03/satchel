@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
+import { Sentence } from '../../errorText.mjs';
 import type { MemoryEvent } from './model';
 
 /** Undoes one move: the memory goes back where that move took it from. Only
@@ -14,11 +15,11 @@ export async function moveBack(db: SupabaseClient, event: MemoryEvent): Promise<
   const [memory] = await read<{ id: string; revision: number; topic_id: string | null; ended_at: string | null }>(signal =>
     db.from('memories').select('id,revision,topic_id,ended_at').eq('id', event.memory_id).limit(1).abortSignal(signal));
   const topics = await read<{ id: string; slug: string }>(signal => db.from('topics').select('id,slug').abortSignal(signal));
-  if (!memory || memory.ended_at) throw new Error('That memory is not live any more, so there is nothing to move back.');
+  if (!memory || memory.ended_at) throw new Sentence('That memory is not live any more, so there is nothing to move back.');
   const here = topics.find(t => t.id === memory.topic_id)?.slug ?? 'personal';
-  if (here !== event.after) throw new Error(`It has moved since, and is in ${here} now. Nothing changed.`);
+  if (here !== event.after) throw new Sentence(`It has moved since, and is in ${here} now. Nothing changed.`);
   const back = event.before === 'personal' ? null : topics.find(t => t.slug === event.before)?.id;
-  if (back === undefined) throw new Error(`The topic ${event.before} is gone, so it cannot go back there.`);
+  if (back === undefined) throw new Sentence(`The topic ${event.before} is gone, so it cannot go back there.`);
   const { error } = await requestWithTimeout(signal => db.rpc('move_memory', {
     p_id: memory.id, p_revision: memory.revision, p_topic_id: back, p_note: 'moved back by hand',
   }).abortSignal(signal));

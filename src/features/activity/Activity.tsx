@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useStores } from '../../app/stores';
-import { errorMessage } from '../../client';
+import { explain } from '../../client';
 import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter } from '../../app/readout';
 import { actorLabel, count } from '../../app/format';
@@ -123,7 +123,7 @@ function Detail({ item, apps }: { item: Item; apps: { client_id: string; label: 
 /** The undo for one move. A merge has its own, on the topics page. */
 function MoveBack({ event }: { event: MemoryEvent }) {
   const stores = useStores();
-  const action = useAction();
+  const action = useAction('action');
   const [done, setDone] = useState('');
   async function moveBack() {
     const where = await action.run(() => stores.activity.moveBack(event));
@@ -135,7 +135,7 @@ function MoveBack({ event }: { event: MemoryEvent }) {
       <Button small disabled={action.busy} onClick={() => void moveBack()}>{action.busy ? 'Moving…' : `Move back to ${event.before ?? 'personal'}`}</Button>
       <span className="fine muted">Puts it where it was before this move.</span>
     </div>
-    {action.error && <SaveError message={action.error} />}
+    {action.error && <SaveError title="Could not move it back." message={action.error} />}
   </div>;
 }
 
@@ -177,7 +177,7 @@ function useLatestJob() {
   const [error, setError] = useState('');
   const refresh = useCallback(async () => {
     try { setJob(await stores.activity.latestJob()); setError(''); }
-    catch (reason) { setError(errorMessage(reason, 'load')); }
+    catch (reason) { setError(await explain(reason, 'load')); }
   }, [stores]);
   useEffect(() => { void refresh(); }, [refresh]);
   const running = job?.status === 'running';
@@ -228,7 +228,9 @@ export function Activity() {
       latest.setJob(await stores.activity.consolidate(job ? { job } : {}));
       setSeenStop('');
     } catch (error) {
-      setStartError(error instanceof Error ? error.message : String(error));
+      // Mapped, never shown raw: a dropped connection used to print
+      // "TypeError: Failed to fetch" here.
+      setStartError(await explain(error, 'action'));
     } finally {
       setStarting(false);
     }
@@ -344,7 +346,7 @@ function usePagedActivity(limit = 25) {
       });
       setLoaded(true);
     } catch (reason) {
-      setError(errorMessage(reason, 'load'));
+      setError(await explain(reason, 'load'));
     } finally {
       setLoading(false);
     }

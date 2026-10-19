@@ -2,10 +2,11 @@ import { useState, type FormEvent } from 'react';
 import type { Topic, TopicRepositoryLink } from './repository';
 import { Button } from '../../ui/Button';
 import { TextField } from '../../ui/Field';
+import { Notice } from '../../ui/Notice';
 
-type Props = { topic: Topic; busy: boolean; onLink: (value: string) => Promise<boolean>; onUnlink: (link: TopicRepositoryLink) => void };
+type Props = { topic: Topic; busy: boolean; error: string; onLink: (value: string) => Promise<boolean>; onUnlink: (link: TopicRepositoryLink) => void };
 
-export function RepositoryLinks({ topic, busy, onLink, onUnlink }: Props) {
+export function RepositoryLinks({ topic, busy, error, onLink, onUnlink }: Props) {
   const [value, setValue] = useState('');
   const [adding, setAdding] = useState(topic.topic_repositories.length === 0);
   async function submit(event: FormEvent) {
@@ -23,6 +24,7 @@ export function RepositoryLinks({ topic, busy, onLink, onUnlink }: Props) {
       <Button type="submit" disabled={busy || !value.trim()}>Link repository</Button>
       {topic.topic_repositories.length > 0 && <Button look="quiet" disabled={busy} onClick={() => setAdding(false)}>Cancel</Button>}
     </form>}
+    {error && <Notice look="error" title="Could not change the linked codebases.">{error}</Notice>}
     <p className="fine muted">A linked repository lets an agent pick this topic for a coding chat. It does not grant access by itself.</p>
   </section>;
 }

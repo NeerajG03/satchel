@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {applyMigrations} from './helpers/migrations.mjs';
+import {SUPABASE_STORAGE,storageApiRemove} from './helpers/storage.mjs';
 
 test('people can delete tasks and topics with a revision check; agents cannot',async t=>{
   const db=new PGlite();
@@ -22,8 +23,9 @@ test('people can delete tasks and topics with a revision check; agents cannot',a
     await db.exec(`
       create role anon; create role authenticated; create role supabase_auth_admin;
       create schema auth;
-      create schema storage;
-      create table storage.objects(bucket_id text,name text,metadata jsonb,user_metadata jsonb);
+      ${SUPABASE_STORAGE}
+      grant usage on schema storage to authenticated;
+      grant select,delete on storage.objects to authenticated;
       create table auth.users(id uuid primary key);
       create function auth.jwt() returns jsonb language sql stable as
         $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
@@ -69,15 +71,24 @@ test('people can delete tasks and topics with a revision check; agents cannot',a
       await assert.rejects(call({sub:other},'select delete_task($1,2)',[parent]),{code:'P0002'});
     });
 
-    await t.test('deleting a task removes its rows and files and frees its children',async()=>{
+    await t.test('deleting a task removes its rows, hands back its files and frees its children',async()=>{
       const result=(await call(user,'select delete_task($1,2) result',[parent]))[0].result;
       assert.equal(result.title,'Parent');
       assert.equal(result.files_removed,1);
+      assert.deepEqual(result.file_keys,[key]);
       assert.equal(result.children_unparented,1);
       assert.equal((await call(user,'select id from tasks where id=$1',[parent])).length,0);
       assert.equal((await call(user,'select id from task_resources where task_id=$1',[parent])).length,0);
-      assert.equal((await db.query('select name from storage.objects where name=$1',[key])).rows.length,0);
+      assert.equal((await db.query('select name from storage.objects where name=$1',[key])).rows.length,1);
       assert.equal((await call(user,'select parent_id from task_planning where id=$1',[child]))[0].parent_id,null);
+    });
+
+    await t.test('only the person can remove their own files through storage',async()=>{
+      assert.equal((await storageApiRemove(db,hook,[key])).length,0);
+      assert.equal((await storageApiRemove(db,{sub:other},[key])).length,0);
+      assert.equal((await db.query('select name from storage.objects where name=$1',[key])).rows.length,1);
+      assert.equal((await storageApiRemove(db,user,[key])).length,1);
+      assert.equal((await db.query('select name from storage.objects where name=$1',[key])).rows.length,0);
     });
 
     await t.test('deleting a topic takes its memories, tasks and grants with it',async()=>{

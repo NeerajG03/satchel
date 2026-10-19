@@ -92,7 +92,7 @@ export function Overnight() {
         updates your memory from them. It signs in as its own connection, listed in Apps as Satchel
         consolidation, and you can revoke it there. It is off until you switch it on.</p>
       {status.loading && !row ? <Skeleton rows={3} />
-        : status.error ? <LoadError what="The overnight pass" onReload={status.reload} />
+        : status.error ? <LoadError what="The overnight pass" message={status.error} onReload={status.reload} />
         : <>
           <CheckField label="Run overnight" checked={on}
             disabled={action.busy || (!on && problem !== null)} onChange={e => void toggle(e.target.checked)} />

@@ -1,5 +1,6 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
 import {requestWithTimeout} from '../../request.mjs';
+import {removeTaskFiles} from './files';
 import type {Task,TaskDetail,TaskDraft,TaskPlanning,TaskResource,TaskStatus,TaskSummary,TaskUpdate} from './model';
 
 type TaskMutationResult={task:Task};
@@ -148,8 +149,11 @@ export function createTaskRepository(db:SupabaseClient) {
       if(error)throw error;
       downloadBlob(data,resource.original_filename??resource.label);
     },
-    remove(task:{id:string;revision:number}):Promise<{id:string;title:string;topic_id:string|null;files_removed:number;children_unparented:number}> {
-      return rpc('delete_task',{p_id:task.id,p_expected_revision:task.revision});
+    async remove(task:{id:string;revision:number}):Promise<{id:string;title:string;topic_id:string|null;files_removed:number;children_unparented:number}> {
+      const result=await rpc<{id:string;title:string;topic_id:string|null;files_removed:number;children_unparented:number;file_keys?:string[]}>(
+        'delete_task',{p_id:task.id,p_expected_revision:task.revision});
+      await removeTaskFiles(db,result.file_keys);
+      return result;
     },
     async exportTopic(topicId:string|null):Promise<number> {
       const manifest=await rpc<Record<string,unknown>&{resources?:TaskResource[]}>('export_tasks',{p_topic_id:topicId});

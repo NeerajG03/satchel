@@ -15,6 +15,7 @@ import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
 import {applyMigrations} from './helpers/migrations.mjs';
 import {createMemoryServer} from '../server/mcp-server.mjs';
 import {memoryService} from '../server/memory-service.mjs';
+import {SUPABASE_STORAGE} from './helpers/storage.mjs';
 
 /** Just enough of supabase-js for the forget path, run as the given claims. */
 function client(db, claims) {
@@ -85,8 +86,8 @@ test('an agent forgets a memory by ending it, and the person can bring it back',
   try {
     await db.exec(`
       create role anon; create role authenticated; create role supabase_auth_admin;
-      create schema auth; create schema storage;
-      create table storage.objects(bucket_id text,name text,metadata jsonb,user_metadata jsonb);
+      create schema auth;
+      ${SUPABASE_STORAGE}
       create table auth.users(id uuid primary key);
       create function auth.jwt() returns jsonb language sql stable as
         $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;

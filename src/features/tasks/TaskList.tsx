@@ -106,7 +106,7 @@ export function TaskList() {
       </label>
     </div>
 
-    {tasks.error && <LoadError what="Your tasks" onReload={tasks.reload} />}
+    {tasks.error && <LoadError what="Your tasks" message={tasks.error} onReload={tasks.reload} />}
     {tasks.loading && !tasks.data && <Skeleton rows={4} />}
     {tasks.data && all.length === 0 && <Empty title="Nothing to continue yet.">
       Once a task exists, agents can record progress and handoffs on it. This list then shows what is moving, what is blocked, and the next action for each.
