@@ -38,7 +38,23 @@ export function createConnectionRepository(db: SupabaseClient) {
       }).abortSignal(signal));
       if (error) throw error;
     },
-    async revoke(connection: Connection): Promise<{ oauthCleanupFailed: boolean }> {
+    // Satchel's grant is written only once the approval has gone through, so
+    // a failed approval leaves nothing on the Apps page. The app cannot use
+    // the code until the person is sent back, which happens after this
+    // returns, so its first token already carries the grant. If the grant is
+    // refused, the approval is taken back and the code is never handed over.
+    async approve(authorizationId: string, request: GrantRequest): Promise<{ redirectUrl: string }> {
+      const approved = await db.auth.oauth.approveAuthorization(authorizationId, { skipBrowserRedirect: true });
+      if (approved.error) throw approved.error;
+      try {
+        await this.grant(request);
+      } catch (error) {
+        await db.auth.oauth.revokeGrant({ clientId: request.clientId }).catch(() => undefined);
+        throw error;
+      }
+      return { redirectUrl: approved.data.redirect_url };
+    },
+    async revoke(connection: Pick<Connection, 'client_id'>): Promise<{ oauthCleanupFailed: boolean }> {
       const { error } = await requestWithTimeout(signal => db.rpc('revoke_agent', { p_client_id: connection.client_id }).abortSignal(signal));
       if (error) throw error;
       const { error: oauthError } = await db.auth.oauth.revokeGrant({ clientId: connection.client_id });
