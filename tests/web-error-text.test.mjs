@@ -37,19 +37,43 @@ async function latestRaises(through) {
   const {rows}=await db.query(`select n.nspname||'.'||p.proname as name,p.prosrc as src from pg_proc p
     join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private')`);
   await db.close();
-  const raises=[];
+  const raises=[],unread=[];
   for(const {name,src} of rows)
-    for(const m of src.matchAll(/raise exception '((?:[^']|'')*)'([^;]*);/g)){
-      const code=/errcode\s*=\s*'([^']+)'/.exec(m[2])?.[1]??'P0001';
-      const hint=/hint\s*=\s*'([^']*)'/.exec(m[2])?.[1]??'';
+    for(const statement of raiseStatements(src)){
+      if(/^raise\s*;$|^raise\s+(debug|log|info|notice|warning)\b/i.test(statement))continue;
+      const m=/^raise\s+exception\s+'((?:[^']|'')*)'([^;]*);$/i.exec(statement);
+      if(!m){unread.push(`${name}: ${statement}`);continue;}
+      const code=/errcode\s*=\s*'([^']+)'/i.exec(m[2])?.[1]??'P0001';
+      const hint=/hint\s*=\s*'([^']*)'/i.exec(m[2])?.[1]??'';
       raises.push({routine:name,message:m[1].replaceAll("''","'"),code,hint});
     }
-  return {raises,routines:new Set(rows.map(r=>r.name))};
+  return {raises,unread,routines:new Set(rows.map(r=>r.name))};
+}
+
+// Every raise statement in a body, in any case or form, up to the semicolon
+// that ends it outside a string. Comments are skipped.
+function raiseStatements(src) {
+  const out=[];
+  let i=0,start=-1;
+  while(i<src.length){
+    if(src.startsWith('--',i)){i=src.indexOf('\n',i);if(i<0)break;continue;}
+    if(src.startsWith('/*',i)){i=src.indexOf('*/',i);if(i<0)break;i+=2;continue;}
+    if(src[i]==="'"){
+      i++;
+      while(i<src.length&&!(src[i]==="'"&&src[i+1]!=="'"))i+=src[i]==="'"?2:1;
+      i++;continue;
+    }
+    if(start<0&&/^raise\b/i.test(src.slice(i,i+6))&&!/\w/.test(src[i-1]??'')){start=i;i+=5;continue;}
+    if(start>=0&&src[i]===';'){out.push(src.slice(start,i+1).replace(/\s+/g,' '));start=-1;}
+    i++;
+  }
+  return out;
 }
 
 test('every refusal a routine can raise says why, and the reason has a sentence',async()=>{
-  const {raises}=await latestRaises();
+  const {raises,unread}=await latestRaises();
   assert.ok(raises.length>50,'the scan found the raises');
+  assert.deepEqual(unread,[],"Write each raise as raise exception '...' using errcode = '...', hint = 'satchel:...'");
   const missing=[];
   for(const r of raises){
     const at=`${r.routine}: '${r.message}' (${r.code})`;
@@ -112,6 +136,23 @@ test('the hint decides, whatever the sentence says',()=>{
   assert.doesNotMatch(errorMessage(session,'action',true),SIGN_IN);
   assert.equal(errorMessage({code:'22023',hint:'satchel:person',message:'Choose one time.'}),'Choose one time.');
   assert.equal(reasonOf({hint:'not ours'}),'');
+  const raw='permission denied for table memories';
+  assert.notEqual(errorMessage({code:'22023',hint:'satchel:person',message:raw}),raw);
+});
+
+test('the scan sees a raise in any form',()=>{
+  const forms=raiseStatements(`begin
+    RAISE EXCEPTION 'Topic not found' USING ERRCODE = 'P0002';
+    raise exception using message = 'x';
+    raise sqlstate 'P0001';
+    raise 'bare';
+    -- raise exception 'in a comment';
+    raise notice 'skip me; please';
+    perform 'raise exception ''in a string''';
+    raise;
+  end`);
+  assert.deepEqual(forms,["RAISE EXCEPTION 'Topic not found' USING ERRCODE = 'P0002';","raise exception using message = 'x';",
+    "raise sqlstate 'P0001';","raise 'bare';","raise notice 'skip me; please';",'raise;']);
 });
 
 test('a reason from a newer database falls back to the sentence and the code',()=>{

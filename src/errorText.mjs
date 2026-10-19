@@ -308,7 +308,10 @@ export function reasonOf(error) {
 export function needsSessionCheck(error) {
   if(error instanceof Sentence)return false;
   const reason=reasonOf(error);
-  if(reason)return reason===SESSION_REASON;
+  if(reason===SESSION_REASON)return true;
+  if(reason===APP_TOKEN_REASON||Object.hasOwn(reasonText,reason))return false;
+  // No hint, or a reason from a newer database: the sentence decides, the
+  // same way errorMessage falls back.
   const message=field(error,'message');
   return sessionGuards.has(message)||ANON.test(message);
 }
@@ -345,7 +348,7 @@ export function errorMessage(error,operation='save',signedIn) {
   const reason=reasonOf(object);
   if(reason===SESSION_REASON)return session();
   if(reason===APP_TOKEN_REASON)return APP_TOKEN;
-  if(reason===PERSON_REASON&&message)return message;
+  if(reason===PERSON_REASON&&personSentences.test(message))return message;
   if(Object.hasOwn(reasonText,reason))return reasonText[reason];
 
   if(code==='22023'&&personSentences.test(message))return message;
