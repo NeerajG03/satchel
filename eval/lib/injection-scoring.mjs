@@ -182,3 +182,16 @@ export function gate(now, base, significance) {
   if (significance?.significant && significance.delta < 0) reasons.push('utility fell beyond chance');
   return {pass: reasons.length === 0, reasons};
 }
+
+/** Real-sessions moments either side of a cut, by each prompt's own time, so
+ *  the scorecard can show what people get since a plugin or server fix shipped
+ *  apart from what older code gave them. A moment with no readable time cannot
+ *  be shown to be after the cut and goes in `before`. Run after aheadNeeds(),
+ *  so a block row is still judged on its whole stretch. */
+export function splitAt(moments, cut) {
+  const at = instant(cut);
+  if (!Number.isFinite(at)) throw new Error(`not a date: ${cut}`);
+  const since = [], before = [];
+  for (const m of moments) (instant(m.ts) >= at ? since : before).push(m);
+  return {since, before};
+}

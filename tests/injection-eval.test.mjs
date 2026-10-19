@@ -4,7 +4,7 @@ import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {search, personal, replayService} from '../eval/lib/injection-twin.mjs';
-import {scoreMoment, summarise, pair, sides, gate, asOf, aheadNeeds, comparable} from '../eval/lib/injection-scoring.mjs';
+import {scoreMoment, summarise, pair, sides, gate, asOf, aheadNeeds, comparable, splitAt} from '../eval/lib/injection-scoring.mjs';
 import {paired} from '../eval/lib/metrics.mjs';
 import {promptEmbedder} from '../eval/lib/injection-cache.mjs';
 import {sessionStart, retrieve} from '../server/lifecycle.mjs';
@@ -246,6 +246,27 @@ test('a block row is charged where it loads, and is useful when a later prompt n
   assert.equal(card.blockUseful, 1 / 3);
   assert.equal(card.utilityFree, 0.75);
   assert.equal(card.utility, 0.375);
+});
+
+test('real sessions split at the cut by each prompt\'s own time, and a block row keeps its whole stretch', () => {
+  const cut = '2026-10-16T18:27:00Z';
+  const session = aheadNeeds([
+    {id: 's:1', session: 's', ts: '2026-10-16T18:00:00Z', typed: true, shown: [], loaded: [A], resetBefore: true, gold: {must: [], helps: [], traps: []}},
+    {id: 's:2', session: 's', ts: '2026-10-16T18:27:00.000Z', typed: true, shown: [B], before: [A], gold: {must: [A], helps: [], traps: []}},
+    {id: 's:3', session: 's', ts: '2026-10-16 19:00:00+00', typed: false, shown: [B], before: [A, B]},
+    {id: 's:4', session: 's', typed: true, shown: []},
+  ]);
+  const {since, before} = splitAt(session, cut);
+  assert.deepEqual(since.map(m => m.id), ['s:2', 's:3'], 'the cut itself counts as since, and a Postgres timestamp reads as an instant');
+  assert.deepEqual(before.map(m => m.id), ['s:1', 's:4'], 'a prompt with no time cannot be shown to be after the cut');
+  assert.equal(since.length + before.length, session.length);
+  assert.equal(summarise(before).blockUseful, 1, 'the row loaded before the cut earns its room from a need after it');
+  const card = summarise(since);
+  assert.equal(card.typed, 1);
+  assert.equal(card.host, 1);
+  assert.equal(card.repeat, 1 / 2, 'the host message repeated B');
+  assert.deepEqual(splitAt(session, '2026-10-20T00:00:00Z').since, []);
+  assert.throws(() => splitAt(session, 'last tuesday'), /not a date/);
 });
 
 test('a baseline scored the old way is not compared', () => {
