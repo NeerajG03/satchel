@@ -3,15 +3,16 @@ import assert from 'node:assert/strict';
 import {readFile,readdir} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
 import {applyMigrations} from './helpers/migrations.mjs';
+import {SUPABASE_STORAGE} from './helpers/storage.mjs';
 
 test('security posture keeps RLS and routine privileges closed by default',async()=>{
   const db=new PGlite();
   try {
     await db.exec(`
       create role anon; create role authenticated; create role supabase_auth_admin;
-      create schema auth; create schema storage;
+      create schema auth;
       create table auth.users(id uuid primary key);
-      create table storage.objects(bucket_id text,name text,metadata jsonb,user_metadata jsonb);
+      ${SUPABASE_STORAGE}
       create function auth.jwt() returns jsonb language sql stable as
         $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
       create function auth.uid() returns uuid language sql stable as

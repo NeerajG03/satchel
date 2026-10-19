@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {applyMigrations} from './helpers/migrations.mjs';
+import {SUPABASE_STORAGE,storageApiRemove} from './helpers/storage.mjs';
 
 test('people can delete tasks and topics with a revision check; agents cannot',async t=>{
   const db=new PGlite();
@@ -22,20 +23,7 @@ test('people can delete tasks and topics with a revision check; agents cannot',a
     await db.exec(`
       create role anon; create role authenticated; create role supabase_auth_admin;
       create schema auth;
-      create schema storage;
-      create table storage.objects(bucket_id text,name text,metadata jsonb,user_metadata jsonb);
-      -- The guard Supabase puts on storage.objects. Only the Storage API sets
-      -- the flag, so a plain SQL delete inside a routine is refused.
-      create function storage.protect_delete() returns trigger language plpgsql as $$
-      begin
-        if coalesce(current_setting('storage.allow_delete_query',true),'false') <> 'true' then
-          raise exception 'Direct deletion from storage tables is not allowed.' using errcode='42501';
-        end if;
-        return null;
-      end $$;
-      create trigger protect_objects_delete before delete on storage.objects
-        for each statement execute function storage.protect_delete();
-      alter table storage.objects enable row level security;
+      ${SUPABASE_STORAGE}
       grant usage on schema storage to authenticated;
       grant select,delete on storage.objects to authenticated;
       create table auth.users(id uuid primary key);
@@ -83,18 +71,6 @@ test('people can delete tasks and topics with a revision check; agents cannot',a
       await assert.rejects(call({sub:other},'select delete_task($1,2)',[parent]),{code:'P0002'});
     });
 
-    // What the Storage API does for remove(): sets the flag, then deletes as
-    // the caller, so the storage policies decide.
-    async function storageRemove(claims,name) {
-      await db.exec('begin; set local role authenticated;');
-      try {
-        await db.query("select set_config('request.jwt.claims',$1,true), set_config('storage.allow_delete_query','true',true)",[JSON.stringify(claims)]);
-        const result=await db.query("delete from storage.objects where bucket_id='task-files' and name=$1 returning name",[name]);
-        await db.exec('commit');
-        return result.rows;
-      } catch(error) { await db.exec('rollback'); throw error; }
-    }
-
     await t.test('deleting a task removes its rows, hands back its files and frees its children',async()=>{
       const result=(await call(user,'select delete_task($1,2) result',[parent]))[0].result;
       assert.equal(result.title,'Parent');
@@ -108,10 +84,10 @@ test('people can delete tasks and topics with a revision check; agents cannot',a
     });
 
     await t.test('only the person can remove their own files through storage',async()=>{
-      assert.equal((await storageRemove(hook,key)).length,0);
-      assert.equal((await storageRemove({sub:other},key)).length,0);
+      assert.equal((await storageApiRemove(db,hook,[key])).length,0);
+      assert.equal((await storageApiRemove(db,{sub:other},[key])).length,0);
       assert.equal((await db.query('select name from storage.objects where name=$1',[key])).rows.length,1);
-      assert.equal((await storageRemove(user,key)).length,1);
+      assert.equal((await storageApiRemove(db,user,[key])).length,1);
       assert.equal((await db.query('select name from storage.objects where name=$1',[key])).rows.length,0);
     });
 

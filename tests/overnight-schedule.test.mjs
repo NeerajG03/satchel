@@ -9,6 +9,7 @@ import {test, before, after, beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {applyMigrations} from './helpers/migrations.mjs';
+import {SUPABASE_STORAGE} from './helpers/storage.mjs';
 
 const owner = crypto.randomUUID(), other = crypto.randomUUID();
 const person = {sub: owner};
@@ -22,8 +23,8 @@ before(async () => {
   db = new PGlite();
   await db.exec(`
     create role anon; create role authenticated; create role supabase_auth_admin;
-    create schema auth; create schema storage;
-    create table storage.objects(bucket_id text,name text,metadata jsonb,user_metadata jsonb);
+    create schema auth;
+    ${SUPABASE_STORAGE}
     create table auth.users(id uuid primary key);
     create function auth.jwt() returns jsonb language sql stable as
       $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
