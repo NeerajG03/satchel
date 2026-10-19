@@ -2,7 +2,11 @@
 
 Written to `<folder>/report.md`. Plain words, short sentences, tables where they help. Every claim points at a session id, and every quote is the person's own words, under 15 words.
 
+The first line is the following score, copied from the first line `said-again.mjs` prints once every mark is filled (SKILL.md step 10). `<n> complaints` counts only complaints on a rule that was in that session's start block; the score divides them by the sessions that got a start block in the same 4 weeks. It holds numbers only.
+
 ```markdown
+following: <n> complaints in 4 weeks · per 100 sessions: <x> · 4 weeks before: <y> · up-front <n> · unlabelled <n>
+
 # Consolidation review · <date>
 
 Window <since> to <until> · <n> jobs · <n> sessions read · model <model>, thinking <level>
