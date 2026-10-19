@@ -51,12 +51,13 @@ export function TaskEdit() {
     if (!base || !draft) return;
     setBusy(true); setError(''); setConflict(null);
     try {
-      let current = base;
       const fieldsChanged = draft.title !== base.title || draft.outcome !== base.outcome || draft.why !== base.why || draft.next_action !== base.next_action || draft.priority !== base.priority || lines(doneWhen).join('\n') !== base.done_when.join('\n');
-      if (fieldsChanged) current = { ...current, ...(await stores.tasks.update(current, crypto.randomUUID(), { ...draft, done_when: lines(doneWhen) })) };
-      if (parentId !== base.parent_id) current = { ...current, ...(await stores.tasks.setParent(current, crypto.randomUUID(), parentId)).task };
-      for (const dep of base.dependency_ids.filter(item => !dependencyIds.includes(item))) current = { ...current, ...(await stores.tasks.removeDependency(current, crypto.randomUUID(), dep)).task };
-      for (const dep of dependencyIds.filter(item => !base.dependency_ids.includes(item))) current = { ...current, ...(await stores.tasks.addDependency(current, crypto.randomUUID(), dep)).task };
+      const current = await stores.tasks.saveEdit(base, crypto.randomUUID(), {
+        draft: fieldsChanged ? { ...draft, done_when: lines(doneWhen) } : null,
+        parentId: parentId !== base.parent_id ? parentId : undefined,
+        removeDependencyIds: base.dependency_ids.filter(item => !dependencyIds.includes(item)),
+        addDependencyIds: dependencyIds.filter(item => !base.dependency_ids.includes(item)),
+      });
       announce(`Saved · revision ${current.revision}`);
       navigate(back);
     } catch (reason) {

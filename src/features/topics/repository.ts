@@ -17,23 +17,13 @@ export function createTopicRepository(db: SupabaseClient) {
       if (error) throw error;
       return (data ?? []) as Topic[];
     },
+    // The short name goes in with the create, so a taken one leaves no topic behind.
     async create(id: string, name: string, brief: string, slug: string): Promise<Topic> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('create_topic', {
-        p_id: id, p_name: name.trim(), p_brief: brief.trim(),
+        p_id: id, p_name: name.trim(), p_brief: brief.trim(), p_slug: slug.trim() || null,
       }).abortSignal(signal).single<Topic>());
       if (error) throw error;
       if (!data) throw new Error('Missing created topic');
-      // The topic always gets a slug. This only replaces the derived one with
-      // something the person would actually say, and a collision is reported
-      // rather than silently accepted.
-      const chosen = slug.trim();
-      if (chosen && chosen !== data.slug) {
-        const { error: slugError } = await requestWithTimeout(signal => db.rpc('set_slug', {
-          p_kind: 'topic', p_id: id, p_slug: chosen,
-        }).abortSignal(signal));
-        if (slugError) throw slugError;
-        return { ...data, slug: chosen, topic_repositories: [] };
-      }
       return { ...data, topic_repositories: [] };
     },
     async update(topic: Topic, name: string, brief: string): Promise<Topic> {
