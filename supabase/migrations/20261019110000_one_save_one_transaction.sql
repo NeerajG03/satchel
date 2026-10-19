@@ -30,6 +30,21 @@ $function$;
 revoke all on function public.create_topic(p_id uuid, p_name text, p_brief text, p_slug text) from public, anon, authenticated;
 grant execute on function public.create_topic(p_id uuid, p_name text, p_brief text, p_slug text) to authenticated;
 
+-- Whether this person has a receipt for a task write. The receipts table has
+-- no grants, and this says yes or no about the caller's own rows only.
+CREATE FUNCTION private.task_request_seen(p_request_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+  select exists (select 1 from public.task_write_requests
+    where owner_id = auth.uid() and request_id = p_request_id);
+$function$;
+
+revoke all on function private.task_request_seen(uuid) from public, anon, authenticated;
+grant execute on function private.task_request_seen(uuid) to authenticated;
+
 -- The task edit page saved fields, parent and each dependency as separate
 -- calls. A refusal halfway left the first part saved under an error that said
 -- nothing was. This runs the same routines, with the same checks, in one
@@ -52,28 +67,41 @@ declare
   -- Each inner routine keeps its own receipt, so each gets its own request id,
   -- derived from the caller's so that a retry replays rather than repeats.
   next_request uuid;
+  replay boolean;
 begin
-  if p_title is not null then
-    step := step + 1;
-    next_request := md5(p_request_id::text || ':' || step)::uuid;
-    result := public.update_task(next_request, p_id, revision, p_title, p_outcome, p_why, p_done_when, p_next_action, p_priority);
-    revision := result.revision;
-  end if;
-  if p_set_parent then
-    step := step + 1;
-    next_request := md5(p_request_id::text || ':' || step)::uuid;
-    revision := (public.set_task_parent(next_request, p_id, revision, p_parent_task_id)->'task'->>'revision')::bigint;
-  end if;
-  foreach dep in array coalesce(p_remove_dependency_ids, '{}') loop
-    step := step + 1;
-    next_request := md5(p_request_id::text || ':' || step)::uuid;
-    revision := (public.remove_task_dependency(next_request, p_id, revision, dep)->'task'->>'revision')::bigint;
-  end loop;
-  foreach dep in array coalesce(p_add_dependency_ids, '{}') loop
-    step := step + 1;
-    next_request := md5(p_request_id::text || ':' || step)::uuid;
-    revision := (public.add_task_dependency(next_request, p_id, revision, dep)->'task'->>'revision')::bigint;
-  end loop;
+  -- The steps commit together, so a receipt for the first means the whole save
+  -- landed. The first step still runs, so a reused id with a different edit is
+  -- refused by its payload check, and then the task comes back as it is now.
+  -- Running the later steps again would send them a revision they never saw.
+  replay := private.task_request_seen(md5(p_request_id::text || ':1')::uuid);
+  <<steps>>
+  begin
+    if p_title is not null then
+      step := step + 1;
+      next_request := md5(p_request_id::text || ':' || step)::uuid;
+      result := public.update_task(next_request, p_id, revision, p_title, p_outcome, p_why, p_done_when, p_next_action, p_priority);
+      revision := result.revision;
+      exit steps when replay;
+    end if;
+    if p_set_parent then
+      step := step + 1;
+      next_request := md5(p_request_id::text || ':' || step)::uuid;
+      revision := (public.set_task_parent(next_request, p_id, revision, p_parent_task_id)->'task'->>'revision')::bigint;
+      exit steps when replay;
+    end if;
+    foreach dep in array coalesce(p_remove_dependency_ids, '{}') loop
+      step := step + 1;
+      next_request := md5(p_request_id::text || ':' || step)::uuid;
+      revision := (public.remove_task_dependency(next_request, p_id, revision, dep)->'task'->>'revision')::bigint;
+      exit steps when replay;
+    end loop;
+    foreach dep in array coalesce(p_add_dependency_ids, '{}') loop
+      step := step + 1;
+      next_request := md5(p_request_id::text || ':' || step)::uuid;
+      revision := (public.add_task_dependency(next_request, p_id, revision, dep)->'task'->>'revision')::bigint;
+      exit steps when replay;
+    end loop;
+  end steps;
   select * into result from public.tasks where owner_id = auth.uid() and id = p_id;
   if result.id is null then raise exception 'Task not found' using errcode = 'P0002'; end if;
   return result;

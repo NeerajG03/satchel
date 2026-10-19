@@ -32,6 +32,15 @@ test('consent: a refused grant takes the approval back, so the app never gets a 
   assert.deepEqual(calls, ['approve', 'authorize_agent_v3', 'revokeGrant:app-1']);
 });
 
+test('consent: a failed undo is tried again before giving up', async () => {
+  const {db, calls} = authDb({grantError: {message: 'Invalid topic selection'}});
+  let failures = 2;
+  const revoke = db.auth.oauth.revokeGrant;
+  db.auth.oauth.revokeGrant = async args => { if (failures-- > 0) { calls.push('revokeGrant:failed'); return {error: {message: 'offline'}}; } return revoke(args); };
+  await assert.rejects(createConnectionRepository(db).approve('auth-1', request), {message: 'Invalid topic selection'});
+  assert.deepEqual(calls, ['approve', 'authorize_agent_v3', 'revokeGrant:failed', 'revokeGrant:failed', 'revokeGrant:app-1']);
+});
+
 test('consent: both succeed, and the redirect is handed back only then', async () => {
   const {db, calls} = authDb();
   assert.deepEqual(await createConnectionRepository(db).approve('auth-1', request), {redirectUrl: 'https://app/cb?code=1'});
@@ -80,10 +89,13 @@ test('cleanup: a file younger than the margin is left alone even without a row',
 
 const {enableOvernight} = await import('../src/features/settings/enableOvernight.ts');
 const done = {clientId: 'overnight-1', refreshToken: 'r', schedule: {days: [1], times: ['03:00'], timezone: 'UTC'}};
-function overnightStores({running = null, enableError = null}) {
+function overnightStores({running = null, enableError = null, statuses = null}) {
   const revoked = [];
+  const answers = statuses ?? [running, running];
+  let asked = 0;
   return {revoked,
-    overnight: {status: async () => running, enable: async () => { if (enableError) throw enableError; }},
+    overnight: {status: async () => { const answer = answers[Math.min(asked++, answers.length - 1)]; if (answer instanceof Error) throw answer; return answer; },
+      enable: async () => { if (enableError) throw enableError; }},
     connections: {revoke: async ({client_id}) => { revoked.push(client_id); return {oauthCleanupFailed: false}; }}};
 }
 
@@ -103,4 +115,18 @@ test('overnight: a stored sign-in revokes nothing', async () => {
   const s = overnightStores({});
   await enableOvernight(s.overnight, s.connections, done);
   assert.deepEqual(s.revoked, []);
+});
+
+test('overnight: a store that landed but lost its answer is kept, and counts as on', async () => {
+  const s = overnightStores({statuses: [null, {client_id: 'overnight-1'}], enableError: new Error('timed out')});
+  await enableOvernight(s.overnight, s.connections, done);
+  assert.deepEqual(s.revoked, []);
+});
+
+test('overnight: when the state cannot be read, nothing is revoked', async () => {
+  for (const statuses of [[new Error('offline')], [null, new Error('offline')]]) {
+    const s = overnightStores({statuses, enableError: new Error('timed out')});
+    await assert.rejects(enableOvernight(s.overnight, s.connections, done), /timed out/);
+    assert.deepEqual(s.revoked, []);
+  }
 });

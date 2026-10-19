@@ -49,7 +49,13 @@ export function createConnectionRepository(db: SupabaseClient) {
       try {
         await this.grant(request);
       } catch (error) {
-        await db.auth.oauth.revokeGrant({ clientId: request.clientId }).catch(() => undefined);
+        // An approval left standing with no grant behind it is worse than the
+        // old bug: the next connect skips this page and the app is refused on
+        // every call, with nothing on the Apps page to revoke. So try hard.
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const undone = await db.auth.oauth.revokeGrant({ clientId: request.clientId }).catch(reason => ({ error: reason }));
+          if (!undone.error) break;
+        }
         throw error;
       }
       return { redirectUrl: approved.data.redirect_url };
