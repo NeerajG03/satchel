@@ -18,7 +18,7 @@
 
 ## The two write paths
 
-**`create_topic(p_id, p_name, p_brief)`** is the original companion path: `security invoker`, insert with `on conflict do nothing`, then re-read and compare. If the row exists with different content it raises `PT409`. That makes a retry with the identical payload safe without a receipt table. Since `20261019100000_one_save_one_transaction.sql` it takes an optional `p_slug` and calls `set_slug` inside the same transaction, so a taken short name refuses the whole create and leaves no topic under a derived name. The companion used to make two calls, and a refusal on the second left a topic the person then made again.
+**`create_topic(p_id, p_name, p_brief)`** is the original companion path: `security invoker`, insert with `on conflict do nothing`, then re-read and compare. If the row exists with different content it raises `PT409`. That makes a retry with the identical payload safe without a receipt table. Since `20261019110000_one_save_one_transaction.sql` it takes an optional `p_slug` and calls `set_slug` inside the same transaction, so a taken short name refuses the whole create and leaves no topic under a derived name. The companion used to make two calls, and a refusal on the second left a topic the person then made again.
 
 **`upsert_topic(...)`** is the path with a receipt, and the one agents use, through the `upsert_topic` tool and `upsert_topic_with_slug`:
 
