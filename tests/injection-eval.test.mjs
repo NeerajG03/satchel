@@ -1,5 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {search, personal, replayService} from '../eval/lib/injection-twin.mjs';
 import {scoreMoment, summarise, pair, sides, gate, asOf, aheadNeeds, comparable} from '../eval/lib/injection-scoring.mjs';
 import {paired} from '../eval/lib/metrics.mjs';
@@ -288,16 +291,24 @@ test('each labeller is paired only on the prompts both runs scored, so a zero ch
   assert.ok(Number.isNaN(paired(now.map(r => r.utility), base.map(r => r.utility)).delta));
 });
 
-test('a key in the process is used for prompt vectors without reading ~/.config/env', async () => {
-  const saved = {HOME: process.env.HOME, key: process.env.SATCHEL_EMBEDDING_KEY};
-  process.env.HOME = '/nonexistent-home';
+test('prompt vectors use the main checkout key first, then the env file, and say where they looked', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'inj-'));
+  const saved = {HOME: process.env.HOME, repo: process.env.SATCHEL_REPO, key: process.env.SATCHEL_EMBEDDING_KEY};
+  delete process.env.SATCHEL_EMBEDDING_KEY;
+  process.env.HOME = dir;
   try {
+    delete process.env.SATCHEL_REPO;
+    await assert.rejects(promptEmbedder(), /GEMINI_API_KEY is not in .*\.config\/env/, 'nothing to read says where it looked');
+    process.env.SATCHEL_REPO = dir;
+    writeFileSync(join(dir, '.env'), 'OTHER=1\nGEMINI_API_KEY="from-repo"\n');
+    assert.equal(typeof (await promptEmbedder()).embed, 'function', 'the main checkout .env is enough');
     process.env.SATCHEL_EMBEDDING_KEY = 'test-key';
-    assert.equal(typeof (await promptEmbedder()).embed, 'function');
-    delete process.env.SATCHEL_EMBEDDING_KEY;
-    await assert.rejects(promptEmbedder(), /ENOENT/, 'with no key in the process it reads the env file, as before');
+    rmSync(join(dir, '.env'));
+    assert.equal(typeof (await promptEmbedder()).embed, 'function', 'a key in the process needs no file');
   } finally {
     process.env.HOME = saved.HOME;
-    if (saved.key === undefined) delete process.env.SATCHEL_EMBEDDING_KEY; else process.env.SATCHEL_EMBEDDING_KEY = saved.key;
+    for (const [k, v] of [['SATCHEL_REPO', saved.repo], ['SATCHEL_EMBEDDING_KEY', saved.key]])
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    rmSync(dir, {recursive: true, force: true});
   }
 });
