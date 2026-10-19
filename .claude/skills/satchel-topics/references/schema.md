@@ -52,11 +52,11 @@ The slug is how a person refers to a topic out loud, and how a captured memory c
 Companion only, through `private.companion_only()`. It takes the id and the expected revision, locks the row `for update`, and then:
 
 1. counts the memories and tasks it is about to remove;
-2. collects every `storage_object` key in the topic and drops those objects through `private.drop_task_files`;
+2. collects every `storage_object` key in the topic, to hand back rather than delete (see satchel-tasks `references/storage.md`);
 3. deletes the topic's task write receipts;
 4. removes the topic id from every `agent_connections.topic_ids` array;
 5. deletes the topic, which cascades to memories, tasks and repository links;
-6. returns `{id, name, memories_removed, tasks_removed, files_removed}`.
+6. returns `{id, name, memories_removed, tasks_removed, files_removed, file_keys}`, and the app removes `file_keys` through the Storage API.
 
 The counts are returned so the UI can say what it took before and after. `src/features/topics/TopicDelete.tsx` asks first.
 
