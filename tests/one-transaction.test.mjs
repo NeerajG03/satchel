@@ -101,7 +101,12 @@ test('one button, one transaction', async t => {
     const reused = crypto.randomUUID();
     const save = title => call(user, `select save_task_edit($1,$2,$3,$4,'','','{}','','medium')`, [reused, second, revision, title]);
     await save('Draft the launch post, again');
-    await assert.rejects(save('Something else entirely'), /conflict/i);
+    await assert.rejects(save('Something else entirely'), {code: 'PT409'});
+    const [{revision: now}] = await call(user, 'select revision from tasks where id=$1', [second]);
+    const both = add => call(user, `select save_task_edit(p_request_id=>$1,p_id=>$2,p_expected_revision=>$3,p_title=>'Same title',
+      p_outcome=>'',p_why=>'',p_done_when=>'{}',p_next_action=>'',p_priority=>'medium',p_add_dependency_ids=>$4)`, [reused, second, now, add]);
+    await both([]);
+    await assert.rejects(both([task]), {code: 'PT409'}, 'the same first step with a different rest is a different edit');
   });
 
   await t.test('a stale revision changes nothing', async () => {

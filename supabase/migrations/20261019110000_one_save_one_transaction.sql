@@ -65,39 +65,46 @@ declare
   dep uuid;
   result public.tasks;
   -- Each inner routine keeps its own receipt, so each gets its own request id,
-  -- derived from the caller's so that a retry replays rather than repeats.
+  -- derived from the caller's and from the whole edit. The same edit retried
+  -- finds its receipts; a different edit under a reused id gets new ones and
+  -- meets the revision it no longer matches.
+  edit_key text := p_request_id::text || ':' || md5(jsonb_build_object(
+    'id', p_id, 'revision', p_expected_revision, 'title', p_title, 'outcome', p_outcome, 'why', p_why,
+    'done_when', p_done_when, 'next_action', p_next_action, 'priority', p_priority,
+    'set_parent', p_set_parent, 'parent', p_parent_task_id,
+    'remove', p_remove_dependency_ids, 'add', p_add_dependency_ids)::text);
   next_request uuid;
   replay boolean;
 begin
   -- The steps commit together, so a receipt for the first means the whole save
-  -- landed. The first step still runs, so a reused id with a different edit is
-  -- refused by its payload check, and then the task comes back as it is now.
-  -- Running the later steps again would send them a revision they never saw.
-  replay := private.task_request_seen(md5(p_request_id::text || ':1')::uuid);
+  -- landed. The first step still runs, as its own replay, and then the task
+  -- comes back as it is now. Running the later steps again would send them a
+  -- revision they never saw.
+  replay := private.task_request_seen(md5(edit_key || ':1')::uuid);
   <<steps>>
   begin
     if p_title is not null then
       step := step + 1;
-      next_request := md5(p_request_id::text || ':' || step)::uuid;
+      next_request := md5(edit_key || ':' || step)::uuid;
       result := public.update_task(next_request, p_id, revision, p_title, p_outcome, p_why, p_done_when, p_next_action, p_priority);
       revision := result.revision;
       exit steps when replay;
     end if;
     if p_set_parent then
       step := step + 1;
-      next_request := md5(p_request_id::text || ':' || step)::uuid;
+      next_request := md5(edit_key || ':' || step)::uuid;
       revision := (public.set_task_parent(next_request, p_id, revision, p_parent_task_id)->'task'->>'revision')::bigint;
       exit steps when replay;
     end if;
     foreach dep in array coalesce(p_remove_dependency_ids, '{}') loop
       step := step + 1;
-      next_request := md5(p_request_id::text || ':' || step)::uuid;
+      next_request := md5(edit_key || ':' || step)::uuid;
       revision := (public.remove_task_dependency(next_request, p_id, revision, dep)->'task'->>'revision')::bigint;
       exit steps when replay;
     end loop;
     foreach dep in array coalesce(p_add_dependency_ids, '{}') loop
       step := step + 1;
-      next_request := md5(p_request_id::text || ':' || step)::uuid;
+      next_request := md5(edit_key || ':' || step)::uuid;
       revision := (public.add_task_dependency(next_request, p_id, revision, dep)->'task'->>'revision')::bigint;
       exit steps when replay;
     end loop;

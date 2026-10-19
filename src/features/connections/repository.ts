@@ -55,6 +55,7 @@ export function createConnectionRepository(db: SupabaseClient) {
         for (let attempt = 0; attempt < 3; attempt++) {
           const undone = await db.auth.oauth.revokeGrant({ clientId: request.clientId }).catch(reason => ({ error: reason }));
           if (!undone.error) break;
+          await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
         }
         throw error;
       }
