@@ -484,6 +484,11 @@ export async function consolidatePending(service, consolidator,
 
 const TOTALS = ['added', 'extended', 'replaced', 'retired', 'affirmed', 'dropped'];
 
+/** The least time left in a step for starting another session. The calls on
+ *  19 October ran 6 to 46 seconds, so a start with less than this is likelier
+ *  to be cut off than to finish. */
+export const MIN_START_MS = 45000;
+
 /** One call's share of a job: read sessions until this call's time is up, then
  *  say whether the chain should carry on.
  *
@@ -539,7 +544,13 @@ export async function consolidateStep(service, consolidator, job,
     mayMakeTopics(service)]);
   let failures = 0;
   let index = 0;
-  for (; index < waiting.length && now() < deadline; index++) {
+  // A call started with less than the slowest ones take is cut off by the
+  // step's own clock and recorded as a failure. On 19 October a session got
+  // 16 seconds at the end of a step, failed, and counted toward the three in a
+  // row that stop a job. The next step has a full clock, so the session waits.
+  // Against the job's wall there is no next step, so the floor does not apply.
+  const room = deadline < wall ? MIN_START_MS : 0;
+  for (; index < waiting.length && now() + room < deadline; index++) {
     const run = await consolidateDocument(service, consolidator, waiting[index],
       {topics, cap: settings.block_size, churn: settings.staleness_commits,
        deadline, traced, ownerId, topicsAllowed});
