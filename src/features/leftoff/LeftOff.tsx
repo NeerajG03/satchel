@@ -13,15 +13,19 @@ import { Provenance } from '../../ui/Provenance';
 import { accountHandle } from '../../shell/Header';
 import { LeftOffEmpty } from './LeftOffEmpty';
 import { TaskRow } from '../tasks/TaskRow';
+import { newestChange, newsByTopic } from '../memories/ledger';
+import { bookSeen } from '../memories/seen';
 
 export function LeftOff() {
   const stores = useStores();
   const { user } = useAuth();
   const page = useLoad(async () => {
-    const [topics, tasks, memories, connections] = await Promise.all([
+    const [topics, tasks, memories, connections, archived] = await Promise.all([
       stores.topics.list(), stores.tasks.listAll(), stores.memories.listAll(), stores.connections.list(),
+      // Only for the counts below, so it never takes the page down.
+      stores.memories.archived().catch(() => []),
     ]);
-    return { topics, tasks, memories, connections };
+    return { topics, tasks, memories, connections, archived };
   }, [stores]);
 
   const data = page.data;
@@ -32,6 +36,11 @@ export function LeftOff() {
   const moving = data?.tasks.filter(task => task.status === 'ready' || task.status === 'in_progress').length ?? 0;
   const newest = data?.memories[0];
   const live = data?.connections.filter(c => !c.revoked_at) ?? [];
+  // Read, never marked: only opening the book counts as having looked.
+  const seen = bookSeen();
+  const news = data ? newsByTopic(data.memories, data.archived, seen?.at ?? null, newestChange(data.memories, data.archived)) : [];
+  const freshTotal = news.reduce((sum, topicNews) => sum + topicNews.fresh.length, 0);
+  const freshTopics = news.filter(topicNews => topicNews.fresh.length > 0).length;
 
   useFooter(data ? `${count(data.memories.length, 'in the book', 'in the book')} · ${count(moving, 'task', 'tasks')} moving · ${count(live.length, 'app')}` : '',
     firstRun ? { light: 'amber', word: 'Nothing saved yet' } : undefined);
@@ -57,14 +66,18 @@ export function LeftOff() {
         {waiting > 0 && <p className="fine muted">{count(waiting, 'more task is', 'more tasks are')} waiting on something. <Link to="/tasks">See them in Tasks</Link></p>}
       </section>
       <aside>
-        <div className="aside-block">
+        {freshTotal > 0 ? <div className="aside-block">
+          <div className="between"><h3>Since you last looked</h3></div>
+          <p className="serif" style={{ fontSize: 19, lineHeight: 1.4 }}>{count(freshTotal, 'new memory', 'new memories')} in {count(freshTopics, 'topic')}.</p>
+          <Link to="/book" className="fine">See what came in</Link>
+        </div> : <div className="aside-block">
           <div className="between"><h3>Last thing saved</h3></div>
           {newest ? <>
             <p className="serif" style={{ fontSize: 19, lineHeight: 1.4 }}>“{newest.statement}”</p>
             <Provenance parts={[newest.name, scopeName(topicScope(newest.topic_id), data.topics), `revision ${newest.revision}`]} at={newest.updated_at} />
             <Link to={`/book${scopeQuery(topicScope(newest.topic_id))}`} className="fine">Open the book</Link>
           </> : <p className="muted fine">Nothing in the book yet. <Link to="/book">Write the first thing down</Link>.</p>}
-        </div>
+        </div>}
         <div className="aside-block">
           <div className="between"><h3>Your apps</h3><Link to="/apps" className="fine">Manage apps</Link></div>
           {live.length === 0 && <p className="muted fine">No apps connected. <Link to="/apps">See the steps</Link>.</p>}

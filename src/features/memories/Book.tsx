@@ -3,14 +3,14 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useStores } from '../../app/stores';
 import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
-import { parseScope, scopeEyebrow, scopeName, scopeQuery } from '../../app/scope';
+import { parseScope, scopeEyebrow, scopeName, scopeQuery, topicScope } from '../../app/scope';
 import { count, whenText } from '../../app/format';
 import { EMPTY_CONTENT, replaceSummary, type Memory, type MemoryContent, type MemorySummary } from './model';
 import { ScopePicker } from '../../shell/ScopePicker';
 import { Composer } from './Composer';
 import { MemoryEntry } from './MemoryEntry';
-import { byDay, changeOf, dated, newestChange, sinceLast, type Day } from './ledger';
-import { lastSeen, markSeen, type Seen } from './seen';
+import { byDay, changeOf, dated, newestChange, newsByTopic, type Day, type TopicNews } from './ledger';
+import { bookSeen, markBookSeen, type Seen } from './seen';
 import { Segments } from '../../ui/Segments';
 import { Empty } from '../../ui/Empty';
 import { LoadError, Notice, Skeleton } from '../../ui/Notice';
@@ -26,7 +26,7 @@ type Where = 'all' | 'name' | 'statement';
 const DAY_WORD: Record<Day, string> = { today: 'Today', yesterday: 'Yesterday', week: 'Last 7 days', older: 'Before that' };
 // Enough to cover a busy week without the page turning back into a scroll.
 const FIRST = 20;
-const NOTE_FIRST = 3;
+const NOTE_FIRST = 5;
 
 function matcher(query: string) {
   const needle = query.trim().toLowerCase();
@@ -47,6 +47,9 @@ export function Book() {
   // One load for every scope. The picker needs counts for all of them anyway,
   // and only all_memories carries the dates that tell new from said again.
   const memories = useLoad(() => stores.memories.listAll(), [stores]);
+  // Only for the note's archived counts, so a failure here leaves them out
+  // rather than taking the book down.
+  const archived = useLoad(() => stores.memories.archived(), [stores]);
   const scopeKey = scope.kind === 'topic' ? scope.topicId : 'personal';
   const action = useAction();
   // Reading and forgetting one entry. Their failure shows under that entry,
@@ -64,8 +67,10 @@ export function Book() {
   const [where, setWhere] = useState<Where>('all');
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const [noteAll, setNoteAll] = useState(false);
-  useEffect(() => { setShowAll(false); setNoteAll(false); setOpenKey(null); }, [scopeKey]);
+  // Which topics in the note are open, and which show every row.
+  const [openTopics, setOpenTopics] = useState<Set<string> | null>(null);
+  const [allTopics, setAllTopics] = useState<Set<string>>(new Set());
+  useEffect(() => { setShowAll(false); setOpenKey(null); }, [scopeKey]);
 
   const hasDraft = Boolean(content.statement || content.name || content.more_info);
   const open = composerOpen || composeParam || hasDraft;
@@ -93,20 +98,31 @@ export function Book() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memories.data, scopeKey, query, searchAll, where]);
 
-  // One visit per scope: what was last seen, and the newest change when this
-  // visit began. Both are database times, so a browser clock that is off
-  // cannot hide a memory or show it twice. Taken from the first load, so a
-  // memory written while the page is open is not news.
-  const visits = useRef(new Map<string, { seen: Seen | null; until: string }>());
-  if (memories.data && !visits.current.has(scopeKey))
-    visits.current.set(scopeKey, { seen: lastSeen(scopeKey), until: newestChange(inScope) });
-  const visit = visits.current.get(scopeKey);
+  // One visit for the whole book: what was last seen, and the newest change
+  // when this visit began. Both are database times, so a browser clock that
+  // is off cannot hide a memory or show it twice. Taken once everything has
+  // loaded, so a memory written while the page is open is not news.
+  const visitRef = useRef<{ seen: Seen | null; until: string } | null>(null);
+  if (!visitRef.current && memories.data && !archived.loading)
+    visitRef.current = { seen: bookSeen(), until: newestChange(memories.data, archived.data ?? []) };
+  const visit = visitRef.current;
   // Only once the note could have been shown. Searching hides it, so a visit
   // that was only ever a search leaves the news for next time.
-  useEffect(() => { if (visit && !query) markSeen(scopeKey, visit.until); }, [scopeKey, visit, query]);
+  useEffect(() => { if (visit && !query) markBookSeen(visit.until); }, [visit, query]);
 
   const groups = useMemo(() => byDay(visible), [visible]);
-  const note = useMemo(() => visit ? sinceLast(inScope, visit.seen?.at ?? null, visit.until) : { fresh: [], moved: 0 }, [inScope, visit]);
+  const news = useMemo(() => visit ? newsByTopic(memories.data ?? [], archived.data ?? [], visit.seen?.at ?? null, visit.until) : [],
+    [memories.data, archived.data, visit]);
+  const freshTotal = news.reduce((sum, topicNews) => sum + topicNews.fresh.length, 0);
+  const freshTopics = news.filter(topicNews => topicNews.fresh.length > 0).length;
+  const topicKey = (topicId: string | null) => topicId ?? 'personal';
+  // The topic you are in starts open, so its news is one glance away.
+  const isOpen = (topicId: string | null) => openTopics ? openTopics.has(topicKey(topicId)) : topicKey(topicId) === scopeKey;
+  function toggleTopic(topicId: string | null) {
+    const next = new Set(openTopics ?? news.filter(n => isOpen(n.topicId)).map(n => topicKey(n.topicId)));
+    if (next.has(topicKey(topicId))) next.delete(topicKey(topicId)); else next.add(topicKey(topicId));
+    setOpenTopics(next);
+  }
   let budget = showAll || query ? Infinity : FIRST;
   const shownGroups = groups.map(group => {
     const items = group.items.slice(0, Math.max(0, budget));
@@ -152,6 +168,7 @@ export function Book() {
     const done = await entry.run(async () => { await stores.memories.forget(memory); return true; });
     if (!done) return;
     memories.replace(items => items.filter(item => item.id !== memory.id));
+    archived.reload();
     setForgetId(null);
     if (expanded?.id === memory.id) setExpanded(null);
     // Where it went, because it did not go anywhere final. Forgetting stops a
@@ -168,7 +185,10 @@ export function Book() {
   }
   function entryFor(memory: MemorySummary, place: 'note' | 'list', tagged: boolean) {
     const key = `${place}:${memory.id}`;
-    if (place === 'list' && editing?.id === memory.id) return <Composer key={key} content={content} scopeLabel={label} open busy={action.busy} error={action.error} editing={editing}
+    // A memory from another topic is only on screen in the note, so it is
+    // corrected there.
+    const here = place === 'list' || !inScope.some(item => item.id === memory.id);
+    if (here && editing?.id === memory.id) return <Composer key={key} content={content} scopeLabel={label} open busy={action.busy} error={action.error} editing={editing}
       onOpen={() => undefined} onChange={setContent} onDiscard={clearDraft} onSave={() => void save()} />;
     return <Fragment key={key}><MemoryEntry memory={memory} change={changeOf(memory)} open={openKey === key}
       expanded={expanded} busy={action.busy || entry.busy} tagged={tagged} wrap={Boolean(query)}
@@ -178,6 +198,32 @@ export function Book() {
       onRead={() => void read(memory)} onHide={() => setExpanded(null)} onCorrect={() => void read(memory, true)}
       onAskForget={ask => setForgetId(ask ? key : null)} onForget={() => void forget(memory)} />
       {entry.error && entryId === memory.id && openKey === key && <Notice look="error" title="Could not finish that.">{entry.error}</Notice>}</Fragment>;
+  }
+
+  function topicRow(topicNews: TopicNews<MemorySummary>) {
+    const key = topicKey(topicNews.topicId);
+    const name = scopeName(topicScope(topicNews.topicId), topicList);
+    const open = isOpen(topicNews.topicId);
+    const rows = [...topicNews.fresh, ...topicNews.again, ...topicNews.changed];
+    const shown = allTopics.has(key) ? rows : rows.slice(0, NOTE_FIRST);
+    const rest = [topicNews.fresh.length > 0 && 'new', topicNews.again.length > 0 && `${topicNews.again.length} said again`,
+      topicNews.changed.length > 0 && `${topicNews.changed.length} changed`, topicNews.archived > 0 && `${topicNews.archived} archived`]
+      .filter(Boolean).join(' · ');
+    return <div key={key} className="topic">
+      <button type="button" className="topic-row" aria-expanded={open} aria-controls={open ? `news-${key}` : undefined} onClick={() => toggleTopic(topicNews.topicId)}>
+        <span className="chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
+        <span className="name">{name}</span>
+        <span className="n">{topicNews.fresh.length || ''}</span>
+        <span className="rest">{rest}</span>
+      </button>
+      {open && <div className="topic-news" id={`news-${key}`}>
+        {shown.map(memory => entryFor(memory, 'note', true))}
+        <div className="row wrap">
+          {shown.length < rows.length && <Button look="link" onClick={() => setAllTopics(new Set(allTopics).add(key))}>Show all {rows.length} for {name}</Button>}
+          {key !== scopeKey && <Link to={`/book${scopeQuery(topicScope(topicNews.topicId))}`} className="fine">Open {name === 'For me' ? 'For me' : 'its book'}</Link>}
+        </div>
+      </div>}
+    </div>;
   }
 
   const locked = editing ? 'Finish or discard the correction to switch scope.' : hasDraft ? 'Save or discard the draft to switch scope.' : undefined;
@@ -227,11 +273,12 @@ export function Book() {
       Memories saved in “For me” and other topics are not searched unless you widen the scope above.
     </Empty>}
 
-    {!query && !editing && note.fresh.length > 0 && <section className="panel since" aria-labelledby="since-title">
-      <h2 id="since-title" className="lead">{count(note.fresh.length, 'new memory', 'new memories')} since you last looked.</h2>
-      <p className="prov">You were last here {whenText(visit!.seen!.visited)}{note.moved > 0 && ` · ${count(note.moved, 'other was', 'others were')} said again or changed`}</p>
-      <div>{(noteAll ? note.fresh : note.fresh.slice(0, NOTE_FIRST)).map(memory => entryFor(memory, 'note', true))}</div>
-      {!noteAll && note.fresh.length > NOTE_FIRST && <Button look="link" onClick={() => setNoteAll(true)}>Show the other {note.fresh.length - NOTE_FIRST}</Button>}
+    {!query && news.length > 0 && <section className="panel since" aria-labelledby="since-title">
+      <h2 id="since-title" className="lead">{freshTotal > 0
+        ? `${count(freshTotal, 'new memory', 'new memories')} since you last looked, in ${count(freshTopics, 'topic')}.`
+        : 'Nothing new since you last looked.'}</h2>
+      <p className="prov">You were last here {whenText(visit!.seen!.visited)}</p>
+      <div className="topics">{news.map(topicNews => topicRow(topicNews))}</div>
     </section>}
 
     {query ? <div>{visible.map(memory => entryFor(memory, 'list', false))}</div>

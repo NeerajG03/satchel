@@ -67,6 +67,8 @@ const CSS = (dark) => `
   .day-head { display:flex; align-items:baseline; gap:12px; padding:20px 0 6px; border-bottom:1px solid var(--ink); } .day-head h2 { margin:0; font:500 20px/1.25 'Newsreader', serif; }
   .since { border:1px solid var(--line); background:var(--paper2); border-radius:14px; padding:16px 18px 10px; display:flex; flex-direction:column; gap:4px; margin-top:18px; }
   .since .line-row { border-bottom-color:var(--paper3); } .since .line-row:hover { background:var(--paper3); }
+  .topic-row { display:grid; grid-template-columns:16px minmax(0,220px) 40px minmax(0,1fr); gap:12px; align-items:center; min-height:44px; padding:6px; border-top:1px solid var(--paper3); color:var(--ink); }
+  .topic-row:hover { background:var(--paper3); text-decoration:none; color:var(--ink); }
   .led { width:9px; height:9px; border-radius:50%; background:var(--led-off); flex:none; box-shadow:inset 0 1px 1px #0004; }
   .led.green { background:var(--led-green); box-shadow:0 0 0 3px #3E9E6233; } .led.amber { background:var(--led-amber); box-shadow:0 0 0 3px #E2A11E33; } .led.red { background:var(--led-red); box-shadow:0 0 0 3px #C8442E33; }
   .field { width:100%; border:1px solid var(--line); background:var(--paper2); color:var(--ink); border-radius:8px; padding:11px 13px; font:15px/1.4 'Instrument Sans', sans-serif; }
@@ -291,15 +293,13 @@ const memoryEntry = ({ name, desc, prov, rev, expanded = false, body = '', scope
 // Book: a ledger, one line a memory, with what came in since you last looked
 const WHY = { new: ['chip progress', 'New'], again: ['chip', 'Said again'], changed: ['chip amber', 'Changed'] };
 const lineRow = ([why, s, k, t]) => `<a href="#" class="line-row"><span>${why ? `<span class="${WHY[why][0]}">${WHY[why][1]}</span>` : ''}</span><span class="s">${s}</span><span class="k">${k}</span><span class="t">${t}</span></a>`;
-const book = desktop({ active: 'Book', footL: '52 in the book · For me', paper: `
+const book = desktop({ active: 'Book', footL: '43 in the book · For me', paper: `
   <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">For me</span><h1 class="h1">The book.</h1></div>
     <div class="row">${scopePicker('For me')}<a href="#" class="btn icon" aria-label="Search the book">${icon.search}</a></div></div>
-  <section class="since"><h2 class="serif" style="margin:0; font-size:20px; font-weight:500;">6 new memories since you last looked.</h2>
-    <span class="prov">You were last here Thu · 2 others were said again or changed</span>
-    <div>${[['new', 'Use ▣ as Satchel’s mark in the memory blocks, and never use ◪.', 'how you like things', '2 h'],
-      ['new', 'Leave both Satchel connections active, because the cloud session needs one and the local session needs another.', 'how things are', '5 h'],
-      ['new', 'Automatic topic picking has to be right at least 9 times in 10.', 'how you like things', '6 h']].map(lineRow).join('')}</div>
-    <a href="#" style="font-weight:500; margin:4px 0 6px;">Show the other 3</a></section>
+  <section class="since"><h2 class="serif" style="margin:0; font-size:20px; font-weight:500;">35 new memories since you last looked, in 5 topics.</h2>
+    <span class="prov">You were last here Mon 18:40</span>
+    <div style="margin-top:8px;">${[['▾', 'For me', '17', 'new · 7 said again · 5 changed · 1 archived'], ['▸', 'Api Automation', '10', 'new · 1 said again · 1 changed'], ['▸', 'Satchel', '6', 'new · 1 said again · 2 changed · 1 archived'], ['▸', 'Different Skill System', '1', 'new'], ['▸', 'Java Backend', '1', 'new']]
+      .map(([c, t, n, r], i) => `<a href="#" class="topic-row"${i === 0 ? ' style="background:var(--paper3);"' : ''}><span class="prov">${c}</span><span class="serif" style="font-size:17px; font-weight:500;">${t}</span><span class="serif" style="font-size:20px; text-align:right;">${n}</span><span class="prov">${r}</span></a>${i === 0 ? `<div style="padding:2px 0 10px 28px;">${[['new', 'Keep every reply under 200 words unless the person asks for more.', 'how you like things', '3 h'], ['new', 'Push updates to pull requests as normal commits without force-pushing.', 'how you like things', '12 h'], ['again', 'Never add Claude as a co-author in commits, and never add an AI line to the PR description.', 'how you like things', '12 h']].map(lineRow).join('')}<a href="#" style="font-weight:500;">Show all 30 for For me</a></div>` : ''}`).join('')}</div></section>
   <div class="day-head"><h2>Today</h2><span class="prov">4 new · 2 said again</span></div>
   ${[['new', 'Use ▣ as Satchel’s mark in the memory blocks, and never use ◪.', 'how you like things', '2 h'],
     ['again', 'Code comments only when the code can’t explain itself, about the why, never ticket numbers.', 'how you like things', '3 h'],
