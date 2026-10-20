@@ -9,7 +9,7 @@ Start here for any change. Then read the `design` skill for anything visible and
 
 ## What Satchel is
 
-A hosted home for a person's memory, topics and tasks, handed to the AI coding apps they use through a plugin. Agents write only when asked. Satchel may add memories itself from recorded conversations, always unconfirmed, always with a record that can be undone. Every app sees only what it was allowed to see. `README.md` and `docs/product.md` say more. `docs/decisions.md` is the product ledger and `design/decisions.md` is the design ledger. Read the relevant rows before proposing something that looks like it was already settled.
+A hosted home for a person's memory and topics, handed to the AI coding apps they use through a plugin. Agents write only when asked. Satchel may add memories itself from recorded conversations, always unconfirmed, always with a record that can be undone. Every app sees only what it was allowed to see. `README.md` and `docs/product.md` say more. `docs/decisions.md` is the product ledger and `design/decisions.md` is the design ledger. Read the relevant rows before proposing something that looks like it was already settled.
 
 ## Layout
 
@@ -38,7 +38,7 @@ A hosted home for a person's memory, topics and tasks, handed to the AI coding a
  plugin change: integrations/shared  ──►  npm run plugins:build  ──►  commit generated files
 ```
 
-Do all the steps a change needs. A new task field, for example, needs the migration, the service, the tool schema, the repository type, the page, the copy deck, and a test.
+Do all the steps a change needs. A new memory field, for example, needs the migration, the service, the tool schema, the repository type, the page, the copy deck, and a test.
 
 ## Before you push
 
@@ -57,7 +57,7 @@ If you changed a model prompt, read the `prompt-management` skill first, then ru
 
 - A new or changed user-facing string: `design/copy.md`, and `design/canvas/gen.mjs` if it is on a board.
 - A settled choice that changes: a new row at the top of `docs/decisions.md` or `design/decisions.md`.
-- A new tool or grant rule: `docs/memory-and-storage.md` or `docs/tasks-and-handoffs.md`.
+- A new tool or grant rule: `docs/memory-and-storage.md`.
 - Plugin behaviour: `docs/agent-setup.md`.
 
 ## Commits and pull requests

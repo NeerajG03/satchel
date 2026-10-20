@@ -8,10 +8,10 @@ Historical capability mapping and proposed evidence gates · 8 September 2026. T
 |---|---|
 | Initialization, home directory, configuration | Account/service setup plus supported native plugin installation; machine setup stays with its environment |
 | Topics and repository registry | Portable topic catalog with repository/source references and separate local mappings |
-| gig task state | Supabase-native Satchel tasks after a verified, explicit cutover; preserve IDs, history, links and exports |
-| Pickup/work/done | Native execution plus task operations and portable handoffs |
+| gig task state | Moves to Notion or another tracker. Satchel has no tasks |
+| Pickup/work/done | Native execution, with topic context from Satchel |
 | Worktrees and task folders | Native app/Git ownership; retain focused multi-repo setup scripts where needed |
-| Checkpoints | Structured work evidence on the authoritative task |
+| Checkpoints | Saved as memories on the topic when worth keeping, otherwise left in the tracker |
 | Ship, PRs, releases | Native Git and repository workflows; link evidence and close multi-repo work deliberately |
 | Skill registry/injection | Versioned skill sources and existing native distribution; separate installations and execution requirements |
 | Personas and default persona models | Retire identities; useful procedures become skills, repo guidance, or supported records by meaning |
@@ -35,11 +35,11 @@ Historical capability mapping and proposed evidence gates · 8 September 2026. T
 
 The earlier report includes an inventory-based disposition of 25 skills. Its detail is retained in [the original capability report](archive/jeff-rethinking/JEFF-portable-context-report.md). Preserve investigation and database workflows (`aws`, `oodle`, `mongodb`, `temporal`, `langfuse`, `prompt-mgmt`, `root-cause`); review/testing procedures; code generators; release procedures; reimbursement scripts; editor and specialist workflows; and useful skill-authoring guidance according to actual use.
 
-Keep their dependencies and audience explicit. Existing Notion or Slack workflows may continue independently; importing their skill documentation would not establish a built-in Satchel task integration. Recheck the historically deprecated `notion` skill before using it. Retire active `curation` and `crew-orchestrator` behavior while preserving historical evidence and any independently useful procedure.
+Keep their dependencies and audience explicit. Existing Notion or Slack workflows may continue independently; importing their skill documentation would not establish a built-in Satchel integration. Recheck the historically deprecated `notion` skill before using it. Retire active `curation` and `crew-orchestrator` behavior while preserving historical evidence and any independently useful procedure.
 
 The old inventory is dated evidence, not a fresh audit. This documentation update has not executed those workflows or certified their portability.
 
-## Historical memory and task material
+## Historical memory material
 
 The prior reports recorded 68 accepted entries, 99 proposals, and 344 queued session references, along with seven personas and sixteen configured/built-in hooks. These counts came from the earlier inspection and have not been refreshed here.
 
@@ -53,9 +53,8 @@ Use one bounded triage for old proposals. Archive unresolved items outside activ
 2. **Prove continuity with synthetic data.** Test a real supported phone/laptop pair against the chosen service and host integrations. Gate: save, retrieve, correct, revoke, fail, export, and laptop-off behavior are evidenced.
 3. **Resolve storage and installation choices.** Select the smallest architecture that passes the tests. In parallel where practical, prepare a reviewed private skill package without removing the registry. Gate: actual per-host installation and a representative second-machine script run.
 4. **Move selected content.** Preserve provenance, IDs, scope, correction links, source access, and useful skill dependencies. Gate: validated records and source mappings, no blanket upload of JEFF home.
-5. **Cut over selected tasks.** Verify personal/topic scope, state, dependency links, typed attributes, handoffs, and original-ID mapping. Gate: Supabase is the one authority for migrated records, with usable historical lookup.
-6. **Retire duplicate runtime last.** Finish or preserve sessions, uncommitted code, hooks, and tool dependencies first. Gate: normal work no longer needs the removed component; useful Python/specialized tools still run.
-7. **Evaluate daily use.** Measure repeated explanations, missed saves, stale facts, failed retrievals, setup friction, cost, and maintenance time. Improve the demonstrated problem rather than automatically adding a curator or fleet.
+5. **Retire duplicate runtime last.** Finish or preserve sessions, uncommitted code, hooks, and tool dependencies first. Gate: normal work no longer needs the removed component; useful Python/specialized tools still run.
+6. **Evaluate daily use.** Measure repeated explanations, missed saves, stale facts, failed retrievals, setup friction, cost, and maintenance time. Improve the demonstrated problem rather than automatically adding a curator or fleet.
 
 These are proposed gates, not a scheduled implementation plan. An archive is not permission to delete the source. After cutover, never restore an old snapshot over newer writes; pause and reconcile changes before changing authority again.
 
@@ -73,8 +72,6 @@ These are proposed gates, not a scheduled implementation plan. An archive is not
 | Topic/access isolation | Similar names, work/personal boundaries, and revoked access cannot leak context through search or caches |
 | Companion identity | Direct phone saves do not depend on a separate Claude/Codex grant |
 | Effective-client preview | Matches what that connection can retrieve; manual export is labeled separately |
-| Task operations | Supported surfaces can perform Satchel task operations; hierarchy/dependencies, conflicts and unavailable resources remain visible |
-| Multi-repo completion | A partial PR cannot prematurely complete the overall task |
 | Code transfer | Recipient can access the referenced code or is told it remains unavailable |
 | Skill installation | Correct source/version/scope is established in each tested host |
 | Skill execution | Representative script runs from a fresh clone on another machine with declared dependencies |

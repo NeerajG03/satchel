@@ -14,23 +14,6 @@
       "brief": "A rearchitecture of the campaign data model that breaks apart tightly-coupled, channel-specific entities"
     }
   ],
-  "tasks": [
-    {
-      "slug": "agent-session",
-      "topic": "satchel",
-      "title": "Make the agent session a thing Satchel holds, not a key it passes around"
-    },
-    {
-      "slug": "scope-from-session",
-      "topic": "satchel",
-      "title": "Work out the project a memory belongs to, when the repository cannot say"
-    },
-    {
-      "slug": "email-pacing-v1",
-      "topic": "email-self-serve",
-      "title": "Ship the first pacing strategy"
-    }
-  ],
   "cases": [
     {
       "id": "w01",

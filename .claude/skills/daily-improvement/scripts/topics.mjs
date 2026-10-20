@@ -19,7 +19,6 @@ const inWindow = column => `${column} > ${lit(since)} and ${column} <= ${lit(unt
 
 const topics = await sql(`select t.slug, t.made_by, t.created_at, t.merged_into is not null merged,
     (select count(*) from public.memories m where m.topic_id = t.id and m.ended_at is null)::int memories,
-    (select count(*) from public.tasks k where k.topic_id = t.id and k.status <> 'done')::int tasks,
     (select count(*) from public.topic_repositories r where r.topic_id = t.id)::int repositories
   from public.topics t order by t.created_at`);
 const personal = await sql(`select kind, count(*)::int n from public.memories
@@ -74,8 +73,8 @@ const lines = [
     ['name overlaps to judge', overlap.length],
   ]), '',
   '## Every topic', '',
-  table(['slug', 'made by', 'since', 'memories', 'open tasks', 'repos'],
-    live.map(t => [t.slug, t.made_by, day(t.created_at).slice(0, 10), t.memories, t.tasks, t.repositories])), '',
+  table(['slug', 'made by', 'since', 'memories', 'repos'],
+    live.map(t => [t.slug, t.made_by, day(t.created_at).slice(0, 10), t.memories, t.repositories])), '',
   '## Made, moved and merged in this window', '',
   table(['when', 'what', 'detail', 'why'], [
     ...actions.filter(a => a.did === 'made topic').map(a => [day(a.started_at), 'made topic', a.statement, a.why ?? '']),

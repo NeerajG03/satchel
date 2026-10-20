@@ -22,13 +22,13 @@ Everything under `design/mockup/`, `design/prototype/` and `design/archive/` is 
 
 ## Rules that are easy to break
 
-**Surfaces.** The hardware frame paints the outer box, the header and the rail. Paper is an inset panel. A memory or a task is never drawn on hardware. A permission switch or an app control is never drawn on paper.
+**Surfaces.** The hardware frame paints the outer box, the header and the rail. Paper is an inset panel. A memory is never drawn on hardware. A permission switch or an app control is never drawn on paper.
 
 **Colour.** Use the tokens, never a hex value in a component. Orange (`--orange`) is only for selected controls and focus rings on hardware. On paper, links and accent text use `--accent`. Red is only for things that stop you or delete. Green appears only after something was actually verified. A light (LED) never stands alone. It always sits next to a word.
 
 **Type.** Newsreader for what the user wrote and for page headings. Instrument Sans for interface text. DM Mono for readouts only: eyebrows, provenance, counts, the footer. Caveat is the wordmark and nothing else. Mono is never used for an action or for critical state.
 
-**Controls.** Every clickable thing is a native `button`, `a href`, `input`, `select` or `textarea`. Nothing clickable on a `div`. Paper buttons are 40 px, radius 8. Rail items and hardware keys are 44 px. Use the pieces in `src/ui/` (Button, Chip, Light, Field, Notice, Sheet, Menu, Segments, Provenance, Empty) before writing new ones.
+**Controls.** Every clickable thing is a native `button`, `a href`, `input`, `select` or `textarea`. Nothing clickable on a `div`. Paper buttons are 40 px, radius 8. Rail items and hardware keys are 44 px. Use the pieces in `src/ui/` (Button, Chip, Light, Field, Notice, Sheet, Segments, Provenance, Empty) before writing new ones.
 
 **The mark.** Never redraw it. The source is [design/mark/](../../../design/mark/): `mark.svg` at 32 px and up, `mark-small.svg` (no glyph) below that, `lockup.svg` for mark plus wordmark. In code use `SatchelMark` from `src/ui/SatchelMark.tsx`. Its rules live on the Mark board in `design/canvas/gen.mjs` and in `design/mark/README.md`: three parts only, the light is always orange, clear space equals the paper inset, never crop the frame. On a dark background (the header, the rail, any hardware) pass `ring` so a 1 px paper ring keeps the frame from sinking into the hardware.
 

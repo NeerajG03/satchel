@@ -133,7 +133,7 @@ It accepts three credentials, all under RLS as the owner: the hook scripts' agen
 
 **`server/mcp-server.mjs`** owns the tool surface. It does not format hook JSON any more; the hook endpoints do, through `hook-handler.mjs`.
 
-Tools: `list_topics`, `upsert_topic`, `select_topic`, `memory_index`, `retrieve_memory`, `read_memory`, `save_memory`, `correct_memory`, `confirm_memory`, `forget_memory`, plus the task tools when the grant allows. `select_topic` with an `event` is the recovery path for a session whose hook could not run, and returns what the hook would have injected.
+Tools: `list_topics`, `upsert_topic`, `select_topic`, `memory_index`, `retrieve_memory`, `read_memory`, `save_memory`, `correct_memory`, `confirm_memory` and `forget_memory`. `select_topic` with an `event` is the recovery path for a session whose hook could not run, and returns what the hook would have injected.
 
 `forget_memory` ends the row as `forgotten` through `end_memory`, the same call the web app's Forget makes, after checking the memory is in the scope the agent named. No tool deletes a memory. It used to be `delete_memory` and ran a real `DELETE`.
 
@@ -163,15 +163,13 @@ Tools: `list_topics`, `upsert_topic`, `select_topic`, `memory_index`, `retrieve_
 
 Every memory lives in exactly one scope. `topic_id = null` is personal; anything else is an explicit topic UUID. Scope is never chosen from a directory name or a similar-looking topic name.
 
-There is no task link. `memories.task_id` was removed in `20260922100000` (R9a), with the router field, the scope check in `save_memory` and the `[task closed, may be fixed]` hint. The doubt that hint was for now comes from the repository moving (R8).
-
 A document has the same scope rule. It is set by whichever turn first knows it and never cleared, and a topic id the caller does not own is dropped rather than borrowed. The pass writes into the document's scope, except that a preference said inside a topic may still land in personal, which is why it is shown both.
 
 ## Slugs
 
-A model copies an identifier and rewrites a title, so slugs exist. They are unique per user across topics and tasks together, supplied on create rather than derived, and the derived form exists only so no row can ever lack one.
+A model copies an identifier and rewrites a title, so slugs exist. They are unique per user, supplied on create rather than derived, and the derived form exists only so no row can ever lack one.
 
-`create_task_with_slug` and `upsert_topic_with_slug` are thin wrappers so a create and its slug are one round trip and one transaction. A slug collision rolls the create back rather than leaving a task named after its title.
+`upsert_topic_with_slug` is a thin wrapper so a create and its slug are one round trip and one transaction. A slug collision rolls the create back rather than leaving a topic with a slug made from its name.
 
 ## Tracing
 
@@ -190,6 +188,6 @@ GENERATION    consolidate            model=gemini-3.8-flash  usage={input,output
 
 A consolidation trace answers R11 without the database: which document and how many turns, which memories it was shown, the prompt and its version, the raw reply, and every action taken **and** every one validation refused, each naming the memory it touched. Every `memory_events` row it causes carries the same trace id, so a row and the reasoning behind it are one click apart.
 
-The router's full prompt is the input on purpose. A capture is only explicable if you can see what the router was looking at, including which topics and open tasks it had to choose from. Kept **and** dropped items are both recorded, because a router being silently filtered looks identical to one being conservative.
+The router's full prompt is the input on purpose. A capture is only explicable if you can see what the router was looking at, including which topics it had to choose from. Kept **and** dropped items are both recorded, because a router being silently filtered looks identical to one being conservative.
 
 Spans are flushed before the handler returns, because a serverless function can freeze the moment it responds.

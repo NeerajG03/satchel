@@ -23,14 +23,12 @@ Start with [The product](product.md). It explains what Satchel is for, what some
 | [Pre-launch security audit](checkpoints/security-audit-2026-09-18.md) | Which isolation boundaries passed locally, what was fixed, and which two-account checks remain before launch? |
 | [Current web pilot checkpoint](checkpoints/web-memory-pilot-2.md) | What works in the real browser, including personal memory, and where can development resume? |
 | [Build roadmap](build-roadmap.md) | What must we decide, how do we build and deploy it, and how do users install, onboard and use it? |
-| [Topics](topics.md) | What is a topic, how Satchel makes and tidies topics, and how do repositories, tasks and native app projects relate? |
+| [Topics](topics.md) | What is a topic, how Satchel makes and tidies topics, and how do repositories and native app projects relate? |
 | [Projects (superseded)](projects.md) | Points to topics. |
 | [Skills and plugins](skills-and-plugins.md) | What is shared, what is installed, and what can actually run on each platform? |
 | [Memory and storage](memory-and-storage.md) | How should save, retrieve, correct, forget, storage, and sharing work? |
 | [Memory v2 — proposed](memory-v2.md) | How could memory capture itself, what gets injected when, and what did we measure to decide? |
 | [Memory v2 build plan](memory-v2-build.md) | What exactly has to be built for it, what do Claude Code and Codex each actually support, and what did the retrieval probes prove? |
-| [Tasks and handoffs](tasks-and-handoffs.md) | How do Supabase-native tasks, handoffs, links and files preserve continuity? |
-| [Task management LLD](task-management-lld.md) | What concrete schema, permissions, atomic operations, MCP/UI flows and verification gates implement task management? |
 | [Architecture](architecture.md) | What belongs in the hosted service, companion, native plugin, and existing tools? |
 | [Decisions](decisions.md) | What is agreed, superseded, proposed, or still open? |
 | [Migration and validation](migration-and-validation.md) | Where does each JEFF capability go, and how will we prove the replacement works? |

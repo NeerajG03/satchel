@@ -7,11 +7,11 @@
 | Where | Text |
 |---|---|
 | Wordmark | satchel |
-| Rail | Left off · Book · Tasks · Topics · Apps · Settings |
+| Rail | Left off · Book · Topics · Apps · Settings (plus Activity in developer mode) |
 | Rail write key | Write |
 | Header status (word next to the light) | Synced · Nothing saved yet · No apps connected · Topic has nothing yet |
 | Footer right, default | Explicit saves only |
-| Footer left, examples | 5 in the book · 3 tasks moving · 2 apps |
+| Footer left, examples | 5 in the book · 3 topics · 2 apps |
 
 ## Welcome (signed out)
 
@@ -20,7 +20,7 @@
 - Body: Keep the decisions, preferences and next steps that make your work yours. Write them once. Every connected AI app can read them.
 - Button: Continue with GitHub
 - Under button: GitHub is only used to sign you in. Satchel never asks for repository access here.
-- Side list: The book / Preferences and decisions you chose to save. Names and short descriptions form an index agents read first. · Tasks and handoffs / The exact next action and the evidence the last session left behind. · Topics / One subject, its repositories and the apps allowed to see it. · Apps / Each connected agent gets only the scopes you grant. Revoke any time.
+- Side list: The book / Preferences and decisions you chose to save. Names and short descriptions form an index agents read first. · Topics / One subject, its repositories and the apps allowed to see it. · Apps / Each connected agent gets only the scopes you grant. Revoke any time.
 - Footer: Satchel · Private pilot — A little less repeating yourself
 
 ## Left off, first run
@@ -29,18 +29,16 @@
 - Lede: Your Satchel is empty, which is the right place to start. Do any one of these three and this page turns into "Where you left off".
 - Step 1: 01 · Two minutes / Write the first thing down / A preference about how you like to work. It applies everywhere, no topic needed. / Open the book
 - Step 2: 02 · Five minutes / Connect an AI app / Install the Satchel plugin in Claude Code or Codex, then sign in from its connection settings. You choose what it can read. / See the steps
-- Step 3: 03 · When you have one / Capture a task / A title and the next action. Later, a handoff makes it resumable from any device. / Capture a task
-- Notice when topics exist but are empty: You have {n} topics but nothing in them yet. {names} were created earlier. A topic with no memories or tasks is invisible to agents until you add something. / View topics
+- Step 3: 03 · When you have one / Start a topic / A name and a line about the subject. Memories about it gather there. / Open topics
+- Notice when topics exist but are empty: You have {n} topics but nothing in them yet. {names} were created earlier. A topic with no memories is invisible to agents until you add something. / View topics
 
 ## Left off
 
 - H1: Where you left off.
-- Actions: All tasks · Write something down
-- Section: Next actions · actionable now
-- Row: Next: {next action} · {kind} · {app} · {device} · {when} · {resource note} · Open task
-- Under list: {n} more tasks are waiting on something. See them in Tasks
-- Aside: Last thing saved / "{description}" / Said on your {device} · {scope} · {when}
-- Aside, when something is new since you last opened the book (replaces Last thing saved): Since you last looked / {n} new memories in {k} topics. / See what came in
+- Actions: Open the book · Write something down
+- Main, when something is new since you last opened the book: Since you last looked · {n} topics / {n} new memories in {k} topics. / Row: {topic} · {n} new, links to that topic's book / See what came in
+- Main, otherwise: Last thing saved / "{statement}" / {name} · {scope} · revision {n} · {when} / Open the book
+- Footer: {n} in the book · {n} topics · {n} apps
 - Aside: Your apps / reads and saves · verified today / reads only · last read Fri / not connected / Manage apps
 
 ## Book
@@ -57,7 +55,7 @@
 - Correcting: Correcting · will save as revision {n} / Revision {n-1} stays in history / Discard changes · Save correction
 - Entry actions: Correct · Read more info · Hide more info · {n} revisions
 - Provenance: Said on your {device} · {when} · revision {n} / Saved by {app} · {device} · {when} · revision {n}
-- Forget confirm: Forget this memory? It stops loading right away and waits in the archive, so you can bring it back. Copies in earlier chats, exports and {app}'s own memory are not touched. Satchel can't reach those. / Keep it · Forget
+- Forget confirm: Forget this memory? It stops loading right away and waits in the archive, so you can bring it back. Copies in earlier chats and {app}'s own memory are not touched. Satchel can't reach those. / Keep it · Forget
 - Forget footer: Forgotten · it is in the archive if you want it back
 - Below the list: Anything forgotten, replaced or finished waits in the archive.
 - Composer kind: What kind of thing is this · How things are (true until something makes it false) · How you like things (gets stronger each time you say it) · Something you want (ends when it is done)
@@ -73,43 +71,14 @@
 - Search: Searching names, descriptions and more info in this scope. Search all scopes instead / Matches {n} · In name {n} · In more info {n} / matched in name and description / Not here? Memories saved in "For me" and other topics are not searched unless you widen the scope above. / Clear
 - Footer: {n} in the book · {scope} / {n} of {total} match "{q}" / Saved to your book · revision {n} / Forgotten
 
-## Tasks
-
-- H1: Continue.
-- Lede: Tasks hold the exact next action and the evidence a session leaves behind. They don't need a repository, and they don't need a topic.
-- Actions: Export · Capture
-- Segments: Actionable {n} · Moving {n} · Blocked {n} · Done {n} · All {n}
-- Search placeholder: Title or next action
-- Row: Next: {next action} · {priority} · rev {n} · {kind} by {app} · {when} · {resource}
-- Blocked row: Blocked: {reason} · Waiting on {n} tasks
-- Under list: {n} done tasks are hidden. Show done
-- Composer: Capture a task · saving in {scope} / Title / Next action · the one concrete thing to do first / Priority / Add outcome, why, and done-when / Starts in Inbox. Move it to Ready when it has a next action. / Capture task
-- Empty: Nothing to continue yet. / Once a task exists, agents can record progress and handoffs on it. This list then shows what is moving, what is blocked, and the next action for each.
-- No matches: No matching tasks. / Clear a filter to see the rest of this scope.
-
-## Task detail
-
-- Back: ← Tasks · {scope}
-- Stepper: Inbox · Ready · In progress · Blocked · Done
-- Actions: Edit · Move to · (more)
-- Next action panel: Next action / {text} / Copy handoff
-- Composer modes: Add a comment · Record progress · Record handoff / A handoff is the stronger boundary. It needs validation evidence.
-- Composer placeholder: What changed, or what the next person should know.
-- Reference checks: Reference {resource label}
-- Timeline: Timeline · newest first / Handoff · Progress update · Comment / Completed · Validated · Decisions · Remaining · Blockers · Resources
-- Right column: Outcome · Done when · Planning · Actionable now · no unfinished dependencies · Not actionable · waiting on {n} tasks · Parent: · Blocks: · Resources · Attach · Open · Download · Technical history · {n} events
-- Move to Blocked sheet: Move to Blocked / What is in the way? / The reason shows on Left off and on the task list, so the next session knows what to clear first. / Blocker / This is recorded as a progress update with the reason as its body, so the timeline always shows why. One write, one revision. / {from} to Blocked · revision {n} / Cancel · Move to Blocked
-- Edit: ← Back to task / Editing task · state does not change here / Title / Next action · the one concrete thing to do first / Outcome · what is true when this is done / Why · the reason it matters / Done when · one per line, each becomes a checkbox / Priority / Parent, dependencies and resources are edited on the task page, not here. / What this write does / Saves with the current revision. If an agent changed the task since you opened it, you get a conflict, not an overwrite. / Last change: {app} · {kind} · {when} / Discard · Save task
-- Footer: Task · {scope} · revision {n} / Editing · revision {n} · save writes revision {n+1} / Moved to {state} / Comment added / Progress recorded / Handoff recorded
-
 ## Topics
 
 The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). Old `/projects` links redirect to the matching `/topics` path.
 
 - H1: Topics.
-- Lede: A topic is a subject your memories are about. Satchel makes one when a work fact fits none of these. You can also link a codebase or add tasks to it.
+- Lede: A topic is a subject your memories are about. Satchel makes one when a work fact fits none of these. You can also link a codebase to it.
 - Button: + New topic
-- Columns: Topic · Memories · Tasks · Apps with access · Last activity
+- Columns: Topic · Memories · Apps with access · Last activity
 - Mark on a topic Satchel made: made by Satchel
 - Merged section: Merged / kept so you can undo / {name} went into {other} / Undo merge
 - Announce after undo: Merge undone · {name} is back
@@ -118,18 +87,18 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - Topic page, merged: Merged into {other}. / Its memories moved there. Undo it from the topics list to put them back.
 - Row: No repositories linked · Nothing saved here yet.
 - New topic sheet: New topic / Name the effort, not the repo. / A topic can hold many repositories or none. You can link codebases on the next page. / Name / Brief · one or two lines an agent reads to tell this apart from your other topics / A topic with this name already exists. Create a second one anyway? Agents pick topics by name, so two with the same name can confuse them. / Opens the new topic page / Cancel · Create topic · Create anyway
-- Topic page: ← Topics / Delete topic (torn page key) / Open its book · Open its tasks / Edit brief / Linked codebases · Link another · Unlink / A linked repository lets an agent pick this topic for a coding chat. It does not grant access by itself. / Apps that can see this topic · Manage / Activity / Tasks · {n} · All tasks / Memories · {n} · Open the book
-- Empty topic: Agents can't see this topic yet. It has no brief, no memories and no tasks. Fill in the brief first so an agent can tell it apart from "{other}". / Brief · one or two lines an agent reads to know what this effort is / What is this topic for, and what does "done" look like? / Save brief / You can change it any time. / Codebases / Link a repository / Optional. Lets a coding agent select this topic when it opens that repo. / Book / Save a first decision / Something agents should know before working here. / Write in this topic's book / Tasks / Capture the next thing / A title and next action is enough to start. / Capture a task
+- Topic page: ← Topics / Delete topic (torn page key) / Open its book / Edit brief / Linked codebases · Link another · Unlink / A linked repository lets an agent pick this topic for a coding chat. It does not grant access by itself. / Apps that can see this topic · Manage / Activity / Memories · {n} · Open the book
+- Empty topic: Agents can't see this topic yet. It has no brief and no memories. Fill in the brief first so an agent can tell it apart from "{other}". / Brief · one or two lines an agent reads to know what this effort is / What is this topic for, and what does "done" look like? / Save brief / You can change it any time. / Codebases / Link a repository / Optional. Lets a coding agent select this topic when it opens that repo. / Book / Save a first decision / Something agents should know before working here. / Write in this topic's book
 - Topic not found: That topic is not here. / It may have been removed. Nothing else changed. · This topic (load error)
-- Delete topic (`/topics/{id}/delete`): ← Back to topic / Delete topic · this cannot be undone / Topic / Delete "{name}"? / Everything in it goes too: {n} memories in its book · {n} tasks, with every comment, handoff and uploaded file · {n} linked repositories. Agents opening those repos will no longer land here. · No app can see this topic. / {n} connected apps lose access to it: {names}. Their other grants stay. / Type the topic name to confirm / Keep the topic · Delete this topic / This topic changed while you were looking. / Footer: Delete topic · {name}
+- Delete topic (`/topics/{id}/delete`): ← Back to topic / Delete topic · this cannot be undone / Topic / Delete "{name}"? / Everything in it goes too: {n} memories in its book · {n} linked repositories. Agents opening those repos will no longer land here. · No app can see this topic. / {n} connected apps lose access to it: {names}. Their other grants stay. / Type the topic name to confirm / Keep the topic · Delete this topic / This topic changed while you were looking. / Footer: Delete topic · {name}
 
 ## Apps
 
 - H1: Apps.
 - Lede: Each app gets only the scopes you chose. A permission here applies to every installation using that app identity.
-- Empty: Nothing is connected yet. An app gets only the memory and task scopes you grant when it first asks. You can revoke later. / 01 · In your terminal / Install the Satchel plugin / Both apps install from the same public catalog. Pick yours. / Claude Code · Codex / {install commands} · Copy / Or let {app} do it. Copy a prompt, paste it into a {app} chat, and it runs the install for you. / Copy prompt for {app} / 02 · In the app / Sign in / The login command opens Satchel in your browser with a consent page. Nothing is granted until you allow it. / {login command} · Copy / 03 · Back here / See it connected / The app appears in this list with a green light once you allow it. / Waiting for the first connection
+- Empty: Nothing is connected yet. An app gets only the memory scopes you grant when it first asks. You can revoke later. / 01 · In your terminal / Install the Satchel plugin / Both apps install from the same public catalog. Pick yours. / Claude Code · Codex / {install commands} · Copy / Or let {app} do it. Copy a prompt, paste it into a {app} chat, and it runs the install for you. / Copy prompt for {app} / 02 · In the app / Sign in / The login command opens Satchel in your browser with a consent page. Nothing is granted until you allow it. / {login command} · Copy / 03 · Back here / See it connected / The app appears in this list with a green light once you allow it. / Waiting for the first connection
 - Empty footer panel: What a connected app can never do: read scopes you didn't grant, save without both write permission and your explicit ask, or see More info in bulk. Hooks read names and descriptions only.
-- Card: Verified · read {when} / Connected · last read {when} · no writes granted / Revoked {when} · earlier retrieved content stays in that app / Memory / Tasks / read and save · read only · read, write and upload · none / Revoke access · Edit scopes · Reconnect from the app
+- Card: Verified · read {when} / Connected · last read {when} · no writes granted / Revoked {when} · earlier retrieved content stays in that app / Memory / read and save · read only · none / Revoke access · Edit scopes · Reconnect from the app
 - Grant line: For me · Every topic, including new ones · {name} · a removed topic
 - Footer: {n} apps connected · {n} revoked / {app} access revoked — Earlier reads stay in that app
 
@@ -139,7 +108,7 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - H1: {app} wants to read your Satchel.
 - Under: Name supplied by the app · will return to {redirect}
 - Quick start: Read everything · Read and save everything · Clear all
-- Groups: Memory / Scopes it can read · every topic and you · you only · nothing / Everything · None / For me · personal memories / Every topic · all {n}, and the ones made later / Also allow saves, corrections and forgets / Only when you ask it to, in that chat. — Tasks / For me · personal tasks / Every topic / Also allow creating tasks, updates, moves and handoffs / Also allow file uploads to task storage
+- Groups: Memory / Scopes it can read · every topic and you · you only · nothing / Everything · None / For me · personal memories / Every topic · all {n}, and the ones made later / Also allow saves, corrections and forgets / Only when you ask it to, in that chat.
 - Note: Topics are all or none. "Every topic" keeps being true, so a topic made next month, by you or by Satchel, is included without asking again.
 - Actions: Allow this access · Deny · You can change or revoke this later in Apps.
 - Aside: What this means / Reading means the app's hooks get the names and descriptions of memories in these scopes. It fetches More info by name only when it needs it. / Writing still needs your explicit ask inside the chat. The app cannot save on its own. / Summary
@@ -154,16 +123,14 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 
 - H1: Settings.
 - Account: {handle} · {email} / Sign out / GitHub is used only to sign you in.
-- Take it with you: Export everything as a portable manifest plus your verified task files. No credentials are included. Identifiers, sources and revision history are kept. / Export all · Export one scope · For me · {topic} · Export this one
 - Developer mode: Adds an Activity page showing every request that came in, every conversation Satchel kept, and every change to a memory, and lets you run the consolidation pass by hand. It is a view and one button, not a permission: nothing about what is stored or who may read it changes. / Show Activity in the rail · this browser only / Open Activity
 - Overnight pass: While you are away, Satchel reads the conversations that have gone quiet and updates your memory from them. It signs in as its own connection, listed in Apps as Satchel consolidation, and you can revoke it there. It is off until you switch it on. / Run overnight / How often: Once a day · Twice a day / Run at · First run · Second run / On these days: Sun to Sat · Every day · Weekdays / Times are in {zone}, this browser's time zone. A pass only runs when there is a conversation that has been quiet for 30 minutes, so a night with nothing new costs nothing. / Save schedule
 - Overnight pass, problems: Choose at least one day of the week. · Choose one time, or two at most. · Two passes need to be at least an hour apart. · That time zone is not recognised. · Switch the overnight pass on first.
 - Overnight pass, state: Switched off after three refusals in a row. Switch it on again to sign it in fresh, or delete what is stored. / Delete the stored sign-in / The stored sign-in was deleted / Off. The stored sign-in is deleted. The connection stays listed in Apps until you revoke it there. / Switched on, but the timer that runs it is not installed on this database. / Lights: working · not run yet · {n} refused · not installed / last run · next run
 - Overnight pass, switching on (`/settings/consolidation`): H1 Switching on the overnight pass. / You did not allow it, so the overnight pass was not switched on. · That sign-in has expired. Switch the overnight pass on again. · That response did not match this request, so nothing was switched on. Try again. · Satchel could not set up the overnight sign-in. Nothing was switched on. Try again in a minute. · Satchel could not finish signing the overnight pass in. Nothing was switched on. Try again. · The overnight pass can only be switched on from the hosted Satchel, over https. Open it there. · This browser would not let Satchel remember the sign-in between pages. Allow site data for this page and try again. / Back to Settings
-- Overnight pass, on the consent page: What the overnight pass needs (button) / The overnight pass (aside): This is the connection you just asked for in Settings. It reads conversations that have gone quiet and saves what it learns, so it needs your memory, every topic and you, with saves. It does not need tasks. Nothing is ticked for you: press the button above or choose your own.
+- Overnight pass, on the consent page: What the overnight pass needs (button) / The overnight pass (aside): This is the connection you just asked for in Settings. It reads conversations that have gone quiet and saves what it learns, so it needs your memory, every topic and you, with saves. Nothing is ticked for you: press the button above or choose your own.
 - Footer: Overnight pass is on · {schedule} · Overnight schedule saved · {schedule} · Overnight pass is off · the stored sign-in was deleted
-- Forgetting: Forget removes a record from active retrieval right away. Satchel cannot delete copies from earlier chats, exports, or an app's own memory. / Read how retention works
-- Footer: Exported {file} + {n} files — No credentials included
+- Forgetting: Forget removes a record from active retrieval right away. Satchel cannot delete copies from earlier chats or an app's own memory. / Read how retention works
 
 ## The book · archive
 
@@ -214,17 +181,15 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 ## Errors
 
 - Save failed: Could not save. Satchel didn't get a reply. Your draft is still here and nothing was written. / Try again
-- Revision conflict: This {memory/task} changed while you were editing. {app} saved revision {n} at {time}. Your text was not saved and nothing was overwritten. / Show revision {n} · Keep my text as a new draft · Discard mine
+- Revision conflict: This {memory/topic} changed while you were editing. {app} saved revision {n} at {time}. Your text was not saved and nothing was overwritten. / Show revision {n} · Keep my text as a new draft · Discard mine
 - Sign-in failed: GitHub sign-in didn't finish. It was cancelled or timed out. Nothing was created. Try again, or check that pop-ups are allowed.
 - Load failed: Couldn't reach your Satchel. {what} didn't load. Nothing is lost. Your apps keep whatever they already read. / Reload
-- Blocked handoff or update without a reason: A blocked {handoff/update} needs a blocker.
 - Refusals from the database: one sentence per reason, kept in `src/errorText.mjs` (`reasonText`, keyed on the `satchel:<reason>` hint every raise carries; `raisedText`, `constraintText` and `raisedPatterns` for a database that sends no hint). `tests/web-error-text.test.mjs` fails when a routine raises without a hint, or with a reason that has no line there. Each says what failed, what is safe, and one thing to do, for example: This topic is already gone. It may have been deleted in another tab. Reload the topics list.
 - Session gone (only when the auth client has no session, or the token is expired): Your sign-in has expired. Sign in again, then try once more. Nothing was changed.
 - Session there, guard still refused: Satchel did not accept your sign-in for this, so nothing was changed. Reload the page and try again. If it keeps happening, report it.
 - Request came as a connected app, not the person's sign-in (`satchel:app_token`): Only you can do this, from the Satchel web app, and this request did not come from your sign-in there. Nothing was changed. Reload the page and try again. If it keeps happening, report it.
 - Session could not be checked: Satchel could not confirm it was you, so nothing was changed. Reload the page. If it asks you to sign in, do that, then try again.
 - Refusal nobody listed: Satchel refused this, so nothing was changed. Reload the page and try again. If it keeps happening, report it.
-- Uploaded files could not be removed on delete: Satchel could not remove the uploaded files that go with this, so nothing was deleted. This is a fault in Satchel, not something you did, so trying again will not help. Report it.
-- Error titles next to the button: Could not delete. · Could not revoke. · Could not export. · Could not undo the merge. · Could not change the archive. · Could not move it back. · Could not change the linked codebases. · Could not finish connecting. · Could not finish that.
+- Error titles next to the button: Could not delete. · Could not revoke. · Could not undo the merge. · Could not change the archive. · Could not move it back. · Could not change the linked codebases. · Could not finish connecting. · Could not finish that.
 - Load error with a known reason: {what} didn’t load. / {reason} / Reload
 - Instance not set up (existing): This instance is awaiting account setup. Sign-in will be available once it is connected.

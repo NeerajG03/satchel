@@ -4,7 +4,7 @@ import {resolve,join} from 'node:path';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const name='satchel';
-const description='Personal and topic memory, tasks and topics across your agents.';
+const description='Personal and topic memory across your agents.';
 // 0.3.0 is the hooks-as-scripts release. Every hook is a command now, holding
 // its own OAuth credential, so none of them depend on the host's MCP client
 // being up. That is what makes memory arrive at launch instead of only after a
@@ -51,7 +51,8 @@ const description='Personal and topic memory, tasks and topics across your agent
 // 0.5.7 tells the agent preferences never carry the commits note, and that
 // it is short for a memory about another repository.
 // 0.5.8 tells the agent to save a rule the person states with kind preference.
-const versions={claude:'0.5.8',codex:'0.5.8'};
+// 0.6.0 drops tasks: Satchel is memory and topics only.
+const versions={claude:'0.6.0',codex:'0.6.0'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
@@ -65,8 +66,8 @@ for(const host of ['codex','claude']) {
     await cp(join(root,'integrations/shared',script),join(target,'scripts',script));
   const common={name,version:versions[host],description,author:{name:'Satchel'},repository:'https://github.com/NeerajG03/satchel'};
   const manifest=host==='codex'?{...common,skills:'./skills/',mcpServers:'./.mcp.json',interface:{
-    displayName:'Satchel',shortDescription:'Your memory, tasks and topics, across your agents.',
-    longDescription:'Load memory and task summaries automatically, read details on demand, and explicitly save or revise memories, tasks and topics with scoped access.',
+    displayName:'Satchel',shortDescription:'Your memory and topics, across your agents.',
+    longDescription:'Load memory automatically, read details on demand, and explicitly save or revise memories and topics with scoped access.',
     developerName:'Satchel',category:'Productivity',capabilities:['Read','Write'],defaultPrompt:'Use my Satchel context for this task.',
     websiteURL:'https://satchel-pi.vercel.app',brandColor:'#E4571E',logo:'./assets/logo.png',composerIcon:'./assets/icon.png',
   }}:common;
@@ -157,7 +158,7 @@ if(process.argv[2]) {
 await mkdir(join(root,'.claude-plugin'),{recursive:true});
 await writeFile(join(root,'.claude-plugin/marketplace.json'),JSON.stringify({
   name:'satchel',
-  description:'The Satchel plugin for Claude Code: your memory, tasks and topics across your agents.',
+  description:'The Satchel plugin for Claude Code: your memory and topics across your agents.',
   owner:{name:'Satchel',url:'https://github.com/NeerajG03/satchel'},
   plugins:[{name,source:'./integrations/claude/satchel',description,version:versions.claude,category:'productivity'}],
 },null,2)+'\n');

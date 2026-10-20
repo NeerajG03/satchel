@@ -19,15 +19,15 @@ This replaces the old assumption that “the skill is in a GitHub repo” or “
 | Meaning | Satchel direction |
 |---|---|
 | A Satchel plugin installed in ChatGPT/Codex or Claude Code | Part of the intended distribution approach |
-| A third-party extension installed into Satchel to sync Notion or another task source | Deferred; no Satchel plugin runtime, marketplace, or source-sync UI in V1 |
+| A third-party extension installed into Satchel to sync Notion or another outside source | Deferred; no Satchel plugin runtime, marketplace, or source-sync UI in V1 |
 
-Using a native marketplace manifest to distribute our own integration does not mean building a marketplace product. Existing independently installed plugins can supply tools used by a skill; their presence does not make those services built-in Satchel task sources.
+Using a native marketplace manifest to distribute our own integration does not mean building a marketplace product. Existing independently installed plugins can supply tools used by a skill; their presence does not make those services built into Satchel.
 
 ## What should live where
 
 Keep reusable skill content versioned at its authoritative source. Satchel's hosted catalog can describe the source, chosen revision, associated topics, and installation instructions. Preserve existing package ownership and licenses when referencing or redistributing content.
 
-A small Satchel integration package should teach the agent how to resolve a topic, retrieve context, save explicit records, correct records, and leave a handoff. These are workflow capabilities; the exact number of skills and tool names remains open.
+A small Satchel integration package should teach the agent how to resolve a topic, retrieve context, save explicit records, and correct records. These are workflow capabilities; the exact number of skills and tool names remains open.
 
 Do not bundle every personal or work skill into a public integration package. A broadly distributable Satchel connector and private user skill collections have different audiences. The product source repository is also distinct from a user's private memory and configuration store.
 
@@ -66,7 +66,7 @@ Proposed Satchel flow: add the approved distribution source, install the selecte
 
 Claude Code documentation does not establish a universal installation path in every Claude chat surface. Verify the real account's remote connection/plugin capabilities separately. Do not copy terminal installation instructions into the Android guide.
 
-A supported hosted connection may provide retrieval and writes without local scripts. If a surface cannot load a native skill, a tool response or a user-provided handoff is a distinct fallback. It must be labeled and tested as such.
+A supported hosted connection may provide retrieval and writes without local scripts. If a surface cannot load a native skill, a tool response or text the user pastes in is a distinct fallback. It must be labeled and tested as such.
 
 ### Satchel web and Android companion
 

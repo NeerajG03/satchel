@@ -13,15 +13,14 @@ The pilot uses React/TypeScript with Vite, react-router and Supabase Auth/Postgr
 | `app/scope.ts` | The `?scope=me|topic:<id>` query and its labels |
 | `app/readout.tsx` | Footer readout and header status word, set per page with `useFooter` |
 | `app/useLoad.ts` | Page loading, in-place error text, busy actions, conflict detection |
-| `app/stores.ts` | One place that builds the four repositories from the signed-in client |
+| `app/stores.ts` | One place that builds the repositories from the signed-in client |
 | `shell/*` | Hardware frame, header, rail, footer and the scope picker |
 | `ui/*` | Buttons, chips, lights, fields, notices, segments, sheet, menu, provenance |
 | `styles/*` | Tokens (copied from `design/tokens.css`), base, shell, components, pages |
 | `features/memories/*` | Model, repository, Book page, composer and entry |
-| `features/tasks/*` | Model, repository, list, capture, detail, edit, timeline, update composer, blocked sheet |
 | `features/topics/*` | Repository, list, new-topic sheet, topic page, repository links |
 | `features/connections/*` | Repository, Apps, Consent, Connected pages |
-| `features/settings/Settings.tsx` | Account, export, forgetting |
+| `features/settings/Settings.tsx` | Account, overnight pass, forgetting |
 | `request.mjs` | Bounded request execution shared by the repositories |
 | `server/repository-hint-handler.mjs` | Validates and stages a short-lived repository identity without returning topic or memory data |
 
@@ -39,8 +38,6 @@ flowchart LR
     X[Other explicitly supported clients] --> A
     A --> P[Topic and skill catalog]
     A --> M[Canonical memory store: decision open]
-    A --> T[TaskService]
-    T --> G[Supabase task tables and functions]
     P --> S[Authorized source references]
 ```
 
@@ -50,17 +47,16 @@ This is the user-facing direction expressed as a proposed architecture: one shar
 
 | Component | Owns | Does not imply |
 |---|---|---|
-| Hosted service | Identity, access checks, record operations, context assembly, catalog access, task adapter | A remote worker fleet or universal execution sandbox |
+| Hosted service | Identity, access checks, record operations, context assembly, catalog access | A remote worker fleet or universal execution sandbox |
 | Companion | Direct user interaction, configuration, inspection, correction, setup guidance, verification results | Control over every app's internal settings |
 | Native integration package | Host-specific discovery, workflow instructions, service connection configuration | All private skills installed or supported on every device |
 | Backing memory store | Canonical revisions and deletion/correction semantics | Independent copies in every native memory database |
-| Supabase task store | Authoritative personal/topic task records, planning graph and history | A repository requirement or external-tracker synchronization |
 | Existing skill sources | Versioned reusable workflows | Satchel ownership of every third-party package |
 | Native AI apps | Conversations, model selection, execution, workspace/session lifecycle | Guaranteed equivalent capabilities across their surfaces |
 
 ## Proposed request path
 
-A connected host identifies its authorized session and the requested personal/topic scope. The service checks effective access, retrieves current records and permitted source context, and returns a bounded result with IDs, provenance, revisions and derived task actionability. Live task operations go through Supabase functions behind `TaskService`; GitHub objects are optional HTTPS resources.
+A connected host identifies its authorized session and the requested personal/topic scope. The service checks effective access, retrieves current records and permitted source context, and returns a bounded result with IDs, provenance and revisions. GitHub repositories are optional links on a topic.
 
 Writes need permission checks, idempotency, revision checks, and honest acknowledgement. Search indexes must be permission-aware and invalidated on relevant changes. Exact API schemas, tool names, search technology, and storage transaction mechanisms remain open.
 
@@ -76,7 +72,7 @@ Hosting and Git-backed storage can coexist: a hosted service could mediate autho
 
 Use the platforms' own plugin distribution and authentication support. Do not implement a universal plugin installer or silently edit hidden native chat/memory stores. A host-native configuration/export path may be appropriate where verified.
 
-Keep original documents in their source systems where appropriate. Linking an HTTPS source is different from implementing its connector. Supabase is the built-in task authority for V1; no GitHub or Notion synchronization adapter is implied by a link, archived document or independently installed skill.
+Keep original documents in their source systems where appropriate. Linking an HTTPS source is different from implementing its connector. Satchel has no task feature, so tasks stay in tools like Notion. No GitHub or Notion synchronization adapter is implied by a link, archived document or independently installed skill.
 
 A catalog and context service should stay useful without a large dashboard, automatic transcript collection, model routing, session orchestration, or background curation. Any later remote execution needs its own specification and evidence of need.
 
@@ -89,6 +85,6 @@ A catalog and context service should stay useful without a large dashboard, auto
 5. Native versus responsive-web Android delivery and share-to-save behavior.
 6. Context selection and refresh without assuming automatic retrieval.
 7. Optional external-resource integrations, limits, concurrency, and failure recovery.
-8. Deep links and handoff behavior that each destination actually supports.
+8. Deep links that each destination actually supports.
 
 These questions are not resolved by the current artifact. Use the [validation scenarios](migration-and-validation.md) to make the architecture concrete before declaring it ready to build at full scope.

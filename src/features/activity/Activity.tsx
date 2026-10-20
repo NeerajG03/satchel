@@ -18,7 +18,7 @@ import { JobReport } from './JobReport';
 type Group = 'all' | 'requests' | 'documents' | 'memory';
 
 /** A label and a value, for the facts that are one line each. Deliberately
- *  not the `.rows` grid from the task timeline: these are machine readings,
+ *  not a two-column prose grid: these are machine readings,
  *  so they are mono and they keep their own column. */
 function Facts({ rows }: { rows: [string, string | number | null | undefined][] }) {
   const present = rows.filter(([, value]) => value !== null && value !== undefined && value !== '');

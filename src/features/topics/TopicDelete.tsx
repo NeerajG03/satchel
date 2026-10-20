@@ -15,8 +15,8 @@ export function TopicDelete() {
   const navigate = useNavigate();
   const { announce } = useReadout();
   const page = useLoad(async () => {
-    const [topics, memories, tasks, connections] = await Promise.all([stores.topics.list(), stores.memories.list({ kind: 'topic', topicId: id }), stores.tasks.list(id), stores.connections.list()]);
-    return { topics, memories, tasks, connections: connections.filter(c => !c.revoked_at) };
+    const [topics, memories, connections] = await Promise.all([stores.topics.list(), stores.memories.list({ kind: 'topic', topicId: id }), stores.connections.list()]);
+    return { topics, memories, connections: connections.filter(c => !c.revoked_at) };
   }, [stores, id]);
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
@@ -33,7 +33,7 @@ export function TopicDelete() {
     setBusy(true); setError(''); setConflict(false);
     try {
       const result = await stores.topics.remove(topic);
-      announce(`Deleted “${result.name}” · ${count(result.memories_removed, 'memory', 'memories')} · ${count(result.tasks_removed, 'task')}`);
+      announce(`Deleted “${result.name}” · ${count(result.memories_removed, 'memory', 'memories')}`);
       navigate('/topics', { replace: true });
     } catch (reason) {
       if (isConflict(reason)) { setConflict(true); page.reload(); }
@@ -45,7 +45,7 @@ export function TopicDelete() {
   if (!data) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><Skeleton rows={4} /></>;
   if (!topic) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><Notice look="error" title="That topic is not here.">It may already be gone. Nothing else changed.</Notice></>;
 
-  const apps = data.connections.filter(c => c.topic_ids.includes(id) || c.agent_task_grants.some(g => g.topic_id === id));
+  const apps = data.connections.filter(c => c.topic_ids.includes(id));
   const ready = typed.trim() === topic.name;
 
   return <>
@@ -66,12 +66,11 @@ export function TopicDelete() {
         <Notice look="amber" title="Everything in it goes too">
           <ul className="plain-list">
             <li>{data.memories.length === 0 ? 'No memories in its book.' : `${count(data.memories.length, 'memory', 'memories')} in its book.`}</li>
-            <li>{data.tasks.length === 0 ? 'No tasks.' : `${count(data.tasks.length, 'task')}, with every comment, handoff and uploaded file.`}</li>
             <li>{topic.topic_repositories.length === 0 ? 'No linked repositories.' : `${count(topic.topic_repositories.length, 'linked repository', 'linked repositories')}. Agents opening those repos will no longer land here.`}</li>
             <li>{apps.length === 0 ? 'No app can see this topic.' : `${count(apps.length, 'connected app')} lose access to it: ${apps.map(a => a.label).join(', ')}. Their other grants stay.`}</li>
           </ul>
         </Notice>
-        <p className="muted">Your “For me” memories and personal tasks are separate and stay put. Agents keep whatever they already copied into their own notes. Satchel can’t reach those.</p>
+        <p className="muted">Your “For me” memories are separate and stay put. Agents keep whatever they already copied into their own notes. Satchel can’t reach those.</p>
         <TextField label="Type the topic name to confirm" hint={topic.name} value={typed} disabled={busy} autoComplete="off" onChange={e => setTyped(e.target.value)} />
         {error && <Notice look="error" title="Could not delete.">{error}</Notice>}
         <div className="between">
@@ -82,7 +81,7 @@ export function TopicDelete() {
       <aside>
         <div className="aside-block">
           <div className="between"><h3>Want a copy first?</h3></div>
-          <p className="fine muted">Export its tasks from <Link to={`/tasks?scope=topic:${id}`}>the task list</Link> before you delete. Memories can be read from <Link to={`/book?scope=topic:${id}`}>its book</Link>.</p>
+          <p className="fine muted">Its memories can be read from <Link to={`/book?scope=topic:${id}`}>its book</Link> before you delete.</p>
         </div>
       </aside>
     </div>

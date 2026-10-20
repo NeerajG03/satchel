@@ -27,26 +27,11 @@
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 @media (max-width: 900px) { .composer .grid { grid-template-columns: 1fr; } }
 
-/* Tasks */
-.task-row .between { align-items: flex-start; }
-.task-row .reason { color: var(--red); font-size: 14px; }
-.next-panel { display: flex; flex-direction: column; gap: 10px; }
-.next-panel .text { font: 22px/1.35 var(--font-content); overflow-wrap: anywhere; }
+/* Lists of related things: a topic's codebases, activity and memories. */
 .timeline { display: flex; flex-direction: column; }
-.timeline .entry { gap: 6px; }
-.timeline .rows { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 4px 12px; font-size: 14px; }
-.timeline .rows dt { color: var(--muted); font: 500 11px/1.8 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; }
-.timeline .rows dd { margin: 0; overflow-wrap: anywhere; }
-.done-when li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
-.done-when li::before { content: ''; width: 16px; height: 16px; border: 1.5px solid var(--ink); border-radius: 4px; flex: none; margin-top: 3px; }
 .relation { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
 .relation a { color: var(--ink); overflow-wrap: anywhere; }
 .relation .clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
-.history summary { cursor: pointer; font-weight: 500; font-size: 13px; }
-.event { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; text-transform: capitalize; }
-.modes { display: inline-flex; gap: 6px; flex-wrap: wrap; }
-.modes button { border-radius: var(--r-pill); }
-.modes button[aria-pressed='true'] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
 /* Apps and consent */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; }

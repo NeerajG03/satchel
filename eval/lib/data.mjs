@@ -27,17 +27,8 @@ export function validate(){
     if(!['said','heard'].includes(m.band)) problems.push(`${m.id}: bad band ${m.band}`);
   }
   const topics=new Set(corpus.topics.map(p=>p.slug));
-  const tasks=new Map(corpus.tasks.map(t=>[t.slug,t]));
-  for(const m of corpus.memories){
+  for(const m of corpus.memories)
     if(m.topic!==null&&!topics.has(m.topic)) problems.push(`${m.id}: unknown topic ${m.topic}`);
-    if(m.task!==null){
-      const t=tasks.get(m.task);
-      if(!t) problems.push(`${m.id}: unknown task ${m.task}`);
-      else if(t.topic!==m.topic) problems.push(`${m.id}: scope disagrees with task ${m.task}`);
-    }
-  }
-  for(const t of corpus.tasks)
-    if((t.status==='done')!==(t.closed_at!==null)) problems.push(`task ${t.slug}: closed_at disagrees with status`);
   // A supersession that points nowhere, or at itself, silently stops being a
   // test of anything.
   for(const m of corpus.memories){

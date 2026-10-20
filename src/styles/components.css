@@ -234,6 +234,8 @@ a.entry:hover { text-decoration: none; background: linear-gradient(to right, var
 .two > aside { display: flex; flex-direction: column; gap: 22px; }
 .aside-block { display: flex; flex-direction: column; gap: 8px; }
 .aside-block .between { border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.news-row { padding: 10px 0; border-bottom: 1px solid var(--line); color: var(--ink); }
+.news-row:hover { text-decoration: none; background: var(--paper-2); }
 .stack { display: flex; flex-direction: column; gap: var(--s-4); }
 .stack-tight { display: flex; flex-direction: column; gap: var(--s-2); }
 .section { display: flex; flex-direction: column; gap: 12px; }

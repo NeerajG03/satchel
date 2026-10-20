@@ -4,6 +4,8 @@ Status: agreed, and most of it is built. Where a requirement says **built**, the
 commit is named. Three things are not built and each is blocked on a decision
 that is not mine, listed at the end.
 
+**Tasks were removed on 20 October 2026.** Satchel no longer has tasks, task tools or a Tasks page. Tasks live in Notion. Where this document mentions tasks, task slugs, `task_id` or `list_tasks`, it is the record of what was planned at the time, not something that exists or is still planned.
+
 | | |
 | --- | --- |
 | built | R1 through R11, apart from R6's decay curve |
@@ -327,7 +329,7 @@ something merged.
 
 Cheapest useful version, and it needs no model call to raise the doubt: a memory
 scoped to a topic whose linked repository has moved N commits since the memory was
-last affirmed is injected with a doubt marker, the way a closed task already is, and
+last affirmed is injected with a doubt marker, the way a closed task once was, and
 is offered to consolidation as a candidate to re-check.
 
 ### R9a A memory has one scope, and it is a topic or personal
@@ -351,9 +353,8 @@ goes, and it takes several things with it:
 - the `[task closed, may be fixed]` hint in `injection-format.mjs` goes, which was
   the only thing the link ever produced
 
-**This is not the same as routing a work order into a task.** That would create a
-task and no memory and no link, which R9a does not forbid. Open question in the last
-section.
+Routing a work order into a task is not an option either. Satchel has no tasks
+since 20 October 2026.
 
 ### R11 Observability, end to end
 
@@ -398,7 +399,6 @@ what makes Satchel safe to give to someone else.
 | **RLS authoritative** | isolation is enforced by the database for every caller, not by application code passing the right tag. Supermemory self hosted is single tenant behind one API key, which inverts this |
 | **repo to topic scope** | resolved automatically from the git remote. Supermemory's container tag is an opaque string it never interprets, so this is work it pushes onto whoever integrates it |
 | **said and heard** | the band already exists and is the same idea as supermemory's `isInference`. R6 is mostly about finally using it |
-| **tasks and topics exist in the same system** | memory is not a separate product here, so a work order has somewhere to go. Note this is about routing, not linking: R9a removes the memory-to-task link entirely |
 
 ### R10 Runs locally, in containers
 
@@ -521,10 +521,8 @@ built.
 
    Vercel's own cron was never an option: Hobby caps them at once per day and
    rejects a more frequent expression at deploy time.
-7. **Does a work order become a task, or nothing?** R9a removes the memory-to-task
-   link, which is settled. Separately, the classifier could file a directive as a
-   task instead of discarding it. That creates no memory and no link, so R9a does not
-   forbid it, but it is a new behaviour and it has not been agreed.
+7. ~~**Does a work order become a task, or nothing?**~~ Answered: nothing. Tasks were
+   removed from Satchel on 20 October 2026, so there is no task to file it as.
 8. ~~**The block cap.**~~ Answered: 30 per scope, and it is `memory_settings.block_size`
    rather than a constant. At eight memories it does not bind, which is the
    argument for shipping the shape before the pressure arrives.

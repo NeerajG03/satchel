@@ -16,10 +16,6 @@ const TOOL_ROUTINES={
   upsert_topic:['upsert_topic_with_slug'],
   select_topic:['select_agent_topic','select_agent_repository','list_memories'],
   save_memory:['save_memory'],correct_memory:['correct_memory'],confirm_memory:['confirm_memory'],forget_memory:['end_memory'],
-  list_tasks:[],read_task:[],create_task:['create_task_with_slug'],
-  edit_task:['update_task','transition_task','set_task_parent','add_task_dependency','remove_task_dependency'],
-  record_task_update:['add_task_comment','record_task_progress','record_task_handoff'],
-  add_task_resource:['add_task_resource'],
 };
 
 // The line a refusal falls back to when nobody wrote one for it.
@@ -70,7 +66,7 @@ async function reachable() {
 }
 
 test('every tool is listed with the routines it reaches',async()=>{
-  const service={status:async()=>({}),tasks:{}};
+  const service={status:async()=>({})};
   const server=createMemoryServer(service);const client=new Client({name:'test',version:'1'});
   const [left,right]=InMemoryTransport.createLinkedPair();await server.connect(right);await client.connect(left);
   try {
@@ -81,7 +77,7 @@ test('every tool is listed with the routines it reaches',async()=>{
 
 test('every refusal a tool can reach reads as something the agent can act on',async t=>{
   const {raises,constraints}=await reachable();
-  assert.ok(raises.size>20&&constraints.length>50,'the walk found the routines, so an empty result means nothing');
+  assert.ok(raises.size>10&&constraints.length>50,'the walk found the routines, so an empty result means nothing');
 
   await t.test('every sentence a routine raises has agent-facing text',()=>{
     // A routine's own sentence would pass through readable anyway, so readable
@@ -106,7 +102,7 @@ test('every refusal a tool can reach reads as something the agent can act on',as
   await t.test('every sentence a service throws has agent-facing text',async()=>{
     // The services check grants before any query, and a bare code there used
     // to read as "access denied" whichever grant was missing.
-    const files=['mcp-server.mjs','memory-service.mjs','task-service.mjs'];
+    const files=['mcp-server.mjs','memory-service.mjs'];
     const thrown=[];
     for(const file of files){
       const code=await readFile(new URL(`../server/${file}`,import.meta.url),'utf8');
@@ -121,8 +117,8 @@ test('every refusal a tool can reach reads as something the agent can act on',as
   });
 
   await t.test('the failing row is never repeated back',()=>{
-    const text=errorText({code:'23514',message:'new row for relation "tasks" violates check constraint "tasks_slug_check"',
-      details:'Failing row contains (a private title)',hint:'a private hint'});
+    const text=errorText({code:'23514',message:'new row for relation "topics" violates check constraint "topics_slug_check"',
+      details:'Failing row contains (a private brief)',hint:'a private hint'});
     assert.doesNotMatch(text,/private/);
   });
 });

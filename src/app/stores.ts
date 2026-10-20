@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useDb } from './auth';
 import { createMemoryRepository } from '../features/memories/repository';
 import { createTopicRepository } from '../features/topics/repository';
-import { createTaskRepository } from '../features/tasks/repository';
 import { createConnectionRepository } from '../features/connections/repository';
 import { createActivityRepository } from '../features/activity/repository';
 import { createOvernightRepository } from '../features/settings/repository';
@@ -13,7 +12,6 @@ export function useStores() {
     db,
     memories: createMemoryRepository(db),
     topics: createTopicRepository(db),
-    tasks: createTaskRepository(db),
     connections: createConnectionRepository(db),
     activity: createActivityRepository(db),
     overnight: createOvernightRepository(db),

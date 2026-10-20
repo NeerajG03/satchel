@@ -4,15 +4,14 @@
 
 <img width="1024" height="596" alt="image" src="https://github.com/user-attachments/assets/d9cd2ca0-0d52-4718-9b5b-e6a331479243" />
 
-Satchel keeps your memory, topics and tasks in one place and hands them to the AI coding apps you already use. You decide what gets saved. Every app sees only what you allowed it to see, and you can revoke that any time.
+Satchel keeps your memory and topics in one place and hands them to the AI coding apps you already use. You decide what gets saved. Every app sees only what you allowed it to see, and you can revoke that any time.
 
 The hosted pilot is at [satchel-pi.vercel.app](https://satchel-pi.vercel.app). Sign in with GitHub. It is a personal pilot, not a product with uptime promises yet.
 
 ## What it does
 
 - **Memory.** Short named notes about how you work, in a personal book called *For me* or inside a topic. Details load on demand, so the index stays small.
-- **Topics.** A subject your memories gather under, with a brief. Satchel can make one when a fact fits nothing you have. Give a topic tasks or linked repositories and it is the place for an ongoing effort.
-- **Tasks.** Plain tasks with status, blockers, handoff notes and small file uploads. Agents can read and update them when you let them.
+- **Topics.** A subject your memories gather under, with a brief. Satchel can make one when a fact fits nothing you have. Link repositories to a topic and it is the place for an ongoing effort.
 - **Apps.** Claude Code and Codex connect through a plugin. When a session starts, the plugin loads your memory index. Saves happen only when you ask.
 
 ## Connect Claude Code or Codex

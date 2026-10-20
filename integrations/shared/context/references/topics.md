@@ -2,12 +2,12 @@
 
 ## Slugs
 
-Every topic has a `slug` on the same rules as a task's: lowercase words joined by hyphens, three to forty characters, unique across everything this user owns. `list_topics` returns it, and it is what the session block shows.
+Every topic has a `slug`: lowercase words joined by hyphens, three to forty characters, unique across everything this user owns. `list_topics` returns it, and it is what the session block shows.
 
 `upsert_topic` requires one when creating. Use the short name the user already says for the topic rather than a slugified version of its full name.
 
 
-A topic is the scope that memories and tasks hang off. It is always an explicit UUID from `list_topics`, never a folder name and never a name guessed from repository contents.
+A topic is the scope that memories hang off. It is always an explicit UUID from `list_topics`, never a folder name and never a name guessed from repository contents.
 
 ## Inspecting the connection
 
@@ -20,7 +20,7 @@ It deliberately still returns connection permissions when the topic query itself
 `select_topic(session_key, topic_id | repository, event?)`.
 
 - Provide exactly one of `topic_id` (with `null` meaning personal scope) or `repository`. Both or neither gives `PT400`.
-- `session_key` comes from the hook context. If none is available, do not invent one: use the explicitly scoped memory and task tools instead.
+- `session_key` comes from the hook context. If none is available, do not invent one: use the explicitly scoped memory tools instead.
 - `repository` resolves only through the server-side link table, and only to a topic already inside this connection's grant. `PT404` means the repository is not linked or not granted: report that topic context was not loaded, and do not fall back to a similar-looking topic.
 - Pass `event` only to recover a session whose Satchel hook did not run, on a new conversation or after compaction. It returns what that hook would have injected.
 

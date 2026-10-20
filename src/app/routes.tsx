@@ -3,10 +3,6 @@ import { Shell } from '../shell/Shell';
 import { LeftOff } from '../features/leftoff/LeftOff';
 import { Book } from '../features/memories/Book';
 import { Archive } from '../features/memories/Archive';
-import { TaskList } from '../features/tasks/TaskList';
-import { TaskDetail } from '../features/tasks/TaskDetail';
-import { TaskEdit } from '../features/tasks/TaskEdit';
-import { TaskDelete } from '../features/tasks/TaskDelete';
 import { TopicList } from '../features/topics/TopicList';
 import { TopicPage } from '../features/topics/TopicPage';
 import { TopicDelete } from '../features/topics/TopicDelete';
@@ -38,10 +34,6 @@ export const router = createBrowserRouter([
       { index: true, Component: LeftOff },
       { path: 'book', Component: Book },
       { path: 'book/archive', Component: Archive },
-      { path: 'tasks', Component: TaskList },
-      { path: 'tasks/:id', Component: TaskDetail },
-      { path: 'tasks/:id/edit', Component: TaskEdit },
-      { path: 'tasks/:id/delete', Component: TaskDelete },
       { path: 'topics', Component: TopicList },
       { path: 'topics/new', Component: TopicList },
       { path: 'topics/:id', Component: TopicPage },

@@ -169,7 +169,7 @@ New columns on `memories` are not writable until they are named in a `grant inse
 
 `stamp_memory_revision` bumped the revision on **any** update, so backfilling an embedding took live memories from revision 1 to revision 2 without a word of their text changing. The revision is the optimistic concurrency token, so every client holding the old one gets a conflict it cannot explain, and the person sees "edited just now" on a row nobody touched. Re-embedding after a model change would do it to the whole corpus at once.
 
-The shape migration had already worked around this by disabling the trigger around its own backfill, which was a local patch for a general problem. The trigger now bumps only when the statement, source, more_info, name, band, topic or task changes.
+The shape migration had already worked around this by disabling the trigger around its own backfill, which was a local patch for a general problem. The trigger now bumps only when the statement, source, more_info, name, band or topic changes.
 
 ### Recreating a function can revert an earlier migration
 
@@ -177,17 +177,13 @@ Recreating `save_memory` and `correct_memory` for the v2 shape quietly reverted 
 
 **Rule:** when you recreate a function, read every migration that touched it first.
 
-### Postgres refuses `ON DELETE SET NULL` on a key containing a generated column
-
-`tasks.scope_key` is generated, so `memories_task_fkey` references `tasks(owner_id, id)` instead, and scope agreement is enforced inside `save_memory` where it can raise something a person can read.
-
 ### A view expands `t.*` at creation time
 
-`task_planning` had to be recreated by the slugs migration, because `select t.*` was already expanded to the column list that existed when the view was made. A new column does not appear on its own.
+A view made with `select t.*` keeps the column list that existed when the view was made. A new column does not appear on its own, so the view has to be made again.
 
 ### A row type in plpgsql is not automatically safe across a schema change
 
-`delete_task` declares `target public.tasks`, and adding a `slug` column changes that composite type. It works, but it is worth rehearsing rather than assuming: the production chain including that function was replayed locally before the migrations were applied.
+A function that declares a variable of a table's row type depends on that table's columns, and adding a column changes the type. It usually works, but rehearse it rather than assume it: replay the production chain locally before the migrations are applied.
 
 ### Codex has no `last_assistant_message`
 

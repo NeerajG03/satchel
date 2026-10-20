@@ -38,7 +38,7 @@ To see what production is missing, compare `supabase_migrations.schema_migration
 
 1. **`git fetch`, then compare the ledger against the repo.** Without the fetch, a stale `origin/main` makes ordinary work look like drift: I once reported a live migration as existing on no merged branch when it was on `main` and covered by a test.
 2. **Back up what you are about to change.** Even two rows.
-3. **Rehearse the chain production actually has** against PGlite. That is what caught that `delete_task` declares `target public.tasks` as a row type while the slugs migration adds a column to that table.
+3. **Rehearse the chain production actually has** against PGlite. A function that declares a table's row type can break when a migration adds a column to that table, and only a rehearsal shows it.
 
 ## Backfilling embeddings
 

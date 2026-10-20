@@ -1,16 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { count, stateWord, whenText, actorLabel } from '../src/app/format.ts';
+import { count, whenText, actorLabel } from '../src/app/format.ts';
 
 test('count picks singular and plural', () => {
   assert.equal(count(1, 'task'), '1 task');
   assert.equal(count(3, 'task'), '3 tasks');
   assert.equal(count(2, 'memory', 'memories'), '2 memories');
-});
-
-test('stateWord capitalises and drops the underscore', () => {
-  assert.equal(stateWord('in_progress'), 'In progress');
-  assert.equal(stateWord('blocked'), 'Blocked');
 });
 
 test('whenText is relative for recent times', () => {

@@ -4,7 +4,7 @@ Updated 10 September 2026. Explicit saves, no curator, and named memory with pro
 
 ## What memory is for
 
-Keep durable, deliberately stated preferences and confirmed decisions useful in later conversations. Distinguish them from topic documents, live task status, and historical evidence. A statement that a task was blocked yesterday is evidence; current issue state remains authoritative for whether it is blocked today.
+Keep durable, deliberately stated preferences and confirmed decisions useful in later conversations. Distinguish them from topic documents, the live state of outside tools, and historical evidence. A statement that something was blocked yesterday is evidence. The tool that tracks it still says whether it is blocked today.
 
 Three semantic scopes were retained in the discussion: the user, a repository, and a topic. There is no persona or orchestrator memory scope. Scope describes relevance. It does not grant permission. A work-related user preference can remain restricted to work connections even though its semantic scope is “user.”
 
@@ -81,7 +81,6 @@ The earlier Codex report proposed a hosted memory provider pilot, naming Mem0, w
 
 | Data | Current position |
 |---|---|
-| Satchel-managed V1 task state | Supabase Postgres is authoritative; task files use private Supabase Storage |
 | Satchel product code and design documents | This private development repository |
 | Skill content | Versioned source packages/repositories, reused where appropriate; final private distribution path open |
 | Memory records | Supabase PostgreSQL for the implemented pilot; summary and details share one canonical row |
@@ -102,6 +101,6 @@ Do not mirror vendor-native memories or suppress them globally. Satchel supplies
 
 ## Export and recovery
 
-Export selected authorized records with stable IDs, provenance, scope, revisions, and correction links, plus non-secret topic and configuration references. Verify that an export can be read without Satchel. Record which source references still need separate authentication.
+There is no export in the app today. The old Settings export only covered tasks and was removed with them. When an export comes back, it should export selected authorized records with stable IDs, provenance, scope, revisions, and correction links, plus non-secret topic and configuration references. Verify that an export can be read without Satchel. Record which source references still need separate authentication.
 
 An export is a snapshot, not a second writable master. Restoration needs revision reconciliation and access review. Do not overwrite newer records with an old snapshot. Exact export format, retention, encryption, hosting region, and backup policy remain implementation decisions.
