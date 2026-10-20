@@ -4,6 +4,7 @@ import { useStores } from '../../app/stores';
 import { explain } from '../../client';
 import { useFooter } from '../../app/readout';
 import { SaveError, Skeleton } from '../../ui/Notice';
+import { enableOvernight } from './enableOvernight';
 import { finishEnable } from './consolidationConnect';
 
 // One run per code. A code can be swapped once, and React may run an effect
@@ -24,7 +25,7 @@ export function ConsolidationCallback() {
     if (!run) {
       run = (async () => {
         const done = await finishEnable(params);
-        await stores.overnight.enable(done);
+        await enableOvernight(stores.overnight, stores.connections, done);
       })();
       runs.set(key, run);
     }

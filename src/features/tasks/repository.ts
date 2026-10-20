@@ -80,6 +80,15 @@ export function createTaskRepository(db:SupabaseClient) {
         p_title:draft.title.trim(),p_outcome:draft.outcome,p_why:draft.why,
         p_done_when:draft.done_when,p_next_action:draft.next_action,p_priority:draft.priority});
     },
+    // One call, so a refusal halfway through leaves the task as it was.
+    saveEdit(task:Task,requestId:string,edit:{draft:TaskDraft|null;parentId?:string|null;removeDependencyIds:string[];addDependencyIds:string[]}):Promise<Task> {
+      const draft=edit.draft;
+      return rpc('save_task_edit',{p_request_id:requestId,p_id:task.id,p_expected_revision:task.revision,
+        p_title:draft?draft.title.trim():null,p_outcome:draft?.outcome??null,p_why:draft?.why??null,
+        p_done_when:draft?.done_when??null,p_next_action:draft?.next_action??null,p_priority:draft?.priority??null,
+        p_set_parent:edit.parentId!==undefined,p_parent_task_id:edit.parentId??null,
+        p_remove_dependency_ids:edit.removeDependencyIds,p_add_dependency_ids:edit.addDependencyIds});
+    },
     transition(task:Task,requestId:string,status:TaskStatus,blockedReason=''):Promise<Task> {
       return rpc('transition_task',{p_id:task.id,p_expected_revision:task.revision,
         p_request_id:requestId,p_status:status,p_blocked_reason:blockedReason});
