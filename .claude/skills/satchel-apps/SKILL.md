@@ -49,7 +49,8 @@ An app registers through Supabase's OAuth server and sends the person to Satchel
 ```
 supabase/migrations/
   202609110003_agent_connections.sql     the table, authorize/revoke, access helpers, the token hook
-  20260920150000_all_projects_grant.sql  all_topics, authorize_agent_v3
+  20260920150000_all_projects_grant.sql  all_topics
+  20261020120000_satchel_has_no_tasks.sql  tasks dropped, authorize_agent_v4 (memory only)
   20260922170000_consolidation_schedule.sql  the cron's own OAuth client, its Vault secret, rotation
 server/http-handler.mjs        the per-request client and the 401 challenge for /api/mcp
 server/agent-token.mjs         verifyAgentToken, verifyCompanionToken, exchangeRefreshToken

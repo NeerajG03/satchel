@@ -52,10 +52,19 @@ test('security posture keeps RLS and routine privileges closed by default',async
     const [{allowed:tokenHook}]= (await db.query(
       `select has_function_privilege('authenticated','public.satchel_access_token_hook(jsonb)','execute') allowed`,
     )).rows;
-    const [{allowed:cleanup}]= (await db.query(
-      `select has_function_privilege('authenticated','public.cleanup_task_file(uuid,uuid)','execute') allowed`,
-    )).rows;
     assert.equal(tokenHook,false);
-    assert.equal(cleanup,false);
+
+    // Satchel has no tasks, so nothing in our schemas is left over from them.
+    const leftover=(await db.query(
+      `select n.nspname||'.'||c.relname as name from pg_class c join pg_namespace n on n.oid=c.relnamespace
+         where n.nspname in ('public','private') and c.relname like '%task%'
+       union all
+       select n.nspname||'.'||p.proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+         where n.nspname in ('public','private') and p.proname like '%task%'
+       union all
+       select 'agent_connections.'||column_name from information_schema.columns
+         where table_schema='public' and table_name='agent_connections' and column_name like '%task%'`,
+    )).rows.map(row=>row.name);
+    assert.deepEqual(leftover,[]);
   }finally {await db.close();}
 });

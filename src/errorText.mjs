@@ -27,12 +27,9 @@
 export class Sentence extends Error {}
 
 const SESSION='Your sign-in has expired. Sign in again, then try once more. Nothing was changed.';
-const RELOAD_TASK='Reload the task and try again.';
-const FILES_NOT_READY='One of the files or links you picked is not ready, or is not on this task. '+RELOAD_TASK+' Nothing was saved.';
 const SATCHEL_FAULT='This is a fault in Satchel, not something you did, so trying again will not help. Report it.';
-const SHORT_NAME_TAKEN='That short name is already used by another of your topics or tasks. Pick a different one.';
+const SHORT_NAME_TAKEN='That short name is already used by another of your topics. Pick a different one.';
 const SHORT_NAME_SHAPE='A short name is lowercase words joined by hyphens, up to 40 characters, like web-launch.';
-const BLOCKED_REASON='A blocked task needs a reason. Say what it is waiting on.';
 
 // The reason a routine gave in its hint, with what the web app shows for it.
 // A reason reached only by an agent token still gets a line, because the
@@ -40,8 +37,6 @@ const BLOCKED_REASON='A blocked task needs a reason. Say what it is waiting on.'
 export const reasonText={
   // Signed in, but the thing is gone, moved, or not allowed.
   'refused:topic_write':'One of these topics can no longer be changed from here, so nothing was changed. Reload the topics page to see where things stand.',
-  'refused:task_write':'Tasks can no longer be added to this topic. It may have been deleted or merged. Reload the page and pick a topic. Nothing was saved.',
-  'refused:task_upload':'This file can no longer be attached. The task or its upload may be gone. '+RELOAD_TASK,
   'refused:memory_write':'Satchel would not move this memory into that scope, so nothing was moved. Reload the page to see where it is now.',
   'refused:repository_link':'This topic could not take the link. It may have been deleted or merged. Reload the page. Nothing was linked.',
   'refused:topic_selection':'One of the topics you picked is gone. Reload this page and choose again. Nothing was allowed.',
@@ -49,41 +44,24 @@ export const reasonText={
   'refused:connection':'That app’s access was revoked. Connect it again from Apps. Nothing was changed.',
   'refused:memory_read':'That scope is not open to this app. Nothing was read.',
   'refused:personal_memory':'That app may not read your personal memory. Nothing was read.',
-  'refused:personal_tasks':'That app may not reach your personal tasks. Nothing was changed.',
-  'refused:topic_tasks':'That app may not reach tasks in this topic. Nothing was changed.',
   'refused:overnight_off':'Switch the overnight pass on first.',
   // Gone.
   'gone:topic':'This topic is already gone. It may have been deleted in another tab. Reload the topics list.',
-  'gone:task':'This task is already gone. It may have been deleted in another tab. Reload the task list.',
-  'gone:task_moved':'This task is gone or was moved to another scope, so nothing was saved. Reload the task.',
   'gone:memory':'This memory is gone or was archived. Reload the book.',
   'gone:record':'Satchel could not find what it had just saved. Reload the page to see whether it is there.',
   'gone:repository_topic':'That repository is not linked to a topic this app may see. Nothing was changed.',
   // Changed since the page loaded.
   'conflict:topic_revision':'This topic changed while you were looking, so nothing was deleted. Reload it and check before you delete.',
-  'conflict:task_revision':'This task changed while you were looking, so nothing was deleted. Reload it and check before you delete.',
   'conflict:topic':'This topic changed or was merged since the page loaded, so nothing was changed. Reload to see the latest version.',
-  'conflict:task':'This task changed since the page loaded, so nothing was saved. Reload to see the latest version, then try again.',
   'conflict:memory':'This memory changed or was archived since the page loaded, so nothing was saved. Reload to see the latest version.',
-  'conflict:upload':'This upload already finished or was cancelled. Reload the task to see its files.',
-  'conflict:task_request':'Satchel could not tell this change apart from an earlier one, so it saved nothing. Reload the task, then try again.',
   'conflict:topic_request':'Satchel could not tell this change apart from an earlier one, so it saved nothing. Reload the topic, then try again.',
   'conflict:memory_request':'Satchel could not tell this memory apart from an earlier save, so it saved nothing. Reload the book, then try again.',
   // Something you picked or typed.
   'invalid:slug_taken':SHORT_NAME_TAKEN,
   'invalid:slug_shape':SHORT_NAME_SHAPE,
   'invalid:topic_merged':'That topic was merged into another one, so nothing was moved. Move it into the topic it went into.',
-  'invalid:topic_has_work':'That topic has tasks or linked repositories, so only you can merge it, from the topics page.',
+  'invalid:topic_has_work':'That topic was made by you or has linked repositories, so only you can merge it, from the topics page.',
   'invalid:no_scope':'Choose at least one scope to allow. Nothing was allowed.',
-  'invalid:parent_self':'A task can’t be its own parent. Pick a different parent. Nothing was saved.',
-  'invalid:parent_scope':'The parent you picked is gone or in a different scope. Pick a task from the same list. Nothing was saved.',
-  'invalid:parent_cycle':'That task already sits under this one, so it can’t be its parent. Pick a different parent. Nothing was saved.',
-  'invalid:dependency_scope':'The task you picked is gone or in a different scope. Pick a task from the same list. Nothing was saved.',
-  'invalid:dependency_cycle':'That task already waits on this one, so this one can’t wait on it. Pick a different task. Nothing was saved.',
-  'invalid:task_resource':FILES_NOT_READY,
-  'invalid:task_state':'That state is not one Satchel knows. Reload the page and pick again. Nothing was saved.',
-  'invalid:task_scope':'That task is not in this scope. Reload the page. Nothing was saved.',
-  'invalid:blocked_reason':BLOCKED_REASON,
   'invalid:refresh_token':'Satchel did not get the overnight sign-in back, so nothing was switched on. Switch the overnight pass on again.',
   'invalid:overnight_https':'The overnight pass can only be switched on from the hosted Satchel, over https. Open it there.',
   'invalid:repository_hint':'That repository name is not one Satchel can read. Nothing was changed.',
@@ -91,7 +69,6 @@ export const reasonText={
   // Only Satchel's own code can send these.
   'fault:slug_kind':'Satchel asked for a short name on something it does not know. '+SATCHEL_FAULT,
   'fault:topic_change':'Satchel sent a topic change it could not read, so nothing was saved. '+SATCHEL_FAULT,
-  'fault:handoff':'Satchel sent a handoff it could not read, so nothing was saved. '+SATCHEL_FAULT,
 };
 
 // Reasons that are not a line in reasonText. satchel:session is a guard that
@@ -104,12 +81,10 @@ export const PERSON_REASON='person';
 
 // The fallback for a database that sends no hint: the sentence each routine
 // raised before 20261019120000_refusals_say_why.sql, with the reason it now
-// gives. The four *_tasks and *_memory lines are thrown by the MCP server
+// gives. The *_memory lines are thrown by the MCP server
 // rather than raised, and have no hint at all.
 const reasonBySentence={
   'Topic write unavailable':'refused:topic_write',
-  'Task write unavailable':'refused:task_write',
-  'Task upload unavailable':'refused:task_upload',
   'Memory write unavailable':'refused:memory_write',
   'Repository link unavailable':'refused:repository_link',
   'Invalid topic selection':'refused:topic_selection',
@@ -117,47 +92,29 @@ const reasonBySentence={
   'Connection unavailable':'refused:connection',
   'Memory read unavailable':'refused:memory_read',
   'Personal memory unavailable':'refused:personal_memory',
-  'Personal tasks unavailable':'refused:personal_tasks',
-  'Topic tasks unavailable':'refused:topic_tasks',
   'Switch the overnight pass on first.':'refused:overnight_off',
   'Topic not found':'gone:topic',
-  'Task not found':'gone:task',
-  'Task unavailable':'gone:task_moved',
   'Memory not found or unavailable':'gone:memory',
   'Record not found':'gone:record',
   'Repository is not linked to an authorized topic':'gone:repository_topic',
   'Topic revision conflict':'conflict:topic_revision',
-  'Task revision conflict':'conflict:task_revision',
   'Topic changed or unavailable':'conflict:topic',
-  'Task changed or unavailable':'conflict:task',
   'Memory changed or unavailable':'conflict:memory',
-  'Upload is not pending':'conflict:upload',
-  'Task request conflict':'conflict:task_request',
   'Topic request conflict':'conflict:topic_request',
   'Memory request conflict':'conflict:memory_request',
   'That slug is already in use':'invalid:slug_taken',
   'A slug is lowercase words joined by hyphens, up to 40 characters':'invalid:slug_shape',
   'A slug is lowercase words joined by hyphens, 3 to 40 characters':'invalid:slug_shape',
   'Topic was merged':'invalid:topic_merged',
+  'Topic has work only its owner may move':'invalid:topic_has_work',
+  // merge_topic's sentence before 20261020120000, when topics could hold tasks.
   'Topic has tasks or repositories':'invalid:topic_has_work',
-  'Select a memory or task scope':'invalid:no_scope',
-  'A task cannot parent itself':'invalid:parent_self',
-  'Parent task unavailable in this scope':'invalid:parent_scope',
-  'Task parent cycle':'invalid:parent_cycle',
-  'Dependency task unavailable in this scope':'invalid:dependency_scope',
-  'Task dependency cycle':'invalid:dependency_cycle',
-  'Invalid comment resource':'invalid:task_resource',
-  'Invalid progress update':'invalid:task_resource',
-  'Invalid handoff resource':'invalid:task_resource',
-  'Invalid task state':'invalid:task_state',
-  'Task is not in this memory scope':'invalid:task_scope',
-  'Blocked tasks require a reason':'invalid:blocked_reason',
+  'Select a memory scope':'invalid:no_scope',
   'A refresh token is required':'invalid:refresh_token',
   'The overnight pass can only call this deployment over https.':'invalid:overnight_https',
   'Invalid repository hint':'invalid:repository_hint',
   'Unknown slug kind':'fault:slug_kind',
   'Invalid topic change':'fault:topic_change',
-  'Invalid handoff supersession':'fault:handoff',
 };
 export const raisedText=Object.fromEntries(Object.entries(reasonBySentence).map(([sentence,reason])=>[sentence,reasonText[reason]]));
 
@@ -188,14 +145,10 @@ const APP_TOKEN='Only you can do this, from the Satchel web app, and this reques
 
 // Messages that carry a value, or come from Supabase rather than from us.
 export const raisedPatterns=[
-  // Supabase's storage.protect_delete trigger. delete_topic and delete_task
-  // remove uploaded files with a plain delete on storage.objects, which this
-  // trigger refuses. The whole delete rolls back, so nothing is gone.
-  [/^Direct deletion from storage tables is not allowed/,'Satchel could not remove the uploaded files that go with this, so nothing was deleted. '+SATCHEL_FAULT],
   [/^Repository is linked to \d+ topics/,reasonText['invalid:repository_ambiguous']],
   // A row-level security refusal: signed in, but the row is not one this
-  // account may write. Usually the topic or task it hangs off is gone.
-  [/row-level security/i,'Satchel would not save this here. The topic or task it belongs to may be gone. Reload the page. Nothing was saved.'],
+  // account may write. Usually the topic it hangs off is gone.
+  [/row-level security/i,'Satchel would not save this here. The topic it belongs to may be gone. Reload the page. Nothing was saved.'],
   // PostgREST and Postgres saying the token itself is expired or unreadable.
   // That is the session, with no guessing.
   [/\bjwt\b.*expired|expired.*\bjwt\b|^JWSError|^JWT|Invalid Compact JWS/i,SESSION],
@@ -219,38 +172,6 @@ export const constraintText={
   topics_slug_check:SHORT_NAME_SHAPE,
   topics_owner_slug:SHORT_NAME_TAKEN,
   topic_repositories_repository_check:'Enter a GitHub repository as owner/name, like acme/web.',
-  tasks_title_check:'A task title is 1 to 200 characters. Shorten it and try again.',
-  tasks_outcome_check:'The outcome is at most 1000 characters. Shorten it and try again.',
-  tasks_why_check:'Why is at most 4000 characters. Shorten it and try again.',
-  tasks_next_action_check:'The next action is at most 1000 characters. Shorten it and try again.',
-  tasks_done_when_check:'Done when has at most 20 lines, and none of them empty. Remove some and try again.',
-  tasks_done_when_check1:'Done when is at most 10,000 characters in total. Shorten it and try again.',
-  tasks_priority_check:'Pick a priority from the list and try again.',
-  tasks_status_check:'That state is not one Satchel knows. Reload the page and pick again.',
-  tasks_check:'A blocked task needs a reason of at most 2000 characters, and any other state has none.',
-  tasks_slug_check:SHORT_NAME_SHAPE,
-  tasks_owner_slug:SHORT_NAME_TAKEN,
-  task_dependencies_check:'A task can’t wait on itself. Pick a different task.',
-  task_parent_edges_check:'A task can’t be its own parent. Pick a different parent.',
-  task_updates_body_check:'A comment is 1 to 4000 characters. Shorten it and try again.',
-  task_updates_next_action_check:'The next action is at most 1000 characters. Shorten it and try again.',
-  task_updates_check:'A blocked task needs a reason of at most 2000 characters. Shorten it and try again.',
-  task_updates_completed_check:'An update lists at most 50 things done. Remove some and try again.',
-  task_updates_decisions_check:'An update lists at most 50 decisions. Remove some and try again.',
-  task_updates_remaining_check:'An update lists at most 50 things left. Remove some and try again.',
-  task_updates_blockers_check:'An update lists at most 50 blockers. Remove some and try again.',
-  task_updates_completed_check1:'Things done are at most 20,000 characters in total. Shorten them and try again.',
-  task_updates_decisions_check1:'Decisions are at most 20,000 characters in total. Shorten them and try again.',
-  task_updates_remaining_check1:'Things left are at most 20,000 characters in total. Shorten them and try again.',
-  task_updates_blockers_check1:'Blockers are at most 20,000 characters in total. Shorten them and try again.',
-  task_handoffs_next_action_check:'A handoff needs a next action of 1 to 1000 characters.',
-  task_handoffs_summary_check:'A handoff summary is at most 4000 characters. Shorten it and try again.',
-  task_handoffs_completed_check:'A handoff lists at most 50 things done. Remove some and try again.',
-  task_handoffs_decisions_check:'A handoff lists at most 50 decisions. Remove some and try again.',
-  task_handoffs_remaining_check:'A handoff lists at most 50 things left. Remove some and try again.',
-  task_handoffs_blockers_check:'A handoff lists at most 50 blockers. Remove some and try again.',
-  task_resources_label_check:'A label is 1 to 200 characters. Shorten it and try again.',
-  task_resources_check:'A link must start with https:// and have no spaces.',
 };
 
 // Sentences the repositories throw as a plain Error rather than a Sentence.
@@ -279,20 +200,6 @@ const AUTH_GONE=new Set(['session_not_found','session_expired','refresh_token_no
 function fromAuth(error) {
   if(error.name==='AuthSessionMissingError'||AUTH_GONE.has(error.code)||error.status===401)return SESSION;
   return 'Satchel’s sign-in service did not answer as expected, so nothing was changed. Reload the page and try again.';
-}
-
-function fromStorage(error,operation) {
-  const message=String(error.message??'');
-  const status=Number(error.status??error.statusCode)||0;
-  const code=String(error.code??error.statusCode??'');
-  if(code==='InvalidJWT'||status===401||/jwt|jws|exp claim/i.test(message))return SESSION;
-  if(/bucket not found/i.test(message))return 'File storage is not set up on this Satchel. Contact the instance owner.';
-  if(status===413||code==='EntityTooLarge'||/maximum allowed size|too large/i.test(message))return 'That file is too big for storage. Files are limited to 6 MB.';
-  if(status===409||code==='Duplicate'||/already exists/i.test(message))return 'A file is already stored for this upload. Reload the task to see whether it finished.';
-  if(status===404||code==='NoSuchKey'||/not found/i.test(message))return 'That file is no longer in storage. Reload the task to see what is still attached.';
-  if(status===403||code==='AccessDenied'||/row-level security|unauthorized/i.test(message))
-    return 'File storage refused this file. The task or its upload may be gone. Reload the task and try again.';
-  return operation==='load'?LOAD:'File storage did not answer. Check your connection, reload the task, and try again.';
 }
 
 const field=(error,key)=>error&&typeof error==='object'&&typeof error[key]==='string'?error[key]:'';
@@ -331,7 +238,6 @@ export function errorMessage(error,operation='save',signedIn) {
       ?'The request took too long. Your draft is still here. Reload to check whether the change reached your book before retrying.'
       :'The request took too long. Reload to check whether it went through before you try again.';
   if(object.__isAuthError)return fromAuth(object);
-  if(object.__isStorageError)return fromStorage(object,operation);
 
   // PostgREST's own codes come before the message: they are about the request,
   // not about anything a routine said.

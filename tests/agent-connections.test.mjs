@@ -7,7 +7,7 @@ import {applyMigrations} from './helpers/migrations.mjs';
 test('agent grants enforce isolation, writes, revocation and generation at the database boundary',async t=>{
   const db=new PGlite();
   const owner=crypto.randomUUID(), other=crypto.randomUUID(), a=crypto.randomUUID(),b=crypto.randomUUID();
-  const ca='codex-fixture',cb='claude-fixture',taskClient='task-fixture';
+  const ca='codex-fixture',cb='claude-fixture';
   async function call(claims,sql,params=[]) {
     await db.exec('begin; set local role authenticated;');
     try {
@@ -15,7 +15,7 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       const result=await db.query(sql,params);await db.exec('commit');return result.rows;
     }catch(e){await db.exec('rollback');throw e;}
   }
-  const user={sub:owner};let codex,claude,taskAgent;
+  const user={sub:owner};let codex,claude;
   const authorize=(client,personal,topics,write)=>call(user,'select authorize_agent($1,$1,$2,$3,$4)',[client,personal,topics,write]);
   async function claims(client) {
     const {rows}=await db.query('select satchel_access_token_hook($1) result',[
@@ -35,8 +35,6 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
     for(const id of [null,a,b]) await call(user,'select save_memory($1,$2,$3,$4,$5,$6,$7)',[crypto.randomUUID(),id,'Summary','','said','same-name','PRIVATE DETAILS']);
     await authorize(ca,true,[a],false);await authorize(cb,false,[b],true);
     codex=await claims(ca);claude=await claims(cb);
-    await call(user,'select authorize_agent_v2($1,$1,false,$2,false,false,$3,true,false)',[taskClient,[],[a]]);
-    taskAgent=await claims(taskClient);
     await t.test('token hook leaves companion unchanged and binds OAuth grants/audience',async()=>{
       const event={user_id:owner,claims:{sub:owner,aud:'authenticated'}};
       assert.deepEqual((await db.query('select satchel_access_token_hook($1) result',[event])).rows[0].result,event);
@@ -109,10 +107,6 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
         crypto.randomUUID(),b,'Stale update','','unchanged',null]),{code:'PT409'});
       await assert.rejects(call(claude,'select upsert_topic($1,$2,1,$3,$4,$5,$6)',[
         crypto.randomUUID(),a,'Outside grant','','unchanged',null]),{code:'42501'});
-      const taskAuthorized=(await call(taskAgent,'select upsert_topic($1,$2,1,$3,$4,$5,$6) result',[
-        crypto.randomUUID(),a,'Task-authorized topic','','unchanged',null]))[0].result;
-      assert.equal(taskAuthorized.topic.revision,2);
-      assert.equal(taskAuthorized.grant_required,false);
     });
     await t.test('active scopes belong to one client and conversation, never a global topic',async()=>{
       await call(codex,'select select_agent_topic($1,$2)',['session-one',a]);
@@ -301,8 +295,7 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
 
     await t.test('a blanket grant covers a topic that did not exist when it was given',async()=>{
       const blanket='blanket-fixture';
-      await call(user,'select authorize_agent_v3($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-        [blanket,false,true,[],true,false,true,[],true,false]);
+      await call(user,'select authorize_agent_v4($1,$1,$2,$3,$4,$5)',[blanket,false,true,[],true]);
       const agent=await claims(blanket);
       const later=crypto.randomUUID();
       await call(user,'select create_topic($1,$2,$3)',[later,'Created after the blanket grant','']);
@@ -310,15 +303,12 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       assert.equal((await call(agent,'select agent_can_access($1,false) ok',[later]))[0].ok,true);
       assert.equal((await call(agent,'select agent_can_access($1,true) ok',[later]))[0].ok,true);
       assert.equal((await call(agent,'select id from topics where id=$1',[later]))[0].id,later);
-      // Tasks carry their capabilities per grant row, and a blanket grant has
-      // no row, so the connection level flags have to answer instead.
-      assert.equal((await call(agent,'select private.agent_can_access_tasks($1,$2) ok',[later,'read']))[0].ok,true);
-      assert.equal((await call(agent,'select private.agent_can_access_tasks($1,$2) ok',[later,'write']))[0].ok,true);
-      assert.equal((await call(agent,'select private.agent_can_access_tasks($1,$2) ok',[later,'upload']))[0].ok,false);
 
       const status=(await call(agent,'select agent_connection_status() s'))[0].s;
       assert.equal(status.all_topics,true,'the agent has to be able to tell a blanket grant from a list');
       assert.deepEqual(status.topic_ids,[],'and a blanket grant keeps no stale list beside it');
+      assert.deepEqual(Object.keys(status).sort(),['all_topics','can_write','client_id','label','personal','topic_ids'],
+        'a connection is memory and topics only');
 
       // Personal was not granted, so it is still a denial. Blanket means every
       // topic, not everything.
@@ -329,7 +319,7 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       // Existing grants must not widen on their own. The column defaults to
       // false and the older signature has to keep meaning what it meant.
       assert.equal((await call(user,'select all_topics from agent_connections where client_id=$1',[ca]))[0].all_topics,false);
-      await call(user,'select authorize_agent_v2($1,$1,false,$2,false,false,$3,true,false)',['blanket-fixture',[a],[a]]);
+      await call(user,'select authorize_agent($1,$1,false,$2,false)',['blanket-fixture',[a]]);
       assert.equal((await call(user,'select all_topics from agent_connections where client_id=$1',['blanket-fixture']))[0].all_topics,false,
         're-authorizing through the older signature must clear a blanket grant, not keep it');
       const agent=await claims('blanket-fixture');
@@ -339,8 +329,7 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
 
     await t.test('revoking a blanket grant denies it immediately',async()=>{
       const blanket='revoke-blanket';
-      await call(user,'select authorize_agent_v3($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-        [blanket,false,true,[],false,false,false,[],false,false]);
+      await call(user,'select authorize_agent_v4($1,$1,$2,$3,$4,$5)',[blanket,false,true,[],false]);
       const agent=await claims(blanket);
       assert.equal((await call(agent,'select agent_can_access($1,false) ok',[a]))[0].ok,true);
       await call(user,'select revoke_agent($1)',[blanket]);

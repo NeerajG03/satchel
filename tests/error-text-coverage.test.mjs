@@ -77,7 +77,7 @@ test('every tool is listed with the routines it reaches',async()=>{
 
 test('every refusal a tool can reach reads as something the agent can act on',async t=>{
   const {raises,constraints}=await reachable();
-  assert.ok(raises.size>10&&constraints.length>50,'the walk found the routines, so an empty result means nothing');
+  assert.ok(raises.size>10&&constraints.length>30,'the walk found the routines, so an empty result means nothing');
 
   await t.test('every sentence a routine raises has agent-facing text',()=>{
     // A routine's own sentence would pass through readable anyway, so readable

@@ -23,13 +23,10 @@ export function createConnectionRepository(db: SupabaseClient) {
       return (data ?? []) as Connection[];
     },
     async grant(request: GrantRequest): Promise<void> {
-      const { error } = await requestWithTimeout(signal => db.rpc('authorize_agent_v3', {
+      const { error } = await requestWithTimeout(signal => db.rpc('authorize_agent_v4', {
         p_client_id: request.clientId, p_label: request.label.slice(0, 100) || 'Agent connection',
         p_personal: request.personal, p_all_topics: request.allTopics,
         p_topic_ids: request.topicIds, p_can_write: request.canWrite,
-        // The routine still takes task grants until the database drops them.
-        p_task_personal: false, p_task_all_topics: false, p_task_topic_ids: [],
-        p_task_can_write: false, p_task_can_upload: false,
       }).abortSignal(signal));
       if (error) throw error;
     },

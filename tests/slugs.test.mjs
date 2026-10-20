@@ -28,9 +28,8 @@ test('slugs are supplied, unique per user, and never silently derived away',asyn
     insert into auth.users values ('${alice}'), ('${bob}');`);
   await applyMigrations(db);
 
-  const newTask=(owner,slug,id,topic,title)=>as(owner,
-    'select * from create_task_with_slug($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-    [slug,crypto.randomUUID(),id,topic,title,'','',[],'','medium']);
+  const newTopic=async(owner,slug,id,name)=>(await as(owner,
+    'select upsert_topic_with_slug($1,$2,$3,null,$4,$5) as r',[slug,crypto.randomUUID(),id,name,'']))[0].r.topic;
 
   await as(alice,'select * from create_topic($1,$2,$3)',[topicA,'Cardinal Ledger','Payments']);
 
@@ -40,19 +39,19 @@ test('slugs are supplied, unique per user, and never silently derived away',asyn
   });
 
   await t.test('a supplied slug is kept exactly, not re-derived from the title',async()=>{
-    const id='40000000-0000-4000-8000-000000000001';
-    const [task]=await newTask(alice,'fix-consent-layout',id,topicA,
+    const id='20000000-0000-4000-8000-000000000001';
+    const topic=await newTopic(alice,'fix-consent-layout',id,
       'Fix the corner leak where the shell background paints through the paper panel');
-    assert.equal(task.slug,'fix-consent-layout');
+    assert.equal(topic.slug,'fix-consent-layout');
   });
 
-  await t.test('a slug is unique per user across topics and tasks together',async()=>{
+  await t.test('a slug is unique per user',async()=>{
     await assert.rejects(
-      newTask(alice,'fix-consent-layout','40000000-0000-4000-8000-000000000002',topicA,'Another'),
+      newTopic(alice,'fix-consent-layout','20000000-0000-4000-8000-000000000002','Another'),
       err=>err.code==='23505');
-    // and the create rolled back with it, rather than leaving a task behind
-    const [{count}]=await as(alice,`select count(*)::int from tasks where id=$1`,
-      ['40000000-0000-4000-8000-000000000002']);
+    // and the create rolled back with it, rather than leaving a topic behind
+    const [{count}]=await as(alice,`select count(*)::int from topics where id=$1`,
+      ['20000000-0000-4000-8000-000000000002']);
     assert.equal(count,0,'a slug collision must roll the create back');
   });
 
@@ -66,7 +65,7 @@ test('slugs are supplied, unique per user, and never silently derived away',asyn
   await t.test('a malformed slug is refused with something readable',async()=>{
     for(const bad of ['Not A Slug','x'.repeat(41),'trailing-','-leading','under_score',''])
       await assert.rejects(
-        newTask(alice,bad,crypto.randomUUID(),topicA,'Bad'),
+        newTopic(alice,bad,crypto.randomUUID(),'Bad'),
         /slug|Invalid/i,`"${bad}" should be refused`);
   });
 
@@ -78,8 +77,8 @@ test('slugs are supplied, unique per user, and never silently derived away',asyn
     const id='20000000-0000-4000-8000-00000000000d';
     await as(alice,'select * from create_topic($1,$2,$3)',[id,'Go','A service written in Go']);
     assert.equal((await as(alice,'select slug from topics where id=$1',[id]))[0].slug,'go');
-    const [task]=await newTask(alice,'qa',crypto.randomUUID(),topicA,'Quality');
-    assert.equal(task.slug,'qa');
+    const topic=await newTopic(alice,'qa',crypto.randomUUID(),'Quality');
+    assert.equal(topic.slug,'qa');
   });
 
   await t.test('a collision suffix after truncation never doubles the hyphen',async()=>{
@@ -89,11 +88,9 @@ test('slugs are supplied, unique per user, and never silently derived away',asyn
     // not match the slug pattern and failed the check constraint.
     const title='Fix the corner leak where the shell background paints through';
     const first=crypto.randomUUID(), second=crypto.randomUUID();
-    await as(alice,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-      [crypto.randomUUID(),first,topicA,title,'','',[],'','medium']);
-    await as(alice,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-      [crypto.randomUUID(),second,topicA,title,'','',[],'','medium']);
-    const [row]=await as(alice,'select slug from tasks where id=$1',[second]);
+    await as(alice,'select * from create_topic($1,$2,$3)',[first,title,'']);
+    await as(alice,'select * from create_topic($1,$2,$3)',[second,title,'']);
+    const [row]=await as(alice,'select slug from topics where id=$1',[second]);
     assert.doesNotMatch(row.slug,/--/,'a doubled hyphen fails the slug check');
     assert.match(row.slug,/^[a-z0-9]+(-[a-z0-9]+)*$/);
   });
@@ -115,30 +112,23 @@ test('slugs are supplied, unique per user, and never silently derived away',asyn
       err=>err.code==='P0002','another owner cannot rename it');
   });
 
-  await t.test('renaming obeys the same one-namespace rule as creating',async()=>{
-    // Creating picked a candidate unique across topics and tasks together,
-    // but renaming only had the per-table unique index, so a task could be
-    // renamed onto a topic's slug. Whether the rule held depended on which
-    // path made the row, and both create wrappers route through set_slug.
+  await t.test('renaming obeys the same rule as creating',async()=>{
     await assert.rejects(
-      as(alice,'select set_slug($1,$2,$3)',['task','40000000-0000-4000-8000-000000000001','cardinal']),
-      err=>err.code==='23505','a task may not take a topic\'s slug');
+      as(alice,'select set_slug($1,$2,$3)',['topic','20000000-0000-4000-8000-000000000001','cardinal']),
+      err=>err.code==='23505','a topic may not take another topic\'s slug');
+    // Topics are the only thing with a slug now.
+    await assert.rejects(as(alice,'select set_slug($1,$2,$3)',['task',topicA,'anything']),
+      err=>err.code==='23514');
     // Renaming to the slug it already has stays a no-op rather than a conflict.
     assert.equal((await as(alice,'select set_slug($1,$2,$3) as s',['topic',topicA,'cardinal']))[0].s,'cardinal');
-  });
-
-  await t.test('the planning view exposes the slug, so a list can name a task',async()=>{
-    const [row]=await as(alice,'select slug from task_planning where id=$1',
-      ['40000000-0000-4000-8000-000000000001']);
-    assert.equal(row.slug,'fix-consent-layout');
   });
 
   await t.test('a title with a hyphen at the cut still creates, keeping the supplied slug',async()=>{
     // Refused on the live database before the fix: the title-derived slug
     // ended in a hyphen and failed the check before the supplied one applied.
-    const id='40000000-0000-4000-8000-0000000000c1';
-    const [task]=await newTask(alice,'org-skills-sync',id,null,'Design org-level skills with user skill sync');
-    assert.equal(task.slug,'org-skills-sync');
+    const id='20000000-0000-4000-8000-0000000000c1';
+    const topic=await newTopic(alice,'org-skills-sync',id,'Design org-level skills with user skill sync');
+    assert.equal(topic.slug,'org-skills-sync');
     const rows=await as(alice,`select public.slugify(t) as s from unnest($1::text[]) t`,
       [['Design org-level skills with user skill sync','--Leading dashes and a hyphen at forty-x-y','!!!','x'.repeat(60)]]);
     for (const {s} of rows) {

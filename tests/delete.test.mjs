@@ -2,9 +2,9 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {applyMigrations} from './helpers/migrations.mjs';
-import {SUPABASE_STORAGE,storageApiRemove} from './helpers/storage.mjs';
+import {SUPABASE_STORAGE} from './helpers/storage.mjs';
 
-test('people can delete tasks and topics with a revision check; agents cannot',async t=>{
+test('people can delete topics with a revision check; agents cannot',async t=>{
   const db=new PGlite();
   const owner=crypto.randomUUID(),other=crypto.randomUUID();
   const topic=crypto.randomUUID();
@@ -24,8 +24,6 @@ test('people can delete tasks and topics with a revision check; agents cannot',a
       create role anon; create role authenticated; create role supabase_auth_admin;
       create schema auth;
       ${SUPABASE_STORAGE}
-      grant usage on schema storage to authenticated;
-      grant select,delete on storage.objects to authenticated;
       create table auth.users(id uuid primary key);
       create function auth.jwt() returns jsonb language sql stable as
         $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
@@ -40,67 +38,32 @@ test('people can delete tasks and topics with a revision check; agents cannot',a
     await applyMigrations(db);
 
     await call(user,'select create_topic($1,$2,$3)',[topic,'Doomed','Will be deleted']);
-    await call(user,'select authorize_agent_v2($1,$2,false,$3,false,$4,true,true)',[client,client,[],[topic]]);
+    await call(user,'select authorize_agent_v4($1,$2,false,false,$3,true)',[client,client,[topic]]);
     const hook=(await db.query('select satchel_access_token_hook($1) result',[
       {user_id:owner,client_id:client,claims:{sub:owner,client_id:client,aud:'authenticated'}},
     ])).rows[0].result.claims;
-
-    const parent=crypto.randomUUID(),child=crypto.randomUUID(),personal=crypto.randomUUID();
-    await call(user,'select create_task($1,$2,$3,$4)',[crypto.randomUUID(),parent,topic,'Parent']);
-    await call(user,'select create_task($1,$2,$3,$4)',[crypto.randomUUID(),child,topic,'Child']);
-    await call(user,'select create_task($1,$2,null,$3)',[crypto.randomUUID(),personal,'Personal']);
-    await call(user,'select set_task_parent($1,$2,1,$3)',[crypto.randomUUID(),child,parent]);
     // The v2 signature: a memory is one statement, with source, band and an
-    // optional handle after it. The old positional call landed 'Kept short' on
-    // source and '' on band, which the band check refuses.
+    // optional handle after it.
     await call(user,'select save_memory($1,$2,$3,$4,$5,$6,$7)',
       [crypto.randomUUID(),topic,'Kept short','Kept short','said',null,'Decision']);
-    const resource=crypto.randomUUID();
-    await call(user,'select reserve_task_file($1,$2,$3,1,$4,$5,$6,$7,$8,$9)',[
-      crypto.randomUUID(),resource,parent,'Notes','notes.txt','text/plain',5,'a'.repeat(64),'document']);
-    const key=(await call(user,'select object_key from task_resources where id=$1',[resource]))[0].object_key;
-    await db.query('insert into storage.objects(bucket_id,name) values($1,$2)',['task-files',key]);
 
-    await t.test('agent tokens are refused',async()=>{
-      await assert.rejects(call(hook,'select delete_task($1,2)',[parent]),{code:'42501'});
+    await t.test('agent tokens are refused, even with write access to the topic',async()=>{
       await assert.rejects(call(hook,'select delete_topic($1,1)',[topic]),{code:'42501'});
     });
 
     await t.test('a stale revision is a conflict, a wrong owner is not found',async()=>{
-      await assert.rejects(call(user,'select delete_task($1,1)',[parent]),{code:'PT409'});
-      await assert.rejects(call({sub:other},'select delete_task($1,2)',[parent]),{code:'P0002'});
+      await assert.rejects(call(user,'select delete_topic($1,99)',[topic]),{code:'PT409'});
+      await assert.rejects(call({sub:other},'select delete_topic($1,1)',[topic]),{code:'P0002'});
     });
 
-    await t.test('deleting a task removes its rows, hands back its files and frees its children',async()=>{
-      const result=(await call(user,'select delete_task($1,2) result',[parent]))[0].result;
-      assert.equal(result.title,'Parent');
-      assert.equal(result.files_removed,1);
-      assert.deepEqual(result.file_keys,[key]);
-      assert.equal(result.children_unparented,1);
-      assert.equal((await call(user,'select id from tasks where id=$1',[parent])).length,0);
-      assert.equal((await call(user,'select id from task_resources where task_id=$1',[parent])).length,0);
-      assert.equal((await db.query('select name from storage.objects where name=$1',[key])).rows.length,1);
-      assert.equal((await call(user,'select parent_id from task_planning where id=$1',[child]))[0].parent_id,null);
-    });
-
-    await t.test('only the person can remove their own files through storage',async()=>{
-      assert.equal((await storageApiRemove(db,hook,[key])).length,0);
-      assert.equal((await storageApiRemove(db,{sub:other},[key])).length,0);
-      assert.equal((await db.query('select name from storage.objects where name=$1',[key])).rows.length,1);
-      assert.equal((await storageApiRemove(db,user,[key])).length,1);
-      assert.equal((await db.query('select name from storage.objects where name=$1',[key])).rows.length,0);
-    });
-
-    await t.test('deleting a topic takes its memories, tasks and grants with it',async()=>{
-      const result=(await call(user,'select delete_topic($1,1) result',[topic]))[0].result;
+    await t.test('deleting a topic takes its memories and its grants with it',async()=>{
+      const [{revision}]=await call(user,'select revision from topics where id=$1',[topic]);
+      const result=(await call(user,'select delete_topic($1,$2) result',[topic,revision]))[0].result;
+      assert.deepEqual(Object.keys(result).sort(),['id','memories_removed','name']);
       assert.equal(result.name,'Doomed');
       assert.equal(result.memories_removed,1);
-      assert.equal(result.tasks_removed,1);
-      assert.equal((await call(user,'select id from tasks where topic_id=$1',[topic])).length,0);
       assert.equal((await call(user,'select id from memories where topic_id=$1',[topic])).length,0);
-      assert.equal((await db.query('select 1 from agent_task_grants where topic_id=$1',[topic])).rows.length,0);
       assert.deepEqual((await call(user,'select topic_ids from agent_connections where client_id=$1',[client]))[0].topic_ids,[]);
-      assert.equal((await call(user,'select id from tasks where id=$1',[personal])).length,1);
     });
   } finally { await db.close(); }
 });

@@ -39,7 +39,7 @@ The database is the only authority. The server and the UI are convenience layers
 
 - It defaults to false and is never backfilled. An existing grant keeps its frozen list until the person authorizes again and sees what they are agreeing to. Widening a live grant in a migration is the same bug pointing the other way.
 - A blanket grant stores an empty `topic_ids`, so a stale list can never sit beside the flag looking authoritative in the UI or in `agent_connection_status`.
-- Older signatures delegate to `authorize_agent_v3` with the flag false, so re-authorizing through an older client clears a blanket grant rather than keeping one.
+- The older `authorize_agent` signature delegates to `authorize_agent_v4` with the flag false, so re-authorizing through an older client clears a blanket grant rather than keeping one.
 
 Everything else still applies: it is per connection, revocation still rotates `grant_id`, and it still cannot reach another owner.
 
