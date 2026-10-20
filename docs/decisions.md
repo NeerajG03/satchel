@@ -92,6 +92,7 @@ The notebook/hardware style is the current user-supplied visual direction. The p
 | Built-in Notion task support | Still not included; an existing Notion record can be attached as an HTTPS reference without synchronization |
 | Font or navigation choice is final because it appears in the prototype | No; prototype establishes visual direction and alternatives |
 | Delete all queued sessions because counts are repetitive | Not accepted; preserve and classify before any destructive migration |
+| D51 | `save_memory` takes a kind, so a rule the person asks to keep is saved as a preference | 20 October. The tool never passed `p_kind`, which the database already accepts, so every explicit save became a fact. A rule saved that way ("keep every reply under 200 words") and the reply-style rule 9e0448 both sat in the store as facts. The offline test of 20 October (docs/following-ignored-rules-2026-10-19.md, section 8) found the wording of preferences is what moves the agent, so they need to be stored as preferences. `kind` is optional and defaults to fact, so older plugins behave as before; plugin 0.5.8 tells the agent to set it. No migration |
 
 ## Open decisions
 

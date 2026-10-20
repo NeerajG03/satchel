@@ -14,6 +14,7 @@ const content={
   source:z.string().max(4000).default('').describe("The user's own words this was drawn from. Stored for provenance and never injected."),
   name:z.string().trim().min(1).max(100).nullable().default(null).describe('An optional handle. Most memories have none.'),
   more_info:z.string().max(40000).default(''),
+  kind:z.enum(['fact','preference','intent']).default('fact').describe('preference: how the person wants things done, a rule the agent should follow. intent: something they want that is not true yet. fact: anything else.'),
 };
 const correctionContent={statement:content.statement,name:content.name,more_info:content.more_info};
 const identity={topic_id:scope,id:z.uuid(),revision:z.number().int().positive()};

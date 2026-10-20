@@ -40,7 +40,7 @@ A row that says `said N times` beside its scope is one the user has stated that 
 
 ## Saving
 
-`save_memory` takes `topic_id` and `statement`. Optionally provide `source`, `name` and `more_info`. Satchel returns the new memory ID. There is no `task_id`.
+`save_memory` takes `topic_id` and `statement`. Optionally provide `source`, `name`, `more_info` and `kind`. Set `kind` to `preference` when the person is telling you how they want things done, so it loads as a rule rather than a fact. Satchel returns the new memory ID. There is no `task_id`.
 
 Save only when the user asks you to remember something. Write the statement so it still makes sense in six weeks, with no pronouns pointing at this conversation. An explicit save is confirmed by definition, so it is stored as `said`.
 
