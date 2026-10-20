@@ -20,6 +20,16 @@ export function whenText(iso: string, now = Date.now()): string {
   return shortDate(iso);
 }
 
+/** For a column of times: as short as it can be and still be read alone. */
+export function shortWhen(iso: string, now = Date.now()): string {
+  const then = new Date(iso);
+  const diff = now - then.getTime();
+  if (diff < 3_600_000) return `${Math.max(1, Math.round(diff / 60_000))} min`;
+  if (new Date(now).toDateString() === then.toDateString()) return `${Math.round(diff / 3_600_000)} h`;
+  if (diff < 6 * DAY) return then.toLocaleDateString(undefined, { weekday: 'short' });
+  return then.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
 export function todayLine(): string {
   return new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 }

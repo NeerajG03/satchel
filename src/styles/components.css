@@ -135,6 +135,39 @@ select.field { appearance: auto; }
 .entry .body { font: 19px/1.45 var(--font-content); white-space: pre-wrap; overflow-wrap: anywhere; padding: 8px 0 4px; }
 .entry .actions { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 .entry.fresh::after { content: ''; height: 2px; background: var(--accent); transform-origin: left; animation: inkline var(--t-settle) var(--ease) both; }
+/* The book as a ledger. One line per memory, opened in place. The row is the
+   button, so the whole line is the target and there is nothing to aim for. */
+.entry.line { padding: 0; gap: 0; }
+.entry.line .row {
+  all: unset; box-sizing: border-box; width: 100%; cursor: pointer; min-height: var(--key-h); padding: 6px 4px;
+  display: grid; grid-template-columns: 92px minmax(0, 1fr) 136px 64px; gap: 12px; align-items: center;
+  transition: background-color var(--t-tap) var(--ease);
+}
+.entry.line .row:hover { background: var(--paper-2); }
+.entry.line .row:focus-visible { outline: var(--focus-ring); outline-offset: 0; }
+.entry.line.open .row { background: var(--paper-2); }
+.entry.line .statement { font: 17px/1.35 var(--font-content); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry.line .row.wrap .statement { white-space: pre-wrap; overflow-wrap: anywhere; }
+.entry.line .claim, .entry.line .when { font: var(--text-prov)/1.5 var(--font-mono); color: var(--muted); white-space: nowrap; }
+.entry.line .when { text-align: right; font-variant-numeric: tabular-nums; }
+.entry.line .detail { display: flex; flex-direction: column; gap: 8px; padding: 8px 4px 16px 108px; }
+.entry.line .detail .body { padding: 0; }
+.day { display: flex; flex-direction: column; }
+.day-head { display: flex; align-items: baseline; gap: 12px; padding: 20px 0 6px; border-bottom: 1px solid var(--ink); }
+.day-head h2 { font: 500 var(--text-h3)/1.25 var(--font-content); }
+.since { border: 1px solid var(--line); background: var(--paper-2); border-radius: var(--r-paper); padding: 16px 18px 10px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.since > div { align-self: stretch; }
+.since .lead { font: 500 var(--text-h3)/1.25 var(--font-content); }
+.since .entry.line .row:hover, .since .entry.line.open .row { background: var(--paper-3); }
+.since .entry.line { border-bottom-color: var(--paper-3); }
+.since .entry.line:last-child { border-bottom: 0; }
+.since .btn.link { margin: 4px 0 6px; }
+@media (max-width: 760px) {
+  .entry.line .row { grid-template-columns: minmax(0, 1fr) 56px; }
+  .entry.line .why:empty, .entry.line .claim { display: none; }
+  .entry.line .why { grid-column: 1 / -1; }
+  .entry.line .detail { padding-left: 4px; }
+}
 a.entry { color: var(--ink); }
 a.entry:hover { text-decoration: none; background: linear-gradient(to right, var(--paper-2), transparent 70%); margin: 0 -12px; padding-left: 12px; padding-right: 12px; }
 

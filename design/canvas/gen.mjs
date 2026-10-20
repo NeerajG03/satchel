@@ -59,6 +59,14 @@ const CSS = (dark) => `
   .chip.blocked { color:var(--red); border-color:var(--red); }
   .chip.done { color:var(--muted); border-style:dashed; }
   .chip.progress { color:var(--accent); border-color:var(--accent); }
+  .chip.amber { color:var(--amber); border-color:var(--amber); }
+  .line-row { display:grid; grid-template-columns:92px minmax(0,1fr) 136px 64px; gap:12px; align-items:center; min-height:44px; padding:6px 4px; border-bottom:1px solid var(--line); color:var(--ink); }
+  .line-row:hover { background:var(--paper2); text-decoration:none; color:var(--ink); }
+  .line-row .s { font:17px/1.35 'Newsreader', serif; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .line-row .k, .line-row .t { font:11.5px/1.5 'DM Mono', monospace; color:var(--muted); white-space:nowrap; } .line-row .t { text-align:right; }
+  .day-head { display:flex; align-items:baseline; gap:12px; padding:20px 0 6px; border-bottom:1px solid var(--ink); } .day-head h2 { margin:0; font:500 20px/1.25 'Newsreader', serif; }
+  .since { border:1px solid var(--line); background:var(--paper2); border-radius:14px; padding:16px 18px 10px; display:flex; flex-direction:column; gap:4px; margin-top:18px; }
+  .since .line-row { border-bottom-color:var(--paper3); } .since .line-row:hover { background:var(--paper3); }
   .led { width:9px; height:9px; border-radius:50%; background:var(--led-off); flex:none; box-shadow:inset 0 1px 1px #0004; }
   .led.green { background:var(--led-green); box-shadow:0 0 0 3px #3E9E6233; } .led.amber { background:var(--led-amber); box-shadow:0 0 0 3px #E2A11E33; } .led.red { background:var(--led-red); box-shadow:0 0 0 3px #C8442E33; }
   .field { width:100%; border:1px solid var(--line); background:var(--paper2); color:var(--ink); border-radius:8px; padding:11px 13px; font:15px/1.4 'Instrument Sans', sans-serif; }
@@ -280,16 +288,34 @@ const memoryEntry = ({ name, desc, prov, rev, expanded = false, body = '', scope
   <div class="between"><span class="prov">${prov}</span><span class="row" style="gap:14px;"><a href="#" class="fine" aria-expanded="${expanded}">${expanded ? 'Hide more info' : 'Read more info'}</a>${rev > 1 ? `<a href="#" class="fine muted" style="color:var(--muted);">${rev} revisions</a>` : ''}</span></div>
 </article>`;
 
-const book = desktop({ active: 'Book', footL: '5 in the book · Topic / Satchel', paper: `
-  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topic · Satchel</span><h1 class="h1">The book.</h1></div>
-    <div class="row">${scopePicker('Satchel')}<a href="#" class="btn icon" aria-label="Search the book">${icon.search}</a></div></div>
-  <div class="between" style="margin:14px 0 6px;"><p class="lede" style="margin:0;">Continuity between the AI apps you already use. Decisions saved here are read by Claude Code and Codex.</p>
-    <a href="Book.dc.html" class="btn">${icon.plus} Write something down</a></div>
-  <div class="row" style="gap:8px; margin:12px 0 4px;"><span class="seg"><a href="#" aria-current="true">All 5</a><a href="#">Saved by me 3</a><a href="#">Saved by agents 2</a></span><span class="fine muted">Newest first</span></div>
-  ${memoryEntry({ name: 'no-personas-v1', desc: 'Satchel has no personas and no curator in the first version. Read before proposing agent roles.', prov: 'Said on your phone · today 09:18 · revision 1', rev: 1 })}
-  ${memoryEntry({ name: 'task-authority', desc: 'Supabase is the only authority for task state. GitHub issues are attached references, never mirrors.', prov: 'Saved by Claude Code · MacBook · Tue 16 Sep · revision 2', rev: 2, expanded: true, body: 'Every write carries a request id and the current revision. A stale revision is a conflict, not an overwrite. Attach a GitHub issue or PR as a typed HTTPS resource; do not sync its status back.\n\nDecided 16 Sep after the Issues-only direction was dropped.' })}
-  ${memoryEntry({ name: 'plain-words', desc: 'Write UI copy in plain 8th-grade words. No jargon, no metaphors, no em dashes.', prov: 'Said on your MacBook · Fri 12 Sep · revision 3', rev: 3 })}
-  ${memoryEntry({ name: 'memory-index-shape', desc: 'Hooks read only names and descriptions. More info is fetched by name when needed.', prov: 'Saved by Codex · desktop · Thu 11 Sep · revision 1', rev: 1 })}` });
+// Book: a ledger, one line a memory, with what came in since you last looked
+const WHY = { new: ['chip progress', 'New'], again: ['chip', 'Said again'], changed: ['chip amber', 'Changed'] };
+const lineRow = ([why, s, k, t]) => `<a href="#" class="line-row"><span>${why ? `<span class="${WHY[why][0]}">${WHY[why][1]}</span>` : ''}</span><span class="s">${s}</span><span class="k">${k}</span><span class="t">${t}</span></a>`;
+const book = desktop({ active: 'Book', footL: '52 in the book · For me', paper: `
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">For me</span><h1 class="h1">The book.</h1></div>
+    <div class="row">${scopePicker('For me')}<a href="#" class="btn icon" aria-label="Search the book">${icon.search}</a></div></div>
+  <section class="since"><h2 class="serif" style="margin:0; font-size:20px; font-weight:500;">6 new memories since you last looked.</h2>
+    <span class="prov">You were last here Thu · 2 others were said again or changed</span>
+    <div>${[['new', 'Use ▣ as Satchel’s mark in the memory blocks, and never use ◪.', 'how you like things', '2 h'],
+      ['new', 'Leave both Satchel connections active, because the cloud session needs one and the local session needs another.', 'how things are', '5 h'],
+      ['new', 'Automatic topic picking has to be right at least 9 times in 10.', 'how you like things', '6 h']].map(lineRow).join('')}</div>
+    <a href="#" style="font-weight:500; margin:4px 0 6px;">Show the other 3</a></section>
+  <div class="day-head"><h2>Today</h2><span class="prov">4 new · 2 said again</span></div>
+  ${[['new', 'Use ▣ as Satchel’s mark in the memory blocks, and never use ◪.', 'how you like things', '2 h'],
+    ['again', 'Code comments only when the code can’t explain itself, about the why, never ticket numbers.', 'how you like things', '3 h'],
+    ['new', 'Leave both Satchel connections active, because the cloud session needs one and the local session needs another.', 'how things are', '5 h'],
+    ['new', 'Automatic topic picking has to be right at least 9 times in 10.', 'how you like things', '6 h']].map(lineRow).join('')}
+  <article class="entry" style="padding:0; gap:0;">${lineRow(['new', 'Skill descriptions should say enough to lead the agent on how to use them.', 'how you like things', '7 h']).replace('class="line-row"', 'class="line-row" style="background:var(--paper2);" aria-expanded="true"').replace('class="s"', 'class="s" style="white-space:normal;"')}
+    <div class="col" style="gap:8px; padding:8px 4px 16px 108px;"><div class="between"><span class="prov">how you like things · picked up automatically · revision 1 · today 08:12</span>
+      <span class="row" style="gap:4px;"><a href="BookCorrect.dc.html" class="btn quiet sm">Correct</a><a href="#" class="btn quiet sm">See what you said</a></span></div></div></article>
+  ${lineRow(['again', 'Do not use em dashes in text, summaries or messages.', 'how you like things', '8 h'])}
+  <div class="day-head"><h2>Yesterday</h2><span class="prov">2 new · 1 changed</span></div>
+  ${[['changed', 'Rebase on origin/main before a review, and merge main after one.', 'how you like things', 'Mon'],
+    ['new', 'Satchel’s own tracing uses Langfuse, and the agent records the actions it took.', 'how things are', 'Mon'],
+    ['new', 'App access grants are all or none, not scoped per topic.', 'how things are', 'Mon']].map(lineRow).join('')}
+  <div class="day-head"><h2>Before that</h2><span class="prov">34 memories</span></div>
+  ${[['', 'Plan documents should be simple, readable, visual, and show detail only when asked.', 'how you like things', '12 Oct']].map(lineRow).join('')}
+  <a href="#" style="display:inline-block; font-weight:500; margin-top:12px;">Show all 52</a>` });
 
 // Book: correcting one entry + forget confirm on another
 const bookCorrect = desktop({ active: 'Book', footL: '5 in the book · Topic / Satchel · draft open', paper: `

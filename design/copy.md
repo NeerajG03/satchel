@@ -62,6 +62,10 @@
 - Composer kind: What kind of thing is this · How things are (true until something makes it false) · How you like things (gets stronger each time you say it) · Something you want (ends when it is done)
 - Entry provenance: handle {name} · {kind} · said {n} times · picked up automatically · revision {n}
 - Entry actions: Correct · Read more info (only when there is any) · See what you said (picked-up memories) · Hide
+- Row tags (last week only): New · Said again · Changed
+- Day groups: Today · Yesterday · Earlier this week · Before that / {n} new · {n} said again · {n} changed / {n} memories
+- Since note: {n} new memories since you last looked. / You were last here {when} · {n} others were said again or changed / Show the other {n}
+- Below the groups: Show all {n}
 - Source block heading: From what you said
 - No approval action anywhere. A memory is a memory whether or not the person agrees with it, and asking them to confirm one turns memory into a queue of chores.
 - Empty: Ideas for a first memory / Start with something about you. / Things you end up repeating in every new chat make good first entries. Tap one to prefill the form above. / How I like answers written · Tools and languages I use · What to never do in my code · My working hours and timezone
