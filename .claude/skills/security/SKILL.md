@@ -5,7 +5,7 @@ description: Use when touching migrations, RLS policies, database functions, the
 
 # Satchel security
 
-Satchel holds private notes, tasks and files for many people, and it hands them to AI agents. The whole product rests on one promise: an app sees only what its owner allowed, and a person sees only their own data. Read this before touching `supabase/`, `server/`, `api/`, `integrations/` or the consent and connection pages.
+Satchel holds private memories and conversations for many people, and it hands them to AI agents. The whole product rests on one promise: an app sees only what its owner allowed, and a person sees only their own data. Read this before touching `supabase/`, `server/`, `api/`, `integrations/` or the consent and connection pages.
 
 ## The trust model, in one picture
 
@@ -35,7 +35,7 @@ The database is the only authority. The server and the UI are convenience layers
 
 **Scopes are explicit.** Personal scope is `topic_id = null`. Topic scope is a real UUID from the grant, or the connection's `all_topics` flag. An unknown scope must not default to personal. Personal access needs its own grant flag, and `all_topics` does not imply it: a blanket grant is every topic, not everything. A missing grant is a denial, never an empty list.
 
-**"Every topic" is a flag, never a list.** The consent page used to build "select all" as `projects.map(p => p.id)`, which froze a set of UUIDs, so a topic made the next day was invisible to an app that had been given everything. `all_topics` and `task_all_topics` are the grant saying something that stays true about topics that do not exist yet. Three rules keep that safe:
+**"Every topic" is a flag, never a list.** The consent page used to build "select all" as `projects.map(p => p.id)`, which froze a set of UUIDs, so a topic made the next day was invisible to an app that had been given everything. `all_topics` is the grant saying something that stays true about topics that do not exist yet. Three rules keep that safe:
 
 - It defaults to false and is never backfilled. An existing grant keeps its frozen list until the person authorizes again and sees what they are agreeing to. Widening a live grant in a migration is the same bug pointing the other way.
 - A blanket grant stores an empty `topic_ids`, so a stale list can never sit beside the flag looking authoritative in the UI or in `agent_connection_status`.
@@ -47,15 +47,15 @@ Everything else still applies: it is per connection, revocation still rotates `g
 
 **Writes are safe to retry and safe against races.** Creates take a caller-supplied `id` and `request_id`. The same pair with the same payload returns the existing record. A different payload is a conflict. Updates take the expected `revision` and fail with a conflict on mismatch instead of overwriting. Deletes check the revision too.
 
-**Agents cannot delete tasks or topics.** Only a person can. Agents can forget a memory only within a scope they were granted write on. Keep destructive tool annotations honest. The system itself never deletes a memory: consolidation and the web app's Forget end it with a reason, and `restore_memory` brings it back. So does an agent's `forget_memory`: nothing an agent can call destroys a memory.
+**Agents cannot delete topics.** Only a person can. Agents can forget a memory only within a scope they were granted write on. Keep destructive tool annotations honest. The system itself never deletes a memory: consolidation and the web app's Forget end it with a reason, and `restore_memory` brings it back. So does an agent's `forget_memory`: nothing an agent can call destroys a memory.
 
-**Inputs are bounded.** Every MCP tool argument has a zod schema with lengths and enums, see the top of `server/mcp-server.mjs`. Lists are capped and return a `complete` flag. URLs attached to tasks must be HTTPS and are stored, never fetched. Repository names are normalized `owner/repo` and are only accepted from the bootstrap, never guessed from a folder name.
+**Inputs are bounded.** Every MCP tool argument has a zod schema with lengths and enums, see the top of `server/mcp-server.mjs`. Lists are capped and return a `complete` flag. Repository names are normalized `owner/repo` and are only accepted from the bootstrap, never guessed from a folder name.
 
 **The plugin holds one credential and no memory.** As of 0.3.0 the hooks are command scripts with their own OAuth client, stored at `~/.satchel/credentials.json` mode 0600. It is a separate connection from the agent's, with its own row in `agent_connections` and its own Revoke button, so a leaked hook credential is revoked without touching the agent and refreshing it cannot rotate the host's own token. Never read the host's credential store; that was considered and rejected for exactly that reason. As of 0.5.2 it also keeps `~/.satchel/shown/<session>.json`, mode 0600: the memory ids each prompt was shown in that session, so the next prompt sends them back as `exclude`. Ids only, never memory text, at most 50, cleared on a compact or a clear and removed after two days untouched. It exists because a connection may not read `memory_injections` back, and that rule should stay.
 
 **The hooks send the turn, and only the turn, and never read a file to get it.** `session-start.mjs` sends a session key, an event name and a normalized `owner/repo` read from the git origin. `retrieve.mjs` sends the prompt the host handed it. `capture.mjs` sends the `last_assistant_message` the host handed it, and a commit count from `git rev-list --count HEAD`: a number, never a sha, a message or a path. No script reads `transcript_path`, and `tests/plugin-hooks.test.mjs` asserts that none of them so much as mentions it, because 0.3.0 did read it for one afternoon on a false premise. Hooks never save memory on their own, and any hook output that could become instructions goes through our own formatter.
 
-**Only reads skip the permission prompt.** On Claude, `approve.mjs` allows Satchel's six read-only tools without asking. Every write, and every tool from any other server, still asks. A read shows nothing the grant does not already allow, so the prompt was not the control; RLS and the grant are. Adding a tool to its list needs the tool to be `readOnlyHint` on the server, and `tests/plugin-hooks.test.mjs` fails otherwise. A connector named by an id is never matched, because a name we cannot tell from someone else's server must not get our allow.
+**Only reads skip the permission prompt.** On Claude, `approve.mjs` allows Satchel's four read-only tools without asking. Every write, and every tool from any other server, still asks. A read shows nothing the grant does not already allow, so the prompt was not the control; RLS and the grant are. Adding a tool to its list needs the tool to be `readOnlyHint` on the server, and `tests/plugin-hooks.test.mjs` fails otherwise. A connector named by an id is never matched, because a name we cannot tell from someone else's server must not get our allow.
 
 **Conversations are stored, for 30 days, and nobody else can read them.** Since v2.5 both halves of every turn go into `documents` and `document_turns`, so a later pass can re-read them. That is the largest privacy surface in the product, and four things hold it:
 
@@ -90,6 +90,6 @@ Everything else still applies: it is per connection, revocation still rotates `g
 
 ## Where the evidence lives
 
-- `tests/agent-connections.test.mjs`, `tests/database.test.mjs`, `tests/tasks.test.mjs`, `tests/delete.test.mjs` are the isolation tests. Copy their `call(claims, sql)` pattern to run SQL as a given user or agent.
+- `tests/agent-connections.test.mjs`, `tests/database.test.mjs`, `tests/delete.test.mjs` are the isolation tests. Copy their `call(claims, sql)` pattern to run SQL as a given user or agent.
 - `tests/mcp.test.mjs` covers token validation and tool contracts.
-- `docs/memory-and-storage.md` and `docs/tasks-and-handoffs.md` explain why the boundaries are drawn where they are.
+- `docs/memory-and-storage.md` explains why the boundaries are drawn where they are.

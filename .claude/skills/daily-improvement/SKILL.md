@@ -65,7 +65,7 @@ It holds:
 | `F/blind/prompt-<n>.txt` | the ready blind-read prompt for batch n, with its files and its answer path filled in |
 | `F/pipeline/<name>.md` | what the pass did: what landed, the job's report entry, the Langfuse trace, the raw answer |
 | `F/pipeline/<name>.prompt.txt` | the exact prompt the model was sent |
-| `F/topics.md`, `F/topics.json` | every topic with its memories, tasks and repositories; the topics made, the memories moved and the merges in the window, each with its reason; what personal holds now; thin topics and name overlaps to judge |
+| `F/topics.md`, `F/topics.json` | every topic with its memories and repositories; the topics made, the memories moved and the merges in the window, each with its reason; what personal holds now; thin topics and name overlaps to judge |
 | `F/said-again.md` | the following score first (see step 10), then the last four calendar weeks of affirms, per rule per week, read off the run prompts and responses: handle, statement, affirms, mentions now, how many landed while the rule was already in that session's start block, and one line per affirm with its source and a `mark:` to fill with `complaint` or `up-front`, for every affirm, not only rules said twice; plus the runs whose `affirmed` count the response does not explain. Marks the last review filled carry over |
 | `~/satchel-daily/following.json` | one entry per week, numbers only: sessions with a start block, affirms, complaints in block, complaints, up-front, unlabelled. `said-again.mjs` replaces this run's weeks and keeps the rest, so the trend outlives the 30-day run text |
 

@@ -34,7 +34,7 @@
   --led-off: #6E665C;
 
   /* Type */
-  --font-content: 'Newsreader', Georgia, serif;          /* things the user wrote: memory names, task titles, quotes, page headings */
+  --font-content: 'Newsreader', Georgia, serif;          /* things the user wrote: memories, topic names, quotes, page headings */
   --font-ui: 'Instrument Sans', system-ui, sans-serif;  /* labels, buttons, descriptions */
   --font-mono: 'DM Mono', ui-monospace, monospace;      /* readouts only: provenance, eyebrows, counts */
   --font-mark: 'Caveat', cursive;                       /* the wordmark, nowhere else */

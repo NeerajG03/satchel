@@ -36,49 +36,7 @@ const topicRepositoryChange=z.discriminatedUnion('kind',[
 const slug=z.string().trim().toLowerCase()
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/,'A slug is lowercase letters and digits in words joined by single hyphens, like fix-consent-layout')
   .min(1).max(40,'A slug is at most 40 characters')
-  .describe('A short handle the user would actually say, like fix-consent-layout. Lowercase words joined by hyphens, unique across all of this user\'s topics and tasks. Do not derive it from the title; choose something sayable. On 23505 pick another and retry.');
-const taskStatus=z.enum(['inbox','ready','in_progress','blocked','done']);
-const taskPriority=z.enum(['low','medium','high','urgent']);
-const taskTopic=z.uuid().nullable().describe('null means personal tasks; otherwise a task-authorized topic UUID from list_topics.');
-// Rules the database enforces across fields, checked here first so the agent
-// hears which field to change instead of a refusal from inside a routine.
-const blockedNeedsReason=[entry=>entry.status!=='blocked'||entry.blocked_reason.trim().length>0,
-  {message:'A blocked status needs a blocked_reason saying what it is waiting on',path:['blocked_reason']}];
-const distinct=label=>[ids=>new Set(ids).size===ids.length,{message:`${label} lists the same id twice`}];
-const resourceIds=z.array(z.uuid()).max(50).default([]).refine(...distinct('resource_ids'));
-const taskIdentity={topic_id:taskTopic,id:z.uuid(),revision:z.number().int().positive()};
-const taskContent={
-  title:z.string().trim().min(1).max(200),outcome:z.string().max(1000).default(''),
-  why:z.string().max(4000).default(''),done_when:z.array(z.string().trim().min(1).max(500)).max(20).default([]),
-  next_action:z.string().max(1000).default(''),priority:taskPriority.default('medium'),
-};
-const taskEdit=z.discriminatedUnion('kind',[
-  z.object({kind:z.literal('content'),...taskContent}),
-  z.object({kind:z.literal('state'),status:taskStatus,blocked_reason:z.string().max(2000).default('')}).refine(...blockedNeedsReason),
-  z.object({kind:z.literal('parent'),parent_id:z.uuid().nullable()}),
-  z.object({kind:z.literal('add_dependency'),depends_on_task_id:z.uuid()}),
-  z.object({kind:z.literal('remove_dependency'),depends_on_task_id:z.uuid()}),
-]);
-// task_updates also caps each list at 20000 characters joined, which 50 items
-// of 1000 can pass by 30000. Handoffs have no joined cap, so only progress uses it.
-const updateList=z.array(z.string().trim().min(1).max(1000)).max(50).default([]);
-const progressList=updateList.refine(items=>items.join('').length<=20000,
-  {message:'This list is at most 20000 characters in total. Shorten or merge items'});
-const taskUpdate=z.discriminatedUnion('kind',[
-  z.object({kind:z.literal('comment'),body:z.string().trim().min(1).max(4000),
-    resource_ids:resourceIds}),
-  z.object({kind:z.literal('progress'),revision:z.number().int().positive(),
-    summary:z.string().trim().min(1).max(4000),completed:progressList,decisions:progressList,
-    remaining:progressList,blockers:progressList,next_action:z.string().max(1000).nullable().default(null),
-    status:taskStatus.nullable().default(null),blocked_reason:z.string().max(2000).default(''),
-    resource_ids:resourceIds}).refine(...blockedNeedsReason),
-  z.object({kind:z.literal('handoff'),revision:z.number().int().positive(),
-    supersedes_ids:z.array(z.uuid()).max(20).default([]).refine(...distinct('supersedes_ids')),completed:updateList,decisions:updateList,
-    validation:z.array(z.record(z.string(),z.unknown())).max(50).default([]),remaining:updateList,
-    blockers:updateList,next_action:z.string().trim().min(1).max(1000),summary:z.string().max(4000).default(''),
-    status:taskStatus.nullable().default(null),blocked_reason:z.string().max(2000).default(''),
-    resource_ids:resourceIds}).refine(...blockedNeedsReason),
-]);
+  .describe('A short handle the user would actually say, like fix-consent-layout. Lowercase words joined by hyphens, unique across all of this user\'s topics. Do not derive it from the title; choose something sayable. On 23505 pick another and retry.');
 const textResult=data=>({content:[{type:'text',text:JSON.stringify(data)}]});
 const newId=()=>crypto.randomUUID();
 // ownerId attributes a trace to the person and nothing more: never an email,
@@ -86,7 +44,7 @@ const newId=()=>crypto.randomUUID();
 export function createMemoryServer(service, {ownerId} = {}) {
   const server=new McpServer({name:'satchel',title:'Satchel',version:'0.2.0',
     websiteUrl:'https://satchel-pi.vercel.app',
-    description:'Your memory, tasks and topics, across your agents.',
+    description:'Your memory and topics, across your agents.',
     icons:[
       {src:'https://satchel-pi.vercel.app/mark.svg',mimeType:'image/svg+xml',sizes:['any']},
       {src:'https://satchel-pi.vercel.app/mark-512.png',mimeType:'image/png',sizes:['512x512']},
@@ -107,7 +65,7 @@ export function createMemoryServer(service, {ownerId} = {}) {
       } catch(error) { return {...textResult({error:errorText(error)}),isError:true}; }
     });
   }
-  register('list_topics','Show effective Satchel connection permissions and the topics this connection may access. A topic is a subject memories and tasks are filed under; Satchel makes some itself. Personal scope is topic_id=null; a topic is an explicit UUID from this list, never a directory name.',
+  register('list_topics','Show effective Satchel connection permissions and the topics this connection may access. A topic is a subject memories are filed under; Satchel makes some itself. Personal scope is topic_id=null; a topic is an explicit UUID from this list, never a directory name.',
     {},async (_args,{topic_ids,...connection})=>{
       // Diagnosing a broken connection must not depend on the topic query succeeding.
       try { return {...connection,topics:await service.topics()}; }
@@ -177,37 +135,6 @@ export function createMemoryServer(service, {ownerId} = {}) {
   // agent can call destroys a memory.
   register('forget_memory','Forget only a memory the user explicitly asked to forget; provide its scope, ID and current revision. It stops loading and matching right away and moves to the archive in the Satchel app, where the user can restore it. On a conflict, re-read.',
     identity,a=>service.forget(a),{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false});
-
-  if(service.tasks) {
-    register('list_tasks','List bounded task summaries in one explicit task scope. Use topic_id=null for personal tasks; otherwise use an authorized topic UUID. Filter by state when useful and check complete before claiming the list is exhaustive.',
-      {topic_id:taskTopic,statuses:z.array(taskStatus).max(5).optional()},a=>service.tasks.list(a.topic_id,a.statuses));
-    register('read_task','Read one task with its planning relationships, derived actionability, comments, progress updates, handoffs, verified resources, and event history.',
-      {topic_id:taskTopic,id:z.uuid()},a=>service.tasks.read(a.topic_id,a.id));
-    register('create_task','Create a personal or topic Satchel task only when the user explicitly asks. A slug is required: it is how the user and you will refer to this task later. Use topic_id=null for personal scope. Satchel assigns the ID.',
-      {slug,topic_id:taskTopic,...taskContent},a=>service.tasks.create({...a,request_id:newId(),id:newId()}),writeAnnotations);
-    register('edit_task','Apply one explicit revision-safe task edit: replace content, transition state, set/clear the parent, or add/remove one dependency. Relationship edits are same-scope and cycle-safe. Re-read after a conflict.',
-      {...taskIdentity,change:taskEdit},a=>{
-        const base={request_id:newId(),topic_id:a.topic_id,id:a.id,revision:a.revision};
-        if(a.change.kind==='parent'&&a.change.parent_id===a.id)throw {reason:'a task cannot be its own parent'};
-        if(a.change.kind==='add_dependency'&&a.change.depends_on_task_id===a.id)throw {reason:'a task cannot depend on itself'};
-        if(a.change.kind==='content')return service.tasks.update({...base,...a.change});
-        if(a.change.kind==='state')return service.tasks.transition({...base,...a.change});
-        if(a.change.kind==='parent')return service.tasks.setParent({...base,...a.change});
-        if(a.change.kind==='add_dependency')return service.tasks.addDependency({...base,...a.change});
-        return service.tasks.removeDependency({...base,...a.change});
-      },writeAnnotations);
-    register('record_task_update','Append one continuation entry: a lightweight comment, structured progress, or a handoff. Progress and handoffs require the current revision because they update canonical task state; comments do not.',
-      {topic_id:taskTopic,id:z.uuid(),entry:taskUpdate},a=>{
-        const base={request_id:newId(),topic_id:a.topic_id,id:a.id};
-        if(a.entry.kind==='comment')return service.tasks.comment({...base,...a.entry,update_id:newId()});
-        if(a.entry.kind==='progress')return service.tasks.progress({...base,...a.entry,update_id:newId()});
-        return service.tasks.handoff({...base,...a.entry,handoff_id:newId()});
-      },writeAnnotations);
-    register('add_task_resource','Attach a typed HTTPS reference to a task. This stores the link only and never fetches its contents.',
-      {...taskIdentity,label:z.string().trim().min(1).max(200),
-        url:z.url({protocol:/^https$/,error:'url is an https URL, like https://example.com/doc'}),resource_type:z.enum(['reference','document','image','artifact','repository','pull_request']).default('reference'),
-        provider:z.string().trim().max(80).nullable().default(null)},a=>service.tasks.addResource({...a,request_id:newId(),resource_id:newId()}),writeAnnotations);
-  }
 
   return server;
 }

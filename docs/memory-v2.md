@@ -2,6 +2,8 @@
 
 20 September 2026. **Proposed design, nothing implemented.** Direction agreed in discussion with the user; mechanisms are proposed unless marked otherwise. Supersedes nothing yet: [Memory and storage](memory-and-storage.md) and [Current memory hooks](memory-hooks.md) still describe the shipped system.
 
+**Tasks were removed on 20 October 2026.** Satchel no longer has tasks, task tools or a Tasks page. Tasks live in Notion. Where this document mentions tasks, task slugs, `task_id` or `list_tasks`, it is the record of what was planned at the time, not something that exists or is still planned.
+
 Measurements in this document come from probing the user's own Supermemory account (container `repo_satchel__ed7ddf2ea405cab5`) and reading `~/.claude/plugins/cache/supermemory-plugins/supermemory/0.1.8/` on disk, on 19 September 2026. They are evidence about a competing product, not about Satchel.
 
 A visual companion to this document exists as a private artifact: <https://claude.ai/artifact/MErnf4Z4GY9CmrK6XvvXt9>.
@@ -236,8 +238,6 @@ No fuzzy matching. The defaults point at the harmless failure: personal scope lo
 
 [Product](product.md) states that a repository "can belong to one or more efforts." One codebase can carry ten topics, and ten topics at a hundred memories each is a thousand rows. Deriving the active topic from a git remote was never valid, because a git remote identifies a repository and a repository maps to many topics.
 
-Tasks will also grow epics and subtasks. Loading a whole task tree does not scale.
-
 ### 5.2 Why retrieve-everything does not work either
 
 ```
@@ -262,7 +262,7 @@ Personal rules pass the test: "don't use em dashes" is true whatever you open to
 
 Nothing scoped to a topic or a task is injected at session start.
 
-An earlier draft had a middle tier that always loaded the open task's memories, behind a setting defaulting to on. It is cut. `in_progress` is a status on a row, not a statement about the current session, and [the tasks reference](../integrations/shared/context/references/tasks.md) says so directly: "`in_progress` is a coordination signal, not a lock." A task can sit in that state for days. The weak-prompt case it was meant to cover ("ok continue", which matches nothing on its own) is already handled by the topic terms the `Stop` hook caches, so the query searches against the previous turn's vocabulary.
+An earlier draft had a middle tier that always loaded the open task's memories, behind a setting defaulting to on. It is cut. `in_progress` is a status on a row, not a statement about the current session, and the old tasks reference said so directly: "`in_progress` is a coordination signal, not a lock." A task can sit in that state for days. The weak-prompt case it was meant to cover ("ok continue", which matches nothing on its own) is already handled by the topic terms the `Stop` hook caches, so the query searches against the previous turn's vocabulary.
 
 Making it a setting instead of deciding was avoiding the decision.
 
@@ -287,7 +287,7 @@ Weights were measured, not guessed, in the [build plan](memory-v2-build.md) sect
 | What the user does | What happens | Result |
 |---|---|---|
 | Fresh session, "let's fix the consent page layout" | FTS on the prompt; satchel boosted 2x from the remote | works |
-| Fresh session, "what was I doing" | Matches no memory. It is a task question, so the agent calls `list_tasks`. | works, via tasks |
+| Fresh session, "what was I doing" | Matches no memory. It is a question for the user's task tracker, not for memory. | out of scope |
 | Mid-session, "ok continue" | Prompt matches nothing; the query also uses the terms `Stop` cached last turn | works |
 | "actually let me look at the reimbursement thing" | "reimbursement" is distinctive and wins on text; that topic is now touched and boosted 3x afterwards | works |
 | "write up the plan", where the em-dash rule must apply | Already loaded. This is why personal is always-on. | works |
@@ -505,7 +505,7 @@ One new tool.
 | Capture rules learned from rejections | the same category has been rejected three times |
 | Few-shot keeps and deletes in the router prompt | the log has enough rows to matter; it does nothing on day one |
 | GEPA prompt evolution | a few hundred keeps and deletes exist. Metric already defined: deletion rate down. |
-| Auto-created tasks and evidence entries | probably never. Creating a task is a deliberate act nobody minds asking for; memory capture was the only real problem. |
+| Auto-created evidence entries | probably never. Memory capture was the only real problem. |
 | A graph database | never. Foreign keys are the graph and they are typed. |
 
 ## 12. Open questions

@@ -27,9 +27,9 @@
 - `p_repository_action` is `unchanged`, `link` or `unlink`, and the repository change happens in the same transaction as the name and brief.
 - It returns `{topic, repositories[], grant_required}`.
 
-A companion caller (`auth.jwt()->>'client_id' is null`) may always manage. An agent caller needs `can_write` **or** `task_can_write` on the live connection, and updating an existing topic additionally needs `agent_can_access(id, true)` or `agent_can_access_tasks(id, 'write')`. That second condition was widened deliberately in `20260917043508_project_upsert_task_grants.sql`: a connection granted tasks but not memory still has to be able to name its own topic.
+A companion caller (`auth.jwt()->>'client_id' is null`) may always manage. An agent caller needs `can_write` on the live connection, and updating an existing topic also needs `agent_can_access(id, true)`.
 
-`grant_required` is `true` when the caller is an agent and the topic is not readable through either the memory grant or the task grant. Creating a topic never adds it to a grant. Surface this; do not swallow it.
+`grant_required` is `true` when the caller is an agent and the topic is not readable through the memory grant. Creating a topic never adds it to a grant. Surface this; do not swallow it.
 
 ## `topic_write_requests`
 
@@ -41,7 +41,7 @@ The slug is how a person refers to a topic out loud, and how a captured memory c
 
 - `^[a-z0-9]+(-[a-z0-9]+)*$`, 3 to 40 characters, unique per owner.
 - Supplied on create, never derived from the name. A derived slug is something nobody would say.
-- `default_slug` is a `before insert` trigger on both `topics` and `tasks`, so no row can lack one. It reads the label through `to_jsonb(new)` because a topic has `name` and a task has `title`, and one trigger is better than two that drift.
+- `default_slug` is a `before insert` trigger on `topics`, so no row can lack one.
 - `set_slug(kind, id, slug)` is the only routine that changes one. The column is never directly writable.
 - `upsert_topic_with_slug` wraps `upsert_topic` plus `set_slug` so a create and its slug are one transaction, then patches the slug into the returned JSON.
 
@@ -51,16 +51,14 @@ The slug is how a person refers to a topic out loud, and how a captured memory c
 
 Companion only, through `private.companion_only()`. It takes the id and the expected revision, locks the row `for update`, and then:
 
-1. counts the memories and tasks it is about to remove;
-2. collects every `storage_object` key in the topic, to hand back rather than delete (see satchel-tasks `references/storage.md`);
-3. deletes the topic's task write receipts;
-4. removes the topic id from every `agent_connections.topic_ids` array;
-5. deletes the topic, which cascades to memories, tasks and repository links;
-6. returns `{id, name, memories_removed, tasks_removed, files_removed, file_keys}`, and the app removes `file_keys` through the Storage API.
+1. counts the memories it is about to remove;
+2. removes the topic id from every `agent_connections.topic_ids` array;
+3. deletes the topic, which cascades to memories and repository links;
+4. returns `{id, name, memories_removed}`.
 
 The counts are returned so the UI can say what it took before and after. `src/features/topics/TopicDelete.tsx` asks first.
 
-Note step 4 only touches the explicit list. A connection with `all_topics` has no list to clean, and does not need one.
+Note step 2 only touches the explicit list. A connection with `all_topics` has no list to clean, and does not need one.
 
 ## Reading topics
 

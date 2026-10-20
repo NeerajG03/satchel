@@ -138,20 +138,13 @@
       <h1 class="h1" style="font-size:40px;">Codex wants to read your Satchel.</h1>
       <p class="muted" style="margin:0;">Name supplied by the app · will return to <span class="mono" style="font-size:13px;">http://localhost:1455/callback</span></p>
       <div class="row" style="gap:8px; margin-top:4px;"><span class="fine muted">Quick start:</span><button class="btn sm">Read everything</button><button class="btn sm">Read and save everything</button><button class="btn sm quiet">Clear all</button></div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:6px;">
+      <div style="display:grid; grid-template-columns:minmax(0,560px); gap:16px; margin-top:6px;">
       <fieldset style="border:1px solid var(--line); border-radius:12px; padding:16px 18px; display:flex; flex-direction:column; gap:11px; margin:0;">
         <legend class="eyebrow" style="padding:0 6px;">Memory</legend>
         <div class="between"><span class="fine" style="font-weight:600;">Scopes it can read · 2 of 4</span><span class="row" style="gap:10px;"><a href="#" class="fine">Select all</a><a href="#" class="fine muted" style="color:var(--muted);">None</a></span></div>
         <span class="check"><i class="on"></i>For me · personal memories</span><span class="check"><i class="on"></i>Satchel</span><span class="check"><i></i>Release workflow</span><span class="check"><i></i>Reimbursements</span>
         <div class="hr"></div>
         <span class="check"><i></i><span>Also allow saves, corrections and forgets<br><span class="fine muted">Only when you ask it to, in that chat.</span></span></span>
-      </fieldset>
-      <fieldset style="border:1px solid var(--line); border-radius:12px; padding:16px 18px; display:flex; flex-direction:column; gap:11px; margin:0;">
-        <legend class="eyebrow" style="padding:0 6px;">Tasks</legend>
-        <div class="between"><span class="fine" style="font-weight:600;">Scopes it can read · 1 of 4</span><span class="row" style="gap:10px;"><a href="#" class="fine">Select all</a><a href="#" class="fine muted" style="color:var(--muted);">None</a></span></div>
-        <span class="check"><i></i>For me · personal tasks</span><span class="check"><i class="on"></i>Satchel</span><span class="check"><i></i>Release workflow</span><span class="check"><i></i>Reimbursements</span>
-        <div class="hr"></div>
-        <span class="check"><i class="on"></i>Also allow creating tasks, updates, moves and handoffs</span><span class="check"><i></i>Also allow file uploads to task storage</span>
       </fieldset>
       </div>
       <span class="fine muted">Topics made later are not included. Add them from Apps.</span>
@@ -161,7 +154,7 @@
       <div class="panel col" style="gap:8px;"><span class="eyebrow">What this means</span>
         <p style="margin:0; font-size:14px;">Reading means the app's hooks get the <strong>names and descriptions</strong> of memories in these scopes. It fetches More info by name only when it needs it.</p>
         <p style="margin:0; font-size:14px;">Writing still needs your explicit ask inside the chat. The app cannot save on its own.</p></div>
-      <div class="col" style="gap:4px;"><span class="eyebrow">Summary</span><span style="font-size:14px;">Memory: <strong>For me, Satchel</strong> · read only</span><span style="font-size:14px;">Tasks: <strong>Satchel</strong> · read and write, no uploads</span></div>
+      <div class="col" style="gap:4px;"><span class="eyebrow">Summary</span><span style="font-size:14px;">Memory: <strong>For me, Satchel</strong> · read only</span></div>
     </aside>
     <div class="foot" style="grid-column:1/-1;"><span>Satchel · Private pilot</span><span>Deny closes this and sends the app back</span></div>
   </main></div></div>

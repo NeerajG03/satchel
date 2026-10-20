@@ -12,7 +12,7 @@ node eval/router.mjs    # the capture model, replayed over real turns
 
 ## The corpus
 
-473 memories, 159 prompts (114 answerable, 45 answerless), 99 tasks, 17 topics. 373 grade-2 and 537 grade-1 judgements.
+473 memories, 159 prompts (114 answerable, 45 answerless), 17 topics. 373 grade-2 and 537 grade-1 judgements.
 
 One invented person: a Bengaluru software engineer with work codebases, side projects, tax admin, running, knee rehab, sourdough, film photography, a flat move, a Schengen visa, a wedding and a Goa trip. Nothing in it is real.
 
@@ -92,7 +92,7 @@ There is no committed consolidation baseline yet. The only full run was on `gemi
 ## Files
 
 ```
-eval/corpus.json      memories, prompts, tasks, topics, with stable ids (m0000, p000)
+eval/corpus.json      memories, prompts, topics, with stable ids (m0000, p000)
 eval/labels.json      grade-2 and grade-1 judgements, keyed by prompt id
 eval/baseline.json    the committed numbers every run is compared against
 eval/embeddings/      one cache per index, id keyed and incremental

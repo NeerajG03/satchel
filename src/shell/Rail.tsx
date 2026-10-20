@@ -6,13 +6,12 @@ type Destination = { to: string; label: string; end?: boolean };
 const DESTINATIONS: Destination[] = [
   { to: '/', label: 'Left off', end: true },
   { to: '/book', label: 'Book' },
-  { to: '/tasks', label: 'Tasks' },
   { to: '/topics', label: 'Topics' },
   { to: '/apps', label: 'Apps' },
   { to: '/settings', label: 'Settings' },
 ];
 
-// Seventh, and only when asked for. The rail is six fixed destinations by
+// Sixth, and only when asked for. The rail is five fixed destinations by
 // decision, because nothing in it may grow; this one is a switch a person
 // turns on for themselves and turns off again, so it does not make the list
 // something that grows on its own.

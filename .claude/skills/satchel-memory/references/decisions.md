@@ -70,14 +70,6 @@ A boost multiplies a score in [0,1], so a large one reorders globally instead of
 
 Scope is a boost and not a filter, so a first mention of an unrelated topic still wins on similarity alone.
 
-## The closed-task demotion was wrong, and the labels said so
-
-```
-memories hanging off a closed task: 8.5% of the corpus, 11.4% of what the labels call relevant
-```
-
-They are *more* likely to be wanted, not less. A task closing does not make what you learned during it irrelevant. The proposed 0.7 demotion is gone. The `[task · closed, may be fixed]` annotation stays, because flagging possible staleness is a different thing from ranking lower.
-
 ## What gets embedded: statement plus source
 
 On the first corpus this was called noise. On 159 prompts it is a real **+0.043**. The extra text is the user's own phrasing, which is closer to how they later ask for it.
@@ -253,7 +245,7 @@ The other two rows are the ones that could have gone wrong and did not. **Univer
 
 The eval scored the topic slug only on memories that have one, which is the direction this change cannot get wrong. Personal memories are 19% of the corpus, so a proportional sample gave four or five out of 24, which cannot measure a threshold. They are sampled deliberately now and counted separately, replayed from inside a rotating topic so no one topic's brief can explain the result.
 
-Everything the model returns is validated before it reaches the database. An item is dropped if its statement is missing or over 500 characters, if it has no source, or if its source is not in the turn being classified. A topic slug not in the supplied list becomes personal, which is the safer mistake. A task drags its own topic.
+Everything the model returns is validated before it reaches the database. An item is dropped if its statement is missing or over 500 characters, if it has no source, or if its source is not in the turn being classified. A topic slug not in the supplied list becomes personal, which is the safer mistake.
 
 ## A work order is not a memory, and the prompt is where that is decided
 
@@ -311,7 +303,7 @@ Recorded as judgement, not as evidence:
 
 - Six-character handles for memories in injected text. Short enough for a model to copy without transposing, long enough to name a row.
 - Slugs supplied on create, not derived from the title. A 40-character slug derived from a sentence is something nobody would say, and a model matches it worse than the title. The derived form exists only so no row can lack one.
-- Slugs unique per user across topics and tasks together, so there is one thing to get right instead of two.
+- Slugs unique per user, so there is one thing to get right.
 - A session-start block withheld entirely when it exceeds the token budget, rather than truncated. A partial block that looks complete is worse than an honest absence, because the agent cannot tell.
 - Documents kept 30 days, then deleted. Long enough to re-run a changed prompt over a month of real sessions, and the largest privacy surface of the options, which is why the deletion is a routine with a row count.
 - One session is one document, because a whole conversation is the unit the pass can judge.

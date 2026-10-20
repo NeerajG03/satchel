@@ -55,7 +55,7 @@ Nine files in `integrations/shared/`, copied into both packages by the build, ex
 | `shown.mjs` | the ids a session was already shown, the once-a-session miss marker, and whether reads run unprompted |
 | `approve.mjs` | Claude only: the PreToolUse hook that lets Satchel's six read tools run without a prompt |
 
-**PreToolUse, Claude only.** `approve.mjs` answers `permissionDecision: allow` for `retrieve_memory`, `read_memory`, `memory_index`, `list_topics`, `list_tasks` and `read_task`, under `mcp__plugin_satchel_satchel__`, `mcp__satchel__` and `mcp__claude_ai_Satchel__`, and prints nothing for anything else, which leaves the host's own prompt in place. No network, no file, no credential. A test keeps its list equal to the server's `readOnlyHint` tools. Codex 0.153 refuses an allow from PreToolUse, so the Codex package does not ship it. Because the script ships only in the Claude package, `shown.mjs` reads its presence and sends `reads: auto`, and only then does the server tell the agent a read needs no approval (D44).
+**PreToolUse, Claude only.** `approve.mjs` answers `permissionDecision: allow` for `retrieve_memory`, `read_memory`, `memory_index` and `list_topics`, under `mcp__plugin_satchel_satchel__`, `mcp__satchel__` and `mcp__claude_ai_Satchel__`, and prints nothing for anything else, which leaves the host's own prompt in place. No network, no file, no credential. A test keeps its list equal to the server's `readOnlyHint` tools. Codex 0.153 refuses an allow from PreToolUse, so the Codex package does not ship it. Because the script ships only in the Claude package, `shown.mjs` reads its presence and sends `reads: auto`, and only then does the server tell the agent a read needs no approval (D44).
 
 All of them read stdin through `readHookInput`, which bails past 64KB, and validate the `session_id` against `[a-z0-9_-]{1,200}`. `repositoryFrom` runs one command, `git config --get remote.origin.url`, with a 1s timeout, a 4KB buffer and stderr ignored, normalizes both the SCP and URL forms to a lowercase `owner/repo`, and rejects anything that fails the pattern. `commitsFrom` runs `git rev-list --count HEAD` under the same limits and returns a number or null. `SATCHEL_DISABLE_REPOSITORY_STAGING=1` turns the repository off, and the commit count with it.
 
@@ -73,10 +73,10 @@ What is stored is a Supabase refresh token, which does not age out. That is what
 
 ## The shipped skill
 
-`integrations/shared/context/` is a skill for the agent using Satchel, not for the person building it. `SKILL.md` plus `references/memory.md`, `tasks.md`, `topics.md`, disclosed progressively. Its load-bearing claims:
+`integrations/shared/context/` is a skill for the agent using Satchel, not for the person building it. `SKILL.md` plus `references/memory.md` and `topics.md`, disclosed progressively. Its load-bearing claims:
 
 - Scope is explicit, never inferred from a directory name or a similar-looking topic name.
-- Grants are independently denied: memory is not tasks, read is not write, personal is not topic.
+- Grants are independently denied: read is not write, personal is not topic.
 - Context arrives on its own, so no per-turn freshness checks and no re-reading a scope already given.
 - `0 matched` is a real answer and is not the same as something being withheld.
 - Every write carries a fresh `request_id`; content and state writes carry the current `revision`; a timeout is an uncertain outcome, not a success.

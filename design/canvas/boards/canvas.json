@@ -131,33 +131,9 @@
       "title": "Topic · new and empty",
       "is_interactive": true
     },
-    "TasksEmpty.dc.html": {
-      "x": 0,
-      "y": 4800,
-      "w": 1280,
-      "h": 820,
-      "title": "Tasks · empty",
-      "is_interactive": true
-    },
-    "Tasks.dc.html": {
-      "x": 1360,
-      "y": 4800,
-      "w": 1280,
-      "h": 820,
-      "title": "Tasks",
-      "is_interactive": true
-    },
-    "Task.dc.html": {
-      "x": 2720,
-      "y": 4800,
-      "w": 1280,
-      "h": 820,
-      "title": "Task detail",
-      "is_interactive": true
-    },
     "ScopePicker.dc.html": {
       "x": 0,
-      "y": 6000,
+      "y": 4800,
       "w": 1280,
       "h": 820,
       "title": "Scope picker · open",
@@ -165,7 +141,7 @@
     },
     "BookSearch.dc.html": {
       "x": 1360,
-      "y": 6000,
+      "y": 4800,
       "w": 1280,
       "h": 820,
       "title": "Book · search results",
@@ -173,39 +149,23 @@
     },
     "TopicNew.dc.html": {
       "x": 2720,
-      "y": 6000,
+      "y": 4800,
       "w": 1280,
       "h": 820,
       "title": "New topic sheet",
       "is_interactive": true
     },
-    "TaskEdit.dc.html": {
-      "x": 4080,
-      "y": 6000,
-      "w": 1280,
-      "h": 820,
-      "title": "Task · editing",
-      "is_interactive": true
-    },
-    "TaskBlocked.dc.html": {
-      "x": 5440,
-      "y": 6000,
-      "w": 1280,
-      "h": 820,
-      "title": "Task · move to Blocked",
-      "is_interactive": true
-    },
     "Errors.dc.html": {
-      "x": 6800,
-      "y": 6000,
+      "x": 4080,
+      "y": 4800,
       "w": 1280,
       "h": 820,
       "title": "Errors and conflicts",
       "is_interactive": true
     },
     "Components.dc.html": {
-      "x": 8160,
-      "y": 6000,
+      "x": 5440,
+      "y": 4800,
       "w": 1280,
       "h": 820,
       "title": "Components · focus and long content",
@@ -213,7 +173,7 @@
     },
     "AppsEmpty.dc.html": {
       "x": 0,
-      "y": 7200,
+      "y": 6000,
       "w": 1280,
       "h": 820,
       "title": "Apps · none connected",
@@ -221,7 +181,7 @@
     },
     "Apps.dc.html": {
       "x": 1360,
-      "y": 7200,
+      "y": 6000,
       "w": 1280,
       "h": 820,
       "title": "Apps",
@@ -229,7 +189,7 @@
     },
     "Consent.dc.html": {
       "x": 2720,
-      "y": 7200,
+      "y": 6000,
       "w": 1280,
       "h": 820,
       "title": "Consent request",
@@ -237,7 +197,7 @@
     },
     "ConnectedClaude.dc.html": {
       "x": 4080,
-      "y": 7200,
+      "y": 6000,
       "w": 1280,
       "h": 820,
       "title": "Satchel × Claude",
@@ -245,7 +205,7 @@
     },
     "ConnectedCodex.dc.html": {
       "x": 5440,
-      "y": 7200,
+      "y": 6000,
       "w": 1280,
       "h": 820,
       "title": "Satchel × OpenAI",
@@ -253,7 +213,7 @@
     },
     "Settings.dc.html": {
       "x": 6800,
-      "y": 7200,
+      "y": 6000,
       "w": 1280,
       "h": 820,
       "title": "Settings",
@@ -261,7 +221,7 @@
     },
     "PhoneLeftOff.dc.html": {
       "x": 0,
-      "y": 8400,
+      "y": 7200,
       "w": 390,
       "h": 844,
       "title": "v2 Android ref · Left off",
@@ -269,23 +229,15 @@
     },
     "PhoneBook.dc.html": {
       "x": 470,
-      "y": 8400,
+      "y": 7200,
       "w": 390,
       "h": 844,
       "title": "v2 Android ref · Book",
       "is_interactive": true
     },
-    "PhoneTask.dc.html": {
-      "x": 940,
-      "y": 8400,
-      "w": 390,
-      "h": 844,
-      "title": "v2 Android ref · Task",
-      "is_interactive": true
-    },
     "PhoneConsent.dc.html": {
-      "x": 1410,
-      "y": 8400,
+      "x": 940,
+      "y": 7200,
       "w": 390,
       "h": 844,
       "title": "v2 Android ref · More",
@@ -308,14 +260,9 @@
     "Topics.dc.html",
     "Topic.dc.html",
     "TopicEmpty.dc.html",
-    "TasksEmpty.dc.html",
-    "Tasks.dc.html",
-    "Task.dc.html",
     "ScopePicker.dc.html",
     "BookSearch.dc.html",
     "TopicNew.dc.html",
-    "TaskEdit.dc.html",
-    "TaskBlocked.dc.html",
     "Errors.dc.html",
     "Components.dc.html",
     "AppsEmpty.dc.html",
@@ -326,7 +273,6 @@
     "Settings.dc.html",
     "PhoneLeftOff.dc.html",
     "PhoneBook.dc.html",
-    "PhoneTask.dc.html",
     "PhoneConsent.dc.html"
   ],
   "notes": {
@@ -361,30 +307,23 @@
     "row4": {
       "x": 0,
       "y": 4560,
-      "text": "Tasks: empty, list, task detail with timeline",
+      "text": "v1 details: the picker open, sheets, edit, search, errors, and component states",
       "kind": "title1",
-      "maxW": 4000
+      "maxW": 6720
     },
     "row5": {
       "x": 0,
       "y": 5760,
-      "text": "v1 details: the picker open, sheets, edit, search, errors, and component states",
-      "kind": "title1",
-      "maxW": 9440
-    },
-    "row6": {
-      "x": 0,
-      "y": 6960,
       "text": "Apps and settings: empty, connected, consent request, settings",
       "kind": "title1",
       "maxW": 8080
     },
     "rowPhone": {
       "x": 0,
-      "y": 8160,
+      "y": 6960,
       "text": "v2 reference only: phone becomes a native Android app with app intents",
       "kind": "title1",
-      "maxW": 2600
+      "maxW": 2130
     },
     "stickyEmpty": {
       "x": 4120,
@@ -398,15 +337,7 @@
       "x": 5480,
       "y": 2400,
       "w": 420,
-      "text": "Scope picker replaces the topic chips and the sidebar list. Same control on Book and Tasks. It locks while a draft is open and says why.",
-      "color": "orange",
-      "size": "m"
-    },
-    "stickyTask": {
-      "x": 4120,
-      "y": 4800,
-      "w": 420,
-      "text": "The task page puts the next action first, then one composer with three modes (comment, progress, handoff) instead of three long forms. Everything else moves to the right column.",
+      "text": "Scope picker replaces the topic chips and the sidebar list. Same control on Book and in the since note. It locks while a draft is open and says why.",
       "color": "orange",
       "size": "m"
     }

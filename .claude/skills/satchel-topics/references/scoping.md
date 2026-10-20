@@ -65,9 +65,8 @@ The polling loop exists because the two hooks race: Claude Code can start `Sessi
 
 ## Where scope shows up elsewhere
 
-- **Memory**: `topic_id is null` is personal, and confirmed personal memories are loaded at session start, ranked and capped at `block_size`, rather than retrieved. Retrieval takes `in_scope` as a boost of 1.1, not a filter, so a first mention of an unrelated topic can still win on similarity. A memory has one scope and no task link (v2.5 R9a).
+- **Memory**: `topic_id is null` is personal, and confirmed personal memories are loaded at session start, ranked and capped at `block_size`, rather than retrieved. Retrieval takes `in_scope` as a boost of 1.1, not a filter, so a first mention of an unrelated topic can still win on similarity. A memory has one scope (v2.5 R9a).
 - **Documents**: the session's scope is written onto its document by whichever turn first resolves it, and never cleared, because the consolidation pass reads it hours later with no workspace to resolve from. A topic id the caller does not own is dropped rather than borrowed. When nothing scoped the session (no link, or a repository that names several topics) the end of the turn notes the repository on the document (`note_document_repository`), so the pass can see which topics own that codebase. It narrows the pass's choice and links nothing.
 - **Churn**: a linked repository's commit count lives in `repository_heads`, and a topic memory remembers where the repository was when it was last meant. That is how a merge, not a conversation, raises doubt about a topic memory.
-- **Tasks**: the same null, plus the generated `scope_key` of `'personal'` for composite foreign keys.
-- **Grants**: `personal`, `all_topics` and `topic_ids` for memory; `task_personal`, `task_all_topics` and `agent_task_grants` rows for tasks. Four independent switches, not one.
+- **Grants**: `personal`, `all_topics` and `topic_ids` for memory, each its own switch.
 - **Companion UI**: `src/app/scope.ts` owns the `?scope=me|topic:<id>` query and its labels. The old `project:` form is still accepted so saved links keep working.

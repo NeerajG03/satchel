@@ -4,10 +4,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createConnectionRepository} from '../src/features/connections/repository.ts';
-import {removeOrphanedFiles} from '../scripts/task-files.mjs';
 
-const request = {clientId: 'app-1', label: 'Claude Code', personal: true, allTopics: false, topicIds: [], canWrite: false,
-  taskPersonal: false, taskAllTopics: false, taskTopicIds: [], taskCanWrite: false, taskCanUpload: false};
+const request = {clientId: 'app-1', label: 'Claude Code', personal: true, allTopics: false, topicIds: [], canWrite: false};
 
 function authDb({approveError = null, grantError = null} = {}) {
   const calls = [];
@@ -45,46 +43,6 @@ test('consent: both succeed, and the redirect is handed back only then', async (
   const {db, calls} = authDb();
   assert.deepEqual(await createConnectionRepository(db).approve('auth-1', request), {redirectUrl: 'https://app/cb?code=1'});
   assert.deepEqual(calls, ['approve', 'authorize_agent_v3']);
-});
-
-function storageDb({objects, rows}) {
-  const removed = [];
-  const now = Date.parse('2026-10-19T12:00:00Z');
-  const old = '2026-10-19T09:00:00Z', fresh = '2026-10-19T11:59:00Z';
-  const children = prefix => {
-    const depth = prefix ? prefix.split('/').length : 0;
-    const names = new Map();
-    for (const [key, created] of Object.entries(objects)) {
-      const parts = key.split('/');
-      if (prefix && !key.startsWith(prefix + '/')) continue;
-      const name = parts[depth];
-      names.set(name, depth === 2 ? {id: key, name, created_at: created === 'fresh' ? fresh : old} : {id: null, name});
-    }
-    return [...names.values()];
-  };
-  return {removed, now, db: {
-    storage: {from: () => ({
-      list: async (prefix, {offset}) => ({data: children(prefix).slice(offset, offset + 1000), error: null}),
-      remove: async keys => { removed.push(...keys); return {error: null}; },
-    })},
-    from: () => ({select: () => ({in: async (_, keys) => ({data: rows.filter(key => keys.includes(key)).map(object_key => ({object_key})), error: null})})}),
-  }};
-}
-
-test('cleanup: files of a deleted account, which no row points at, are removed', async () => {
-  const gone = 'gone-user', kept = 'live-user';
-  const {db, removed, now} = storageDb({
-    objects: {[`${gone}/t1/r1`]: 'old', [`${gone}/t1/r2`]: 'old', [`${kept}/t2/r3`]: 'old', [`${kept}/t2/r4`]: 'fresh'},
-    rows: [`${kept}/t2/r3`],
-  });
-  assert.equal(await removeOrphanedFiles(db, {now}), 2);
-  assert.deepEqual(removed.sort(), [`${gone}/t1/r1`, `${gone}/t1/r2`]);
-});
-
-test('cleanup: a file younger than the margin is left alone even without a row', async () => {
-  const {db, removed, now} = storageDb({objects: {'u/t/r': 'fresh'}, rows: []});
-  assert.equal(await removeOrphanedFiles(db, {now}), 0);
-  assert.deepEqual(removed, []);
 });
 
 const {enableOvernight} = await import('../src/features/settings/enableOvernight.ts');

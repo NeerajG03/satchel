@@ -289,7 +289,7 @@ test('a Satchel read runs without asking, a write still asks, and other tools ar
   // hand, and as a claude.ai connector.
   const pre = tool_name => run('approve.mjs', JSON.stringify({session_id: 's', hook_event_name: 'PreToolUse', tool_name, tool_input: {}}));
   for (const prefix of ['mcp__plugin_satchel_satchel__', 'mcp__satchel__', 'mcp__claude_ai_Satchel__'])
-    for (const tool of ['retrieve_memory', 'read_memory', 'memory_index', 'list_topics', 'list_tasks', 'read_task']) {
+    for (const tool of ['retrieve_memory', 'read_memory', 'memory_index', 'list_topics']) {
       const {code, stdout} = await pre(prefix + tool);
       assert.equal(code, 0);
       const out = JSON.parse(stdout).hookSpecificOutput;
@@ -300,8 +300,9 @@ test('a Satchel read runs without asking, a write still asks, and other tools ar
   // every tool that is not Satchel's, including another server's tool with the
   // same name and a name that only ends like ours.
   for (const tool_name of ['mcp__plugin_satchel_satchel__save_memory', 'mcp__satchel__forget_memory',
-    'mcp__satchel__correct_memory', 'mcp__satchel__confirm_memory', 'mcp__satchel__create_task',
-    'mcp__satchel__edit_task', 'mcp__satchel__record_task_update', 'mcp__satchel__add_task_resource',
+    'mcp__satchel__correct_memory', 'mcp__satchel__confirm_memory',
+    // Task tools are gone, so a stale name is not one of Satchel's reads.
+    'mcp__satchel__list_tasks', 'mcp__satchel__read_task',
     'mcp__satchel__upsert_topic', 'mcp__satchel__select_topic',
     'mcp__other__retrieve_memory', 'mcp__notsatchel__read_memory', 'mcp__satchel__read_memory_x',
     'mcp__3d2a2d4f-2280__retrieve_memory', 'Bash', 'Read', '']) {
@@ -323,7 +324,7 @@ test('the reads the hook allows are exactly the tools the server marks read only
   const {createMemoryServer} = await import('../server/mcp-server.mjs');
   const {Client} = await import('@modelcontextprotocol/sdk/client/index.js');
   const {InMemoryTransport} = await import('@modelcontextprotocol/sdk/inMemory.js');
-  const server = createMemoryServer({tasks: {}});
+  const server = createMemoryServer({});
   const client = new Client({name: 'test', version: '1'});
   const [left, right] = InMemoryTransport.createLinkedPair();
   await server.connect(right); await client.connect(left);
@@ -415,7 +416,7 @@ test('built packages stay in sync with their shared sources', () => {
   // Nothing else fails when integrations/shared changes without re-running build-plugins.
   const shared = path => readFileSync(new URL(`../integrations/shared/${path}`, import.meta.url), 'utf8');
   // A reference left behind breaks progressive disclosure silently, so every skill file is checked.
-  const skillFiles = ['SKILL.md', 'references/memory.md', 'references/tasks.md', 'references/topics.md']
+  const skillFiles = ['SKILL.md', 'references/memory.md', 'references/topics.md']
     .map(file => [`context/${file}`, `skills/context/${file}`]);
   const scripts = ['session-start.mjs', 'retrieve.mjs', 'capture.mjs', 'connect.mjs', 'auth.mjs', 'workspace.mjs']
     .map(file => [file, `scripts/${file}`]);
@@ -430,7 +431,7 @@ test('only the Claude package lets reads run unprompted, and only for Satchel', 
   const [entry] = hooksOf('claude').PreToolUse;
   assert.ok(entry.hooks[0].command.includes('${CLAUDE_PLUGIN_ROOT}/scripts/approve.mjs'));
   const matcher = new RegExp(entry.matcher);
-  for (const name of ['mcp__plugin_satchel_satchel__retrieve_memory', 'mcp__satchel__read_task', 'mcp__claude_ai_Satchel__list_topics'])
+  for (const name of ['mcp__plugin_satchel_satchel__retrieve_memory', 'mcp__satchel__read_memory', 'mcp__claude_ai_Satchel__list_topics'])
     assert.match(name, matcher);
   for (const name of ['Bash', 'mcp__other__retrieve_memory', 'mcp__github__list_issues'])
     assert.doesNotMatch(name, matcher);

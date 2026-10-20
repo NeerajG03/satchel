@@ -11,11 +11,10 @@ Rows on the canvas, top to bottom:
 1. Design system, the mark, motion, the corner fix, and the heading font question
 2. Arrive: sign in, first run, then where you left off
 3. The book: empty, filled, correcting and forgetting (dark theme board is a v2 reference)
-4. Projects: list, a full project, a brand new one
-5. Tasks: empty, list, task detail with timeline
-6. v1 details: the picker open, sheets, edit, search, errors, and component states
-7. Apps and settings: empty, connected, consent request, Satchel × Claude, Satchel × OpenAI, settings
-8. v2 reference only: phone boards (the phone becomes a native Android app)
+4. Topics: list, a full topic, a brand new one
+5. v1 details: the picker open, sheets, edit, search, errors, and component states
+6. Apps and settings: empty, connected, consent request, Satchel × Claude, Satchel × OpenAI, settings
+7. v2 reference only: phone boards (the phone becomes a native Android app)
 
 ## Read in this order
 

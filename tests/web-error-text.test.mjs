@@ -173,7 +173,7 @@ test('every routine the web app calls exists',async()=>{
     }
   };
   await walk(new URL('../src',import.meta.url).pathname);
-  assert.ok(names.size>30,'the scan found the calls');
+  assert.ok(names.size>20,'the scan found the calls');
   const gone=[...names].filter(n=>!routines.has('public.'+n));
   assert.deepEqual(gone,[]);
 });

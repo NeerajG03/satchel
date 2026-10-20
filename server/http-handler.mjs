@@ -5,7 +5,6 @@ import {memoryService} from './memory-service.mjs';
 import {createEmbedder} from './embedding.mjs';
 import {createRouter} from './router.mjs';
 import {flush} from './tracing.mjs';
-import {taskService} from './task-service.mjs';
 // Imported, not re-exported straight through: `export ... from` creates no
 // local binding, so verifyAgentToken below lost RESOURCE and threw a
 // ReferenceError on every token check. tests/mcp.test.mjs caught it.
@@ -47,7 +46,6 @@ export async function handleMcp(req,res) {
   if(!key){res.writeHead(503);return res.end('Server configuration unavailable');}
   const db=createClient(SUPABASE_URL,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{headers:{Authorization:`Bearer ${token}`}}});
   const service=memoryService(db,embedder,router);
-  service.tasks=taskService(db,service.status);
   try {
     if(!await service.status()){res.writeHead(403);return res.end('Connection revoked or unavailable');}
   }catch{res.writeHead(503);return res.end('Unable to verify connection');}

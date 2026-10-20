@@ -2,6 +2,8 @@
 
 20 September 2026. Companion to [Memory v2](memory-v2.md), which holds the design and the reasoning. This document holds the work.
 
+**Tasks were removed on 20 October 2026.** Satchel no longer has tasks, task tools or a Tasks page. Tasks live in Notion. Where this document mentions tasks, task slugs, `task_id` or `list_tasks`, it is the record of what was planned at the time, not something that exists or is still planned.
+
 Every platform claim here is cited to official documentation. Every database claim was produced by running the query against real Postgres and pasting the output. Where I could not verify something, it sits in section 12 marked unverified, not in the plan.
 
 ---
@@ -363,7 +365,7 @@ For the record, at rule A the vague prompts do go quiet, which is the behaviour 
 "what was i doing last week"   (nothing)
 ```
 
-`"what was i doing last week"` returning nothing is right rather than a miss: [§5.5](memory-v2.md) routes that to `list_tasks`. One false positive survives every rule: `"shorter"` matches a sourdough memory about a "shorter bulk".
+`"what was i doing last week"` returning nothing is right rather than a miss: [§5.5](memory-v2.md) treats it as a question for a task tracker, not for memory. One false positive survives every rule: `"shorter"` matches a sourdough memory about a "shorter bulk".
 
 **Result 5. The paraphrase miss is now a specific case, not a hypothetical.**
 
@@ -902,17 +904,16 @@ All three go in `integrations/shared/` and are copied into both packages by [scr
 |---|---|
 | [features/memories/model.ts](../src/features/memories/model.ts) | `MemoryContent` becomes `{ statement, source, band, task_id, name?, more_info? }`; `MEMORY_LIMITS.statement = 500` |
 | [features/memories/MemoryEditor.tsx](../src/features/memories/MemoryEditor.tsx) | name becomes optional and secondary, description becomes the single required statement field, `more_info` collapses behind a disclosure |
-| [features/memories/MemoryList.tsx](../src/features/memories/MemoryList.tsx) | show the handle, the band, and the task link; a `heard` row gets a **Confirm** button that is the whole promotion mechanism from [§9](memory-v2.md) |
+| [features/memories/MemoryList.tsx](../src/features/memories/MemoryList.tsx) | show the handle and the band; a `heard` row gets a **Confirm** button that is the whole promotion mechanism from [§9](memory-v2.md) |
 | [features/memories/repository.ts](../src/features/memories/repository.ts) | rename through, add `confirm`, add `search` |
 | [features/topics/NewTopicSheet.tsx](../src/features/topics/NewTopicSheet.tsx) | slug field on topic create, shown next to the name |
-| [features/tasks/TaskWorkspace.tsx](../src/features/tasks/TaskWorkspace.tsx) | slug field on task create |
 | [Workspace.tsx](../src/Workspace.tsx) | a search box, because with automatic capture the list gets long enough that alphabetical browsing stops working |
 
 A `heard` row needs to look different at a glance. That is the entire user-facing payoff of the band: you can see what the system picked up on its own and disagree with it in one click.
 
 ### 8.2 The context panel, which is new
 
-[§8](memory-v2.md) specifies it and [product.md](product.md) section 8 already asked for it. It is a new view alongside memory, tasks and connections in [src/main.tsx](../src/main.tsx).
+[§8](memory-v2.md) specifies it and [product.md](product.md) section 8 already asked for it. It is a new view alongside memory and connections in [src/main.tsx](../src/main.tsx).
 
 ```
 What Claude Code sees in this session

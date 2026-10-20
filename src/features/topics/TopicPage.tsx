@@ -13,7 +13,6 @@ import { TextArea } from '../../ui/Field';
 import { Light } from '../../ui/Light';
 import { LoadError, Notice, SaveError, Skeleton } from '../../ui/Notice';
 import { Provenance } from '../../ui/Provenance';
-import { Chip, StateChip } from '../../ui/Chip';
 import { RepositoryLinks } from './RepositoryLinks';
 
 export function TopicPage() {
@@ -21,8 +20,8 @@ export function TopicPage() {
   const stores = useStores();
   const { announce } = useReadout();
   const page = useLoad(async () => {
-    const [topics, memories, tasks, connections] = await Promise.all([stores.topics.list(), stores.memories.list({ kind: 'topic', topicId: id }), stores.tasks.list(id), stores.connections.list()]);
-    return { topics, memories, tasks, connections: connections.filter(c => !c.revoked_at) };
+    const [topics, memories, connections] = await Promise.all([stores.topics.list(), stores.memories.list({ kind: 'topic', topicId: id }), stores.connections.list()]);
+    return { topics, memories, connections: connections.filter(c => !c.revoked_at) };
   }, [stores, id]);
   const action = useAction();
   // Its own, so a link or unlink failure shows next to the codebases and not
@@ -34,9 +33,9 @@ export function TopicPage() {
   const data = page.data;
   const topic = data?.topics.find(p => p.id === id);
   const scope = { kind: 'topic' as const, topicId: id };
-  const isEmpty = Boolean(data && data.memories.length === 0 && data.tasks.length === 0);
-  const apps = data?.connections.filter(c => c.all_topics || c.task_all_topics || c.topic_ids.includes(id) || c.agent_task_grants.some(g => g.topic_id === id)) ?? [];
-  useFooter(topic ? `${topic.name} · ${count(data!.memories.length, 'memory', 'memories')} · ${count(data!.tasks.length, 'task')}` : '',
+  const isEmpty = Boolean(data && data.memories.length === 0);
+  const apps = data?.connections.filter(c => c.all_topics || c.topic_ids.includes(id)) ?? [];
+  useFooter(topic ? `${topic.name} · ${count(data!.memories.length, 'memory', 'memories')}` : '',
     isEmpty ? { light: 'amber', word: 'Topic has nothing yet' } : undefined);
 
   async function saveBrief(event: FormEvent) {
@@ -69,8 +68,8 @@ export function TopicPage() {
   if (!topic) return <><LinkButton to="/topics" look="quiet">← Topics</LinkButton><Notice look="error" title="That topic is not here.">It may have been removed. Nothing else changed.</Notice></>;
 
   const other = data.topics.find(p => p.id !== id);
-  const activity = [...data.tasks.map(t => ({ id: t.id, at: t.last_activity_at, text: t.title, tag: 'task', to: `/tasks/${t.id}${scopeQuery(scope)}` })),
-    ...data.memories.map(m => ({ id: m.id, at: m.updated_at, text: m.name || m.statement, tag: `memory · rev ${m.revision}`, to: `/book${scopeQuery(scope)}` }))].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8);
+  const activity = data.memories.map(m => ({ id: m.id, at: m.updated_at, text: m.name || m.statement, tag: `memory · rev ${m.revision}`, to: `/book${scopeQuery(scope)}` }))
+    .sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8);
 
   const briefForm = <form className="stack-tight" onSubmit={saveBrief}>
     <TextArea label="Brief" hint="one or two lines an agent reads to know what this effort is" limit={1000} rows={3} value={brief} disabled={action.busy} autoFocus
@@ -85,7 +84,7 @@ export function TopicPage() {
 
   return <>
     <div className="between wrap"><Link to="/topics" className="fine">← Topics</Link>
-      <div className="row" style={{ gap: 8 }}><LinkButton to={`/topics/${id}/delete`} look="quiet" className="tear" aria-label="Delete topic" title="Delete topic"><TornPageIcon /></LinkButton><LinkButton to={`/book${scopeQuery(scope)}`}>Open its book</LinkButton><LinkButton to={`/tasks${scopeQuery(scope)}`}>Open its tasks</LinkButton></div></div>
+      <div className="row" style={{ gap: 8 }}><LinkButton to={`/topics/${id}/delete`} look="quiet" className="tear" aria-label="Delete topic" title="Delete topic"><TornPageIcon /></LinkButton><LinkButton to={`/book${scopeQuery(scope)}`}>Open its book</LinkButton></div></div>
     <div className="col" style={{ gap: 10 }}>
       <span className="eyebrow">Topic{topic.made_by === 'satchel' ? ' · made by Satchel' : ''}</span>
       <h1>{topic.name}</h1>
@@ -98,12 +97,11 @@ export function TopicPage() {
     </div>
 
     {isEmpty && <>
-      <Notice look="amber" title="Agents can’t see this topic yet.">It has no brief, no memories and no tasks. Fill in the brief first so an agent can tell it apart{other ? ` from “${other.name}”` : ''}.</Notice>
+      <Notice look="amber" title="Agents can’t see this topic yet.">It has no brief and no memories. Fill in the brief first so an agent can tell it apart{other ? ` from “${other.name}”` : ''}.</Notice>
       {topic.brief && !editingBrief ? <div className="row wrap" style={{ alignItems: 'baseline' }}><p className="serif" style={{ fontSize: 19 }}>{topic.brief}</p><Button look="link" small onClick={() => { setBrief(topic.brief); setEditingBrief(true); }}>Edit brief</Button></div> : briefForm}
       <div className="steps">
         <div className="step"><span className="n">Codebases</span><h3>Link a repository</h3><p className="muted">Optional. Lets a coding agent select this topic when it opens that repo.</p></div>
         <div className="step"><span className="n">Book</span><h3>Save a first decision</h3><p className="muted">Something agents should know before working here.</p><LinkButton to={`/book${scopeQuery(scope, { compose: '1' })}`}>Write in this topic’s book</LinkButton></div>
-        <div className="step"><span className="n">Tasks</span><h3>Capture the next thing</h3><p className="muted">A title and next action is enough to start.</p><LinkButton to={`/tasks${scopeQuery(scope, { compose: '1' })}`}>Capture a task</LinkButton></div>
       </div>
     </>}
 
@@ -120,11 +118,7 @@ export function TopicPage() {
           <div className="between"><h3>Apps that can see this topic</h3><Link to="/apps" className="fine">Manage</Link></div>
           {apps.length === 0 && <p className="muted fine">None yet. Grants are made on the consent page when an app connects.</p>}
           {apps.map(app => <div className="between" key={app.client_id}><span style={{ fontWeight: 500 }}>{app.label}</span>
-            <Light color="green" word={[(app.all_topics || app.topic_ids.includes(id)) && (app.can_write ? 'memory rw' : 'memory'), (app.task_all_topics || app.agent_task_grants.some(g => g.topic_id === id)) && 'tasks'].filter(Boolean).join(' · ')} /></div>)}
-        </div>
-        <div className="aside-block">
-          <div className="between"><h3>Tasks <span className="muted fine">· {data.tasks.length}</span></h3><Link to={`/tasks${scopeQuery(scope)}`} className="fine">All tasks</Link></div>
-          {data.tasks.slice(0, 4).map(task => <div className="relation" key={task.id}><Link to={`/tasks/${task.id}${scopeQuery(scope)}`}>{task.title}</Link><StateChip status={task.status} /></div>)}
+            <Light color="green" word={app.can_write ? 'reads and saves' : 'reads only'} /></div>)}
         </div>
         <div className="aside-block">
           <div className="between"><h3>Memories <span className="muted fine">· {data.memories.length}</span></h3><Link to={`/book${scopeQuery(scope)}`} className="fine">Open the book</Link></div>

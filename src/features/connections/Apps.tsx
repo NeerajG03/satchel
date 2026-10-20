@@ -24,13 +24,11 @@ function GrantLine({ personal, all, ids, topics, level }: { personal: boolean; a
 }
 
 function AppCard({ app, topics, busy, confirming, onAskRevoke, onRevoke }: { app: Connection; topics: Topic[]; busy: boolean; confirming: boolean; onAskRevoke: (ask: boolean) => void; onRevoke: () => void }) {
-  const taskIds = app.agent_task_grants.map(g => g.topic_id);
   return <article className="card">
     <div className="between wrap"><h2 style={{ fontSize: 22 }}>{app.label}</h2>
-      <Light color="green" word={app.can_write || app.task_can_write ? 'reads and saves' : 'reads only'} /></div>
+      <Light color="green" word={app.can_write ? 'reads and saves' : 'reads only'} /></div>
     <dl className="grants">
       <dt>Memory</dt><GrantLine personal={app.personal} all={app.all_topics} ids={app.topic_ids} topics={topics} level={app.can_write ? 'read and save' : 'read only'} />
-      <dt>Tasks</dt><GrantLine personal={app.task_personal} all={app.task_all_topics} ids={taskIds} topics={topics} level={[app.task_can_write ? 'read, write' : 'read only', app.task_can_upload && 'upload'].filter(Boolean).join(' and ')} />
     </dl>
     <p className="fine muted">Connected {whenText(app.created_at)} · a permission here applies to every installation using this app identity.</p>
     {!confirming && <div className="card-actions"><Button small disabled={busy} onClick={() => onAskRevoke(true)}>Revoke access</Button></div>}

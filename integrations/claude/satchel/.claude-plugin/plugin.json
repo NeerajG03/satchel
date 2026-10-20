@@ -1,7 +1,7 @@
 {
   "name": "satchel",
-  "version": "0.5.8",
-  "description": "Personal and topic memory, tasks and topics across your agents.",
+  "version": "0.6.0",
+  "description": "Personal and topic memory across your agents.",
   "author": {
     "name": "Satchel"
   },

@@ -6,7 +6,7 @@ import { Notice } from '../../ui/Notice';
 const STEPS = [
   { n: '01 · Two minutes', title: 'Write the first thing down', text: 'A preference about how you like to work. It applies everywhere, no topic needed.', to: '/book?compose=1', label: 'Open the book' },
   { n: '02 · Five minutes', title: 'Connect an AI app', text: 'Install the Satchel plugin in Claude Code or Codex, then sign in from its connection settings. You choose what it can read.', to: '/apps', label: 'See the steps' },
-  { n: '03 · When you have one', title: 'Capture a task', text: 'A title and the next action. Later, a handoff makes it resumable from any device.', to: '/tasks?compose=1', label: 'Capture a task' },
+  { n: '03 · When you have one', title: 'Make a topic', text: 'One subject you work on, like a product or a codebase. Memories that belong to it stay with it.', to: '/topics/new', label: 'Make a topic' },
 ];
 
 export function LeftOffEmpty({ name, topics }: { name: string; topics: Topic[] }) {
@@ -26,7 +26,7 @@ export function LeftOffEmpty({ name, topics }: { name: string; topics: Topic[] }
       </div>)}
     </div>
     {topics.length > 0 && <Notice look="amber" actions={<Link to="/topics" className="btn sm">View topics</Link>}>
-      You have {topics.length} {topics.length === 1 ? 'topic' : 'topics'} but nothing in {topics.length === 1 ? 'it' : 'them'} yet. {topics.map(p => p.name).join(', ')} {topics.length === 1 ? 'was' : 'were'} created earlier. A topic with no memories or tasks is invisible to agents until you add something.
+      You have {topics.length} {topics.length === 1 ? 'topic' : 'topics'} but nothing in {topics.length === 1 ? 'it' : 'them'} yet. {topics.map(p => p.name).join(', ')} {topics.length === 1 ? 'was' : 'were'} created earlier. A topic with no memories is invisible to agents until you add something.
     </Notice>}
   </>;
 }

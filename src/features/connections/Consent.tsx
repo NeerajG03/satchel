@@ -49,10 +49,7 @@ export function Consent() {
   }, [stores, authorizationId]);
   const action = useAction('action');
   const [memory, setMemory] = useState<Group>(NONE);
-  const [tasks, setTasks] = useState<Group>(NONE);
   const [memoryWrite, setMemoryWrite] = useState(false);
-  const [taskWrite, setTaskWrite] = useState(false);
-  const [taskUpload, setTaskUpload] = useState(false);
   useFooter('Deny closes this and sends the app back');
 
   const details = page.data && 'client' in page.data.details ? page.data.details as OAuthAuthorizationDetails : null;
@@ -66,7 +63,6 @@ export function Consent() {
   const overnight = details !== null && rememberedClientId() === details.client.id;
   const topics = page.data?.topics ?? [];
   const anyMemory = memory.personal || memory.all || memory.ids.length > 0;
-  const anyTasks = tasks.personal || tasks.all || tasks.ids.length > 0;
   const all = (): Group => ({ personal: true, all: true, ids: [] });
   const scopeText = (group: Group) => group.all ? `every topic${group.personal ? ' and you' : ''}` : 'you only';
 
@@ -80,9 +76,7 @@ export function Consent() {
         return;
       }
       const result = await stores.connections.approve(authorizationId, { clientId: details.client.id, label: details.client.name,
-        personal: memory.personal, allTopics: memory.all, topicIds: memory.ids, canWrite: memoryWrite,
-        taskPersonal: tasks.personal, taskAllTopics: tasks.all, taskTopicIds: tasks.ids,
-        taskCanWrite: taskWrite, taskCanUpload: taskUpload });
+        personal: memory.personal, allTopics: memory.all, topicIds: memory.ids, canWrite: memoryWrite });
       try { sessionStorage.setItem(RETURN_URL_KEY, JSON.stringify({ url: result.redirectUrl, name: details.client.name })); } catch { /* The page still offers Back to Apps. */ }
       navigate(`/apps/connected/${partnerSlug(details.client.name)}`, { replace: true });
     });
@@ -98,20 +92,15 @@ export function Consent() {
       <p className="fine muted">Name supplied by the app · will return to {details.redirect_uri}</p>
     </div>
     <div className="row wrap"><span className="fine muted">Quick start:</span>
-      <Button small onClick={() => { setMemory(all()); setTasks(all()); setMemoryWrite(false); setTaskWrite(false); setTaskUpload(false); }}>Read everything</Button>
-      <Button small onClick={() => { setMemory(all()); setTasks(all()); setMemoryWrite(true); setTaskWrite(true); setTaskUpload(true); }}>Read and save everything</Button>
-      {overnight && <Button small onClick={() => { setMemory(all()); setTasks(NONE); setMemoryWrite(true); setTaskWrite(false); setTaskUpload(false); }}>What the overnight pass needs</Button>}
-      <Button small look="quiet" onClick={() => { setMemory(NONE); setTasks(NONE); setMemoryWrite(false); setTaskWrite(false); setTaskUpload(false); }}>Clear all</Button>
+      <Button small onClick={() => { setMemory(all()); setMemoryWrite(false); }}>Read everything</Button>
+      <Button small onClick={() => { setMemory(all()); setMemoryWrite(true); }}>Read and save everything</Button>
+      {overnight && <Button small onClick={() => { setMemory(all()); setMemoryWrite(true); }}>What the overnight pass needs</Button>}
+      <Button small look="quiet" onClick={() => { setMemory(NONE); setMemoryWrite(false); }}>Clear all</Button>
     </div>
     <div className="two">
       <div className="consent-groups">
         <ScopeGroup title="Memory" hint="Scopes it can read" group={memory} topics={topics} disabled={action.busy} onChange={setMemory}
           extras={<CheckField label="Also allow saves, corrections and forgets" hint="only when you ask it to, in that chat" checked={memoryWrite} disabled={!anyMemory} onChange={e => setMemoryWrite(e.target.checked)} />} />
-        <ScopeGroup title="Tasks" hint="Scopes it can read" group={tasks} topics={topics} disabled={action.busy} onChange={setTasks}
-          extras={<div className="stack-tight">
-            <CheckField label="Also allow creating tasks, updates, moves and handoffs" checked={taskWrite} disabled={!anyTasks} onChange={e => setTaskWrite(e.target.checked)} />
-            <CheckField label="Also allow file uploads to task storage" checked={taskUpload} disabled={!anyTasks} onChange={e => setTaskUpload(e.target.checked)} />
-          </div>} />
       </div>
       <aside>
         <div className="aside-block"><div className="between"><h3>What this means</h3></div>
@@ -119,17 +108,16 @@ export function Consent() {
           <p className="fine muted">Writing still needs your explicit ask inside the chat. The app cannot save on its own.</p>
           <p className="fine muted">Topics are all or none. “Every topic” keeps being true, so a topic made next month, by you or by Satchel, is included without asking again.</p></div>
         {overnight && <div className="aside-block"><div className="between"><h3>The overnight pass</h3></div>
-          <p className="fine muted">This is the connection you just asked for in Settings. It reads conversations that have gone quiet and saves what it learns, so it needs your memory, every topic and you, with saves. It does not need tasks. Nothing is ticked for you: press the button above or choose your own.</p></div>}
+          <p className="fine muted">This is the connection you just asked for in Settings. It reads conversations that have gone quiet and saves what it learns, so it needs your memory, every topic and you, with saves. Nothing is ticked for you: press the button above or choose your own.</p></div>}
         <div className="aside-block"><div className="between"><h3>Summary</h3></div>
-          <p className="fine">Memory: {anyMemory ? `${scopeText(memory)} · ${memoryWrite ? 'read and save' : 'read only'}` : 'nothing'}</p>
-          <p className="fine">Tasks: {anyTasks ? `${scopeText(tasks)} · ${taskWrite ? 'read and write' : 'read only'}${taskUpload ? ' · uploads' : ''}` : 'nothing'}</p></div>
+          <p className="fine">Memory: {anyMemory ? `${scopeText(memory)} · ${memoryWrite ? 'read and save' : 'read only'}` : 'nothing'}</p></div>
       </aside>
     </div>
     {action.error && <SaveError title="Could not finish connecting." message={action.error} />}
     <div className="row wrap">
-      <Button look="primary" disabled={action.busy || (!anyMemory && !anyTasks)} onClick={() => void decide(true)}>{action.busy ? 'Working…' : 'Allow this access'}</Button>
+      <Button look="primary" disabled={action.busy || !anyMemory} onClick={() => void decide(true)}>{action.busy ? 'Working…' : 'Allow this access'}</Button>
       <Button disabled={action.busy} onClick={() => void decide(false)}>Deny</Button>
-      <span className="fine muted">{!anyMemory && !anyTasks ? 'Choose at least one scope to allow.' : 'You can change or revoke this later in Apps.'}</span>
+      <span className="fine muted">{!anyMemory ? 'Choose at least one scope to allow.' : 'You can change or revoke this later in Apps.'}</span>
     </div>
   </>;
 }

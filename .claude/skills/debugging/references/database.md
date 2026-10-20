@@ -45,9 +45,7 @@ The application itself only ever holds the publishable key. RLS does the rest. I
 | Is this repo linked to a topic? | `topic_repositories` |
 | Per-owner retrieval tuning | `memory_settings` |
 
-The scope column on memories, tasks and documents is `topic_id`, and topics live in `topics`.
-
-Tasks have their own set: `tasks`, `task_events`, `task_updates`, `task_handoffs`, `task_dependencies`, `task_parent_edges`, `task_resources`.
+The scope column on memories and documents is `topic_id`, and topics live in `topics`.
 
 ## The queries worth having ready
 
@@ -84,7 +82,7 @@ select created_at, model, kept, dropped, error from router_runs order by created
 
 ```sql
 select client_id, personal, all_topics, array_length(topic_ids,1) as topics,
-       task_personal, task_all_topics, revoked_at
+       revoked_at
 from agent_connections order by created_at desc limit 10;
 ```
 
@@ -140,4 +138,4 @@ Compare with `ls supabase/migrations`. Vercel deploys on push and migrations are
 
 **`documents` and `document_turns` have no grants on purpose.** Querying them as an agent returns permission denied, which is correct: an agent connection is `authenticated` too, and a select grant would let it read every session. Read them through the management API, or as the person through `recent_documents` and `document_content`.
 
-**Recreating a function can revert an earlier migration.** Read every migration that touched a function before recreating it. `agent_can_access_tasks` nearly lost its personal-task branch this way, twice.
+**Recreating a function can revert an earlier migration.** Read every migration that touched a function before recreating it. An access helper nearly lost its personal branch this way, twice.

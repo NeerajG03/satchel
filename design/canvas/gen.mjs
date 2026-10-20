@@ -150,7 +150,7 @@ class Component extends DCLogic {
 </body>
 </html>`;
 
-const NAV = [['Left off', 'Main.dc.html'], ['Book', 'Book.dc.html'], ['Tasks', 'Tasks.dc.html'], ['Topics', 'Topics.dc.html'], ['Apps', 'Apps.dc.html'], ['Settings', 'Settings.dc.html']];
+const NAV = [['Left off', 'Main.dc.html'], ['Book', 'Book.dc.html'], ['Topics', 'Topics.dc.html'], ['Apps', 'Apps.dc.html'], ['Settings', 'Settings.dc.html']];
 const rail = (active) => `<nav class="rail" aria-label="Destinations">
   ${NAV.map(([l, f]) => `<a href="${f}"${l === active ? ' aria-current="page"' : ''}><span class="dot"></span>${l}</a>`).join('\n  ')}
   <div class="spacer"></div>
@@ -178,7 +178,7 @@ const phone = ({ active, paper, dark = false }) => page({
   w: 390, h: 844, dark, body: `<div class="phone" style="width:390px; height:844px;">
   <div class="ptop"><span class="wordmark">satchel</span><span class="row" style="gap:8px; font:500 10px 'DM Mono',monospace; letter-spacing:.12em; color:var(--hwmuted); text-transform:uppercase;"><span class="led amber"></span>Phone</span></div>
   <main class="paper" style="flex-grow:1; min-height:0;">${paper}</main>
-  <nav class="tabs" aria-label="Destinations">${[['Left off', 'PhoneLeftOff.dc.html'], ['Book', 'PhoneBook.dc.html'], ['Tasks', 'PhoneTask.dc.html'], ['More', 'PhoneConsent.dc.html']].map(([l, f]) => `<a href="${f}"${l === active ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
+  <nav class="tabs" aria-label="Destinations">${[['Left off', 'PhoneLeftOff.dc.html'], ['Book', 'PhoneBook.dc.html'], ['More', 'PhoneConsent.dc.html']].map(([l, f]) => `<a href="${f}"${l === active ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
 </div>` });
 
 const icon = {
@@ -211,49 +211,39 @@ const welcome = page({ w: 1280, h: 820, body: `<div class="frame" style="width:1
     </div>
     <aside class="col" style="gap:14px; padding-top:26px;">
       <span class="eyebrow">What lives in a Satchel</span>
-      ${[['The book', 'Preferences and decisions you chose to save. Names and short descriptions form an index agents read first.'], ['Tasks and handoffs', 'The exact next action and the evidence the last session left behind.'], ['Topics', 'One subject, its repositories and the apps allowed to see it.'], ['Apps', 'Each connected agent gets only the scopes you grant. Revoke any time.']].map(([t, d]) => `<div style="padding:14px 0; border-top:1px solid var(--line); display:grid; grid-template-columns:150px 1fr; gap:18px;"><span class="h3">${t}</span><span class="muted" style="font-size:14px;">${d}</span></div>`).join('')}
+      ${[['The book', 'Preferences and decisions you chose to save. Names and short descriptions form an index agents read first.'], ['Topics', 'One subject, its repositories and the apps allowed to see it.'], ['Apps', 'Each connected agent gets only the scopes you grant. Revoke any time.']].map(([t, d]) => `<div style="padding:14px 0; border-top:1px solid var(--line); display:grid; grid-template-columns:150px 1fr; gap:18px;"><span class="h3">${t}</span><span class="muted" style="font-size:14px;">${d}</span></div>`).join('')}
       <div class="hr"></div>
     </aside>
     <div class="foot" style="grid-column:1/-1;"><span>Satchel · Private pilot</span><span>A little less repeating yourself</span></div>
   </main></div></div>` });
 
 // Left off, first run (nothing saved yet)
-const leftOffEmpty = desktop({ active: 'Left off', topOpts: { status: 'amber', statusText: 'Nothing saved yet' }, footL: '0 in the book · 0 tasks · 0 apps', paper: `
+const leftOffEmpty = desktop({ active: 'Left off', topOpts: { status: 'amber', statusText: 'Nothing saved yet' }, footL: '0 in the book · 0 topics · 0 apps', paper: `
   <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Wednesday, 17 September</span><h1 class="h1">Welcome, Neeraj.</h1></div></div>
   <p class="lede" style="margin:14px 0 30px; max-width:620px;">Your Satchel is empty, which is the right place to start. Do any one of these three and this page turns into “Where you left off”.</p>
   <div class="steps">
     <div class="step"><span class="n">01 · TWO MINUTES</span><h2 class="h3">Write the first thing down</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">A preference about how you like to work. It applies everywhere, no topic needed.</p><a href="BookEmpty.dc.html" class="btn primary" style="align-self:flex-start;">Open the book ${icon.arrow}</a></div>
     <div class="step"><span class="n">02 · FIVE MINUTES</span><h2 class="h3">Connect an AI app</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">Install the Satchel plugin in Claude Code or Codex, then sign in from its connection settings. You choose what it can read.</p><a href="AppsEmpty.dc.html" class="btn" style="align-self:flex-start;">See the steps ${icon.arrow}</a></div>
-    <div class="step"><span class="n">03 · WHEN YOU HAVE ONE</span><h2 class="h3">Capture a task</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">A title and the next action. Later, a handoff makes it resumable from any device.</p><a href="TasksEmpty.dc.html" class="btn" style="align-self:flex-start;">Capture a task ${icon.arrow}</a></div>
+    <div class="step"><span class="n">03 · WHEN YOU HAVE ONE</span><h2 class="h3">Start a topic</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">A name and a line about the subject. Memories about it gather there.</p><a href="Topics.dc.html" class="btn" style="align-self:flex-start;">Open topics ${icon.arrow}</a></div>
   </div>
   <div class="panel" style="margin-top:28px; display:grid; grid-template-columns:auto 1fr auto; gap:18px; align-items:center;">
     <span class="led amber"></span>
-    <div><strong>You have 2 topics but nothing in them yet.</strong><span class="muted"> Managed Agents and Satchel were created earlier. A topic with no memories or tasks is invisible to agents until you add something.</span></div>
+    <div><strong>You have 2 topics but nothing in them yet.</strong><span class="muted"> Managed Agents and Satchel were created earlier. A topic with no memories is invisible to agents until you add something.</span></div>
     <a href="Topics.dc.html" class="btn sm">View topics</a>
   </div>` });
 
 // Left off, populated
-const leftOffWith = (extraCss) => desktop({ extraCss, active: 'Left off', footL: '5 in the book · 3 tasks moving · 2 apps', paper: `
-  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Wednesday, 17 September</span><h1 class="h1">Where you left off.</h1></div>
-    <div class="row"><a href="Tasks.dc.html" class="btn quiet">All tasks</a><a href="Book.dc.html" class="btn">Write something down</a></div></div>
+const leftOffWith = (extraCss) => desktop({ extraCss, active: 'Left off', footL: '155 in the book · 12 topics · 4 apps', paper: `
+  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Left off</span><h1 class="h1">Where you left off.</h1></div>
+    <div class="row"><a href="Book.dc.html" class="btn">Open the book</a><a href="Book.dc.html" class="btn primary">Write something down</a></div></div>
   <div style="display:grid; grid-template-columns:minmax(0,1.5fr) 320px; gap:48px; margin-top:26px; flex-grow:1; min-height:0;">
-    <section class="col" style="gap:0;">
-      <span class="eyebrow" style="margin-bottom:6px;">Next actions · actionable now</span>
-      ${[
-        ['Satchel', 'Personal', 'in progress', 'progress', 'Ship the skills packaging worktree and open the PR.', 'Handoff · Claude Code · MacBook · today 09:41', 'PR #41 reachable', true],
-        ['Release workflow', 'Work', 'ready', 'ink', 'Open the sync PR against frontend.', 'Progress update · Codex · desktop · Fri 17:06', 'branch sync-v2 reachable', true],
-        ['Reimbursements', 'Personal', 'blocked', 'blocked', 'Submit the August claim.', 'Blocked: waiting on the finance portal login · Claude · phone · Thu 11:12', 'No code attached', false],
-      ].map(([p, s, st, cls, next, prov, res, ok]) => `<article class="entry" style="gap:6px;">
-        <div class="between"><span class="row" style="gap:10px;"><strong style="font-size:14px;">${p}</strong><span class="eyebrow">${s}</span></span><span class="chip ${cls}">${st}</span></div>
-        <h2 class="h2" style="font-size:24px;">Next: ${next}</h2>
-        <div class="between"><span class="prov">${prov} · ${res}</span><a href="Task.dc.html" class="btn sm">Open task</a></div>
-      </article>`).join('')}
-      <a href="Tasks.dc.html" class="muted fine" style="margin-top:12px; color:var(--muted);">4 more tasks are waiting on something. See them in Tasks ${icon.arrow}</a>
+    <section class="col" style="gap:8px;">
+      <div class="between" style="border-bottom:1px solid var(--line); padding-bottom:8px;"><h2 class="h2" style="margin:0;">Since you last looked</h2><span class="eyebrow">5 topics</span></div>
+      <p class="serif" style="font-size:19px; line-height:1.4; margin:0;">35 new memories in 5 topics.</p>
+      <div>${[['For me', 17], ['Api Automation', 10], ['Satchel', 6], ['Different Skill System', 1], ['Java Backend', 1]].map(([t, n]) => `<a href="Book.dc.html" class="between" style="padding:10px 0; border-bottom:1px solid var(--line); color:var(--ink);"><span class="serif" style="font-size:18px;">${t}</span><span class="prov">${n} new</span></a>`).join('')}</div>
+      <a href="Book.dc.html" class="fine">See what came in ${icon.arrow}</a>
     </section>
     <aside class="col" style="gap:26px;">
-      <div class="col" style="gap:8px;"><span class="eyebrow">Last thing saved</span>
-        <p class="serif" style="font-size:22px; line-height:1.3; margin:0;">“Satchel has no personas and no curator in the first version.”</p>
-        <span class="prov">Said on your phone · Topic / Satchel · today 09:18</span></div>
       <div class="col" style="gap:8px;"><span class="eyebrow">Your apps</span>
         ${[['green', 'Claude Code', 'reads and saves · verified today'], ['amber', 'Codex', 'reads only · last read Fri'], ['off', 'Claude (phone)', 'not connected']].map(([l, n, d]) => `<div class="between" style="padding:9px 0; border-bottom:1px solid var(--line);"><span class="row" style="gap:10px;"><span class="led ${l}"></span><span style="font-weight:500;">${n}</span></span><span class="prov">${d}</span></div>`).join('')}
         <a href="Apps.dc.html" class="fine" style="margin-top:4px;">Manage apps ${icon.arrow}</a></div>
@@ -332,13 +322,13 @@ const bookCorrect = desktop({ active: 'Book', footL: '5 in the book · Topic / S
   <article class="entry">
     <div class="between" style="align-items:flex-start;"><div class="col" style="gap:4px;"><h2 class="title serif">memory-index-shape</h2><p style="margin:0; font-size:15px; max-width:640px;">Hooks read only names and descriptions. More info is fetched by name when needed.</p></div></div>
     <div class="panel" style="border-color:var(--red); display:grid; grid-template-columns:1fr auto; gap:16px; align-items:center; margin-top:6px;">
-      <div><strong>Forget this memory?</strong><span class="muted"> It leaves active retrieval right away. Copies in earlier chats, exports and Codex's own memory are not touched. Satchel can't reach those.</span></div>
+      <div><strong>Forget this memory?</strong><span class="muted"> It leaves active retrieval right away. Copies in earlier chats and Codex's own memory are not touched. Satchel can't reach those.</span></div>
       <div class="row"><button class="btn quiet sm">Keep it</button><button class="btn danger sm">Forget</button></div>
     </div>
     <div class="between"><span class="prov">Saved by Codex · desktop · Thu 11 Sep · revision 1</span></div>
   </article>
   <article class="entry" style="opacity:.6;">
-    <div class="between"><div class="col" style="gap:4px;"><h2 class="title serif">task-authority</h2><p style="margin:0; font-size:15px;">Supabase is the only authority for task state. GitHub issues are attached references, never mirrors.</p></div></div>
+    <div class="between"><div class="col" style="gap:4px;"><h2 class="title serif">memory-authority</h2><p style="margin:0; font-size:15px;">Supabase is the only authority for memory. The memory inside each app is a copy, never the source.</p></div></div>
     <div class="between"><span class="prov">Saved by Claude Code · Tue 16 Sep · revision 2</span></div>
   </article>` });
 
@@ -350,140 +340,62 @@ const bookDark = desktop({ dark: true, active: 'Book', footL: 'Dark theme · sam
     <a href="Book.dc.html" class="btn">${icon.plus} Write something down</a></div>
   <div class="row" style="gap:8px; margin:12px 0 4px;"><span class="seg"><a href="#" aria-current="true">All 5</a><a href="#">Saved by me 3</a><a href="#">Saved by agents 2</a></span></div>
   ${memoryEntry({ name: 'no-personas-v1', desc: 'Satchel has no personas and no curator in the first version. Read before proposing agent roles.', prov: 'Said on your phone · today 09:18 · revision 1', rev: 1 })}
-  ${memoryEntry({ name: 'task-authority', desc: 'Supabase is the only authority for task state. GitHub issues are attached references, never mirrors.', prov: 'Saved by Claude Code · MacBook · Tue 16 Sep · revision 2', rev: 2, expanded: true, body: 'Every write carries a request id and the current revision. A stale revision is a conflict, not an overwrite.' })}
+  ${memoryEntry({ name: 'memory-authority', desc: 'Supabase is the only authority for memory. The memory inside each app is a copy, never the source.', prov: 'Saved by Claude Code · MacBook · Tue 16 Sep · revision 2', rev: 2, expanded: true, body: 'Every write carries a request id and the current revision. A stale revision is a conflict, not an overwrite.' })}
   ${memoryEntry({ name: 'plain-words', desc: 'Write UI copy in plain 8th-grade words. No jargon, no metaphors, no em dashes.', prov: 'Said on your MacBook · Fri 12 Sep · revision 3', rev: 3 })}` });
 
 // Topics list
 const topics = desktop({ active: 'Topics', footL: '3 topics', paper: `
   <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topics</span><h1 class="h1">Topics.</h1></div><a href="TopicEmpty.dc.html" class="btn primary">${icon.plus} New topic</a></div>
-  <p class="lede" style="margin:12px 0 22px;">A topic is a subject your memories are about. Satchel makes one when a work fact fits none of these. You can also link a codebase or add tasks to it.</p>
-  <div style="display:grid; grid-template-columns:minmax(0,2fr) 90px 90px 140px 120px; gap:16px; padding:8px 0; border-bottom:1px solid var(--ink);" class="eyebrow"><span>Topic</span><span>Memories</span><span>Tasks</span><span>Apps with access</span><span>Last activity</span></div>
+  <p class="lede" style="margin:12px 0 22px;">A topic is a subject your memories are about. Satchel makes one when a work fact fits none of these. You can also link a codebase to it.</p>
+  <div style="display:grid; grid-template-columns:minmax(0,2fr) 90px 140px 120px; gap:16px; padding:8px 0; border-bottom:1px solid var(--ink);" class="eyebrow"><span>Topic</span><span>Memories</span><span>Apps with access</span><span>Last activity</span></div>
   ${[
-    ['Satchel', 'Personal memory and task continuity across AI apps.', ['neerajg03/satchel'], 5, '3 moving · 1 blocked', 'Claude Code, Codex', 'today 09:41', 'Topic.dc.html'],
-    ['Release workflow', 'Ship the monthly release without a war room.', ['acme/backend', 'acme/frontend'], 2, '2 ready', 'Codex', 'Fri 17:06', 'Topic.dc.html'],
-    ['Reimbursements', 'Monthly claims and receipts. No code.', [], 1, '1 blocked', 'Claude', 'Thu 11:12', 'Topic.dc.html'],
-    ['Managed Agents', 'Created 12 Sep. Nothing saved here yet.', [], 0, 'none', 'none', '—', 'TopicEmpty.dc.html'],
-  ].map(([n, b, repos, m, t, a, when, href]) => `<a href="${href}" style="display:grid; grid-template-columns:minmax(0,2fr) 90px 90px 140px 120px; gap:16px; padding:18px 0; border-bottom:1px solid var(--line); color:var(--ink); align-items:start;">
+    ['Satchel', 'Personal memory that follows you across AI apps.', ['neerajg03/satchel'], 5, 'Claude Code, Codex', 'today 09:41', 'Topic.dc.html'],
+    ['Release workflow', 'Ship the monthly release without a war room.', ['acme/backend', 'acme/frontend'], 2, 'Codex', 'Fri 17:06', 'Topic.dc.html'],
+    ['Reimbursements', 'Monthly claims and receipts. No code.', [], 1, 'Claude', 'Thu 11:12', 'Topic.dc.html'],
+    ['Managed Agents', 'Created 12 Sep. Nothing saved here yet.', [], 0, 'none', '—', 'TopicEmpty.dc.html'],
+  ].map(([n, b, repos, m, a, when, href]) => `<a href="${href}" style="display:grid; grid-template-columns:minmax(0,2fr) 90px 140px 120px; gap:16px; padding:18px 0; border-bottom:1px solid var(--line); color:var(--ink); align-items:start;">
       <div class="col" style="gap:4px;"><span class="h3">${n}</span><span class="muted" style="font-size:14px;">${b}</span>${repos.length ? `<span class="row" style="gap:6px; margin-top:4px; flex-wrap:wrap;">${repos.map(r => `<span class="chip" style="text-transform:none; letter-spacing:0;">${icon.github} ${r}</span>`).join('')}</span>` : `<span class="fine muted" style="margin-top:4px;">No repositories linked</span>`}</div>
-      <span style="font-size:15px;">${m}</span><span style="font-size:14px;">${t}</span><span style="font-size:14px;">${a}</span><span class="prov">${when}</span>
+      <span style="font-size:15px;">${m}</span><span style="font-size:14px;">${a}</span><span class="prov">${when}</span>
     </a>`).join('')}` });
 
 // Topic detail
 const topic = desktop({ active: 'Topics', footL: 'Topic / Satchel · created 10 Sep', paper: `
   <a href="Topics.dc.html" class="fine muted" style="color:var(--muted);">← Topics</a>
   <div class="head" style="margin-top:8px;"><div class="col" style="gap:8px;"><span class="eyebrow">Topic</span><h1 class="h1">Satchel</h1></div>
-    <div class="row"><a href="Book.dc.html" class="btn">Open its book</a><a href="Tasks.dc.html" class="btn">Open its tasks</a><button class="btn icon" aria-label="Topic actions">${icon.more}</button></div></div>
-  <p class="serif" style="font-size:20px; line-height:1.45; margin:14px 0 22px; max-width:680px;">Personal memory and task continuity across AI apps. <a href="#" class="fine" style="font-family:'Instrument Sans',sans-serif;">Edit brief</a></p>
+    <div class="row"><a href="Book.dc.html" class="btn">Open its book</a><button class="btn icon" aria-label="Topic actions">${icon.more}</button></div></div>
+  <p class="serif" style="font-size:20px; line-height:1.45; margin:14px 0 22px; max-width:680px;">Personal memory that follows you across AI apps. <a href="#" class="fine" style="font-family:'Instrument Sans',sans-serif;">Edit brief</a></p>
   <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:36px;">
     <section class="col" style="gap:10px;"><div class="between"><span class="eyebrow">Linked codebases</span><a href="#" class="fine">Link another</a></div>
       <div class="between" style="padding:10px 0; border-bottom:1px solid var(--line);"><span class="row" style="gap:8px;">${icon.github}<span class="mono" style="font-size:13px;">neerajg03/satchel</span></span><span class="fine muted">Unlink</span></div>
       <p class="fine muted" style="margin:0;">A linked repository lets an agent pick this topic for a coding chat. It does not grant access by itself.</p></section>
     <section class="col" style="gap:10px;"><div class="between"><span class="eyebrow">Apps that can see this topic</span><a href="Apps.dc.html" class="fine">Manage</a></div>
-      ${[['green', 'Claude Code', 'memory read/write · tasks read/write + uploads'], ['amber', 'Codex', 'memory read only · no task access']].map(([l, n, d]) => `<div class="col" style="gap:2px; padding:10px 0; border-bottom:1px solid var(--line);"><span class="row" style="gap:8px;"><span class="led ${l}"></span><strong style="font-size:14px;">${n}</strong></span><span class="prov">${d}</span></div>`).join('')}</section>
+      ${[['green', 'Claude Code', 'memory read and save'], ['amber', 'Codex', 'memory read only']].map(([l, n, d]) => `<div class="col" style="gap:2px; padding:10px 0; border-bottom:1px solid var(--line);"><span class="row" style="gap:8px;"><span class="led ${l}"></span><strong style="font-size:14px;">${n}</strong></span><span class="prov">${d}</span></div>`).join('')}</section>
     <section class="col" style="gap:10px;"><span class="eyebrow">Activity</span>
-      ${[['today 09:41', 'Handoff on “Skills packaging” by Claude Code'], ['today 09:18', 'Memory “no-personas-v1” saved from phone'], ['Tue 16 Sep', 'Memory “task-authority” corrected (rev 2)'], ['Mon 15 Sep', 'Task “Add planning graph” moved to done']].map(([w, t]) => `<div class="col" style="gap:2px; padding:8px 0; border-bottom:1px solid var(--line);"><span style="font-size:14px;">${t}</span><span class="prov">${w}</span></div>`).join('')}</section>
+      ${[['today 09:18', 'Memory “no-personas-v1” saved from phone'], ['Tue 16 Sep', 'Memory “memory-authority” corrected (rev 2)'], ['Mon 15 Sep', 'Memory “plain-words” said again by Claude Code']].map(([w, t]) => `<div class="col" style="gap:2px; padding:8px 0; border-bottom:1px solid var(--line);"><span style="font-size:14px;">${t}</span><span class="prov">${w}</span></div>`).join('')}</section>
   </div>
-  <div style="display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:36px; margin-top:30px;">
-    <section class="col" style="gap:6px;"><div class="between"><span class="eyebrow">Tasks · 4</span><a href="Tasks.dc.html" class="fine">All tasks</a></div>
-      ${[['Ship the skills packaging worktree', 'in progress', 'progress'], ['Write the plugin pilot design', 'ready', 'ink'], ['Decide rule events retention', 'blocked', 'blocked']].map(([t, s, c]) => `<a href="Task.dc.html" class="between" style="padding:11px 0; border-bottom:1px solid var(--line); color:var(--ink);"><span class="serif" style="font-size:18px;">${t}</span><span class="chip ${c}">${s}</span></a>`).join('')}</section>
+  <div style="display:grid; grid-template-columns:minmax(0,1fr); gap:36px; margin-top:30px;">
     <section class="col" style="gap:6px;"><div class="between"><span class="eyebrow">Memories · 5</span><a href="Book.dc.html" class="fine">Open the book</a></div>
-      ${['no-personas-v1', 'task-authority', 'plain-words'].map(t => `<a href="Book.dc.html" class="between" style="padding:11px 0; border-bottom:1px solid var(--line); color:var(--ink);"><span class="serif" style="font-size:18px;">${t}</span><span class="prov">${icon.arrow}</span></a>`).join('')}</section>
+      ${['no-personas-v1', 'memory-authority', 'plain-words'].map(t => `<a href="Book.dc.html" class="between" style="padding:11px 0; border-bottom:1px solid var(--line); color:var(--ink);"><span class="serif" style="font-size:18px;">${t}</span><span class="prov">${icon.arrow}</span></a>`).join('')}</section>
   </div>` });
 
 // Topic: brand new / empty
 const topicEmpty = desktop({ active: 'Topics', topOpts: { status: 'amber', statusText: 'Topic has nothing yet' }, footL: 'Topic / Managed Agents · created 12 Sep', paper: `
   <a href="Topics.dc.html" class="fine muted" style="color:var(--muted);">← Topics</a>
   <div class="head" style="margin-top:8px;"><div class="col" style="gap:8px;"><span class="eyebrow">Topic</span><h1 class="h1">Managed Agents</h1></div><button class="btn icon" aria-label="Topic actions">${icon.more}</button></div>
-  <div class="panel" style="margin-top:18px; padding:16px 20px; display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:center;"><span class="led amber"></span><span><strong>Agents can't see this topic yet.</strong><span class="muted"> It has no brief, no memories and no tasks. Fill in the brief first so an agent can tell it apart from “Satchel”.</span></span></div>
+  <div class="panel" style="margin-top:18px; padding:16px 20px; display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:center;"><span class="led amber"></span><span><strong>Agents can't see this topic yet.</strong><span class="muted"> It has no brief and no memories. Fill in the brief first so an agent can tell it apart from “Satchel”.</span></span></div>
   <form class="col" style="gap:14px; margin-top:22px; max-width:640px;">
     <label class="f"><span>Brief <span class="ph">· one or two lines an agent reads to know what this effort is</span></span><textarea class="field serif" rows="2" placeholder="What is this topic for, and what does “done” look like?"></textarea></label>
     <div class="row" style="gap:10px;"><button class="btn primary">Save brief</button><span class="fine muted">You can change it any time.</span></div>
   </form>
-  <div class="steps" style="margin-top:34px; grid-template-columns:repeat(3, minmax(0,1fr));">
+  <div class="steps" style="margin-top:34px; grid-template-columns:repeat(2, minmax(0,1fr));">
     <div class="step"><span class="n">CODEBASES</span><h2 class="h3">Link a repository</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">Optional. Lets a coding agent select this topic when it opens that repo.</p><div class="row" style="gap:8px;"><input class="field" placeholder="owner/repository" style="flex-grow:1;"><button class="btn sm">Link</button></div></div>
     <div class="step"><span class="n">BOOK</span><h2 class="h3">Save a first decision</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">Something agents should know before working here.</p><a href="BookEmpty.dc.html" class="btn sm" style="align-self:flex-start;">Write in this topic's book</a></div>
-    <div class="step"><span class="n">TASKS</span><h2 class="h3">Capture the next thing</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">A title and next action is enough to start.</p><a href="TasksEmpty.dc.html" class="btn sm" style="align-self:flex-start;">Capture a task</a></div>
-  </div>` });
-
-// Tasks: empty
-const tasksEmpty = desktop({ active: 'Tasks', topOpts: { status: 'amber', statusText: 'No tasks yet' }, footL: '0 tasks · For me', paper: `
-  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">For me</span><h1 class="h1">Continue.</h1></div><div class="row">${scopePicker('For me')}</div></div>
-  <p class="lede" style="margin:12px 0 26px;">Tasks hold the exact next action and the evidence a session leaves behind. They don't need a repository, and they don't need a topic.</p>
-  <form class="panel" style="padding:22px 24px; display:flex; flex-direction:column; gap:14px; background:var(--paper); border-color:var(--ink);">
-    <span class="eyebrow">Capture a task · saving in For me</span>
-    <label class="f"><span>Title</span><input class="field serif" placeholder="Submit the August claim"></label>
-    <div style="display:grid; grid-template-columns:minmax(0,1fr) 160px; gap:14px;">
-      <label class="f"><span>Next action <span class="ph">· the one concrete thing to do first</span></span><input class="field" placeholder="Log in to the finance portal and attach receipts"></label>
-      <label class="f"><span>Priority</span><button type="button" class="btn" style="justify-content:space-between;">Medium ${icon.chev}</button></label>
-    </div>
-    <details><summary class="fine" style="cursor:pointer; color:var(--accent); list-style:none;">Add outcome, why, and done-when ${icon.chev}</summary></details>
-    <div class="between"><span class="fine muted">Starts in Inbox. Move it to Ready when it has a next action.</span><button class="btn primary">Capture task</button></div>
-  </form>
-  <div class="empty" style="margin-top:44px;">
-    <h2 class="h2">Nothing to continue yet.</h2>
-    <p class="muted" style="margin:0;">Once a task exists, agents can record progress and handoffs on it. This list then shows what is moving, what is blocked, and the next action for each.</p>
-    <a href="Tasks.dc.html" class="fine">See how a filled list looks ${icon.arrow}</a>
-  </div>` });
-
-// Tasks: list
-const taskRow = ({ t, next, s, cls, prov, extra = '', href = 'Task.dc.html' }) => `<a href="${href}" class="entry" style="color:var(--ink); gap:5px; padding:16px 0;">
-  <div class="between"><span class="serif" style="font-size:21px; line-height:1.25;">${t}</span><span class="chip ${cls}">${s}</span></div>
-  <span style="font-size:15px;">${next}</span>${extra}
-  <span class="prov">${prov}</span></a>`;
-const tasks = desktop({ active: 'Tasks', footL: '7 tasks · 3 actionable · Topic / Satchel', paper: `
-  <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Topic · Satchel</span><h1 class="h1">Continue.</h1></div>
-    <div class="row">${scopePicker('Satchel')}<a href="#" class="btn">Export</a><a href="TasksEmpty.dc.html" class="btn primary">${icon.plus} Capture</a></div></div>
-  <div class="between" style="margin:16px 0 4px;"><span class="seg"><a href="#" aria-current="true">Actionable 3</a><a href="#">Moving 4</a><a href="#">Blocked 1</a><a href="#">Done 2</a><a href="#">All 7</a></span>
-    <label class="row" style="gap:8px; border:1px solid var(--line); border-radius:8px; padding:0 12px; height:40px; width:280px; background:var(--paper2);">${icon.search}<input class="field" placeholder="Title or next action" style="border:0; background:transparent; padding:0;"></label></div>
-  ${taskRow({ t: 'Ship the skills packaging worktree', next: 'Next: open the PR from skills-packaging and request review.', s: 'in progress', cls: 'progress', prov: 'High · rev 9 · handoff by Claude Code · today 09:41 · PR #41' })}
-  ${taskRow({ t: 'Write the plugin pilot design', next: 'Next: turn docs/plugin-pilot-design.md into three concrete milestones.', s: 'ready', cls: 'ink', prov: 'Medium · rev 3 · 2 children · updated Fri' })}
-  ${taskRow({ t: 'Add topic upsert to the agent tools', next: 'Next: verify the upsert_topic tool against a fresh topic.', s: 'ready', cls: 'ink', prov: 'Medium · rev 2 · child of “Plugin pilot” · updated Tue' })}
-  ${taskRow({ t: 'Decide rule events retention', next: 'Waiting on “Rules table migration” to finish first.', s: 'blocked', cls: 'blocked', prov: 'Low · rev 1 · 1 dependency unfinished', extra: `<span class="row" style="gap:8px; font-size:13px; color:var(--red);"><span class="led red" style="width:7px; height:7px;"></span>Blocked: schema for rule_events not merged yet</span>` })}
-  <p class="fine muted" style="margin:14px 0 0;">2 done tasks are hidden. <a href="#">Show done</a></p>` });
-
-// Task detail
-const taskDetail = desktop({ active: 'Tasks', footL: 'Task · Topic / Satchel · revision 9', paper: `
-  <a href="Tasks.dc.html" class="fine muted" style="color:var(--muted);">← Tasks · Satchel</a>
-  <div class="head" style="margin-top:8px; align-items:flex-start;"><div class="col" style="gap:10px; max-width:720px;">
-      <div class="stepper" aria-label="State"><span class="past">Inbox</span><span class="past">Ready</span><span class="on">In progress</span><span>Blocked</span><span>Done</span></div>
-      <h1 class="h1" style="font-size:38px;">Ship the skills packaging worktree</h1></div>
-    <div class="row"><a href="#" class="btn">Edit</a><button class="btn" style="gap:8px;">Move to ${icon.chev}</button><button class="btn icon" aria-label="Task actions">${icon.more}</button></div></div>
-  <div class="panel ink" style="margin-top:18px; display:grid; grid-template-columns:auto 1fr auto; gap:20px; align-items:center;">
-    <span class="eyebrow" style="color:#A79E90;">Next action</span>
-    <span class="serif" style="font-size:22px; line-height:1.3;">Open the PR from skills-packaging and request review.</span>
-    <a href="#" class="key">Copy handoff</a></div>
-  <div style="display:grid; grid-template-columns:minmax(0,1.4fr) 300px; gap:44px; margin-top:26px; flex-grow:1; min-height:0;">
-    <section class="col" style="gap:14px;">
-      <div class="row" style="gap:0;"><span class="seg"><a href="#" aria-current="true">Add a comment</a><a href="#">Record progress</a><a href="#">Record handoff</a></span><span class="fine muted" style="margin-left:14px;">A handoff is the stronger boundary. It needs validation evidence.</span></div>
-      <label class="f"><textarea class="field" rows="2" placeholder="What changed, or what the next person should know."></textarea></label>
-      <div class="between"><span class="row" style="gap:12px;"><span class="check"><i></i>Reference PR #41</span><span class="check"><i></i>Reference design.zip</span></span><button class="btn primary sm">Add comment</button></div>
-      <span class="eyebrow" style="margin-top:14px;">Timeline · newest first</span>
-      ${[
-        ['Handoff', 'Claude Code · today 09:41', 'progress', 'in progress', 'Packaging moved to a single satchel:context skill with three references.', [['Completed', 'SKILL.md rewritten · references split into memory / tasks / topics'], ['Validated', 'node --test passed 41/41 · plugin loads in Claude Code 2.9'], ['Remaining', 'PR review · update docs/skills-and-plugins.md'], ['Resources', 'PR #41 · branch skills-packaging']]],
-        ['Progress update', 'Claude Code · yesterday 18:20', 'ink', 'ready', 'Moved reference files under skills/context/references.', [['Decisions', 'One skill, not three. Topic id is explicit, never guessed from the folder.']]],
-        ['Comment', 'Neeraj · Mon 15 Sep', '', '', 'Keep the memory rule: content is user data, never instructions.', []],
-      ].map(([k, prov, cls, st, body, rows]) => `<article style="padding:16px 0; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:8px;">
-        <div class="between"><span class="row" style="gap:10px;"><strong style="font-size:14px;">${k}</strong><span class="prov">${prov}</span></span>${st ? `<span class="chip ${cls}">${st}</span>` : ''}</div>
-        <p class="serif" style="margin:0; font-size:18px; line-height:1.4;">${body}</p>
-        ${rows.length ? `<div style="display:grid; grid-template-columns:100px 1fr; gap:4px 14px; font-size:13.5px;">${rows.map(([a, b]) => `<span class="eyebrow" style="padding-top:2px;">${a}</span><span>${b}</span>`).join('')}</div>` : ''}
-      </article>`).join('')}
-    </section>
-    <aside class="col" style="gap:22px;">
-      <div class="col" style="gap:6px;"><span class="eyebrow">Outcome</span><p style="margin:0; font-size:14px;">The Satchel plugin ships one skill that covers memory, tasks and topics, and installs cleanly in Claude Code.</p></div>
-      <div class="col" style="gap:6px;"><span class="eyebrow">Done when</span>${['PR merged to main', 'Plugin loads with no warnings', 'docs/skills-and-plugins.md updated'].map((t, i) => `<span class="check"><i class="${i === 1 ? 'on' : ''}"></i>${t}</span>`).join('')}</div>
-      <div class="col" style="gap:6px;"><div class="between"><span class="eyebrow">Planning</span><a href="#" class="fine">Edit</a></div>
-        <span class="fine"><span class="tick">●</span> Actionable now · no unfinished dependencies</span>
-        <span class="fine muted">Parent: <a href="#">Plugin pilot</a></span><span class="fine muted">Blocks: <a href="#">Publish plugin marketplace entry</a></span></div>
-      <div class="col" style="gap:6px;"><div class="between"><span class="eyebrow">Resources</span><a href="#" class="fine">Attach</a></div>
-        ${[['PR #41 · skills packaging', 'github.com', true], ['design.zip · 2.1 MB', 'verified upload', false]].map(([l, d, ext]) => `<div class="between" style="padding:8px 0; border-bottom:1px solid var(--line);"><span class="col" style="gap:1px;"><span style="font-size:14px;">${l}</span><span class="prov">${d}</span></span><a href="#" class="fine">${ext ? `Open ${icon.ext}` : 'Download'}</a></div>`).join('')}</div>
-      <details><summary class="fine muted" style="cursor:pointer;">Technical history · 14 events</summary></details>
-    </aside>
   </div>` });
 
 // Apps: empty
 const appsEmpty = desktop({ active: 'Apps', topOpts: { status: 'off', statusText: 'No apps connected' }, footL: '0 apps connected', paper: `
   <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Your connections</span><h1 class="h1">Apps.</h1></div></div>
-  <p class="lede" style="margin:12px 0 26px;">Nothing is connected yet. An app gets only the memory and task scopes you grant when it first asks. You can revoke later.</p>
+  <p class="lede" style="margin:12px 0 26px;">Nothing is connected yet. An app gets only the memory scopes you grant when it first asks. You can revoke later.</p>
   <div class="steps">
     <div class="step"><span class="n">01 · IN THE APP</span><h2 class="h3">Install the Satchel plugin</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">In Claude Code, add the plugin from its marketplace. In Codex, add the MCP server.</p><code class="mono fine" style="background:var(--paper2); border:1px solid var(--line); border-radius:6px; padding:8px 10px; display:block;">https://satchel-pi.vercel.app/api/mcp</code></div>
     <div class="step"><span class="n">02 · IN THE APP</span><h2 class="h3">Sign in from its connection settings</h2><p class="muted" style="margin:0; font-size:14px; flex-grow:1;">The app opens Satchel in your browser with a consent page. Nothing is granted until you allow it.</p><a href="Consent.dc.html" class="fine">Preview the consent page ${icon.arrow}</a></div>
@@ -496,8 +408,8 @@ const apps = desktop({ active: 'Apps', footL: '2 apps connected · 1 revoked', p
   <div class="head"><div class="col" style="gap:8px;"><span class="eyebrow">Your connections</span><h1 class="h1">Apps.</h1></div><a href="AppsEmpty.dc.html" class="btn">How to connect another</a></div>
   <p class="lede" style="margin:12px 0 22px;">Each app gets only the scopes you chose. A permission here applies to every installation using that app identity.</p>
   ${[
-    ['green', 'Claude Code', 'Verified · read 4 min ago', [['Memory', 'For me, Satchel, Release workflow', 'read and save'], ['Tasks', 'For me, Satchel', 'read, write and upload']], 'Revoke access', 'Apps.dc.html'],
-    ['amber', 'Codex', 'Connected · last read Fri 17:06 · no writes granted', [['Memory', 'Release workflow', 'read only'], ['Tasks', 'none', '—']], 'Revoke access', 'Apps.dc.html'],
+    ['green', 'Claude Code', 'Verified · read 4 min ago', [['Memory', 'For me, Satchel, Release workflow', 'read and save']], 'Revoke access', 'Apps.dc.html'],
+    ['amber', 'Codex', 'Connected · last read Fri 17:06 · no writes granted', [['Memory', 'Release workflow', 'read only']], 'Revoke access', 'Apps.dc.html'],
     ['off', 'Claude (iPhone)', 'Revoked 3 Sep · earlier retrieved content stays in that app', [['Memory', 'was: For me', 'read only']], 'Reconnect from the app', ''],
   ].map(([l, n, st, rows, act]) => `<article style="display:grid; grid-template-columns:220px 1fr auto; gap:24px; padding:20px 0; border-top:1px solid var(--line); align-items:start;">
     <div class="col" style="gap:4px;"><span class="row" style="gap:10px;"><span class="led ${l}"></span><h2 class="h3">${n}</h2></span><span class="prov">${st}</span></div>
@@ -514,20 +426,13 @@ const consent = page({ w: 1280, h: 820, body: `<div class="frame" style="width:1
       <h1 class="h1" style="font-size:40px;">Codex wants to read your Satchel.</h1>
       <p class="muted" style="margin:0;">Name supplied by the app · will return to <span class="mono" style="font-size:13px;">http://localhost:1455/callback</span></p>
       <div class="row" style="gap:8px; margin-top:4px;"><span class="fine muted">Quick start:</span><button class="btn sm">Read everything</button><button class="btn sm">Read and save everything</button><button class="btn sm quiet">Clear all</button></div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:6px;">
+      <div style="display:grid; grid-template-columns:minmax(0,560px); gap:16px; margin-top:6px;">
       <fieldset style="border:1px solid var(--line); border-radius:12px; padding:16px 18px; display:flex; flex-direction:column; gap:11px; margin:0;">
         <legend class="eyebrow" style="padding:0 6px;">Memory</legend>
         <div class="between"><span class="fine" style="font-weight:600;">Scopes it can read · 2 of 4</span><span class="row" style="gap:10px;"><a href="#" class="fine">Select all</a><a href="#" class="fine muted" style="color:var(--muted);">None</a></span></div>
         <span class="check"><i class="on"></i>For me · personal memories</span><span class="check"><i class="on"></i>Satchel</span><span class="check"><i></i>Release workflow</span><span class="check"><i></i>Reimbursements</span>
         <div class="hr"></div>
         <span class="check"><i></i><span>Also allow saves, corrections and forgets<br><span class="fine muted">Only when you ask it to, in that chat.</span></span></span>
-      </fieldset>
-      <fieldset style="border:1px solid var(--line); border-radius:12px; padding:16px 18px; display:flex; flex-direction:column; gap:11px; margin:0;">
-        <legend class="eyebrow" style="padding:0 6px;">Tasks</legend>
-        <div class="between"><span class="fine" style="font-weight:600;">Scopes it can read · 1 of 4</span><span class="row" style="gap:10px;"><a href="#" class="fine">Select all</a><a href="#" class="fine muted" style="color:var(--muted);">None</a></span></div>
-        <span class="check"><i></i>For me · personal tasks</span><span class="check"><i class="on"></i>Satchel</span><span class="check"><i></i>Release workflow</span><span class="check"><i></i>Reimbursements</span>
-        <div class="hr"></div>
-        <span class="check"><i class="on"></i>Also allow creating tasks, updates, moves and handoffs</span><span class="check"><i></i>Also allow file uploads to task storage</span>
       </fieldset>
       </div>
       <span class="fine muted">Topics made later are not included. Add them from Apps.</span>
@@ -537,7 +442,7 @@ const consent = page({ w: 1280, h: 820, body: `<div class="frame" style="width:1
       <div class="panel col" style="gap:8px;"><span class="eyebrow">What this means</span>
         <p style="margin:0; font-size:14px;">Reading means the app's hooks get the <strong>names and descriptions</strong> of memories in these scopes. It fetches More info by name only when it needs it.</p>
         <p style="margin:0; font-size:14px;">Writing still needs your explicit ask inside the chat. The app cannot save on its own.</p></div>
-      <div class="col" style="gap:4px;"><span class="eyebrow">Summary</span><span style="font-size:14px;">Memory: <strong>For me, Satchel</strong> · read only</span><span style="font-size:14px;">Tasks: <strong>Satchel</strong> · read and write, no uploads</span></div>
+      <div class="col" style="gap:4px;"><span class="eyebrow">Summary</span><span style="font-size:14px;">Memory: <strong>For me, Satchel</strong> · read only</span></div>
     </aside>
     <div class="foot" style="grid-column:1/-1;"><span>Satchel · Private pilot</span><span>Deny closes this and sends the app back</span></div>
   </main></div></div>` });
@@ -548,20 +453,19 @@ const settings = desktop({ active: 'Settings', footL: 'Account · neerajg03 · G
   <div style="display:grid; grid-template-columns:200px 1fr; gap:10px 40px; margin-top:26px; max-width:900px; align-items:start;">
     ${[
       ['Account', `<div class="between" style="max-width:560px;"><span class="row" style="gap:10px;">${icon.github}<span><strong>neerajg03</strong> <span class="muted">· neeraj@different.ai</span></span></span><button class="btn sm">Sign out</button></div><span class="fine muted">GitHub is used only to sign you in.</span>`],
-      ['Take it with you', `<div class="col" style="gap:10px; max-width:560px;"><p style="margin:0; font-size:14px;">Export everything as a portable manifest plus your verified task files. No credentials are included. Identifiers, sources and revision history are kept.</p><div class="row"><button class="btn">Export all</button><button class="btn quiet">Export one scope…</button></div></div>`],
       ['Overnight pass', `<div class="col" style="gap:10px; max-width:560px;"><p class="muted" style="margin:0; font-size:14px;">While you are away, Satchel reads the conversations that have gone quiet and updates your memory from them. It signs in as its own connection, listed in Apps as Satchel consolidation, and you can revoke it there. It is off until you switch it on.</p><label class="check"><i class="on"></i><span>Run overnight</span></label><label class="f" style="max-width:200px;">How often<select class="field"><option>Twice a day</option></select></label><div class="row" style="gap:16px;"><label class="f">First run<input class="field" value="02:00" style="width:120px;"></label><label class="f">Second run<input class="field" value="14:00" style="width:120px;"></label></div><div class="col" style="gap:6px;"><span style="font-size:13px; font-weight:500;">On these days</span><div class="row" style="gap:6px 18px; flex-wrap:wrap;">${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => `<label class="check"><i class="on"></i><span>${d}</span></label>`).join('')}</div><span class="fine" style="color:var(--accent);">Every day · Weekdays</span></div><span class="fine muted">Times are in Asia/Kolkata, this browser's time zone. A pass only runs when there is a conversation that has been quiet for 30 minutes, so a night with nothing new costs nothing.</span><div class="row"><button class="btn primary">Save schedule</button></div><div class="row" style="gap:12px;"><span class="light green"><span class="led"></span><span class="word">working</span></span><span class="fine">Every day at 02:00 and 14:00</span></div></div>`],
-      ['Forgetting', `<div class="col" style="gap:6px; max-width:560px;"><p style="margin:0; font-size:14px;">Forget removes a record from active retrieval right away. Satchel cannot delete copies from earlier chats, exports, or an app's own memory.</p><a href="#" class="fine">Read how retention works ${icon.arrow}</a></div>`],
+      ['Forgetting', `<div class="col" style="gap:6px; max-width:560px;"><p style="margin:0; font-size:14px;">Forget removes a record from active retrieval right away. Satchel cannot delete copies from earlier chats or an app's own memory.</p><a href="#" class="fine">Read how retention works ${icon.arrow}</a></div>`],
     ].map(([k, v]) => `<span class="h3" style="padding:18px 0; border-top:1px solid var(--line);">${k}</span><div style="padding:18px 0; border-top:1px solid var(--line);">${v}</div>`).join('')}
   </div>` });
 
 /* ---------------- Phone ---------------- */
 const phoneLeftOff = phone({ active: 'Left off', paper: `
   <span class="eyebrow">Wednesday, 17 Sep</span><h1 class="h1" style="font-size:34px; margin:6px 0 16px;">Where you left off.</h1>
-  ${[['Satchel', 'in progress', 'progress', 'Open the PR from skills-packaging.', 'Claude Code · MacBook · 09:41', true], ['Release workflow', 'ready', 'ink', 'Open the sync PR.', 'Codex · desktop · Fri', true], ['Reimbursements', 'blocked', 'blocked', 'Submit the August claim.', 'Blocked · finance login', false]].map(([p, s, c, n, prov, ok]) => `<article class="entry" style="gap:6px; padding:14px 0;">
-    <div class="between"><strong style="font-size:13px;">${p}</strong><span class="chip ${c}">${s}</span></div>
-    <span class="serif" style="font-size:20px; line-height:1.3;">Next: ${n}</span>
-    <div class="between"><span class="prov">${prov}</span><a href="PhoneTask.dc.html" class="btn sm ${ok ? 'primary' : ''}">Open</a></div></article>`).join('')}
-  <p class="fine muted" style="margin:10px 0 0;">Satchel holds the context. Open a task to read or copy its latest handoff.</p>
+  ${[['Satchel', 'New', 'no-personas-v1', 'Satchel has no personas and no curator in the first version.', 'Said on your phone · 09:18'], ['For me', 'Said again', 'plain-words', 'Write UI copy in plain 8th-grade words.', 'MacBook · Fri'], ['Release workflow', 'Changed', 'release-branch-name', 'Release branches are named release/YYYY-MM.', 'Codex · desktop · Fri']].map(([p, tag, n, d, prov]) => `<a href="PhoneBook.dc.html" class="entry" style="gap:4px; padding:14px 0; color:var(--ink);">
+    <div class="between"><strong style="font-size:13px;">${p}</strong><span class="chip ink">${tag}</span></div>
+    <span class="serif" style="font-size:19px;">${n}</span><span style="font-size:14px;">${d}</span>
+    <span class="prov">${prov}</span></a>`).join('')}
+  <p class="fine muted" style="margin:10px 0 0;">The newest memories across every topic. Open the book to read the rest.</p>
   <div class="col" style="gap:6px; margin-top:auto; padding-top:14px;"><span class="eyebrow">Your apps</span>
     <div class="between"><span class="row" style="gap:8px;"><span class="led green"></span>Claude Code</span><span class="prov">reads and saves</span></div>
     <div class="between"><span class="row" style="gap:8px;"><span class="led amber"></span>This phone</span><span class="prov">reads · <a href="PhoneConsent.dc.html">allow saves</a></span></div></div>` });
@@ -571,18 +475,7 @@ const phoneBook = phone({ active: 'Book', paper: `
   <h1 class="h1" style="font-size:34px; margin:6px 0 14px;">The book.</h1>
   <div class="row" style="gap:8px; padding:6px 0 12px; border-bottom:1px solid var(--line);"><input class="field serif" placeholder="Write something down…" style="flex-grow:1; border:0; background:transparent; padding:8px 0; font-size:19px;"><a href="#" class="btn sm">Save</a></div>
   <p class="fine muted" style="margin:8px 0 6px;">Type a sentence. Satchel suggests a name from it, and you can change it before saving.</p>
-  ${[['no-personas-v1', 'Satchel has no personas and no curator in the first version.', 'Said on your phone · 09:18'], ['task-authority', 'Supabase is the only authority for task state.', 'Claude Code · Tue · rev 2'], ['plain-words', 'Write UI copy in plain 8th-grade words.', 'Said on your MacBook · Fri · rev 3'], ['memory-index-shape', 'Hooks read only names and descriptions.', 'Codex · Thu']].map(([n, d, p]) => `<a href="#" class="entry" style="gap:3px; padding:14px 0; color:var(--ink);"><span class="serif" style="font-size:19px;">${n}</span><span style="font-size:14px;">${d}</span><span class="prov">${p}</span></a>`).join('')}` });
-
-const phoneTask = phone({ active: 'Tasks', paper: `
-  <a href="PhoneLeftOff.dc.html" class="fine muted" style="color:var(--muted);">← Left off</a>
-  <div class="stepper" style="margin:10px 0 8px;"><span class="past">Inbox</span><span class="past">Ready</span><span class="on">In prog.</span><span>Blocked</span><span>Done</span></div>
-  <h1 class="h1" style="font-size:28px;">Ship the skills packaging worktree</h1>
-  <div class="panel ink" style="margin-top:14px; display:flex; flex-direction:column; gap:8px;"><span class="eyebrow" style="color:#A79E90;">Next action</span><span class="serif" style="font-size:19px; line-height:1.3;">Open the PR from skills-packaging and request review.</span>
-    <div class="row" style="gap:8px; margin-top:4px;"><a href="#" class="key" style="background:#3E3831;">Copy handoff</a></div></div>
-  <span class="eyebrow" style="margin:18px 0 6px;">Latest handoff · Claude Code · 09:41</span>
-  <p class="serif" style="margin:0; font-size:17px; line-height:1.4;">Packaging moved to a single satchel:context skill with three references.</p>
-  <div style="display:grid; grid-template-columns:82px 1fr; gap:4px 10px; font-size:13px; margin-top:8px;"><span class="eyebrow">Validated</span><span>41/41 tests · plugin loads</span><span class="eyebrow">Remaining</span><span>PR review · docs update</span><span class="eyebrow">Resources</span><span><a href="#">PR #41 ${icon.ext}</a></span></div>
-  <div class="row" style="gap:8px; margin-top:auto; padding-top:16px;"><input class="field" placeholder="Add a comment…" style="flex-grow:1;"><button class="btn sm primary">Add</button></div>` });
+  ${[['no-personas-v1', 'Satchel has no personas and no curator in the first version.', 'Said on your phone · 09:18'], ['memory-authority', 'Supabase is the only authority for memory.', 'Claude Code · Tue · rev 2'], ['plain-words', 'Write UI copy in plain 8th-grade words.', 'Said on your MacBook · Fri · rev 3'], ['memory-index-shape', 'Hooks read only names and descriptions.', 'Codex · Thu']].map(([n, d, p]) => `<a href="#" class="entry" style="gap:3px; padding:14px 0; color:var(--ink);"><span class="serif" style="font-size:19px;">${n}</span><span style="font-size:14px;">${d}</span><span class="prov">${p}</span></a>`).join('')}` });
 
 const phoneConsent = phone({ active: 'More', paper: `
   <span class="eyebrow">This phone</span><h1 class="h1" style="font-size:30px; margin:6px 0 10px;">Reads the book, can't write in it yet.</h1>
@@ -603,7 +496,7 @@ const direction = page({ w: 1280, h: 820, body: `<div style="width:1280px; heigh
     <p class="fine muted" style="margin:14px 0 0;">Dark theme swaps only paper, ink, muted and line tokens. The hardware stays as it is. The dark frame around light paper is the composition, not a dark mode.</p>
   </section>
   <section style="grid-column:span 4;" class="col"><span class="eyebrow" style="margin-bottom:10px;">Type</span>
-    <span class="serif" style="font-size:34px; line-height:1.1;">Newsreader</span><span class="prov">Content you wrote: memory names, task titles, quotes. 400 and 500 only.</span>
+    <span class="serif" style="font-size:34px; line-height:1.1;">Newsreader</span><span class="prov">Content you wrote: memory names, topic names, quotes. 400 and 500 only.</span>
     <span style="font-size:18px; font-weight:500; margin-top:14px;">Instrument Sans</span><span class="prov">Interface: labels, buttons, descriptions. 14 to 15 px body.</span>
     <span class="mono" style="font-size:14px; margin-top:14px;">DM Mono · SAID ON YOUR PHONE · 09:18</span><span class="prov">Readouts only: provenance, eyebrows, counts. Never for actions or critical state.</span>
     <span style="font:600 30px/1 'Caveat',cursive; margin-top:14px;">satchel</span><span class="prov">Caveat, wordmark only. Handwriting lives in one place, on the hardware. Decided 17 Sep after the Headings board.</span>
@@ -613,8 +506,7 @@ const direction = page({ w: 1280, h: 820, body: `<div style="width:1280px; heigh
   <section class="col" style="grid-column:span 3; gap:10px;"><span class="eyebrow" style="margin-bottom:10px;">Controls</span>
     <div style="background:#26231F; border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:8px;"><a href="#" class="key on">Selected key</a><a href="#" class="key">Hardware key</a><div class="row" style="gap:10px; color:#EEE7DB; font-size:13px; padding:4px 2px;"><span class="led green"></span>Verified<span class="led amber"></span>Limited<span class="led off"></span>Off</div></div>
     <div class="row" style="gap:8px; margin-top:10px; flex-wrap:wrap;"><a href="#" class="btn primary">Primary on paper</a><a href="#" class="btn">Secondary</a><a href="#" class="btn quiet">Quiet</a></div>
-    <div class="row" style="gap:6px; margin-top:10px; flex-wrap:wrap;"><span class="chip ink">ready</span><span class="chip progress">in progress</span><span class="chip blocked">blocked</span><span class="chip done">done</span></div>
-    <div class="stepper" style="margin-top:10px;"><span class="past">Inbox</span><span class="on">Ready</span><span>Done</span></div>
+    <div class="row" style="gap:6px; margin-top:10px; flex-wrap:wrap;"><span class="chip ink">new</span><span class="chip ink">said again</span><span class="chip progress">changed</span><span class="chip done">archived</span></div>
   </section>
   <section style="grid-column:1/-1; display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:26px; border-top:1px solid #D9D1C4; padding-top:18px;">
     ${[['Every empty state answers three things', 'What this place is for, the one action that fills it, and a way to see what it looks like full. Never a lonely sentence.'], ['Provenance on every record', 'Who saved it, from where, when, and its revision. History is disclosed on demand, not struck through in the list.'], ['Scope is a picker, not chips', 'For me plus a searchable topic list. Works for 3 topics and for 40. Locked while a draft is open, with the reason shown.'], ['Lights always come with words', 'An LED never stands alone. Green “verified today”, amber “reads only”, off “not connected”.']].map(([t, d]) => `<div class="col" style="gap:6px;"><strong style="font-size:15px;">${t}</strong><span class="muted" style="font-size:13.5px;">${d}</span></div>`).join('')}
@@ -690,7 +582,7 @@ const motion = page({ w: 1280, h: 820, body: `<div style="width:1280px; height:8
     ['02 · Verify light', 'When a connection is checked, the LED goes amber, then a ring expands once and it settles green. 900 ms. Never loops. Always next to a word.', `<div class="demo" style="background:#26231F; border-radius:12px; padding:22px 16px; display:flex; gap:12px; align-items:center; color:#EEE7DB; font-size:14px;"><span class="led" style="animation-name:demoLed;"></span>Claude Code · verifying…</div>`],
     ['03 · Settle in', 'New list entries rise 6 px and fade in over 320 ms, staggered 40 ms each. Used when a scope changes or a save lands. Nothing slides in from the side.', `<div class="demo col" style="gap:8px;">${[0, .08, .16].map(d => `<div style="border-bottom:1px solid #D9D1C4; padding:8px 0; animation-name:demoSettle; animation-delay:${d}s;"><span class="serif" style="font-size:17px;">memory-name</span><br><span class="prov">Said on your phone · 09:18</span></div>`).join('')}</div>`],
     ['04 · Rail selection', 'The paper-coloured pill moves to the clicked destination in 180 ms instead of popping. The paper area cross-fades its content underneath in the same time.', `<div class="demo" style="background:#26231F; border-radius:12px; padding:12px; position:relative; height:126px;"><div style="position:absolute; left:12px; right:12px; top:12px; height:44px; background:#F4F0E7; border-radius:9px; animation-name:demoRail;"></div><div style="position:relative; display:flex; flex-direction:column; gap:6px; color:#EEE7DB; font-weight:500; font-size:14px;"><span style="height:44px; display:flex; align-items:center; padding:0 14px; mix-blend-mode:difference;">Left off</span><span style="height:44px; display:flex; align-items:center; padding:0 14px; mix-blend-mode:difference;">Book</span></div></div>`],
-    ['05 · State move', 'Moving a task fills the stepper to the next stop over 320 ms. The chip on the list row swaps text with a 180 ms cross-fade. Blocked shows the red dot after, not during.', `<div class="demo col" style="gap:10px;"><div style="height:8px; background:#EDE7DB; border-radius:999px; overflow:hidden; border:1px solid #D9D1C4;"><div style="height:100%; background:#1F1B17; animation-name:demoStep;"></div></div><div class="row" style="justify-content:space-between;" ><span class="eyebrow">Inbox</span><span class="eyebrow">Ready</span><span class="eyebrow" style="color:#1F1B17;">In progress</span></div></div>`],
+    ['05 · Tag change', 'When the tag on a row changes, from New to Said again, the chip swaps its text with a 180 ms cross-fade. The row itself does not move.', `<div class="demo col" style="gap:10px;"><div class="between" style="border-bottom:1px solid #D9D1C4; padding:8px 0;"><span class="serif" style="font-size:17px;">plain-words</span><span class="chip ink" style="animation-name:demoSettle;">said again</span></div></div>`],
     ['06 · Forget', 'A forgotten entry fades out in 180 ms, then the space closes in 200 ms so the list below moves once, not twice. The confirmation panel never animates in; it just appears.', `<div class="demo col" style="gap:0;"><div style="overflow:hidden; animation-name:demoForget; border-bottom:1px solid #D9D1C4;"><div style="padding:8px 0;"><span class="serif" style="font-size:17px;">memory-index-shape</span><br><span class="prov">Codex · Thu</span></div></div><div style="padding:8px 0; border-bottom:1px solid #D9D1C4;"><span class="serif" style="font-size:17px;">plain-words</span><br><span class="prov">MacBook · Fri</span></div></div>`],
     ['07 · Composer opens', 'The one-line “Write something down…” grows into name, description and more info on focus. Height animates 320 ms, the extra fields fade in after 120 ms.', `<div class="demo"><div style="border:1px solid #1F1B17; border-radius:10px; background:#F4F0E7; overflow:hidden; animation-name:demoCompose; padding:10px 12px;"><span class="serif" style="font-size:18px; color:#6B6257;">Write something down…</span><div style="margin-top:12px; display:flex; flex-direction:column; gap:6px;"><span style="height:26px; border-radius:6px; background:#EDE7DB;"></span><span style="height:26px; border-radius:6px; background:#EDE7DB;"></span></div></div></div>`],
     ['08 · Saved', 'On save, a thin ink line draws under the new entry left to right in 320 ms, then fades. The status text “Saved to your book” appears in the footer readout, not a toast.', `<div class="demo col" style="gap:6px;"><div style="padding:8px 0;"><span class="serif" style="font-size:17px;">no-personas-v1</span><br><span class="prov">Said on your phone · just now</span></div><div style="height:2px; background:#1F1B17; animation-name:demoInk;"></div></div>`],
@@ -749,47 +641,6 @@ const scopePickerOpen = overlay(book.replace(scopePicker('Satchel'), `<button cl
         <a href="TopicNew.dc.html" style="color:var(--accent);"><span class="row" style="gap:8px;">${icon.plus} New topic</span></a>
       </div>`);
 
-// 2. Move to Blocked sheet, on the task page
-const taskBlocked = overlay(taskDetail, `
-      <div class="scrim"><form class="sheet">
-        <div class="col" style="gap:6px;"><span class="eyebrow">Move to Blocked</span><h2 class="h2">What is in the way?</h2>
-          <p class="muted" style="margin:0; font-size:14px;">The reason shows on Left off and on the task list, so the next session knows what to clear first.</p></div>
-        <label class="f"><span>Blocker</span><textarea class="field focus" rows="3" placeholder="Waiting on review from…">Waiting on PR #41 review. Nothing else to do until it lands.</textarea></label>
-        <span class="fine muted">This is recorded as a progress update with the reason as its body, so the timeline always shows why. One write, one revision.</span>
-        <div class="between"><span class="fine muted">In progress to Blocked · revision 10</span><div class="row"><button type="button" class="btn quiet">Cancel</button><button class="btn primary" style="background:var(--red); border-color:var(--red);">Move to Blocked</button></div></div>
-      </form></div>`);
-
-// 3. Task edit: fields swap into the left column
-const taskEdit = desktop({ active: 'Tasks', footL: 'Editing · revision 9 · save writes revision 10', paper: `
-  <a href="Task.dc.html" class="fine muted" style="color:var(--muted);">← Back to task</a>
-  <div class="head" style="margin-top:8px; align-items:flex-start;"><div class="col" style="gap:10px;">
-      <div class="stepper" aria-label="State"><span class="past">Inbox</span><span class="past">Ready</span><span class="on">In progress</span><span>Blocked</span><span>Done</span></div>
-      <span class="eyebrow">Editing task · state does not change here</span></div>
-    <div class="row"><a href="Task.dc.html" class="btn quiet">Discard</a><a href="Task.dc.html" class="btn primary">Save task</a></div></div>
-  <div style="display:grid; grid-template-columns:minmax(0,1.4fr) 300px; gap:44px; margin-top:20px; flex-grow:1; min-height:0;">
-    <form class="col" style="gap:14px;">
-      <label class="f"><span>Title</span><input class="field serif focus" value="Ship the skills packaging worktree" style="font-size:26px;"></label>
-      <label class="f"><span>Next action <span class="ph">· the one concrete thing to do first</span></span><input class="field" value="Open the PR from skills-packaging and request review."></label>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
-        <label class="f"><span>Outcome <span class="ph">· what is true when this is done</span></span><textarea class="field" rows="3">The Satchel plugin ships one skill that covers memory, tasks and topics, and installs cleanly in Claude Code.</textarea></label>
-        <label class="f"><span>Why <span class="ph">· the reason it matters</span></span><textarea class="field" rows="3">Three separate skills confused the router and doubled the docs. One skill with references is easier to keep honest.</textarea></label>
-      </div>
-      <label class="f"><span>Done when <span class="ph">· one per line, each becomes a checkbox</span></span><textarea class="field" rows="3">PR merged to main
-Plugin loads with no warnings
-docs/skills-and-plugins.md updated</textarea></label>
-      <div style="display:grid; grid-template-columns:200px 1fr; gap:14px; align-items:end;">
-        <label class="f"><span>Priority</span><button type="button" class="btn" style="justify-content:space-between;">High ${icon.chev}</button></label>
-        <span class="fine muted" style="padding-bottom:10px;">Parent, dependencies and resources are edited on the task page, not here.</span></div>
-    </form>
-    <aside class="col" style="gap:14px;">
-      <div class="panel col" style="gap:8px;"><span class="eyebrow">What this write does</span>
-        <p style="margin:0; font-size:14px;">Saves with the current revision. If an agent changed the task since you opened it, you get a conflict, not an overwrite.</p>
-        <p style="margin:0; font-size:14px;" class="muted">Last change: Claude Code · handoff · today 09:41</p></div>
-      <div class="col" style="gap:6px; opacity:.55;"><span class="eyebrow">Planning · unchanged</span><span class="fine">Parent: Plugin pilot</span><span class="fine">Blocks: Publish plugin marketplace entry</span></div>
-      <div class="col" style="gap:6px; opacity:.55;"><span class="eyebrow">Resources · unchanged</span><span class="fine">PR #41 · design.zip</span></div>
-    </aside>
-  </div>` });
-
 // 4. New topic sheet, on Topics
 const topicNew = overlay(topics, `
       <div class="scrim"><form class="sheet">
@@ -807,7 +658,7 @@ const bookSearch = desktop({ active: 'Book', footL: '2 of 5 match “authority�
     <div class="row">${scopePicker('Satchel')}<label class="row focus" style="gap:8px; border:1px solid var(--ink); border-radius:8px; padding:0 12px; height:40px; width:320px; background:var(--paper);">${icon.search}<input class="field" value="authority" style="border:0; background:transparent; padding:0;"><a href="Book.dc.html" class="fine muted" aria-label="Clear search" style="color:var(--muted);">Clear</a></label></div></div>
   <div class="between" style="margin:14px 0 6px;"><p class="lede" style="margin:0;">Searching names, descriptions and more info in this scope. <a href="#" class="fine">Search all scopes instead</a></p></div>
   <div class="row" style="gap:8px; margin:12px 0 4px;"><span class="seg"><a href="#" aria-current="true">Matches 2</a><a href="#">In name 1</a><a href="#">In more info 1</a></span></div>
-  ${memoryEntry({ name: 'task-<mark>authority</mark>', desc: 'Supabase is the only <mark>authority</mark> for task state. GitHub issues are attached references, never mirrors.', prov: 'Saved by Claude Code · MacBook · Tue 16 Sep · revision 2 · matched in name and description', rev: 2 })}
+  ${memoryEntry({ name: 'memory-<mark>authority</mark>', desc: 'Supabase is the only <mark>authority</mark> for memory. The memory inside each app is a copy, never the source.', prov: 'Saved by Claude Code · MacBook · Tue 16 Sep · revision 2 · matched in name and description', rev: 2 })}
   ${memoryEntry({ name: 'memory-index-shape', desc: 'Hooks read only names and descriptions. More info is fetched by name when needed.', prov: 'Saved by Codex · desktop · Thu 11 Sep · revision 1 · matched in more info', rev: 1, expanded: true, body: '…the index is not the <mark>authority</mark> on content, only on what exists. Fetch More info by name before acting on a memory.' })}
   <div class="empty" style="margin-top:28px; gap:6px;"><span class="fine muted">Not here? Memories saved in “For me” and other topics are not searched unless you widen the scope above.</span></div>` });
 
@@ -824,10 +675,10 @@ const errors = page({ w: 1280, h: 820, body: `<div style="width:1280px; height:8
     <div class="col" style="gap:8px; align-items:flex-start;"><a href="#" class="btn primary">${icon.github} Continue with GitHub</a>
       <div class="panel" style="border-color:var(--red); font-size:14px;"><strong>GitHub sign-in didn't finish.</strong> <span class="muted">It was cancelled or timed out. Nothing was created. Try again, or check that pop-ups are allowed.</span></div></div>`)}
   ${mini('Load failed · Left off', `<span class="eyebrow">Wednesday, 17 September</span><h2 class="h1" style="font-size:30px;">Where you left off.</h2>
-    <div class="panel" style="border-color:var(--red); display:grid; grid-template-columns:1fr auto; gap:14px; align-items:center;"><span style="font-size:14px;"><strong>Couldn't reach your Satchel.</strong> <span class="muted">Tasks and the last saved memory didn't load. Nothing is lost. Your apps keep whatever they already read.</span></span><button class="btn sm">Reload</button></div>
-    <div class="col" style="gap:6px; opacity:.4;"><span class="eyebrow">Next actions</span><span style="height:14px; background:var(--paper3); border-radius:4px; width:70%;"></span><span style="height:14px; background:var(--paper3); border-radius:4px; width:55%;"></span></div>`)}
+    <div class="panel" style="border-color:var(--red); display:grid; grid-template-columns:1fr auto; gap:14px; align-items:center;"><span style="font-size:14px;"><strong>Couldn't reach your Satchel.</strong> <span class="muted">The newest memories didn't load. Nothing is lost. Your apps keep whatever they already read.</span></span><button class="btn sm">Reload</button></div>
+    <div class="col" style="gap:6px; opacity:.4;"><span class="eyebrow">Newest in the book</span><span style="height:14px; background:var(--paper3); border-radius:4px; width:70%;"></span><span style="height:14px; background:var(--paper3); border-radius:4px; width:55%;"></span></div>`)}
   <div style="grid-column:1/-1; display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px;">
-    ${[['Success readouts live in the footer', '<div class="foot" style="margin:0; padding:10px 14px; background:var(--paper); border-radius:8px;"><span style="color:var(--green);">Saved to your book · revision 4</span><span>Explicit saves only</span></div>'], ['Export result · same place', '<div class="foot" style="margin:0; padding:10px 14px; background:var(--paper); border-radius:8px;"><span style="color:var(--green);">Exported satchel-2026-09-17.json + 3 files</span><span>No credentials included</span></div>'], ['Revoke · same place', '<div class="foot" style="margin:0; padding:10px 14px; background:var(--paper); border-radius:8px;"><span style="color:var(--green);">Codex access revoked</span><span>Earlier reads stay in that app</span></div>']].map(([t, d]) => `<div class="col" style="gap:8px;"><span class="eyebrow">${t}</span>${d}</div>`).join('')}
+    ${[['Success readouts live in the footer', '<div class="foot" style="margin:0; padding:10px 14px; background:var(--paper); border-radius:8px;"><span style="color:var(--green);">Saved to your book · revision 4</span><span>Explicit saves only</span></div>'], ['Undo · same place', '<div class="foot" style="margin:0; padding:10px 14px; background:var(--paper); border-radius:8px;"><span style="color:var(--green);">Merge undone · Reimbursements is back</span><span>Explicit saves only</span></div>'], ['Revoke · same place', '<div class="foot" style="margin:0; padding:10px 14px; background:var(--paper); border-radius:8px;"><span style="color:var(--green);">Codex access revoked</span><span>Earlier reads stay in that app</span></div>']].map(([t, d]) => `<div class="col" style="gap:8px;"><span class="eyebrow">${t}</span>${d}</div>`).join('')}
   </div>
 </div>` });
 
@@ -839,13 +690,13 @@ const components = page({ w: 1280, h: 820, body: `<div style="width:1280px; heig
     <input class="field focus" value="Field, focused">
     <div class="row" style="gap:16px;"><span class="check"><i class="focus" style="outline-offset:2px;"></i>Checkbox</span><a href="#" class="fine focus" style="outline-offset:2px;">Text link</a><span class="seg"><a href="#" aria-current="true" class="focus" style="outline-offset:-3px;">Segment</a><a href="#">Other</a></span></div>
     <span class="fine muted">On hardware the ring is orange. On paper it is accent red-orange. Never a blue browser default. Never removed.</span>`)}
-  ${mini('Long names · rail and picker', `<div style="background:#26231F; border-radius:12px; padding:12px; display:flex; gap:12px;"><nav class="rail" style="width:154px; padding:0;"><a href="#" aria-current="page"><span class="dot"></span>Left off</a><a href="#"><span class="dot"></span>Book</a><a href="#" title="Tasks · 7 moving"><span class="dot"></span><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Tasks · 7 moving</span></a></nav>
-      <div class="col" style="gap:4px; color:#EEE7DB; font-size:12.5px; padding-top:4px;"><span>The rail never shows topic names. Six fixed destinations, so nothing there can grow.</span></div></div>
+  ${mini('Long names · rail and picker', `<div style="background:#26231F; border-radius:12px; padding:12px; display:flex; gap:12px;"><nav class="rail" style="width:154px; padding:0;"><a href="#" aria-current="page"><span class="dot"></span>Left off</a><a href="#"><span class="dot"></span>Book</a><a href="#" title="Activity · developer mode"><span class="dot"></span><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Activity · developer mode</span></a></nav>
+      <div class="col" style="gap:4px; color:#EEE7DB; font-size:12.5px; padding-top:4px;"><span>The rail never shows topic names. Five fixed destinations, so nothing there can grow.</span></div></div>
     <div class="drop" style="position:static; width:auto; max-height:220px; overflow:hidden; box-shadow:none;"><label class="row" style="gap:8px; border:1px solid var(--line); border-radius:8px; padding:0 12px; height:36px; background:var(--paper2);">${icon.search}<input class="field" value="re" style="border:0; background:transparent; padding:0;"></label>
       <span class="eyebrow" style="padding:8px 12px 2px;">Topics · 3 of 41 match</span>
       <a href="#"><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Release workflow</span><span class="prov">2</span></a><a href="#"><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Reimbursements for the Bengaluru office move, FY26 and the two vendor…</span><span class="prov">1</span></a><a href="#"><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Rules engine</span><span class="prov" style="color:var(--amber);">empty</span></a></div>
     <span class="fine muted">Picker rows truncate to one line with the full name on hover. Search filters as you type. Forty topics is a list, not a wall of chips.</span>`)}
-  ${mini('Long titles · wrap, never clip', `<a href="#" class="entry" style="color:var(--ink); gap:5px; padding:12px 0;"><div class="between" style="align-items:flex-start;"><span class="serif" style="font-size:21px; line-height:1.25; max-width:360px;">Migrate every rule_events consumer off the nightly export and onto the streaming view before the retention change lands in October</span><span class="chip ink">ready</span></div><span style="font-size:14px;">Next: list the consumers in a comment on this task.</span><span class="prov">Medium · rev 1 · title 132 / 200</span></a>
+  ${mini('Long titles · wrap, never clip', `<a href="#" class="entry" style="color:var(--ink); gap:5px; padding:12px 0;"><div class="between" style="align-items:flex-start;"><span class="serif" style="font-size:21px; line-height:1.25; max-width:360px;">Reimbursements for the Bengaluru office move, FY26 and the two vendor contracts that end in October</span><span class="chip ink">new</span></div><span style="font-size:14px;">Topic names wrap as far as they need.</span><span class="prov">Topic · name 98 / 200</span></a>
     <article class="entry" style="padding:12px 0;"><h2 class="title serif" style="font-size:20px; overflow-wrap:anywhere;">how-i-want-answers-written-when-the-question-is-about-code-review-and-not-about-architecture</h2><p style="margin:0; font-size:14px;">Memory names wrap on hyphens. Field limit 120, shown as a counter while typing.</p><span class="prov">Name 92 / 120</span></article>
     <span class="fine muted">Chips and readouts stay on one line and never wrap. Titles and descriptions wrap as far as they need. Over-tall beats clipped.</span>`)}
 </div>` });
@@ -898,10 +749,9 @@ const files = {
   'Welcome.dc.html': welcome, 'LeftOffEmpty.dc.html': leftOffEmpty, 'Main.dc.html': leftOff,
   'BookEmpty.dc.html': bookEmpty, 'Book.dc.html': book, 'BookCorrect.dc.html': bookCorrect, 'BookDark.dc.html': bookDark,
   'Topics.dc.html': topics, 'Topic.dc.html': topic, 'TopicEmpty.dc.html': topicEmpty,
-  'TasksEmpty.dc.html': tasksEmpty, 'Tasks.dc.html': tasks, 'Task.dc.html': taskDetail,
   'AppsEmpty.dc.html': appsEmpty, 'Apps.dc.html': apps, 'Consent.dc.html': consent, 'Settings.dc.html': settings,
-  'ScopePicker.dc.html': scopePickerOpen, 'TaskBlocked.dc.html': taskBlocked, 'TaskEdit.dc.html': taskEdit, 'TopicNew.dc.html': topicNew, 'BookSearch.dc.html': bookSearch, 'Errors.dc.html': errors, 'Components.dc.html': components,
-  'PhoneLeftOff.dc.html': phoneLeftOff, 'PhoneBook.dc.html': phoneBook, 'PhoneTask.dc.html': phoneTask, 'PhoneConsent.dc.html': phoneConsent,
+  'ScopePicker.dc.html': scopePickerOpen, 'TopicNew.dc.html': topicNew, 'BookSearch.dc.html': bookSearch, 'Errors.dc.html': errors, 'Components.dc.html': components,
+  'PhoneLeftOff.dc.html': phoneLeftOff, 'PhoneBook.dc.html': phoneBook, 'PhoneConsent.dc.html': phoneConsent,
 };
 for (const [name, html] of Object.entries(files)) writeFileSync(out + name, html);
 
@@ -912,11 +762,10 @@ const rows = [
   ['Arrive: sign in, first run, then where you left off', ['Welcome.dc.html', 'LeftOffEmpty.dc.html', 'Main.dc.html']],
   ['The book: empty, filled, correcting and forgetting, dark theme', ['BookEmpty.dc.html', 'Book.dc.html', 'BookCorrect.dc.html', 'BookDark.dc.html']],
   ['Topics: list, a full topic, a brand new one', ['Topics.dc.html', 'Topic.dc.html', 'TopicEmpty.dc.html']],
-  ['Tasks: empty, list, task detail with timeline', ['TasksEmpty.dc.html', 'Tasks.dc.html', 'Task.dc.html']],
-  ['v1 details: the picker open, sheets, edit, search, errors, and component states', ['ScopePicker.dc.html', 'BookSearch.dc.html', 'TopicNew.dc.html', 'TaskEdit.dc.html', 'TaskBlocked.dc.html', 'Errors.dc.html', 'Components.dc.html']],
+  ['v1 details: the picker open, sheets, edit, search, errors, and component states', ['ScopePicker.dc.html', 'BookSearch.dc.html', 'TopicNew.dc.html', 'Errors.dc.html', 'Components.dc.html']],
   ['Apps and settings: empty, connected, consent request, settings', ['AppsEmpty.dc.html', 'Apps.dc.html', 'Consent.dc.html', 'ConnectedClaude.dc.html', 'ConnectedCodex.dc.html', 'Settings.dc.html']],
 ];
-const titles = { 'Direction.dc.html': 'Direction', 'Mark.dc.html': 'Mark · logo and wordmark', 'Welcome.dc.html': 'Welcome (signed out)', 'LeftOffEmpty.dc.html': 'Left off · first run', 'Main.dc.html': 'Left off', 'BookEmpty.dc.html': 'Book · empty', 'Book.dc.html': 'Book', 'BookCorrect.dc.html': 'Book · correcting + forget', 'BookDark.dc.html': 'Book · dark theme', 'Topics.dc.html': 'Topics', 'Topic.dc.html': 'Topic', 'TopicEmpty.dc.html': 'Topic · new and empty', 'TasksEmpty.dc.html': 'Tasks · empty', 'Tasks.dc.html': 'Tasks', 'Task.dc.html': 'Task detail', 'AppsEmpty.dc.html': 'Apps · none connected', 'Apps.dc.html': 'Apps', 'Consent.dc.html': 'Consent request', 'Settings.dc.html': 'Settings', 'ScopePicker.dc.html': 'Scope picker · open', 'BookSearch.dc.html': 'Book · search results', 'TopicNew.dc.html': 'New topic sheet', 'TaskEdit.dc.html': 'Task · editing', 'TaskBlocked.dc.html': 'Task · move to Blocked', 'Errors.dc.html': 'Errors and conflicts', 'Components.dc.html': 'Components · focus and long content', 'Motion.dc.html': 'Motion', 'Headings.dc.html': 'Headings · serif vs handwriting', 'MainScript.dc.html': 'Left off · Caveat heading (option A)', 'Corners.dc.html': 'Corners · leak and fix', 'ConnectedClaude.dc.html': 'Satchel × Claude', 'ConnectedCodex.dc.html': 'Satchel × OpenAI', 'BookDark.dc.html': 'Book · dark theme (v2 reference)', 'PhoneLeftOff.dc.html': 'v2 Android ref · Left off', 'PhoneBook.dc.html': 'v2 Android ref · Book', 'PhoneTask.dc.html': 'v2 Android ref · Task', 'PhoneConsent.dc.html': 'v2 Android ref · More' };
+const titles = { 'Direction.dc.html': 'Direction', 'Mark.dc.html': 'Mark · logo and wordmark', 'Welcome.dc.html': 'Welcome (signed out)', 'LeftOffEmpty.dc.html': 'Left off · first run', 'Main.dc.html': 'Left off', 'BookEmpty.dc.html': 'Book · empty', 'Book.dc.html': 'Book', 'BookCorrect.dc.html': 'Book · correcting + forget', 'BookDark.dc.html': 'Book · dark theme', 'Topics.dc.html': 'Topics', 'Topic.dc.html': 'Topic', 'TopicEmpty.dc.html': 'Topic · new and empty', 'AppsEmpty.dc.html': 'Apps · none connected', 'Apps.dc.html': 'Apps', 'Consent.dc.html': 'Consent request', 'Settings.dc.html': 'Settings', 'ScopePicker.dc.html': 'Scope picker · open', 'BookSearch.dc.html': 'Book · search results', 'TopicNew.dc.html': 'New topic sheet', 'Errors.dc.html': 'Errors and conflicts', 'Components.dc.html': 'Components · focus and long content', 'Motion.dc.html': 'Motion', 'Headings.dc.html': 'Headings · serif vs handwriting', 'MainScript.dc.html': 'Left off · Caveat heading (option A)', 'Corners.dc.html': 'Corners · leak and fix', 'ConnectedClaude.dc.html': 'Satchel × Claude', 'ConnectedCodex.dc.html': 'Satchel × OpenAI', 'BookDark.dc.html': 'Book · dark theme (v2 reference)', 'PhoneLeftOff.dc.html': 'v2 Android ref · Left off', 'PhoneBook.dc.html': 'v2 Android ref · Book', 'PhoneConsent.dc.html': 'v2 Android ref · More' };
 const boards = {}, order = [], notes = {};
 rows.forEach(([title, list], r) => {
   const y = r * ROW;
@@ -925,11 +774,10 @@ rows.forEach(([title, list], r) => {
 });
 boards['Corners.dc.html'].h = 560;
 const py = rows.length * ROW;
-notes.rowPhone = { x: 0, y: py - 240, text: 'v2 reference only: phone becomes a native Android app with app intents', kind: 'title1', maxW: 4 * (390 + GX) - GX + 800 };
-['PhoneLeftOff.dc.html', 'PhoneBook.dc.html', 'PhoneTask.dc.html', 'PhoneConsent.dc.html'].forEach((f, i) => { boards[f] = { x: i * (390 + GX), y: py, w: 390, h: 844, title: titles[f], is_interactive: true }; order.push(f); });
+notes.rowPhone = { x: 0, y: py - 240, text: 'v2 reference only: phone becomes a native Android app with app intents', kind: 'title1', maxW: 3 * (390 + GX) - GX + 800 };
+['PhoneLeftOff.dc.html', 'PhoneBook.dc.html', 'PhoneConsent.dc.html'].forEach((f, i) => { boards[f] = { x: i * (390 + GX), y: py, w: 390, h: 844, title: titles[f], is_interactive: true }; order.push(f); });
 notes.stickyEmpty = { x: 3 * (W + GX) + 40, y: 1 * ROW, w: 420, text: 'Empty states follow one rule: say what the place is for, give the single action that fills it, and offer a look at the full version. The first-run Left off page is the strongest example.', color: 'orange', size: 'm' };
-notes.stickyScope = { x: 4 * (W + GX) + 40, y: 2 * ROW, w: 420, text: 'Scope picker replaces the topic chips and the sidebar list. Same control on Book and Tasks. It locks while a draft is open and says why.', color: 'orange', size: 'm' };
-notes.stickyTask = { x: 3 * (W + GX) + 40, y: 4 * ROW, w: 420, text: 'The task page puts the next action first, then one composer with three modes (comment, progress, handoff) instead of three long forms. Everything else moves to the right column.', color: 'orange', size: 'm' };
+notes.stickyScope = { x: 4 * (W + GX) + 40, y: 2 * ROW, w: 420, text: 'Scope picker replaces the topic chips and the sidebar list. Same control on Book and in the since note. It locks while a draft is open and says why.', color: 'orange', size: 'm' };
 
 const canvas = { v: 3, attachments: {}, createdOnFiles: { v: 1, at: '2026-09-17T07:06:50.427Z' }, title: 'Satchel UI Redesign', launch: { view: 'canvas' }, pages: [], boards, order, notes, designSystems: [] };
 writeFileSync(out + 'canvas.json', JSON.stringify(canvas, null, 2));

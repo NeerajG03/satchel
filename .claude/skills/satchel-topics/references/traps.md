@@ -16,9 +16,9 @@
 
 **Unknown scope must never fall back to personal.** Personal is the null, and the null is also what an uninitialized variable looks like. Any new code path that resolves a scope has to fail loudly rather than default.
 
-**`select t.*` and `create or replace function` both freeze things.** See `satchel-tasks/references/traps.md`; the same two failures apply to any topic-side view or helper.
+**`select t.*` and `create or replace function` both freeze things.** A view made with `select t.*` keeps the column list it had on the day it was made, so a new column does not show up until the view is made again. And replacing a function from an older copy drops any branch a later migration added. Both apply to any topic-side view or helper.
 
-**Deleting a topic takes memories, tasks and files with it.** The counts come back in the result for a reason. Show them. `TopicDelete.tsx` asks first, and no agent path exists at all.
+**Deleting a topic takes its memories with it.** The count comes back in the result for a reason. Show them. `TopicDelete.tsx` asks first, and no agent path exists at all.
 
 **Renaming must not orphan anything.** Everything references the stable UUID, and the slug is a handle. If you ever make something reference the name, renaming becomes a data-loss bug.
 

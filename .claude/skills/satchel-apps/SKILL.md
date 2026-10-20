@@ -11,7 +11,7 @@ An app is a client identity that a person allowed, once, on a consent page. Ever
 
 ## The one paragraph version
 
-An app registers through Supabase's OAuth server and sends the person to Satchel's consent page. They choose memory scopes and task scopes separately, and write and upload separately again. Allowing writes one `agent_connections` row keyed `(owner_id, client_id)` with a fresh `grant_id`. A custom access-token hook stamps that generation and the Satchel audience into every agent token. `/api/mcp` verifies the token and then builds a Supabase client **with that same token**, so RLS, not the server, decides every row. Revoking rotates the generation, which invalidates every existing token immediately.
+An app registers through Supabase's OAuth server and sends the person to Satchel's consent page. They choose memory scopes, and write separately. Allowing writes one `agent_connections` row keyed `(owner_id, client_id)` with a fresh `grant_id`. A custom access-token hook stamps that generation and the Satchel audience into every agent token. `/api/mcp` verifies the token and then builds a Supabase client **with that same token**, so RLS, not the server, decides every row. Revoking rotates the generation, which invalidates every existing token immediately.
 
 ## Read this first, then route
 
@@ -30,9 +30,9 @@ An app registers through Supabase's OAuth server and sends the person to Satchel
 
 **The grant generation is the revocation mechanism.** `grant_id` is stamped into the token as `satchel_grant_id` and compared on every access check. Re-consenting mints a new one, so an old access token cannot come back to life by reconnecting.
 
-**Nothing is granted by default.** Consent has to select at least one memory or task scope or it raises `23514`. Write and upload are separate unchecked boxes, and they are forced off when no scope in that group is selected.
+**Nothing is granted by default.** Consent has to select at least one memory scope or it raises `23514`. Write is a separate unchecked box, and it is forced off when no scope is selected.
 
-**Memory and tasks are four independent switches, not one.** `personal`, `all_topics`/`topic_ids`, `can_write` for memory; `task_personal`, `task_all_topics`/`agent_task_grants`, `task_can_write`, `task_can_upload` for tasks. Task permission is not memory permission in either direction.
+**Personal, topics and write are separate switches.** `personal`, `all_topics`/`topic_ids` and `can_write`. Personal is not topic, and read is not write.
 
 **"Every topic" keeps being true.** It is a flag, not a snapshot of names, so it covers topics that do not exist yet. A blanket grant stores an empty list beside the flag so a stale snapshot can never sit there looking authoritative.
 
@@ -49,8 +49,7 @@ An app registers through Supabase's OAuth server and sends the person to Satchel
 ```
 supabase/migrations/
   202609110003_agent_connections.sql     the table, authorize/revoke, access helpers, the token hook
-  20260920150000_all_projects_grant.sql  all_topics, task_all_topics, authorize_agent_v3
-  20260916070509_task_management.sql     agent_task_grants, private.agent_can_access_tasks
+  20260920150000_all_projects_grant.sql  all_topics, authorize_agent_v3
   20260922170000_consolidation_schedule.sql  the cron's own OAuth client, its Vault secret, rotation
 server/http-handler.mjs        the per-request client and the 401 challenge for /api/mcp
 server/agent-token.mjs         verifyAgentToken, verifyCompanionToken, exchangeRefreshToken

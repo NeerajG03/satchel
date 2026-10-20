@@ -24,7 +24,7 @@ const SERVER = /^mcp__(?:plugin_satchel_satchel|satchel|claude_ai_satchel)__([a-
 
 // The tools that change nothing. Kept in step with the readOnlyHint
 // annotations in server/mcp-server.mjs; tests/plugin-hooks.test.mjs checks the two agree.
-const READS = new Set(['retrieve_memory', 'read_memory', 'memory_index', 'list_topics', 'list_tasks', 'read_task']);
+const READS = new Set(['retrieve_memory', 'read_memory', 'memory_index', 'list_topics']);
 
 const event = await readHookInput();
 const tool = SERVER.exec(String(event?.tool_name ?? ''))?.[1];

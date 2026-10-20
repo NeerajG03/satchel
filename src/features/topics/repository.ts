@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
-import { removeTaskFiles } from '../tasks/files';
 
 export type TopicRepositoryLink = { provider: 'github'; repository: string };
 export type Topic = { id: string; slug: string; name: string; brief: string; revision: number; updated_at: string; created_at: string;
@@ -40,13 +39,12 @@ export function createTopicRepository(db: SupabaseClient) {
       const { error } = await requestWithTimeout(signal => db.rpc('unmerge_topic', { p_from: topic.id }).abortSignal(signal));
       if (error) throw error;
     },
-    async remove(topic: Topic): Promise<{ id: string; name: string; memories_removed: number; tasks_removed: number; files_removed: number }> {
+    async remove(topic: Topic): Promise<{ id: string; name: string; memories_removed: number }> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('delete_topic', {
         p_id: topic.id, p_expected_revision: topic.revision,
-      }).abortSignal(signal).single<{ id: string; name: string; memories_removed: number; tasks_removed: number; files_removed: number; file_keys?: string[] }>());
+      }).abortSignal(signal).single<{ id: string; name: string; memories_removed: number }>());
       if (error) throw error;
       if (!data) throw new Error('Missing delete result');
-      await removeTaskFiles(db, data.file_keys);
       return data;
     },
     async linkRepository(topicId: string, value: string): Promise<TopicRepositoryLink> {

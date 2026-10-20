@@ -12,11 +12,10 @@ Projects become topics, and Satchel can make topics on its own. That is the whol
 topic
 ├── name, one-line summary
 ├── memories             many per topic; each memory sits in at most one topic, like a project today
-├── repository links     optional, only you or an agent add these
-└── tasks                optional
+└── repository links     optional, only you or an agent add these
 ```
 
-A "project" is just a topic that has a repository link or tasks on it.
+A "project" is just a topic that has a repository link on it.
 
 The database says topic too: the `topics` table, `topic_id`, `topic_repositories`, `upsert_topic` (D34, D35).
 
@@ -79,9 +78,9 @@ The only difference is that work facts now have a topic to live in, so personal 
 
 **Capture.** Consolidation already picks one topic slug or null for each change. Now it can also give a new topic name when no listed topic fits. Today an unknown slug turns into null (personal). Instead, a new name that is not close to an existing topic becomes a new topic, and a name that is close reuses that topic.
 
-**Tidy.** The nightly pass can merge two topics that are really the same thing. Each merge shows a note in activity with an undo. It never merges a topic that has tasks or repository links, because those are yours to manage. A merge moves the memories first and only then removes the old topic, because deleting a topic still deletes its memories (the foreign key cascades). The delete screen says how many memories go with it.
+**Tidy.** The nightly pass can merge two topics that are really the same thing. Each merge shows a note in activity with an undo. It never merges a topic that has repository links, because those are yours to manage. A merge moves the memories first and only then removes the old topic, because deleting a topic still deletes its memories (the foreign key cascades). The delete screen says how many memories go with it.
 
-**Grants.** All or none for topics. A migration must not widen a live grant (security skill), so it goes the other way: existing grants that name specific topics lose topic access, and you reconnect the app once to choose "all". Satchel has one user today, so that is one reconnect per app. The overnight connection and the plugin's connection must have "all" before the capture change ships, or the pass can't see any topics and would make duplicates. So the pass only makes new topics when its own grant is "all". The grant flags for personal, write, tasks and uploads stay as they are.
+**Grants.** All or none for topics. A migration must not widen a live grant (security skill), so it goes the other way: existing grants that name specific topics lose topic access, and you reconnect the app once to choose "all". Satchel has one user today, so that is one reconnect per app. The overnight connection and the plugin's connection must have "all" before the capture change ships, or the pass can't see any topics and would make duplicates. So the pass only makes new topics when its own grant is "all". The grant flags for personal and write stay as they are.
 
 **Names.** "Project" becomes "topic" in the UI, the tools and the docs. The app lives at `/topics`, and the tools are `list_topics`, `upsert_topic` and `select_topic`, with `topic_id` on every call. The tables, columns, routines and code names say topic too, since the `20261009090000_topics_everywhere` migration (D35).
 
@@ -93,7 +92,7 @@ The only difference is that work facts now have a topic to live in, so personal 
 | Memories and topics | A topic has many memories. A memory sits in at most one topic, like a project today. |
 | Who makes topics | Satchel or you. Only you add repository links. |
 | Grants | All or none for topics. Narrow grants end, and you reconnect once. |
-| When Satchel merges topics | A note in activity, with undo. Never for topics with tasks or repository links. |
+| When Satchel merges topics | A note in activity, with undo. Never for topics with repository links. |
 | A finished project | Nothing special. It just stops getting new memories. |
 | People as a topic type | Not now. |
 
@@ -103,9 +102,9 @@ Status on 8 October.
 
 | # | Area | What it means | Status |
 |---|---|---|---|
-| 1 | Rename | What a person or an agent reads says topic: the rail, the topics page at `/topics`, the topic page, the consent page, the agent tools and their fields, the docs and the skills. A topic with a repository or tasks is what a project was. The database and the code followed in `20261009090000_topics_everywhere.sql`: tables, columns, routines and code names all say topic (D35). | Built |
+| 1 | Rename | What a person or an agent reads says topic: the rail, the topics page at `/topics`, the topic page, the consent page, the agent tools and their fields, the docs and the skills. A topic with a repository is what a project was. The database and the code followed in `20261009090000_topics_everywhere.sql`: tables, columns, routines and code names all say topic (D35). | Built |
 | 2 | Capture | Consolidation can name a new topic, and reuses a close one. Topics it makes are marked `made_by = 'satchel'` (`create_satchel_topic`). | Built |
-| 3 | Tidy | One call a job, before sessions are read: moves work facts out of personal and merges topics that are one subject. Only topics Satchel made are merged away, never one with tasks or repositories. Every merge is recorded in `topic_merges` and can be undone from the topics page. | Built |
+| 3 | Tidy | One call a job, before sessions are read: moves work facts out of personal and merges topics that are one subject. Only topics Satchel made are merged away, never one with repositories. Every merge is recorded in `topic_merges` and can be undone from the topics page. | Built |
 | 4 | Grants | The consent page offers every topic or none. Existing grants are left as they are: on 8 October every live connection already had every project, so nothing needed narrowing. | Built |
 | 5 | Backfill | The tidy is the backfill: its first run moves what sits in personal today. | Built, runs on the next job |
 | 6 | UI | "made by Satchel" on the list and the topic page, a Merged section with Undo merge, a notice on a merged topic, "Apps with access" counts apps granted every topic, and every move in Activity has Move back (`src/features/activity/moveBack.ts`), which works only while the memory is still where that move put it. | Built |
@@ -119,7 +118,7 @@ move_memory(id, revision, topic)      the same row, a new topic
   ├── caller must be able to write on both sides
   └── memory history gets a "moved" event: personal → infrastructure
 
-merge_topic(from, into)               from must have no tasks or repositories
+merge_topic(from, into)               from must have no repositories
   ├── its live memories move to into, each with a "moved" event
   ├── from is kept, hidden, with merged_into set
   └── topic_merges remembers exactly which memories moved
@@ -146,7 +145,7 @@ A merge probe with two near-duplicate topics and two that only share a word merg
 These held for projects and still hold for topics.
 
 - **A topic is not a repository.** It can have none, one or several. A local clone path belongs to one machine and is never a topic's identity.
-- **The UUID is the identity, the slug is a handle.** Renaming a topic must not orphan its memories or tasks. Two topics can share a name, so tell them apart by slug or ID, never by name.
+- **The UUID is the identity, the slug is a handle.** Renaming a topic must not orphan its memories. Two topics can share a name, so tell them apart by slug or ID, never by name.
 - **A topic is a label, not a permission.** Check access to the topic and to anything it links before returning content. A link can exist without the right to fetch what it points at.
 - **Native app projects stay with the app.** A Claude or ChatGPT project may point at a Satchel topic through the plugin or its instructions, but Satchel does not keep an editable copy of a topic's brief in every app.
 

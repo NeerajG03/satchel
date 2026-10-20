@@ -13,7 +13,7 @@ A memory is **one sentence**. That sentence is the whole record and it is what y
 | `name` | an optional handle. Most memories have none. |
 | `more_info` | rare. The index tells you with `has_more_info` when a row has any. |
 
-A memory belongs to one scope, personal or one topic, and never to a task.
+A memory belongs to one scope, personal or one topic.
 
 Every row also has a six-character handle, the start of its id. That is what the user sees in their app, so it is the right thing to say when you mean a particular memory.
 
@@ -40,11 +40,11 @@ A row that says `said N times` beside its scope is one the user has stated that 
 
 ## Saving
 
-`save_memory` takes `topic_id` and `statement`. Optionally provide `source`, `name`, `more_info` and `kind`. Set `kind` to `preference` when the person is telling you how they want things done, so it loads as a rule rather than a fact. Satchel returns the new memory ID. There is no `task_id`.
+`save_memory` takes `topic_id` and `statement`. Optionally provide `source`, `name`, `more_info` and `kind`. Set `kind` to `preference` when the person is telling you how they want things done, so it loads as a rule rather than a fact. Satchel returns the new memory ID.
 
 Save only when the user asks you to remember something. Write the statement so it still makes sense in six weeks, with no pronouns pointing at this conversation. An explicit save is confirmed by definition, so it is stored as `said`.
 
-A memory that is about a task is still saved to the task's topic, or to personal. If what the user said is really a piece of work to do, it may belong in a task instead, and that is a separate, explicit request.
+A memory about a piece of work is saved to that work's topic, or to personal. Satchel does not track to-dos; if what the user said is only a one-off thing to do right now, it is not a memory.
 
 ## Correcting and forgetting
 

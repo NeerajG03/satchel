@@ -90,7 +90,7 @@ for (const version of VERSIONS) {
         codebase: working ? `acme/${working.slug}` : null,
         topic: working,
         topics: topics.filter(p => p.slug !== working?.slug),
-        tasks: suite.tasks, context: [], saved: [], turn: item.turn,
+        context: [], saved: [], turn: item.turn,
       });
     } catch (error) {
       failed++;

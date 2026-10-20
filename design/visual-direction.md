@@ -25,7 +25,7 @@ Desktop first. The frame is designed at 1280 wide and should fill a laptop windo
 | Key | `#332E28` | Raised control on hardware |
 | Orange | `#E4571E` | Selected control on hardware, focus ring on hardware |
 | Accent | `#B8451A` | Links and accent text on paper. 4.6:1 |
-| Red | `#A82720` | Destructive and blocked text and borders |
+| Red | `#A82720` | Destructive text and borders |
 | Green / Amber text | `#2E7A4A` / `#8A5E00` | Status words |
 | LEDs | green `#3E9E62` · amber `#E2A11E` · red `#C8442E` · off `#6E665C` | Always next to a word |
 
@@ -35,7 +35,7 @@ Rules. Orange is never used for text on paper; accent is. A light never stands a
 
 | Face | Job | Weights |
 |---|---|---|
-| Newsreader | Content and page headings: memory names, task titles, quotes, H1 to H3 | 400, 500 |
+| Newsreader | Content and page headings: memories, topic names, quotes, H1 to H3 | 400, 500 |
 | Instrument Sans | Interface: labels, buttons, descriptions, body | 400, 500, 600 |
 | DM Mono | Readouts only: eyebrows, provenance, counts, footer | 400, 500 |
 | Caveat | The wordmark, nowhere else | 600 |
@@ -47,7 +47,7 @@ Mono is never used for an action or for critical state. Handwriting is never use
 - Hardware key: raised, drops 1 px on press. Selected is orange with ink text.
 - Rail item: 44 px tall, paper-coloured pill when current, dot turns orange.
 - Button on paper: 40 px, radius 8. Primary is ink with paper text. Quiet has no border. Danger is red.
-- Chip: mono uppercase, pill, outlined. States: ready (ink), in progress (accent), blocked (red), done (dashed muted).
+- Chip: mono uppercase, pill, outlined. Looks: ink, accent (New), amber (Changed), muted (Said again).
 - Stepper: five stops, the current one filled ink.
 - Field: paper 2 with a line border. Content fields use Newsreader.
 - Sheet: 520 wide, over a 40% ink scrim, radius 14.

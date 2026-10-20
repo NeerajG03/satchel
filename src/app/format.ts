@@ -37,7 +37,3 @@ export function count(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
-export function stateWord(status: string): string {
-  const words = status.replace('_', ' ');
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
