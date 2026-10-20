@@ -149,7 +149,7 @@ export function memoryService(db, embedder = null, router = null) {
       await requireScope(args.topic_id,true);
       const row=await result(db.rpc('save_memory',{p_id:args.id,p_topic_id:args.topic_id,
         p_statement:args.statement,p_source:args.source??'',p_band:args.band??'said',
-        p_name:args.name??null,p_more_info:args.more_info??''}));
+        p_name:args.name??null,p_more_info:args.more_info??'',p_kind:args.kind??'fact'}));
       await embedRow(row);
       return row;
     },

@@ -515,6 +515,12 @@ test('an automatically captured memory is embedded, exactly like a saved one', a
   db.calls.update.length = 0;
   await service.save({id: 'm2', topic_id: null, statement: writerRow.statement, source: writerRow.source});
   assert.equal(db.calls.update.length, 1, 'save embeds too, and this is the parity that was broken');
+  assert.equal(db.calls.rpc.find(call => call.name === 'save_memory').args.p_kind, 'fact');
+
+  db.calls.rpc.length = 0;
+  await service.save({id: 'm3', topic_id: null, statement: writerRow.statement, kind: 'preference'});
+  assert.equal(db.calls.rpc.find(call => call.name === 'save_memory').args.p_kind, 'preference',
+    'a rule the person asks to keep reaches the database as a preference');
 });
 
 test('a capture whose embedding fails is still written and still counted', async () => {

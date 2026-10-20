@@ -150,6 +150,11 @@ test('MCP contracts separate index, detail, explicit writes and hook output',asy
     assert.ok(invalid.isError);assert.equal(writes,1);
     // An explicit save is confirmed by definition.
     assert.equal(service.lastSave?.band,'said');
+    // A rule the person asks to keep must be saved as one, or it loads as a fact.
+    assert.equal(service.lastSave?.kind,'fact');
+    await call('save_memory',{topic_id:null,statement:'Keep replies short.',kind:'preference'});
+    assert.equal(service.lastSave?.kind,'preference');
+    assert.ok((await call('save_memory',{topic_id:null,statement:'x',kind:'rule'})).isError);
     oversized=true;result=await call('select_topic',{session_key:'one',event:'SessionStart',topic_id:null});
     assert.ok(result.content[0].text.includes('NOT loaded'));
     // A revoked connection fails at the tool guard, before the lifecycle runs.

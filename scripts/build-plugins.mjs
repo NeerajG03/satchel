@@ -50,7 +50,8 @@ const description='Personal and topic memory, tasks and topics across your agent
 // detail, left over from when the block held only names.
 // 0.5.7 tells the agent preferences never carry the commits note, and that
 // it is short for a memory about another repository.
-const versions={claude:'0.5.7',codex:'0.5.7'};
+// 0.5.8 tells the agent to save a rule the person states with kind preference.
+const versions={claude:'0.5.8',codex:'0.5.8'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
