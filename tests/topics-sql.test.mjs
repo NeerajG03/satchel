@@ -31,7 +31,7 @@ test('topics: move, make, merge and undo, each inside the grant', async t => {
   const claims = async client => (await db.query('select satchel_access_token_hook($1) result', [
     {user_id: owner, client_id: client, claims: {sub: owner, client_id: client, aud: 'authenticated'}}])).rows[0].result.claims;
   const grant = (client, all, ids, write) => call(user,
-    'select authorize_agent_v3($1,$1,true,$2,$3,$4,true,$2,$3,$4,false)', [client, all, ids, write]);
+    'select authorize_agent_v4($1,$1,true,$2,$3,$4)', [client, all, ids, write]);
 
   await call(user, 'select create_topic($1,$2,$3)', [work, 'Work', 'the main topic']);
   await grant('pass', true, [], true);
@@ -100,7 +100,7 @@ test('topics: move, make, merge and undo, each inside the grant', async t => {
     assert.equal((await call(user, 'select merged_into from topics where id=$1', [infraTools]))[0].merged_into, null);
   });
 
-  await t.test('a topic with tasks or a repository is never merged', async () => {
+  await t.test('a topic with a linked repository is never merged', async () => {
     await call(user, 'select link_topic_repository($1,$2,$3)', [work, 'github', 'acme/work']);
     await assert.rejects(call(pass, 'select merge_topic($1,$2)', [work, infra]), {code: '23514'});
   });

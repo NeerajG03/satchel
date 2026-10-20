@@ -7,8 +7,8 @@
 // adds goes in here and every test sees it.
 //
 // The real guard is storage.protect_delete; the Storage API sets
-// storage.allow_delete_query before it deletes, which tests do through
-// storageApiRemove below.
+// storage.allow_delete_query before it deletes. Satchel stores no files of its
+// own any more, but the migrations that once did still run against this.
 export const SUPABASE_STORAGE=`
   create schema storage;
   create table storage.buckets(id text primary key,name text);
@@ -27,15 +27,3 @@ export const SUPABASE_STORAGE=`
     for each statement execute function storage.protect_delete();
   alter table storage.objects enable row level security;
 `;
-
-/** What the Storage API's remove() does: lifts the guard for this one
- *  transaction, then deletes as the caller so the storage policies decide. */
-export async function storageApiRemove(db,claims,names) {
-  await db.exec('begin; set local role authenticated;');
-  try {
-    await db.query("select set_config('request.jwt.claims',$1,true), set_config('storage.allow_delete_query','true',true)",[JSON.stringify(claims)]);
-    const result=await db.query("delete from storage.objects where bucket_id='task-files' and name=any($1) returning name",[names]);
-    await db.exec('commit');
-    return result.rows.map(row=>row.name);
-  } catch(error) { await db.exec('rollback'); throw error; }
-}

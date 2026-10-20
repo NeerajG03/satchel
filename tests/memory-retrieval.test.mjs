@@ -208,13 +208,10 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
     await as(alice, `update memory_settings set capture_mode='turn'`);
   });
 
-  await t.test('a memory has one scope and no task to hang off', async () => {
-    // The link is gone, and with it the only way a wrong task guess could move
-    // a memory into a topic nobody mentioned. A memory is scoped by the
-    // topic it is saved in and by nothing else.
-    const taskId='40000000-0000-4000-8000-000000000001';
-    await as(alice,'select * from create_task($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-      ['50000000-0000-4000-8000-000000000001',taskId,topicA,'Fix the consent page','','',[],'','medium']);
+  await t.test('a memory has one scope and nothing else to hang off', async () => {
+    // A memory is scoped by the topic it is saved in and by nothing else.
+    // There was once a task link, and a wrong guess about the task could move
+    // a memory into a topic nobody mentioned.
     const columns=await as(alice,
       `select column_name from information_schema.columns
        where table_schema='public' and table_name='memories' and column_name='task_id'`);

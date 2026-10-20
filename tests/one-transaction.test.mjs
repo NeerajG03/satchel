@@ -59,71 +59,7 @@ test('one button, one transaction', async t => {
     assert.equal((await call(user, 'select slug from topics where id=$1', [id]))[0].slug, 'billing');
   });
 
-  const task = crypto.randomUUID(), blocker = crypto.randomUUID();
-  const create = (id, title) => call(user, 'select * from create_task($1,$2,null,$3)', [crypto.randomUUID(), id, title]);
-  const edit = (revision, title, add) => call(user, `select * from save_task_edit(p_request_id=>$1,p_id=>$2,p_expected_revision=>$3,
-    p_title=>$4,p_outcome=>'',p_why=>'',p_done_when=>'{}',p_next_action=>'',p_priority=>'medium',p_add_dependency_ids=>$5)`,
-    [crypto.randomUUID(), task, revision, title, add]);
-
-  await t.test('a refused dependency takes the field changes back with it', async () => {
-    await create(task, 'Write the release notes');
-    await create(blocker, 'Cut the release');
-    await assert.rejects(edit(1, 'Renamed', [crypto.randomUUID()]), /Task unavailable|not found|unavailable/i);
-    const [row] = await call(user, 'select title, revision from tasks where id=$1', [task]);
-    assert.equal(row.title, 'Write the release notes');
-    assert.equal(Number(row.revision), 1);
-  });
-
-  await t.test('fields and a new dependency save together, as one revision chain', async () => {
-    const [saved] = await edit(1, 'Renamed', [blocker]);
-    assert.equal(saved.title, 'Renamed');
-    assert.ok(Number(saved.revision) > 1);
-    const [planned] = await call(user, 'select dependency_ids from task_planning where id=$1', [task]);
-    assert.deepEqual(planned.dependency_ids, [blocker]);
-  });
-
-  await t.test('a retry with the same request id returns the saved task instead of a conflict', async () => {
-    const second = crypto.randomUUID(), third = crypto.randomUUID();
-    await create(second, 'Draft the post');
-    await create(third, 'Pick a date');
-    for (const [label, title, add] of [['fields and a dependency', 'Draft the launch post', [third]], ['a dependency alone', null, []]]) {
-      const [{revision}] = await call(user, 'select revision from tasks where id=$1', [second]);
-      const requestId = crypto.randomUUID();
-      const args = title ? [requestId, second, revision, title, add, []] : [requestId, second, revision, null, [], [third]];
-      const run = () => call(user, `select * from save_task_edit(p_request_id=>$1,p_id=>$2,p_expected_revision=>$3,
-        p_title=>$4,p_outcome=>'',p_why=>'',p_done_when=>'{}',p_next_action=>'',p_priority=>'medium',
-        p_add_dependency_ids=>$5,p_remove_dependency_ids=>$6)`, args);
-      const [first] = await run();
-      const [again] = await run();
-      assert.equal(Number(again.revision), Number(first.revision), label);
-    }
-    const [{revision}] = await call(user, 'select revision from tasks where id=$1', [second]);
-    const reused = crypto.randomUUID();
-    const save = title => call(user, `select save_task_edit($1,$2,$3,$4,'','','{}','','medium')`, [reused, second, revision, title]);
-    await save('Draft the launch post, again');
-    await assert.rejects(save('Something else entirely'), {code: 'PT409'});
-    const [{revision: now}] = await call(user, 'select revision from tasks where id=$1', [second]);
-    const both = add => call(user, `select save_task_edit(p_request_id=>$1,p_id=>$2,p_expected_revision=>$3,p_title=>'Same title',
-      p_outcome=>'',p_why=>'',p_done_when=>'{}',p_next_action=>'',p_priority=>'medium',p_add_dependency_ids=>$4)`, [reused, second, now, add]);
-    await both([]);
-    await assert.rejects(both([task]), {code: 'PT409'}, 'the same first step with a different rest is a different edit');
-  });
-
-  await t.test('a stale revision changes nothing', async () => {
-    await assert.rejects(edit(1, 'Stale', []), /conflict|changed/i);
-    assert.equal((await call(user, 'select title from tasks where id=$1', [task]))[0].title, 'Renamed');
-  });
-
-  await t.test('another person cannot edit my task through it', async () => {
-    const [{revision}] = await call(user, 'select revision from tasks where id=$1', [task]);
-    await assert.rejects(call({sub: other}, `select save_task_edit($1,$2,$3,'Theirs')`, [crypto.randomUUID(), task, revision]));
-    assert.equal((await call(user, 'select title from tasks where id=$1', [task]))[0].title, 'Renamed');
-  });
-
-  await t.test('anonymous cannot call either routine', async () => {
-    await db.exec('begin; set local role anon;');
-    await assert.rejects(db.query('select save_task_edit($1,$2,1)', [crypto.randomUUID(), task]), /permission denied/);
-    await db.exec('rollback');
+  await t.test('anonymous cannot call it', async () => {
     await db.exec('begin; set local role anon;');
     await assert.rejects(db.query("select create_topic($1,'x','','x')", [crypto.randomUUID()]), /permission denied/);
     await db.exec('rollback');

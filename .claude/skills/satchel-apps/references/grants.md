@@ -16,11 +16,11 @@ Primary key `(owner_id, client_id)`. One row per app identity per person.
 
 RLS: the companion policy allows the owner to read and write their own rows only when there is no `client_id` claim. All grants are revoked and only `select` is given back, so an agent can read its own row's projection but nothing edits the table directly. Both mutations are `SECURITY DEFINER` routines that check `auth.uid() is not null and auth.jwt()->>'client_id' is null` first.
 
-## `authorize_agent`, v1 to v3
+## `authorize_agent` and `authorize_agent_v4`
 
-`authorize_agent_v3` is the live one. It validates that every supplied topic id belongs to the caller, caps each list at 100, rejects nulls inside the arrays, and requires at least one memory scope (a blanket flag satisfies this on its own). Then it upserts the connection with a freshly generated `grant_id` and clears `revoked_at`.
+`authorize_agent_v4` is the live one, and it is memory only. It validates that every supplied topic id belongs to the caller, caps the list at 100, rejects nulls inside the array, and requires at least one memory scope (a blanket flag satisfies this on its own). Then it upserts the connection with a freshly generated `grant_id` and clears `revoked_at`.
 
-The older signatures still exist and delegate, with `all_topics` hard-coded false. That is not tidiness: a person re-authorizing through an older client must come back **without** a blanket grant rather than keeping one the new consent page gave them.
+The oldest signature, `authorize_agent`, still exists and delegates, with `all_topics` hard-coded false. v2 and v3 carried task grants and were dropped with tasks in `20261020120000_satchel_has_no_tasks.sql`. That is not tidiness: a person re-authorizing through an older client must come back **without** a blanket grant rather than keeping one the new consent page gave them.
 
 `revoke_agent(client_id)` sets `revoked_at` and rotates `grant_id`. Rotation is what actually kills live tokens; `revoked_at` is the record.
 

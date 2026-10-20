@@ -10,7 +10,7 @@ const request = {clientId: 'app-1', label: 'Claude Code', personal: true, allTop
 function authDb({approveError = null, grantError = null} = {}) {
   const calls = [];
   return {calls, db: {
-    rpc: (name, args) => ({abortSignal: async () => { calls.push(name); return {error: name === 'authorize_agent_v3' ? grantError : null}; }}),
+    rpc: (name, args) => ({abortSignal: async () => { calls.push(name); return {error: name === 'authorize_agent_v4' ? grantError : null}; }}),
     auth: {oauth: {
       approveAuthorization: async () => { calls.push('approve'); return approveError ? {data: null, error: approveError} : {data: {redirect_url: 'https://app/cb?code=1'}, error: null}; },
       revokeGrant: async ({clientId}) => { calls.push(`revokeGrant:${clientId}`); return {error: null}; },
@@ -27,7 +27,7 @@ test('consent: a failed approval writes no grant', async () => {
 test('consent: a refused grant takes the approval back, so the app never gets a working code', async () => {
   const {db, calls} = authDb({grantError: {code: '23514', message: 'Invalid topic selection'}});
   await assert.rejects(createConnectionRepository(db).approve('auth-1', request), {message: 'Invalid topic selection'});
-  assert.deepEqual(calls, ['approve', 'authorize_agent_v3', 'revokeGrant:app-1']);
+  assert.deepEqual(calls, ['approve', 'authorize_agent_v4', 'revokeGrant:app-1']);
 });
 
 test('consent: a failed undo is tried again before giving up', async () => {
@@ -36,13 +36,13 @@ test('consent: a failed undo is tried again before giving up', async () => {
   const revoke = db.auth.oauth.revokeGrant;
   db.auth.oauth.revokeGrant = async args => { if (failures-- > 0) { calls.push('revokeGrant:failed'); return {error: {message: 'offline'}}; } return revoke(args); };
   await assert.rejects(createConnectionRepository(db).approve('auth-1', request), {message: 'Invalid topic selection'});
-  assert.deepEqual(calls, ['approve', 'authorize_agent_v3', 'revokeGrant:failed', 'revokeGrant:failed', 'revokeGrant:app-1']);
+  assert.deepEqual(calls, ['approve', 'authorize_agent_v4', 'revokeGrant:failed', 'revokeGrant:failed', 'revokeGrant:app-1']);
 });
 
 test('consent: both succeed, and the redirect is handed back only then', async () => {
   const {db, calls} = authDb();
   assert.deepEqual(await createConnectionRepository(db).approve('auth-1', request), {redirectUrl: 'https://app/cb?code=1'});
-  assert.deepEqual(calls, ['approve', 'authorize_agent_v3']);
+  assert.deepEqual(calls, ['approve', 'authorize_agent_v4']);
 });
 
 const {enableOvernight} = await import('../src/features/settings/enableOvernight.ts');

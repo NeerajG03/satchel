@@ -21,55 +21,36 @@
 
 const WRITTEN_NOTHING=' Nothing was written.';
 const SATCHEL_BUG='This is a fault in Satchel, not in your input, so retrying will not help. Report it to the user.';
-const RESOURCES='resource_ids must name resources already attached to this task and verified, each listed once';
 
 // Sentences raised by our own routines, by their exact text. The text a routine
 // raises is written for a log; this is the version written for the agent.
 export const raisedText={
-  // 42501: the grant, not the input. The first six are thrown by the services
+  // 42501: the grant, not the input. The first four are thrown by the services
   // before any query, the rest by routines.
   'Connection unavailable':'This connection is no longer authorized. Ask the user to reconnect Satchel',
   'Memory read unavailable':'This connection may not read memories in that scope. Use a scope from list_topics',
   'Memory write unavailable':'This connection may not write memories in that scope. Use a scope list_topics shows as writable, or ask the user to grant write for it in Satchel',
   'Personal memory unavailable':'This connection has no grant for personal memory. Pass a topic_id from list_topics, or ask the user to allow personal memory for it in Satchel',
-  'Personal tasks unavailable':'This connection has no grant for personal tasks (topic_id null). Pass a topic_id from list_topics, or ask the user to allow personal tasks for it in Satchel',
-  'Topic tasks unavailable':'This connection has no task grant for that topic. Use a topic_id from list_topics, or ask the user to grant tasks for it in Satchel',
-  'Task upload unavailable':'This connection may not attach resources to tasks. Ask the user to allow task uploads for it in Satchel',
   'Authentication required':'The connection is not signed in. Ask the user to reconnect Satchel',
-  'Task write unavailable':'This connection may not write tasks in that scope. Ask the user to grant task write for it in Satchel, or use a scope from list_topics',
   'Topic write unavailable':'This connection may not change that topic. Ask the user to grant it in Satchel',
   'Scope unavailable':'This connection is not granted that scope. Use personal (topic_id null) only if list_topics shows it, or a topic_id from list_topics',
   // P0002: nothing matched in a scope this connection can see.
-  'Task unavailable':'That task is not in the given topic_id scope, or this connection cannot write it. Check the id and topic_id with list_tasks',
   'Memory not found or unavailable':'That memory is not in the given topic_id scope. Check the id and topic_id with memory_index',
   'Record not found':'Satchel could not find the record it had just written. '+SATCHEL_BUG,
   'Repository is not linked to an authorized topic':'That repository is not linked to a topic in this connection\'s grant. Report that topic memory was not loaded; do not guess a topic',
   // PT409: two different causes that used to share one line.
-  'Task request conflict':'Satchel could not save this task change. Check the task list before trying again',
   'Topic request conflict':'Satchel could not save this topic change. Check list_topics before trying again',
   'Memory request conflict':'Satchel could not save this memory. Check memory_index before trying again',
-  'Task changed or unavailable':'The task changed since you read it, or it is not in this scope. Call read_task and retry with the current revision',
   'Topic changed or unavailable':'The topic changed since you read it, or it is not in this scope. Call list_topics and retry with the current revision',
   'Memory changed or unavailable':'The memory changed since you read it, or it is not in this scope. Read it again and retry with the current revision',
   'Topic changed or unavailable':'That topic changed, was already merged, or is not in this scope. Call list_topics and retry',
   'Topic was merged':'That topic was merged into another one. Call list_topics and use the topic it went into',
-  'Topic has tasks or repositories':'That topic was made by the user or has tasks or linked repositories, so only the user can merge it, from the topics page',
+  'Topic has work only its owner may move':'That topic was made by the user or has linked repositories, so only the user can merge it, from the topics page',
   // 23514 and 23505 raised by routines.
   'Invalid topic change':'repository_change is invalid. link and unlink need a lowercase owner/repository, and unlink needs expected_revision because a new topic has nothing to unlink',
   'A slug is lowercase words joined by hyphens, up to 40 characters':'A slug is lowercase letters and digits in words joined by single hyphens, up to 40 characters, like fix-consent-layout',
-  'That slug is already in use':'That slug is already used by another of this user\'s tasks or topics. Pick another and retry',
+  'That slug is already in use':'That slug is already used by another of this user\'s topics. Pick another and retry',
   'Unknown slug kind':'Satchel asked for a slug on an unknown kind of record. '+SATCHEL_BUG,
-  'A task cannot parent itself':'A task cannot be its own parent',
-  'Parent task unavailable in this scope':'The parent task is not in this task\'s scope. Parent and child must share the same topic_id, so check it with list_tasks',
-  'Task parent cycle':'That parent would make a loop, because it already sits under this task. Pick a parent outside this task\'s subtree',
-  'Dependency task unavailable in this scope':'The dependency task is not in this task\'s scope. Both tasks must share the same topic_id, so check it with list_tasks',
-  'Task dependency cycle':'That dependency would make a loop, because the other task already depends on this one',
-  'Invalid comment resource':RESOURCES,
-  'Invalid progress update':RESOURCES,
-  'Invalid handoff resource':RESOURCES,
-  'Invalid handoff supersession':'supersedes_ids must name earlier handoffs on this task, each listed once, and never this handoff',
-  'Invalid task state':'status is one of inbox, ready, in_progress, blocked or done',
-  'Blocked tasks require a reason':'A blocked status needs a blocked_reason saying what it is waiting on',
 };
 // A routine that interpolates a value raises a different string each time, so
 // these are matched by pattern.
@@ -90,45 +71,9 @@ export const constraintText={
   topics_name_check:'A topic name is 1 to 100 characters',
   topics_brief_check:'A topic brief is at most 1000 characters',
   topics_slug_check:'A topic slug is lowercase letters and digits in words joined by single hyphens, up to 40 characters',
-  topics_owner_slug:'That slug is already used by another of this user\'s tasks or topics. Pick another and retry',
+  topics_owner_slug:'That slug is already used by another of this user\'s topics. Pick another and retry',
   topic_repositories_repository_check:'A repository is a lowercase owner/repository, like acme/web',
   agent_session_scopes_session_key_check:'session_key is 1 to 200 characters',
-  tasks_title_check:'A task title is 1 to 200 characters',
-  tasks_outcome_check:'outcome is at most 1000 characters',
-  tasks_why_check:'why is at most 4000 characters',
-  tasks_next_action_check:'next_action is at most 1000 characters',
-  tasks_done_when_check:'done_when has at most 20 items and none of them empty',
-  tasks_done_when_check1:'done_when is at most 10000 characters in total',
-  tasks_priority_check:'priority is one of low, medium, high or urgent',
-  tasks_status_check:'status is one of inbox, ready, in_progress, blocked or done',
-  tasks_check:'A blocked status needs a blocked_reason of at most 2000 characters, and any other status has none',
-  tasks_slug_check:'A task slug is lowercase letters and digits in words joined by single hyphens, up to 40 characters',
-  tasks_owner_slug:'That slug is already used by another of this user\'s tasks or topics. Pick another and retry',
-  task_dependencies_check:'A task cannot depend on itself',
-  task_parent_edges_check:'A task cannot be its own parent',
-  task_updates_body_check:'A comment body is 1 to 4000 characters',
-  task_updates_next_action_check:'next_action is at most 1000 characters',
-  task_updates_status_check:'status is one of inbox, ready, in_progress, blocked or done',
-  task_updates_check:'A blocked status needs a blocked_reason of at most 2000 characters, and any other status has none',
-  task_updates_completed_check:'completed has at most 50 items',
-  task_updates_decisions_check:'decisions has at most 50 items',
-  task_updates_remaining_check:'remaining has at most 50 items',
-  task_updates_blockers_check:'blockers has at most 50 items',
-  task_updates_completed_check1:'completed is at most 20000 characters in total',
-  task_updates_decisions_check1:'decisions is at most 20000 characters in total',
-  task_updates_remaining_check1:'remaining is at most 20000 characters in total',
-  task_updates_blockers_check1:'blockers is at most 20000 characters in total',
-  task_handoffs_next_action_check:'A handoff next_action is 1 to 1000 characters',
-  task_handoffs_summary_check:'A handoff summary is at most 4000 characters',
-  task_handoffs_completed_check:'completed has at most 50 items',
-  task_handoffs_decisions_check:'decisions has at most 50 items',
-  task_handoffs_remaining_check:'remaining has at most 50 items',
-  task_handoffs_blockers_check:'blockers has at most 50 items',
-  task_handoffs_supersedes_ids_check:'supersedes_ids has at most 20 ids',
-  task_handoffs_validation_check:'validation is a list of objects',
-  task_resources_label_check:'A resource label is 1 to 200 characters',
-  task_resources_resource_type_check:'resource_type is one of reference, document, image, artifact, repository or pull_request',
-  task_resources_check:'url is an https URL with no spaces',
 };
 
 // Constraints only Satchel's own code can break: values it derives, stamps or
@@ -139,10 +84,7 @@ export const internalConstraints=new Set([
   'memories_ended_note_check','memories_ended_reason_check','memories_ended_together','memories_kind_check',
   'memories_mentions_check','topic_repositories_provider_check','topics_made_by_check',
   'topics_not_merged_into_itself','topic_write_requests_payload_hash_check',
-  'topic_write_requests_result_check','topics_revision_check','task_events_check','task_events_details_check',
-  'task_events_event_type_check','task_resources_failure_reason_check','task_resources_kind_check',
-  'task_resources_upload_status_check','task_resources_object_key','task_updates_check1','task_updates_kind_check',
-  'task_write_requests_operation_check','task_write_requests_payload_hash_check','tasks_check1','tasks_revision_check',
+  'topic_write_requests_result_check','topics_revision_check',
 ]);
 
 // PostgREST's own codes. None of these is the agent's input.
@@ -154,7 +96,7 @@ const postgrestText={
 };
 
 const codeText={
-  '42501':'Access denied. Check the connection and granted memory or task scopes in Satchel.',
+  '42501':'Access denied. Check the connection and granted memory scopes in Satchel.',
   'P0002':'The requested Satchel record is unavailable. Refresh before trying again.',
   'PT400':'Provide exactly one of topic_id (null for personal scope) or repository.',
   'PT404':'That repository is not linked to a topic in this connection\'s grant. Report that topic memory was not loaded; do not guess a topic.',

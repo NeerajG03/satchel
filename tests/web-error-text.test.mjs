@@ -91,8 +91,10 @@ test('every refusal a routine can raise says why, and the reason has a sentence'
 });
 
 test('a database from before the hints still gets a sentence for every refusal',async()=>{
-  const {raises}=await latestRaises(BEFORE_HINTS);
-  assert.ok(raises.length>50,'the scan found the raises');
+  // Only routines that still exist: one dropped since cannot raise anything.
+  const {routines:live}=await latestRaises();
+  const raises=(await latestRaises(BEFORE_HINTS)).raises.filter(r=>live.has(r.routine));
+  assert.ok(raises.length>30,'the scan found the raises');
   const covered=message=>sessionGuards.has(message)||Boolean(raisedText[message])
     ||raisedPatterns.some(([pattern])=>pattern.test(message.replaceAll('%','2')));
   const missing=raises.filter(r=>r.message==='%'?!PASS_THROUGH.has(r.routine):!covered(r.message))
@@ -112,7 +114,7 @@ test('a guard says which it was: no session, or an app token',async()=>{
     } catch(error) { return error.hint; } finally { await db.exec('rollback'); }
   }
   for(const sql of ["select revoke_agent('x')","select recent_documents()",
-    "select authorize_agent_v3('x','x',false,false,'{}'::uuid[],false,false,false,'{}'::uuid[],false,false)"]){
+    "select authorize_agent_v4('x','x',false,false,'{}'::uuid[],false)"]){
     assert.equal(await hintFor({},sql),'satchel:session',sql);
     assert.equal(await hintFor({sub:owner,client_id:'x'},sql),'satchel:app_token',sql);
   }
@@ -124,8 +126,8 @@ test('the hint decides, whatever the sentence says',()=>{
   const reworded=(code,hint)=>({code,hint,message:'Some sentence that was reworded'});
   assert.match(errorMessage(reworded('42501','satchel:refused:topic_write'),'action'),/topics/);
   assert.match(errorMessage(reworded('P0002','satchel:gone:topic'),'action'),/topic is already gone/);
-  assert.match(errorMessage(reworded('PT409','satchel:conflict:task'),'save'),/task changed/);
-  assert.match(errorMessage(reworded('23514','satchel:invalid:parent_cycle')),/parent/);
+  assert.match(errorMessage(reworded('PT409','satchel:conflict:memory'),'save'),/memory/);
+  assert.match(errorMessage(reworded('23514','satchel:invalid:topic_has_work')),/only you can merge/);
   // A guard's old sentence with the new hint is not a session check.
   const app={code:'42501',hint:'satchel:app_token',message:'Companion sign-in required'};
   assert.equal(needsSessionCheck(app),false);
@@ -184,16 +186,6 @@ test('no refusal sentence tells a person to sign in again',()=>{
   for(const text of Object.values(constraintText))assert.doesNotMatch(text,SIGN_IN);
 });
 
-test('the storage trigger refusing a delete is not a sign-in problem',()=>{
-  const error={code:'42501',message:'Direct deletion from storage tables is not allowed. Use the Storage API instead.',hint:'',details:null};
-  assert.equal(needsSessionCheck(error),false);
-  for(const op of ['save','action','load']){
-    const text=errorMessage(error,op);
-    assert.doesNotMatch(text,SIGN_IN);
-    assert.match(text,/nothing was deleted/);
-  }
-});
-
 test('a 42501 nobody listed says it was refused, and does not guess',()=>{
   const text=errorMessage({code:'42501',message:'Something new'},'action');
   assert.doesNotMatch(text,SIGN_IN);
@@ -204,13 +196,11 @@ test('a 42501 nobody listed says it was refused, and does not guess',()=>{
 test('our own refusals name what went wrong',()=>{
   assert.match(errorMessage({code:'42501',message:'Topic write unavailable'},'action'),/topics/);
   assert.match(errorMessage({code:'42501',message:'Repository link unavailable'},'action'),/Nothing was linked/);
-  assert.match(errorMessage({code:'42501',message:'Task upload unavailable'},'action'),/file/);
   assert.match(errorMessage({code:'42501',message:'Invalid topic selection'},'action'),/topics you picked/);
   assert.match(errorMessage({code:'P0002',message:'Topic not found'},'action'),/topic is already gone/);
-  assert.match(errorMessage({code:'P0002',message:'Task unavailable'},'save'),/task/);
   assert.match(errorMessage({code:'PT409',message:'Topic revision conflict'},'action'),/changed while you were looking/);
   assert.match(errorMessage({code:'23505',message:'That slug is already in use'}),/short name/);
-  assert.match(errorMessage({code:'23514',message:'Task parent cycle'}),/loop|parent/);
+  assert.match(errorMessage({code:'23514',message:'Topic has work only its owner may move'}),/only you can merge/);
 });
 
 test('a session guard says sign in again only when the auth client has no session',()=>{
@@ -226,23 +216,14 @@ test('a session guard says sign in again only when the auth client has no sessio
 test('an expired token is the session, with no check needed',()=>{
   for(const error of [{code:'PGRST301',message:'JWSError'},{code:'PGRST303',message:'JWT expired'},{code:'',message:'JWT expired'},
     {__isAuthError:true,name:'AuthSessionMissingError',message:'Auth session missing!',status:400},
-    {__isAuthError:true,name:'AuthApiError',code:'session_not_found',status:403,message:'x'},
-    {__isStorageError:true,name:'StorageApiError',status:400,statusCode:'400',code:'InvalidJWT',message:'exp claim timestamp check failed'}])
+    {__isAuthError:true,name:'AuthApiError',code:'session_not_found',status:403,message:'x'}])
     assert.match(errorMessage(error,'action'),SIGN_IN,JSON.stringify(error));
 });
 
-test('storage failures say what happened to the file',()=>{
-  const storage=(status,message,code)=>({__isStorageError:true,name:'StorageApiError',status,statusCode:String(status),code,message});
-  assert.match(errorMessage(storage(403,'new row violates row-level security policy'),'action'),/File storage refused/);
-  assert.match(errorMessage(storage(404,'Object not found'),'action'),/no longer in storage/);
-  assert.match(errorMessage(storage(409,'The resource already exists','Duplicate'),'action'),/already stored/);
-  assert.match(errorMessage(storage(413,'The object exceeded the maximum allowed size'),'action'),/6 MB/);
-});
-
 test('constraint violations name the field, and never quote the row',()=>{
-  const error={code:'23514',message:'new row for relation "tasks" violates check constraint "tasks_title_check"',details:'Failing row contains (secret)'};
+  const error={code:'23514',message:'new row for relation "topics" violates check constraint "topics_name_check"',details:'Failing row contains (secret)'};
   const text=errorMessage(error);
-  assert.match(text,/task title/);
+  assert.match(text,/topic name/);
   assert.doesNotMatch(text,/secret|constraint|relation/);
   assert.match(errorMessage({code:'23505',message:'duplicate key value violates unique constraint "memories_scope_name"'}),/handle/);
   assert.match(errorMessage({code:'23505',message:'duplicate key value violates unique constraint "topics_owner_slug"'}),/short name/);
