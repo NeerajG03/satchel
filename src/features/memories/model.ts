@@ -43,8 +43,9 @@ export type MemorySummary = {
   kind: MemoryKind; mentions: number; name: string | null; has_more_info: boolean;
   revision: number; updated_at: string;
   // Only all_memories carries these. They are what tells a new memory from a
-  // corrected or re-said one in the book.
-  created_at?: string; affirmed_at?: string;
+  // corrected or re-said one in the book. last_change is the action of the
+  // newest memory_events row.
+  created_at?: string; affirmed_at?: string; last_change?: string | null; last_change_at?: string | null;
 };
 
 /** A memory that has stopped loading, and why. Ended is a decision someone

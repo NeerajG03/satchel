@@ -9,8 +9,8 @@ import { EMPTY_CONTENT, replaceSummary, type Memory, type MemoryContent, type Me
 import { ScopePicker } from '../../shell/ScopePicker';
 import { Composer } from './Composer';
 import { MemoryEntry } from './MemoryEntry';
-import { byDay, changeOf, sinceLast, type Day } from './ledger';
-import { lastSeen, markSeen } from './seen';
+import { byDay, changeOf, dated, newestChange, sinceLast, type Day } from './ledger';
+import { lastSeen, markSeen, type Seen } from './seen';
 import { Segments } from '../../ui/Segments';
 import { Empty } from '../../ui/Empty';
 import { LoadError, Notice, Skeleton } from '../../ui/Notice';
@@ -23,7 +23,7 @@ const PROMPTS: MemoryContent[] = [
   { statement: 'I am in Bengaluru on IST and usually working 10 to 7.', name: '', more_info: '', kind: 'fact' },
 ];
 type Where = 'all' | 'name' | 'statement';
-const DAY_WORD: Record<Day, string> = { today: 'Today', yesterday: 'Yesterday', week: 'Earlier this week', older: 'Before that' };
+const DAY_WORD: Record<Day, string> = { today: 'Today', yesterday: 'Yesterday', week: 'Last 7 days', older: 'Before that' };
 // Enough to cover a busy week without the page turning back into a scroll.
 const FIRST = 20;
 const NOTE_FIRST = 3;
@@ -65,14 +65,6 @@ export function Book() {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [noteAll, setNoteAll] = useState(false);
-  // Read once per scope before this visit overwrites it, so the note keeps
-  // saying the same thing for as long as the page is open.
-  const seenRef = useRef(new Map<string, string | null>());
-  if (!seenRef.current.has(scopeKey)) seenRef.current.set(scopeKey, lastSeen(scopeKey));
-  const seen = seenRef.current.get(scopeKey) ?? null;
-  const [openedAt] = useState(() => new Date().toISOString());
-  const loaded = Boolean(memories.data);
-  useEffect(() => { if (loaded) markSeen(scopeKey); }, [scopeKey, loaded]);
   useEffect(() => { setShowAll(false); setNoteAll(false); setOpenKey(null); }, [scopeKey]);
 
   const hasDraft = Boolean(content.statement || content.name || content.more_info);
@@ -87,22 +79,39 @@ export function Book() {
     return result;
   }, [memories.data, topicList]);
 
-  const matches = matcher(query);
-  const everything = memories.data ?? [];
-  const inScope = everything.filter(m => scope.kind === 'topic' ? m.topic_id === scope.topicId : m.topic_id === null);
-  const all = searchAll && query ? everything : inScope;
-  const inName = all.filter(m => matches(m.name ?? ''));
-  const inStatement = all.filter(m => matches(m.statement));
-  const searched = query ? all.filter(m => matches(m.name ?? '') || matches(m.statement)) : all;
-  const visible = where === 'name' ? inName : where === 'statement' ? inStatement : searched;
+  const { inScope, all, inName, inStatement, searched, visible } = useMemo(() => {
+    const matches = matcher(query);
+    const everything = memories.data ?? [];
+    const inScope = everything.filter(m => scope.kind === 'topic' ? m.topic_id === scope.topicId : m.topic_id === null);
+    const all = searchAll && query ? everything : inScope;
+    const inName = all.filter(m => matches(m.name ?? ''));
+    const inStatement = all.filter(m => matches(m.statement));
+    const searched = query ? all.filter(m => matches(m.name ?? '') || matches(m.statement)) : all;
+    const visible = where === 'name' ? inName : where === 'statement' ? inStatement : searched;
+    return { inScope, all, inName, inStatement, searched, visible };
+  // scopeKey stands for scope, which is a new object on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memories.data, scopeKey, query, searchAll, where]);
 
-  const groups = byDay(visible);
-  const note = sinceLast(inScope, seen, openedAt);
+  // One visit per scope: what was last seen, and the newest change when this
+  // visit began. Both are database times, so a browser clock that is off
+  // cannot hide a memory or show it twice. Taken from the first load, so a
+  // memory written while the page is open is not news.
+  const visits = useRef(new Map<string, { seen: Seen | null; until: string }>());
+  if (memories.data && !visits.current.has(scopeKey))
+    visits.current.set(scopeKey, { seen: lastSeen(scopeKey), until: newestChange(inScope) });
+  const visit = visits.current.get(scopeKey);
+  // Only once the note could have been shown. Searching hides it, so a visit
+  // that was only ever a search leaves the news for next time.
+  useEffect(() => { if (visit && !query) markSeen(scopeKey, visit.until); }, [scopeKey, visit, query]);
+
+  const groups = useMemo(() => byDay(visible), [visible]);
+  const note = useMemo(() => visit ? sinceLast(inScope, visit.seen?.at ?? null, visit.until) : { fresh: [], moved: 0 }, [inScope, visit]);
   let budget = showAll || query ? Infinity : FIRST;
   const shownGroups = groups.map(group => {
     const items = group.items.slice(0, Math.max(0, budget));
     budget -= items.length;
-    return { ...group, items };
+    return { ...group, total: group.items.length, items };
   }).filter(group => group.items.length > 0);
   const hidden = visible.length - shownGroups.reduce((sum, group) => sum + group.items.length, 0);
 
@@ -151,10 +160,9 @@ export function Book() {
     announce('Forgotten · it is in the archive if you want it back');
   }
 
-  function dayLine(group: (typeof groups)[number]) {
-    const total = groups.find(g => g.day === group.day)?.items.length ?? group.items.length;
+  function dayLine(group: (typeof shownGroups)[number]) {
     // Rows without their dates cannot say why they moved, so the head only counts them.
-    if (group.day === 'older' || !group.items.some(m => m.created_at)) return count(total, 'memory', 'memories');
+    if (group.day === 'older' || !group.items.some(dated)) return count(group.total, 'memory', 'memories');
     return [group.counts.new && `${group.counts.new} new`, group.counts.again && `${group.counts.again} said again`,
       group.counts.changed && `${group.counts.changed} changed`].filter(Boolean).join(' · ');
   }
@@ -219,9 +227,9 @@ export function Book() {
       Memories saved in “For me” and other topics are not searched unless you widen the scope above.
     </Empty>}
 
-    {!query && !editing && note.fresh.length > 0 && <section className="since" aria-labelledby="since-title">
+    {!query && !editing && note.fresh.length > 0 && <section className="panel since" aria-labelledby="since-title">
       <h2 id="since-title" className="lead">{count(note.fresh.length, 'new memory', 'new memories')} since you last looked.</h2>
-      <p className="prov">You were last here {whenText(seen!)}{note.moved > 0 && ` · ${count(note.moved, 'other was', 'others were')} said again or changed`}</p>
+      <p className="prov">You were last here {whenText(visit!.seen!.visited)}{note.moved > 0 && ` · ${count(note.moved, 'other was', 'others were')} said again or changed`}</p>
       <div>{(noteAll ? note.fresh : note.fresh.slice(0, NOTE_FIRST)).map(memory => entryFor(memory, 'note', true))}</div>
       {!noteAll && note.fresh.length > NOTE_FIRST && <Button look="link" onClick={() => setNoteAll(true)}>Show the other {note.fresh.length - NOTE_FIRST}</Button>}
     </section>}

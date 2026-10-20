@@ -1,10 +1,10 @@
 import { useId, type ReactNode } from 'react';
 import { kindLabel, type Memory, type MemorySummary } from './model';
-import type { Change } from './ledger';
+import { dated, shortWhen, type Change } from './ledger';
 import { Button } from '../../ui/Button';
 import { TornPageIcon } from '../../ui/TornPageIcon';
 import { Provenance } from '../../ui/Provenance';
-import { fullDate, shortWhen } from '../../app/format';
+import { fullDate } from '../../app/format';
 
 const WHY_WORD = { new: 'New', again: 'Said again', changed: 'Changed' } as const;
 const WHY_CHIP = { new: 'chip progress', again: 'chip', changed: 'chip amber' } as const;
@@ -38,8 +38,8 @@ export function MemoryEntry({ memory, change, open, expanded, busy, dim, fresh, 
   const openLabel = memory.has_more_info ? 'Read more info' : 'See what you said';
 
   return <article className={`entry line ${open ? 'open' : ''} ${dim ? 'dim' : ''} ${fresh ? 'fresh' : ''}`.trim()}>
-    <button type="button" className={`row ${wrap || open ? 'wrap' : ''}`} aria-expanded={open} aria-controls={detailId} onClick={onToggle}>
-      <span className="why">{tagged && memory.created_at && <span className={WHY_CHIP[change.why]}>{WHY_WORD[change.why]}</span>}</span>
+    <button type="button" className={`row ${wrap || open ? 'wrap' : ''}`} aria-expanded={open} aria-controls={open ? detailId : undefined} onClick={onToggle}>
+      <span className="why">{tagged && dated(memory) && <span className={WHY_CHIP[change.why]}>{WHY_WORD[change.why]}</span>}</span>
       <span className="statement">{highlight(memory.statement)}</span>
       <span className="claim">{kindLabel(memory.kind).toLowerCase()}</span>
       <time className="when" dateTime={change.at} title={fullDate(change.at)}>{shortWhen(change.at)}</time>

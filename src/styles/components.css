@@ -155,7 +155,7 @@ select.field { appearance: auto; }
 .day { display: flex; flex-direction: column; }
 .day-head { display: flex; align-items: baseline; gap: 12px; padding: 20px 0 6px; border-bottom: 1px solid var(--ink); }
 .day-head h2 { font: 500 var(--text-h3)/1.25 var(--font-content); }
-.since { border: 1px solid var(--line); background: var(--paper-2); border-radius: var(--r-paper); padding: 16px 18px 10px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.panel.since { padding-bottom: 10px; gap: 4px; align-items: flex-start; }
 .since > div { align-self: stretch; }
 .since .lead { font: 500 var(--text-h3)/1.25 var(--font-content); }
 .since .entry.line .row:hover, .since .entry.line.open .row { background: var(--paper-3); }

@@ -63,7 +63,7 @@
 - Entry provenance: handle {name} · {kind} · said {n} times · picked up automatically · revision {n}
 - Entry actions: Correct · Read more info (only when there is any) · See what you said (picked-up memories) · Hide
 - Row tags (last week only): New · Said again · Changed
-- Day groups: Today · Yesterday · Earlier this week · Before that / {n} new · {n} said again · {n} changed / {n} memories
+- Day groups: Today · Yesterday · Last 7 days · Before that / {n} new · {n} said again · {n} changed / {n} memories
 - Since note: {n} new memories since you last looked. / You were last here {when} · {n} others were said again or changed / Show the other {n}
 - Below the groups: Show all {n}
 - Source block heading: From what you said

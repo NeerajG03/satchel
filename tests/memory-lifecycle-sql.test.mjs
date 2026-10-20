@@ -307,8 +307,10 @@ test('the book gets the dates that tell new from said again, and an agent does n
     await save(call, owner, id, 'Plain words in every string.');
     const [row] = await call(owner, 'select * from all_memories()');
     assert.ok(row.created_at && row.affirmed_at, 'the web app can see when it was made and last said');
+    assert.equal(row.last_change, 'added', 'and what the last real change was');
+    assert.equal(+row.last_change_at, +row.affirmed_at, 'in the same transaction, so a later affirm is past it');
     const [agentRow] = await call(owner, 'select * from list_memories(null)');
-    assert.ok(!('created_at' in agentRow) && !('affirmed_at' in agentRow),
+    assert.ok(!('created_at' in agentRow) && !('affirmed_at' in agentRow) && !('last_change' in agentRow),
       'memory_index rows stay the size they were');
   } finally { await db.close(); }
 });

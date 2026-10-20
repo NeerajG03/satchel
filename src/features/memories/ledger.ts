@@ -5,35 +5,59 @@ export type Change = { at: string; why: Why };
 export type Day = 'today' | 'yesterday' | 'week' | 'older';
 export type Group<T> = { day: Day; items: T[]; counts: Record<Why, number> };
 
-// A said-again that also flips a picked-up memory to said writes affirmed_at
-// with now() and updated_at with clock_timestamp() a moment later, in one
-// statement. Without some slack those read as two separate events.
+// Only for rows older than the event log. A said-again that also flips a
+// picked-up memory to said writes affirmed_at with now() and updated_at with
+// clock_timestamp() a moment later, in one statement.
 const SAME = 2_000;
 const DAY = 86_400_000;
+const EVENT_WHY: Record<string, Why> = { added: 'new', confirmed: 'again' };
 
-/** Why a row sits where it does. updated_at is the last time the wording or
- *  band changed and affirmed_at the last time it was said, so creation, a
- *  change and a re-say each leave a different pair of dates. A correction and
- *  the first re-say of a picked-up memory move both together, so both read as
- *  changed. */
+/** Why a row sits where it does. The last event says what the last real
+ *  change was. Being said again writes no event, only affirmed_at, and the
+ *  event and affirmed_at share a transaction's now(), so an affirmed_at past
+ *  the event means it was said again since. */
 export function changeOf(memory: MemorySummary): Change {
   const created = Date.parse(memory.created_at ?? memory.updated_at);
   const updated = Date.parse(memory.updated_at);
   const affirmed = Date.parse(memory.affirmed_at ?? memory.updated_at);
-  const latest = Math.max(created, updated, affirmed);
-  const at = new Date(latest).toISOString();
-  if (latest - created <= SAME) return { at, why: 'new' };
+  const at = new Date(Math.max(created, updated, affirmed)).toISOString();
+  if (memory.last_change && memory.last_change_at) {
+    if (affirmed > Date.parse(memory.last_change_at)) return { at, why: 'again' };
+    return { at, why: EVENT_WHY[memory.last_change] ?? 'changed' };
+  }
+  if (Date.parse(at) - created <= SAME) return { at, why: 'new' };
   if (affirmed - updated > SAME) return { at, why: 'again' };
   return { at, why: 'changed' };
 }
 
-export function dayOf(iso: string, now = Date.now()): Day {
+/** Whether the row carries the dates that make its tag mean anything. */
+export const dated = (memory: MemorySummary) => Boolean(memory.created_at);
+
+function startOfDay(now: number): number {
   const start = new Date(now); start.setHours(0, 0, 0, 0);
+  return start.getTime();
+}
+
+export function dayOf(iso: string, now = Date.now()): Day {
+  const start = startOfDay(now);
   const then = Date.parse(iso);
-  if (then >= start.getTime()) return 'today';
-  if (then >= start.getTime() - DAY) return 'yesterday';
-  if (then >= start.getTime() - 6 * DAY) return 'week';
+  if (then >= start) return 'today';
+  if (then >= start - DAY) return 'yesterday';
+  if (then >= start - 6 * DAY) return 'week';
   return 'older';
+}
+
+/** For the time column: as short as it can be and still be read alone. A
+ *  weekday inside the last seven days, the same days the book groups, and a
+ *  date before that. */
+export function shortWhen(iso: string, now = Date.now()): string {
+  const diff = now - Date.parse(iso);
+  if (diff < 3_600_000) return `${Math.max(1, Math.floor(diff / 60_000))} min`;
+  const day = dayOf(iso, now);
+  if (day === 'today') return `${Math.floor(diff / 3_600_000)} h`;
+  const then = new Date(iso);
+  if (day === 'older') return then.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return then.toLocaleDateString(undefined, { weekday: 'short' });
 }
 
 const ORDER: Day[] = ['today', 'yesterday', 'week', 'older'];
@@ -53,20 +77,28 @@ export function byDay<T extends MemorySummary>(memories: T[], now = Date.now()):
   return ORDER.flatMap(day => groups.get(day) ?? []);
 }
 
-/** What came in between the last visit and this one. Only new memories are
- *  listed; the rest that moved are a count, because a re-said rule is not
- *  news. Anything after `until` happened while you were looking, so it is not
- *  news either. */
-export function sinceLast<T extends MemorySummary>(memories: T[], seen: string | null, until = new Date().toISOString()) {
+/** The newest change among these rows, in the database's clock. */
+export function newestChange(memories: MemorySummary[]): string {
+  return memories.reduce((latest, memory) => {
+    const at = changeOf(memory).at;
+    return at > latest ? at : latest;
+  }, new Date(0).toISOString());
+}
+
+/** What came in after `seen` and up to `until`, both in the database's clock.
+ *  Only new memories are listed; the rest that moved are a count, because a
+ *  re-said rule is not news. Rows without their dates are left out, because
+ *  they cannot tell a new memory from an edited one. */
+export function sinceLast<T extends MemorySummary>(memories: T[], seen: string | null, until: string) {
   if (!seen) return { fresh: [] as T[], moved: 0 };
-  const after = (iso: string) => iso > seen && iso <= until;
-  const fresh: T[] = [];
+  const fresh: { memory: T; at: string }[] = [];
   let moved = 0;
   for (const memory of memories) {
+    if (!dated(memory)) continue;
     const change = changeOf(memory);
-    if (!after(change.at)) continue;
-    if (change.why === 'new') fresh.push(memory); else moved += 1;
+    if (change.at <= seen || change.at > until) continue;
+    if (change.why === 'new') fresh.push({ memory, at: change.at }); else moved += 1;
   }
-  fresh.sort((a, b) => changeOf(b).at.localeCompare(changeOf(a).at));
-  return { fresh, moved };
+  fresh.sort((a, b) => b.at.localeCompare(a.at));
+  return { fresh: fresh.map(item => item.memory), moved };
 }
