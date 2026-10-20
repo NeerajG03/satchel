@@ -156,10 +156,10 @@ test('one step reads until its time is up and says there is more', async () => {
   const {service, consolidator, jobs} = fakeService({documents: docs(5)});
   const {job} = await service.startConsolidationJob({idleMinutes: 30, waiting: 5});
   const held = await service.moveConsolidationJob(job.id, 0, {step: 1});
-  // A clock that moves a minute per session, and a two and a half minute step.
+  // A clock that moves a minute per session, and a step with room for two.
   let clock = Date.now();
   const now = () => (clock += 60000);
-  const out = await consolidateStep(service, consolidator, held, {budgetMs: 150000, now});
+  const out = await consolidateStep(service, consolidator, held, {budgetMs: 210000, now});
   assert.equal(out.more, true);
   assert.equal(out.job.read, 2);
   assert.equal(out.job.added, 2);
@@ -167,6 +167,21 @@ test('one step reads until its time is up and says there is more', async () => {
   // The report carries what each session did and why, which is what the page shows.
   assert.equal(out.job.runs[0].actions[0].statement, 'A claim from d1.');
   assert.equal(jobs.get(job.id).status, 'running');
+});
+
+test('a step with too little time left hands the session on instead of failing it', async () => {
+  const {service, consolidator, marked} = fakeService({documents: docs(3)});
+  const {job} = await service.startConsolidationJob({idleMinutes: 30, waiting: 3});
+  const held = await service.moveConsolidationJob(job.id, 0, {step: 1});
+  // The clock the step reads: the start, then 30 seconds left before the second session.
+  const start = Date.now();
+  const marks = [start, start, start + 210000];
+  const now = () => marks.length > 1 ? marks.shift() : marks[0];
+  const out = await consolidateStep(service, consolidator, held, {budgetMs: 240000, now});
+  assert.equal(out.more, true);
+  assert.equal(out.job.failed, 0);
+  assert.deepEqual(out.job.runs.map(r => r.document), ['d1']);
+  assert.ok(!marked.has('d2'), 'the session it did not start was not touched');
 });
 
 test('the last step finishes the job and says so', async () => {
