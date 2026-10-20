@@ -17,6 +17,7 @@ Start with [The product](product.md). It explains what Satchel is for, what some
 | [Memory and topics retro, 16 October](retro-memory-topics-2026-10-16.md) | After four weeks, what did the memory and topic system keep, what did the agent get, and where is the value? |
 | [Retro fix program, 16 October](retro-fix-program-2026-10-16.md) | Which fixes came out of the retro, in what order, with what proof, and what shipped? |
 | [Following first, 18 October](following-first-2026-10-18.md) | Proposed: is what real sessions get the same as today's code, and how do we count rules you had to say again? |
+| [Rules the agent ignores, 19 October](following-ignored-rules-2026-10-19.md) | Proposed: why showing a rule again would not help, and what to fix and test first |
 | [Skills management — parked direction](skills-management-direction.md) | What user-specific skill selection and delivery experience should we return to later? |
 | [Native agent evidence](checkpoints/native-agent-pilot.md) | Which real-client behaviors passed and what still needs release validation? |
 | [Pre-launch security audit](checkpoints/security-audit-2026-09-18.md) | Which isolation boundaries passed locally, what was fixed, and which two-account checks remain before launch? |
