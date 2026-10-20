@@ -40,6 +40,7 @@
 - Row: Next: {next action} · {kind} · {app} · {device} · {when} · {resource note} · Open task
 - Under list: {n} more tasks are waiting on something. See them in Tasks
 - Aside: Last thing saved / "{description}" / Said on your {device} · {scope} · {when}
+- Aside, when something is new since you last opened the book (replaces Last thing saved): Since you last looked / {n} new memories in {k} topics. / See what came in
 - Aside: Your apps / reads and saves · verified today / reads only · last read Fri / not connected / Manage apps
 
 ## Book
@@ -64,7 +65,7 @@
 - Entry actions: Correct · Read more info (only when there is any) · See what you said (picked-up memories) · Hide
 - Row tags (last week only): New · Said again · Changed
 - Day groups: Today · Yesterday · Last 7 days · Before that / {n} new · {n} said again · {n} changed / {n} memories
-- Since note: {n} new memories since you last looked. / You were last here {when} · {n} others were said again or changed / Show the other {n}
+- Since note, every topic, in every scope: {n} new memories since you last looked, in {k} topics. (or: Nothing new since you last looked.) / You were last here {when} / Topic row: {topic} · {n} · new · {n} said again · {n} changed · {n} archived / Show all {n} for {topic} · Open its book (Open For me)
 - Below the groups: Show all {n}
 - Source block heading: From what you said
 - No approval action anywhere. A memory is a memory whether or not the person agrees with it, and asking them to confirm one turns memory into a queue of chores.

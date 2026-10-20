@@ -9,6 +9,10 @@ export type Group<T> = { day: Day; items: T[]; counts: Record<Why, number> };
 // picked-up memory to said writes affirmed_at with now() and updated_at with
 // clock_timestamp() a moment later, in one statement.
 const SAME = 2_000;
+// The overnight run adds a memory and confirms it a couple of minutes later
+// when it was said more than once. Anything that happens to a memory this
+// soon after it was made is part of making it.
+const PASS = 10 * 60_000;
 const DAY = 86_400_000;
 const EVENT_WHY: Record<string, Why> = { added: 'new', confirmed: 'again' };
 
@@ -21,11 +25,11 @@ export function changeOf(memory: MemorySummary): Change {
   const updated = Date.parse(memory.updated_at);
   const affirmed = Date.parse(memory.affirmed_at ?? memory.updated_at);
   const at = new Date(Math.max(created, updated, affirmed)).toISOString();
+  if (Date.parse(at) - created <= PASS) return { at, why: 'new' };
   if (memory.last_change && memory.last_change_at) {
     if (affirmed > Date.parse(memory.last_change_at)) return { at, why: 'again' };
     return { at, why: EVENT_WHY[memory.last_change] ?? 'changed' };
   }
-  if (Date.parse(at) - created <= SAME) return { at, why: 'new' };
   if (affirmed - updated > SAME) return { at, why: 'again' };
   return { at, why: 'changed' };
 }
@@ -77,28 +81,42 @@ export function byDay<T extends MemorySummary>(memories: T[], now = Date.now()):
   return ORDER.flatMap(day => groups.get(day) ?? []);
 }
 
-/** The newest change among these rows, in the database's clock. */
-export function newestChange(memories: MemorySummary[]): string {
-  return memories.reduce((latest, memory) => {
-    const at = changeOf(memory).at;
-    return at > latest ? at : latest;
-  }, new Date(0).toISOString());
+type Ended = { topic_id: string | null; ended_at: string | null };
+
+/** The newest change among these rows, in the database's clock, counting
+ *  memories that were put in the archive. */
+export function newestChange(memories: MemorySummary[], ended: Ended[] = []): string {
+  const times = [...memories.map(memory => Date.parse(changeOf(memory).at)),
+    ...ended.flatMap(row => row.ended_at ? [Date.parse(row.ended_at)] : [])];
+  return new Date(Math.max(0, ...times)).toISOString();
 }
 
-/** What came in after `seen` and up to `until`, both in the database's clock.
- *  Only new memories are listed; the rest that moved are a count, because a
- *  re-said rule is not news. Rows without their dates are left out, because
- *  they cannot tell a new memory from an edited one. */
-export function sinceLast<T extends MemorySummary>(memories: T[], seen: string | null, until: string) {
-  if (!seen) return { fresh: [] as T[], moved: 0 };
-  const fresh: { memory: T; at: string }[] = [];
-  let moved = 0;
-  for (const memory of memories) {
-    if (!dated(memory)) continue;
-    const change = changeOf(memory);
-    if (change.at <= seen || change.at > until) continue;
-    if (change.why === 'new') fresh.push({ memory, at: change.at }); else moved += 1;
+export type TopicNews<T> = { topicId: string | null; fresh: T[]; again: T[]; changed: T[]; archived: number };
+
+/** What came in after `seen` and up to `until`, both in the database's clock,
+ *  one entry per topic with anything in it, the busiest first. New means made
+ *  in that window. Rows without their dates are left out, because they cannot
+ *  tell a new memory from an edited one. */
+export function newsByTopic<T extends MemorySummary>(memories: T[], ended: Ended[], seen: string | null, until: string): TopicNews<T>[] {
+  if (!seen) return [];
+  const from = Date.parse(seen), to = Date.parse(until);
+  const inside = (iso: string | null | undefined) => {
+    const at = iso ? Date.parse(iso) : NaN;
+    return at > from && at <= to;
+  };
+  const topics = new Map<string | null, TopicNews<T>>();
+  const entry = (topicId: string | null) => {
+    const found = topics.get(topicId) ?? { topicId, fresh: [], again: [], changed: [], archived: 0 };
+    topics.set(topicId, found);
+    return found;
+  };
+  const sorted = memories.filter(dated).map(memory => ({ memory, change: changeOf(memory) }))
+    .sort((a, b) => b.change.at.localeCompare(a.change.at));
+  for (const { memory, change } of sorted) {
+    if (inside(memory.created_at)) entry(memory.topic_id).fresh.push(memory);
+    else if (inside(change.at)) entry(memory.topic_id)[change.why === 'again' ? 'again' : 'changed'].push(memory);
   }
-  fresh.sort((a, b) => b.at.localeCompare(a.at));
-  return { fresh: fresh.map(item => item.memory), moved };
+  for (const row of ended) if (inside(row.ended_at)) entry(row.topic_id).archived += 1;
+  const size = (news: TopicNews<T>) => news.again.length + news.changed.length + news.archived;
+  return [...topics.values()].sort((a, b) => b.fresh.length - a.fresh.length || size(b) - size(a));
 }
