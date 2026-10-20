@@ -550,7 +550,7 @@ export async function consolidateStep(service, consolidator, job,
   // row that stop a job. The next step has a full clock, so the session waits.
   // Against the job's wall there is no next step, so the floor does not apply.
   const room = deadline < wall ? MIN_START_MS : 0;
-  for (; index < waiting.length && deadline - now() >= Math.max(room, 1); index++) {
+  for (; index < waiting.length && now() + room < deadline; index++) {
     const run = await consolidateDocument(service, consolidator, waiting[index],
       {topics, cap: settings.block_size, churn: settings.staleness_commits,
        deadline, traced, ownerId, topicsAllowed});
