@@ -1,6 +1,6 @@
 # Rules the agent ignores · 19 October 2026
 
-**Status:** proposed, nothing built. **Decides:** Neeraj. **Follows:** [Following first](following-first-2026-10-18.md), sections 1, 4 and 8.
+**Status:** offline test run 20 Oct (section 8). The fix is rewording the rules; nothing built yet. **Decides:** Neeraj. **Follows:** [Following first](following-first-2026-10-18.md), sections 1, 4 and 8.
 
 The last design said the first thing to try for following was this: show a rule again at the message where it applies. I measured it before building anything. **It would not have helped.** This doc says why, what the data points at instead, and how I'd test the next idea cheaply before building it.
 
@@ -149,3 +149,53 @@ An independent reviewer read the first draft against the raw results.
 | Many complaints are about length, which no rule says | Fixing the rule data is now the first step |
 | The 4-week score can't judge this; test offline instead | Offline test before any build |
 | A line on every prompt passes the replay by construction and is easy to skip | Not shipped without the offline test |
+
+---
+
+## 8. The offline test · 20 October
+
+```
+ passed the rubric (4 real failing turns, 3 answers each, Opus 5.5 answering, Sonnet 5.5 grading)
+
+ V0 today                          0 of 12   ▏                      median 605 words
+ V1 + a "keep it short" rule       0 of 12   ▏                      median 431 words
+ V2 always section + handle line   0 of 12   ▏                      median 621 words
+ V4 rules reworded, concrete       4 of 12   ████                   median 265 words
+ V5 V4 + a plain reminder line     1 of 12   █                      median 241 words
+```
+
+**What fixed it was the wording of the rules, not where they sit.** When the rules said exactly what to do ("under 200 words, answer first, at most 5 points"; "no code names, file names, hashes or flags; describe problems by what the person sees"), the length cases went from 0 of 6 to 4 of 6, and answers got about 60% shorter. Moving the same vague rules to the top did nothing, and neither did a reminder on every prompt. That matches what `CLAUDE.md` already showed.
+
+| Case | Rule | V0 today | V4 reworded |
+|---|---|---|---|
+| b26649ab | bf351a, plan docs short and visual | 0 of 3, 770 words | 2 of 3, 271 words |
+| f7f5831f | bf351a | 0 of 3, 691 words | 2 of 3, 240 words |
+| 8b3d6216 | 1db602, plain words | 0 of 3, 328 words | 0 of 3, 214 words |
+| 1beb9134 | 1db602 | 0 of 3, 524 words | 0 of 3, 303 words |
+
+**Jargon is not fixed yet.** The reworded plain-words rule took out the code names, but the judge still failed every answer for words like "commit", "rebased branch" and "sandbox". I feel part of that is a strict judge, since you work with PRs every day. But it is still the weakest case.
+
+<details>
+<summary>+ How the test was run, and its limits</summary>
+
+- 5 real failing turns were rebuilt from transcripts: the start block as it was, up to 8 earlier exchanges, a summary of the tool work in that turn, and the message the agent answered badly. 9 complaints were left out (code work, a session's first message, or not found). The merge case (602b570f) was dropped after the run, because its tool work showed a permission check blocking the merge, so it could not test following.
+- Answers came from `claude -p` with Opus 5.5 on your subscription, with Satchel's plugin, hooks and MCP off. A judge (Sonnet 5.5) saw only the rubric and the reply. The 5 original replies all failed the same judge.
+- A rebuilt turn without live tools is not the live agent, and 12 answers per version is small. But 0 of 12 against 4 of 12, with every length case 50 to 65% shorter, is not noise.
+- Files, with your words, stay local: `~/satchel-daily/following-test/`.
+</details>
+
+### What this changes
+
+| | Mark |
+|---|---|
+| Reword 1db602 and bf351a, and add a "keep replies under 200 words" rule, in your memory | Open, needs your yes |
+| Root cause: the nightly pass saves rules in your loose words ("simple", "readable"), which the agent does not act on. The pass should save preferences as concrete, checkable instructions. That is a prompt change, with its own eval | Open, next |
+| The always section and the per-prompt line | Not built. Measured: no effect |
+
+## Decided · 20 October
+
+| What |
+|---|
+| Rule placement changes are not built: 0 of 12, same as today |
+| The fix is concrete rule wording: 4 of 12 against 0 of 12 |
+
