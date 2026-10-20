@@ -1,14 +1,16 @@
-import { Fragment, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useStores } from '../../app/stores';
 import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
 import { parseScope, scopeEyebrow, scopeName, scopeQuery } from '../../app/scope';
-import { count } from '../../app/format';
+import { count, whenText } from '../../app/format';
 import { EMPTY_CONTENT, replaceSummary, type Memory, type MemoryContent, type MemorySummary } from './model';
 import { ScopePicker } from '../../shell/ScopePicker';
 import { Composer } from './Composer';
 import { MemoryEntry } from './MemoryEntry';
+import { byDay, changeOf, dated, newestChange, sinceLast, type Day } from './ledger';
+import { lastSeen, markSeen, type Seen } from './seen';
 import { Segments } from '../../ui/Segments';
 import { Empty } from '../../ui/Empty';
 import { LoadError, Notice, Skeleton } from '../../ui/Notice';
@@ -21,6 +23,10 @@ const PROMPTS: MemoryContent[] = [
   { statement: 'I am in Bengaluru on IST and usually working 10 to 7.', name: '', more_info: '', kind: 'fact' },
 ];
 type Where = 'all' | 'name' | 'statement';
+const DAY_WORD: Record<Day, string> = { today: 'Today', yesterday: 'Yesterday', week: 'Last 7 days', older: 'Before that' };
+// Enough to cover a busy week without the page turning back into a scroll.
+const FIRST = 20;
+const NOTE_FIRST = 3;
 
 function matcher(query: string) {
   const needle = query.trim().toLowerCase();
@@ -38,8 +44,10 @@ export function Book() {
   const composeParam = params.get('compose') === '1';
 
   const topics = useLoad(() => stores.topics.list(), [stores]);
-  const memories = useLoad(() => searchAll ? stores.memories.listAll() : stores.memories.list(scope), [stores, scope.kind, scope.kind === 'topic' ? scope.topicId : '', searchAll]);
-  const counts = useLoad(() => stores.memories.listAll(), [stores]);
+  // One load for every scope. The picker needs counts for all of them anyway,
+  // and only all_memories carries the dates that tell new from said again.
+  const memories = useLoad(() => stores.memories.listAll(), [stores]);
+  const scopeKey = scope.kind === 'topic' ? scope.topicId : 'personal';
   const action = useAction();
   // Reading and forgetting one entry. Their failure shows under that entry,
   // because the composer that shows save errors is often closed or hidden.
@@ -54,6 +62,10 @@ export function Book() {
   const [forgetId, setForgetId] = useState<string | null>(null);
   const [freshId, setFreshId] = useState<string | null>(null);
   const [where, setWhere] = useState<Where>('all');
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [noteAll, setNoteAll] = useState(false);
+  useEffect(() => { setShowAll(false); setNoteAll(false); setOpenKey(null); }, [scopeKey]);
 
   const hasDraft = Boolean(content.statement || content.name || content.more_info);
   const open = composerOpen || composeParam || hasDraft;
@@ -62,17 +74,46 @@ export function Book() {
   const topic = scope.kind === 'topic' ? topicList.find(p => p.id === scope.topicId) : undefined;
   const memoryCounts = useMemo(() => {
     const result: Record<string, number> = {};
-    for (const memory of counts.data ?? []) if (memory.topic_id) result[memory.topic_id] = (result[memory.topic_id] ?? 0) + 1;
+    for (const memory of memories.data ?? []) if (memory.topic_id) result[memory.topic_id] = (result[memory.topic_id] ?? 0) + 1;
     for (const p of topicList) result[p.id] ??= 0;
     return result;
-  }, [counts.data, topicList]);
+  }, [memories.data, topicList]);
 
-  const matches = matcher(query);
-  const all = memories.data ?? [];
-  const inName = all.filter(m => matches(m.name ?? ''));
-  const inStatement = all.filter(m => matches(m.statement));
-  const searched = query ? all.filter(m => matches(m.name ?? '') || matches(m.statement)) : all;
-  const visible = where === 'name' ? inName : where === 'statement' ? inStatement : searched;
+  const { inScope, all, inName, inStatement, searched, visible } = useMemo(() => {
+    const matches = matcher(query);
+    const everything = memories.data ?? [];
+    const inScope = everything.filter(m => scope.kind === 'topic' ? m.topic_id === scope.topicId : m.topic_id === null);
+    const all = searchAll && query ? everything : inScope;
+    const inName = all.filter(m => matches(m.name ?? ''));
+    const inStatement = all.filter(m => matches(m.statement));
+    const searched = query ? all.filter(m => matches(m.name ?? '') || matches(m.statement)) : all;
+    const visible = where === 'name' ? inName : where === 'statement' ? inStatement : searched;
+    return { inScope, all, inName, inStatement, searched, visible };
+  // scopeKey stands for scope, which is a new object on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memories.data, scopeKey, query, searchAll, where]);
+
+  // One visit per scope: what was last seen, and the newest change when this
+  // visit began. Both are database times, so a browser clock that is off
+  // cannot hide a memory or show it twice. Taken from the first load, so a
+  // memory written while the page is open is not news.
+  const visits = useRef(new Map<string, { seen: Seen | null; until: string }>());
+  if (memories.data && !visits.current.has(scopeKey))
+    visits.current.set(scopeKey, { seen: lastSeen(scopeKey), until: newestChange(inScope) });
+  const visit = visits.current.get(scopeKey);
+  // Only once the note could have been shown. Searching hides it, so a visit
+  // that was only ever a search leaves the news for next time.
+  useEffect(() => { if (visit && !query) markSeen(scopeKey, visit.until); }, [scopeKey, visit, query]);
+
+  const groups = useMemo(() => byDay(visible), [visible]);
+  const note = useMemo(() => visit ? sinceLast(inScope, visit.seen?.at ?? null, visit.until) : { fresh: [], moved: 0 }, [inScope, visit]);
+  let budget = showAll || query ? Infinity : FIRST;
+  const shownGroups = groups.map(group => {
+    const items = group.items.slice(0, Math.max(0, budget));
+    budget -= items.length;
+    return { ...group, total: group.items.length, items };
+  }).filter(group => group.items.length > 0);
+  const hidden = visible.length - shownGroups.reduce((sum, group) => sum + group.items.length, 0);
 
   useFooter(query ? `${visible.length} of ${all.length} match “${query}”` : `${count(all.length, 'in the book', 'in the book')} · ${label}`,
     !memories.loading && all.length === 0 && !query ? { light: 'amber', word: topic ? 'Topic has nothing yet' : 'Nothing saved yet' } : undefined);
@@ -102,7 +143,6 @@ export function Book() {
     const saved = await action.run(() => editing ? stores.memories.correct(editing, content) : stores.memories.save(scope, draftId, content));
     if (!saved) return;
     memories.replace(items => replaceSummary(items, saved));
-    counts.reload();
     setFreshId(saved.id);
     clearDraft();
     announce(`Saved to your book · revision ${saved.revision}`);
@@ -112,13 +152,32 @@ export function Book() {
     const done = await entry.run(async () => { await stores.memories.forget(memory); return true; });
     if (!done) return;
     memories.replace(items => items.filter(item => item.id !== memory.id));
-    counts.reload();
     setForgetId(null);
     if (expanded?.id === memory.id) setExpanded(null);
     // Where it went, because it did not go anywhere final. Forgetting stops a
     // memory loading; the archive is where it waits and where deleting for
     // good actually lives.
     announce('Forgotten · it is in the archive if you want it back');
+  }
+
+  function dayLine(group: (typeof shownGroups)[number]) {
+    // Rows without their dates cannot say why they moved, so the head only counts them.
+    if (group.day === 'older' || !group.items.some(dated)) return count(group.total, 'memory', 'memories');
+    return [group.counts.new && `${group.counts.new} new`, group.counts.again && `${group.counts.again} said again`,
+      group.counts.changed && `${group.counts.changed} changed`].filter(Boolean).join(' · ');
+  }
+  function entryFor(memory: MemorySummary, place: 'note' | 'list', tagged: boolean) {
+    const key = `${place}:${memory.id}`;
+    if (place === 'list' && editing?.id === memory.id) return <Composer key={key} content={content} scopeLabel={label} open busy={action.busy} error={action.error} editing={editing}
+      onOpen={() => undefined} onChange={setContent} onDiscard={clearDraft} onSave={() => void save()} />;
+    return <Fragment key={key}><MemoryEntry memory={memory} change={changeOf(memory)} open={openKey === key}
+      expanded={expanded} busy={action.busy || entry.busy} tagged={tagged} wrap={Boolean(query)}
+      dim={Boolean(editing) && editing?.id !== memory.id} fresh={freshId === memory.id} confirmingForget={forgetId === key}
+      canCorrect={!hasDraft} highlight={highlight}
+      onToggle={() => { setOpenKey(openKey === key ? null : key); setForgetId(null); }}
+      onRead={() => void read(memory)} onHide={() => setExpanded(null)} onCorrect={() => void read(memory, true)}
+      onAskForget={ask => setForgetId(ask ? key : null)} onForget={() => void forget(memory)} />
+      {entry.error && entryId === memory.id && openKey === key && <Notice look="error" title="Could not finish that.">{entry.error}</Notice>}</Fragment>;
   }
 
   const locked = editing ? 'Finish or discard the correction to switch scope.' : hasDraft ? 'Save or discard the draft to switch scope.' : undefined;
@@ -168,17 +227,19 @@ export function Book() {
       Memories saved in “For me” and other topics are not searched unless you widen the scope above.
     </Empty>}
 
-    <div>
-      {visible.map(memory => editing?.id === memory.id
-        ? <Composer key={memory.id} content={content} scopeLabel={label} open busy={action.busy} error={action.error} editing={editing}
-          onOpen={() => undefined} onChange={setContent} onDiscard={clearDraft} onSave={() => void save()} />
-        : <Fragment key={memory.id}><MemoryEntry memory={memory} expanded={expanded} busy={action.busy || entry.busy}
-        dim={Boolean(editing) && editing?.id !== memory.id} fresh={freshId === memory.id} confirmingForget={forgetId === memory.id}
-        canCorrect={!hasDraft} highlight={highlight}
-        onRead={() => void read(memory)} onHide={() => setExpanded(null)} onCorrect={() => void read(memory, true)}
-        onAskForget={ask => setForgetId(ask ? memory.id : null)} onForget={() => void forget(memory)} />
-        {entry.error && entryId === memory.id && <Notice look="error" title="Could not finish that.">{entry.error}</Notice>}</Fragment>)}
-    </div>
+    {!query && !editing && note.fresh.length > 0 && <section className="panel since" aria-labelledby="since-title">
+      <h2 id="since-title" className="lead">{count(note.fresh.length, 'new memory', 'new memories')} since you last looked.</h2>
+      <p className="prov">You were last here {whenText(visit!.seen!.visited)}{note.moved > 0 && ` · ${count(note.moved, 'other was', 'others were')} said again or changed`}</p>
+      <div>{(noteAll ? note.fresh : note.fresh.slice(0, NOTE_FIRST)).map(memory => entryFor(memory, 'note', true))}</div>
+      {!noteAll && note.fresh.length > NOTE_FIRST && <Button look="link" onClick={() => setNoteAll(true)}>Show the other {note.fresh.length - NOTE_FIRST}</Button>}
+    </section>}
+
+    {query ? <div>{visible.map(memory => entryFor(memory, 'list', false))}</div>
+      : shownGroups.map(group => <section key={group.day} className="day" aria-labelledby={`day-${group.day}`}>
+        <div className="day-head"><h2 id={`day-${group.day}`}>{DAY_WORD[group.day]}</h2><span className="prov">{dayLine(group)}</span></div>
+        {group.items.map(memory => entryFor(memory, 'list', group.day !== 'older'))}
+      </section>)}
+    {hidden > 0 && <Button look="link" onClick={() => setShowAll(true)}>Show all {all.length}</Button>}
     {searchAll && query && <p className="fine muted">Results from every scope. <Link to={`/book${scopeQuery(scope)}`}>Back to {label}</Link>.</p>}
     {!query && <p className="fine muted" style={{ paddingTop: 16 }}>
       Anything forgotten, replaced or finished waits in <Link to="/book/archive">the archive</Link>.
