@@ -1,6 +1,6 @@
 # Rules the agent ignores · 19 October 2026
 
-**Status:** offline test run 20 Oct (section 8). The fix is rewording the rules; nothing built yet. **Decides:** Neeraj. **Follows:** [Following first](following-first-2026-10-18.md), sections 1, 4 and 8.
+**Status:** shipped 20 Oct (section 9). **Decides:** Neeraj. **Follows:** [Following first](following-first-2026-10-18.md), sections 1, 4 and 8.
 
 The last design said the first thing to try for following was this: show a rule again at the message where it applies. I measured it before building anything. **It would not have helped.** This doc says why, what the data points at instead, and how I'd test the next idea cheaply before building it.
 
@@ -188,7 +188,7 @@ An independent reviewer read the first draft against the raw results.
 
 | | Mark |
 |---|---|
-| Reword 1db602 and bf351a, and add a "keep replies under 200 words" rule, in your memory | Open, needs your yes |
+| Reword 1db602 and bf351a, and add a "keep replies under 200 words" rule, in your memory | Done 20 Oct, see section 9 |
 | Root cause: the nightly pass saves rules in your loose words ("simple", "readable"), which the agent does not act on. The pass should save preferences as concrete, checkable instructions. That is a prompt change, with its own eval | Open, next |
 | The always section and the per-prompt line | Not built. Measured: no effect |
 
@@ -198,4 +198,20 @@ An independent reviewer read the first draft against the raw results.
 |---|
 | Rule placement changes are not built: 0 of 12, same as today |
 | The fix is concrete rule wording: 4 of 12 against 0 of 12 |
+
+## 9. What shipped · 20 October
+
+| What | Where |
+|---|---|
+| 1db602 and bf351a reworded to the tested wording, same ids and counts | Your memory, with your yes |
+| "Keep every reply under 200 words unless the person asks for more. Answer first, at most 5 points, no long paragraphs." saved as a personal preference | Your memory (58c46bb4) |
+| `save_memory` takes a kind. Before this, every explicit save became a fact, and the first save of the new rule did too, so it was saved again as a preference and the fact copy archived | PR 73, decision D51, plugin 0.5.8 |
+
+Still open:
+
+| Item | Who |
+|---|---|
+| 9e0448, the reply-style rule, is still stored as a fact. A correction cannot change a kind today, so it needs the app or a re-save | Neeraj |
+| Jargon: the reworded plain-words rule took out code names but did not pass the strict judge | Watch the following score |
+| Whether this holds live: the following score (6.7 per 100 sessions before) over the next 4 weeks, read as a direction (D50) | The daily review |
 
