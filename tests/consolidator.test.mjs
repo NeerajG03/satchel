@@ -135,6 +135,17 @@ test('a source the user never typed ends nothing and adds nothing', () => {
     ['source is not in the conversation', 'source is not in the conversation']);
 });
 
+test('a quote that runs across a line break in the user’s message still counts', () => {
+  // 20 October: "...because i have notion" and "I think satchel..." were two
+  // lines, the model quoted them as one, and a real claim was dropped.
+  const two = [{role: 'user', content: 'ideally i am not using tasks at all because i have notion\nI think satchel is about topics and the book'}];
+  const out = validateConsolidation({changes: [
+    change({source: 'ideally i am not using tasks at all because i have notion I think satchel is about topics'}),
+  ]}, {...context, turns: two});
+  assert.equal(out.changes.length, 1);
+  assert.deepEqual(out.dropped, []);
+});
+
 test('the assistant’s own words are never a source', () => {
   const out = validateConsolidation({changes: [
     change({source: 'Good. I will treat the ledger as append only from here.'}),
