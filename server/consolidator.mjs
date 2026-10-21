@@ -256,7 +256,11 @@ const agreed = source => AGREEMENT.test(source.replace(/\s+(for|on)\s+[A-Z]\d{1,
  *  quote. One piece has to be long enough to mean something, or "yes ... and"
  *  would match anywhere. */
 const quoted = (haystack, source) => {
-  const pieces = source.toLowerCase().split(/\.{3}|…/).map(p => p.trim()).filter(Boolean);
+  // A line break in what the person typed reaches the model as a space, so a
+  // quote across one has to match with any run of whitespace as one space.
+  const flat = text => text.replace(/\s+/g, ' ');
+  haystack = flat(haystack);
+  const pieces = source.toLowerCase().split(/\.{3}|…/).map(p => flat(p).trim()).filter(Boolean);
   if (pieces.length > 1 && Math.max(...pieces.map(p => p.length)) < 12) return false;
   return pieces.length > 0 && pieces.every(piece => haystack.includes(piece.slice(0, 60)));
 };
