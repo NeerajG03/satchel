@@ -28,7 +28,7 @@ Silent in both directions. Nothing logs a hook the host skipped, and the model h
 
 **Sending only one prompt field is a coin flip.** Both `prompt` and `user_prompt` go out because the two hosts' documentation disagrees and one is truncated. An unsubstituted placeholder is discarded server-side, so there is no cost to keeping both.
 
-**`${last_assistant_message}` does not substitute on Codex.** Code that assumes the assistant's reply is present will quietly capture from a half conversation there. The degradation is stated, not fixed.
+**Codex's `last_assistant_message` can be null.** Codex sends it on Stop, typed `string | null` ("if available"), so it is not a Claude-only field, but a script must treat a null as no reply rather than the string `"null"`. `capture.mjs` sends an empty string, which records no turn and still scopes the document. An older note here said Codex never supplied it, from the `mcp_tool` days when `${last_assistant_message}` did not substitute there.
 
 **A 503 and a 403 mean different things at `/api/mcp`.** Null status is "you may not" and ends in 403; a throw is "we could not check" and ends in 503. Collapsing them turns a transient database failure into a message telling the person their connection was revoked.
 

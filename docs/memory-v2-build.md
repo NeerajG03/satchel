@@ -110,7 +110,7 @@ This is the single most important research finding, and the design document curr
 | `UserPromptSubmit` + `additionalContext` | yes | yes |
 | `UserPromptSubmit` carries the prompt text | yes | yes, field `prompt` |
 | `Stop` + `additionalContext` | **yes**, delivered as a system message on the next turn | **no**, only `continue` / `stopReason` / `systemMessage` |
-| `Stop` carries the assistant's final text | yes, `last_assistant_message` | no |
+| `Stop` carries the assistant's final text | yes, `last_assistant_message` | yes, `last_assistant_message`, `string \| null` (not at the time of writing; see [memory-hooks.md](memory-hooks.md)) |
 | `PostCompact` + `additionalContext` | yes | **no** |
 | `PreCompact` + `additionalContext` | yes | no |
 | Handler types | `command`, `http`, `mcp_tool`, `prompt`, `agent` | `command`, `mcp_tool` only. "prompt and agent handlers are parsed but skipped." |
@@ -131,7 +131,7 @@ This is the single most important research finding, and the design document curr
 
 **The router cannot be a `prompt` hook.** Claude Code has a `prompt` handler type that would run a single-turn LLM evaluation with no code at all. Codex parses and skips it. So the router runs the same way on both hosts or it does not run on one of them.
 
-**Codex's router sees less.** Codex `Stop` has no `last_assistant_message`, and its documentation says outright that "the transcript format isn't a stable interface for hooks and may change over time". So the Codex router gets the user's messages and not the assistant's replies.
+**Codex's router sees less.** ~~Codex `Stop` has no `last_assistant_message`~~ (Codex now sends it, `string | null`, and Satchel records it), and its documentation says outright that "the transcript format isn't a stable interface for hooks and may change over time". ~~So the Codex router gets the user's messages and not the assistant's replies.~~
 
 ### 3.2 The consequence: never read the transcript
 
@@ -145,7 +145,7 @@ UserPromptSubmit  ──▶ append the prompt to a session-local ring buffer
                   ──▶ inject
 
 Stop              ──▶ read the ring buffer for this turn
-                  ──▶ Claude only: add last_assistant_message
+                  ──▶ add last_assistant_message (null on Codex if none)
                   ──▶ call the router, write memories, cache topic terms
 ```
 
@@ -874,7 +874,7 @@ The six-character handle is a prefix of the UUID. It needs a server-side resolve
 - `PostCompact` is **deleted**. It cannot emit `additionalContext`, so it has never worked. `compact` moves into the `SessionStart` matcher, which is where Codex puts it.
 - `additionalContextLimit` is raised from its 2500-token default, since [§6.1](memory-v2.md) budgets around 1.8k and a user with many personal memories will exceed the default and get a truncated preview pointing at a temp file.
 - Codex `Stop` cannot inject, which is fine, because capture does not inject. It writes memories and caches terms.
-- Codex `Stop` has no `last_assistant_message`, so the Codex router runs on user messages only. Stated degradation, not a bug to chase.
+- ~~Codex `Stop` has no `last_assistant_message`, so the Codex router runs on user messages only.~~ Codex now sends it, typed `string | null`, so both hosts send the reply.
 
 ### 7.3 The three new scripts
 
@@ -884,7 +884,7 @@ All three go in `integrations/shared/` and are copied into both packages by [scr
 |---|---|---|---|
 | `bootstrap.mjs` | stdin, git remote | repository hint | existing behaviour, unchanged except the event allowlist |
 | `recall.mjs` | stdin `prompt`, ring buffer, cached terms | injects the block | printing nothing |
-| `capture.mjs` | stdin, ring buffer, `last_assistant_message` on Claude | calls the router, caches terms | printing nothing |
+| `capture.mjs` | stdin, ring buffer, `last_assistant_message` | calls the router, caches terms | printing nothing |
 
 `recall.mjs` needs a token to call Satchel, and the plugin has no credential of its own. It either shells out to the host's MCP connection, which command hooks cannot do, or the retrieval moves to an `mcp_tool` hook and the ring buffer append becomes a second, cheap `command` hook on the same event. **The second shape is the one that works**, so `UserPromptSubmit` gets two handlers: a `command` that appends the prompt locally, and an `mcp_tool` that retrieves and injects. That also keeps every authenticated call on the one transport that already has grants and audit.
 

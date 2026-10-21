@@ -144,9 +144,9 @@ hook that must not delay the prompt. For a durable record it is not, and it fail
 the worst direction: the user's half is the only half that can supply a source, so
 losing it does not degrade a document, it voids it.
 
-On Codex there is no `last_assistant_message`, so a Codex document is user messages
-only. Already a stated degradation elsewhere, repeated here because it caps how good
-Codex extraction can get.
+Codex `Stop` carries `last_assistant_message` too, typed `string | null`, so a Codex
+document holds both halves. This paragraph used to say it held user messages only;
+that was true of an older Codex and is not any more.
 
 **Open decision: retention.** See the last section. Answered: 30 days, then delete.
 

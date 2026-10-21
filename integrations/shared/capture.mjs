@@ -20,8 +20,9 @@ const event = await readHookInput();
 const sessionKey = sessionIdOf(event);
 if (!sessionKey || event.hook_event_name !== 'Stop') process.exit(0);
 
-// Codex does not supply this, so on that host the router reads the user's
-// messages without the replies. A stated degradation, not a bug to chase.
+// Both hosts put it on Stop. Codex types it `string | null` ("if available"),
+// so a turn with no reply text sends an empty string, which records no turn
+// and still notes the scope.
 const assistant = typeof event.last_assistant_message === 'string'
   ? event.last_assistant_message.trim() : '';
 

@@ -284,6 +284,41 @@ test('a prompt is retrieved against and recorded, and the reply is captured', as
   }
 });
 
+test('a Codex Stop sends the reply, and a null reply sends nothing to record', async () => {
+  // The shape codex-rs/hooks/schema/generated/stop.command.input.schema.json
+  // requires, where last_assistant_message is `string | null`.
+  const SATCHEL_HOME = home();
+  const sent = [];
+  const {createServer} = await import('node:http');
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      sent.push(JSON.parse(body));
+      res.writeHead(200, {'content-type': 'application/json'});
+      res.end(JSON.stringify({captured: 0, notice: ''}));
+    });
+  });
+  await new Promise(done => server.listen(0, '127.0.0.1', done));
+  writeFileSync(join(SATCHEL_HOME, 'credentials.json'), JSON.stringify({
+    client_id: 'c', refresh_token: 'r', access_token: 'test-token', expires_at: Date.now() + 3600_000}));
+  const env = {SATCHEL_HOME, SATCHEL_URL: `http://127.0.0.1:${server.address().port}`,
+    SATCHEL_DISABLE_REPOSITORY_STAGING: '1'};
+  const stop = last_assistant_message => JSON.stringify({
+    session_id: 'codex-session', turn_id: 't1', transcript_path: null, cwd: tmpdir(),
+    hook_event_name: 'Stop', model: 'gpt-5', permission_mode: 'default', stop_hook_active: false,
+    last_assistant_message});
+  try {
+    assert.equal((await run('capture.mjs', stop('Not until payouts ship.'), env)).code, 0);
+    assert.equal(sent[0].assistant, 'Not until payouts ship.');
+    assert.equal((await run('capture.mjs', stop(null), env)).code, 0);
+    assert.equal(sent[1].assistant, '', 'a null reply is no reply, not the string "null"');
+  } finally {
+    rmSync(SATCHEL_HOME, {recursive: true, force: true});
+    await new Promise(done => server.close(done));
+  }
+});
+
 test('a Satchel read runs without asking, a write still asks, and other tools are left alone', async () => {
   // Every shape the same server arrives under: inside the plugin, added by
   // hand, and as a claude.ai connector.
