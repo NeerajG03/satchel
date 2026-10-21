@@ -17,6 +17,8 @@ import {errorText} from './error-text.mjs';
 import {scrub} from './secrets.mjs';
 import {firstChunk} from './turn-chunks.mjs';
 
+// The model writes `target`, and not always as an id. The job report renders it.
+const targetOf = change => typeof change?.target === 'string' ? change.target : null;
 const untraced = (_name, _options, run) => run(() => {}, () => {}, null);
 
 /** Applies one model decision. Returns the action it managed, or null.
@@ -403,16 +405,16 @@ export async function consolidateDocument(service, consolidator, document,
             // add that became an affirm or a replace of a twin elsewhere did
             // not put anything in this topic.
             session.landed.push({topic: change.topic ?? null, added: did === 'added'});
-            actions.push({did, on: out?.on ?? change.target ?? null, statement: change.statement,
+            actions.push({did, on: out?.on ?? targetOf(change), statement: change.statement,
               why: out?.why ?? change.why, ...(out?.asked ? {asked: out.asked} : {})});
           }
         } catch (error) {
           counts.dropped += 1;
-          actions.push({did: 'failed', on: change.target ?? null, statement: change.statement, why: errorText(error)});
+          actions.push({did: 'failed', on: targetOf(change), statement: change.statement, why: errorText(error)});
         }
       }
       for (const {change, why} of outcome.dropped)
-        actions.push({did: 'rejected', on: change?.target ?? null, statement: change?.statement, why});
+        actions.push({did: 'rejected', on: targetOf(change), statement: change?.statement, why});
       // Judged on the whole session, so only after its last piece: a long one
       // is read in pieces, and a later piece can file somewhere else.
       const linked = rest ? null : await linkCodebase(service, {document, topics, landed: session.landed,

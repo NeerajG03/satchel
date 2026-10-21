@@ -64,8 +64,9 @@ export const endedWhy = (memory: ArchivedMemory) => ENDED_WORD[memory.ended_reas
 export type Memory = MemorySummary & { source: string; more_info: string; created_at: string };
 
 // Six characters is what the agent sees, so it is what the user should see when
-// they want to talk about a particular row.
-export const handleOf = (id: string) => id.replace(/-/g, '').slice(0, 6);
+// they want to talk about a particular row. Job reports already stored targets
+// the model wrote as numbers or lists, so anything else shows as nothing.
+export const handleOf = (id: unknown) => typeof id === 'string' ? id.replace(/-/g, '').slice(0, 6) : '';
 
 export function memorySummary(memory: Memory): MemorySummary {
   const { id, topic_id, statement, band, kind, mentions, name, revision, updated_at, created_at, affirmed_at } = memory;

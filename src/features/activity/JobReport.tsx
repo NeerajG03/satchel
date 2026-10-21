@@ -12,7 +12,7 @@ export function JobReport({ job }: { job: ConsolidationJob }) {
     </div>
     {(run.actions ?? []).length > 0 && <ul className="plain-list">{run.actions!.map((action, i) =>
       <li key={i} className="fine">
-        <strong>{action.did}</strong>{action.on ? ` ${handleOf(action.on)}` : ''}
+        <strong>{action.did}</strong>{handleOf(action.on) ? ` ${handleOf(action.on)}` : ''}
         {action.statement ? `: ${action.statement}` : ''}
         {action.why && <span className="muted"> ({action.why})</span>}
       </li>)}</ul>}
