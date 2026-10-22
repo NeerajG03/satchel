@@ -157,7 +157,7 @@ Not the same thing as `session_messages` and not a replacement for it. Different
 
 `topic_id` is the scope, null meaning personal. It is set by whichever turn first knows it and never cleared, because a cron reading the document hours later has no workspace and no git remote to resolve it from. A topic id the caller does not own is dropped rather than borrowed.
 
-An empty `content` is not a no-op: it creates and scopes the document without appending a turn. Codex hands over no `last_assistant_message`, so on that host the end of a turn has nothing to append but is still the moment the topic is known.
+An empty `content` is not a no-op: it creates and scopes the document without appending a turn. When the host's `last_assistant_message` is null, which Codex allows, the end of a turn has nothing to append but is still the moment the topic is known.
 
 Retention is a deletion, not a policy sentence: `expire_documents()` returns a row count and is called on every `record_turn`. A document stops accepting turns past 400,000 characters and sets `truncated_at`, so a reader can tell a short session from a capped one.
 

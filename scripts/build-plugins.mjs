@@ -52,7 +52,8 @@ const description='Personal and topic memory across your agents.';
 // it is short for a memory about another repository.
 // 0.5.8 tells the agent to save a rule the person states with kind preference.
 // 0.6.0 drops tasks: Satchel is memory and topics only.
-const versions={claude:'0.6.0',codex:'0.6.0'};
+// 0.6.1 stops calling the reply Claude only: Codex sends it on Stop too.
+const versions={claude:'0.6.1',codex:'0.6.1'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});

@@ -7,7 +7,7 @@
 | `SessionStart` + `additionalContext` | yes | yes |
 | `UserPromptSubmit` + `additionalContext` | yes | yes |
 | `Stop` + `additionalContext` | yes, arrives as a system message next turn | no |
-| `Stop` carries the assistant's final text | yes, `last_assistant_message` | no |
+| `Stop` carries the assistant's final text | yes, `last_assistant_message` | yes, `last_assistant_message`, may be null |
 | `PostCompact` can inject | yes | **no** |
 | hook handler types | command, mcp_tool, prompt, agent | **command and mcp_tool only** |
 
@@ -15,7 +15,7 @@ Consequences that are load-bearing:
 
 - **Nothing is injected from `Stop`.** Claude can and Codex cannot, so using it would work on one host only. Stop is capture and nothing else. The next turn may change subject anyway, so prefetching there was never worth it.
 - **Compaction goes through `SessionStart`, never `PostCompact`.** Codex cannot emit `additionalContext` from `PostCompact`, so a hook there would never reach the model. Both hosts use the `compact` source of `SessionStart` instead. `tests/plugin-bootstrap.test.mjs` asserts `PostCompact` is absent.
-- **A Codex document holds the user's messages without the replies**, so the pass reads one side of a Codex conversation. A stated degradation, not a bug to chase, and it caps how good Codex consolidation can get.
+- **A Codex document holds both halves, like a Claude one.** Codex's `last_assistant_message` is `string | null`; a null sends an empty reply, which records no turn but still scopes the document. An older Codex did not send it, and earlier notes calling this a stated degradation are out of date.
 
 ## The hooks, which are the same on both hosts
 
@@ -35,7 +35,7 @@ nothing in a hook
   cron or the button ──▶ POST /api/consolidate     the background pass
 ```
 
-Every script reads the host's JSON on stdin, where both hosts agree on the field names: `prompt` on `UserPromptSubmit`, `last_assistant_message` on `Stop` (Claude only). The repository is read from `git config --get remote.origin.url` and sent as a normalized `owner/repo`, and Stop also sends `git rev-list --count HEAD` as `commits`. A count and nothing else, no sha and no path.
+Every script reads the host's JSON on stdin, where both hosts agree on the field names: `prompt` on `UserPromptSubmit`, `last_assistant_message` on `Stop` (on Codex it may be null). The repository is read from `git config --get remote.origin.url` and sent as a normalized `owner/repo`, and Stop also sends `git rev-list --count HEAD` as `commits`. A count and nothing else, no sha and no path.
 
 `resume` is included because a resumed session may be days old and needs the topics list most. With the block capped it is small.
 

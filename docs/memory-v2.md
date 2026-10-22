@@ -346,7 +346,7 @@ A turn is the user's message plus the agent's entire response including all tool
 
 Every hook degrades to something usable. Nothing regresses past today's behaviour.
 
-The two hosts do not support the same hooks, and the differences change the design rather than just the packaging. Codex cannot inject context from `Stop` or from `PostCompact`, has no `last_assistant_message`, and skips the `prompt` handler type entirely. The full comparison, and what each difference forces, is in the [build plan](memory-v2-build.md) section 3.
+The two hosts do not support the same hooks, and the differences change the design rather than just the packaging. Codex cannot inject context from `Stop` or from `PostCompact` and skips the `prompt` handler type entirely. The full comparison, and what each difference forces, is in the [build plan](memory-v2-build.md) section 3.
 
 ### 6.1 What `SessionStart` injects
 

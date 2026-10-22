@@ -84,6 +84,8 @@ hook_event_name:"UserPromptSubmit", prompt:r, …, session_title:…
 hook_event_name:"Stop", stop_hook_active:s, last_assistant_message:_e
 ```
 
+Codex is the same on both counts. Its Stop input schema (`codex-rs/hooks/schema/generated/stop.command.input.schema.json`) requires `last_assistant_message`, typed `string | null`, and the hooks docs call it "latest assistant message text, if available". A null sends an empty reply, which records no turn but still scopes the document. Earlier notes here said Codex had no reply at all; that is no longer true, and a Codex document now holds both halves like a Claude one.
+
 0.3.2 put retrieval back as a script and deleted the reader. `tests/plugin-hooks.test.mjs` asserts that no hook script so much as mentions `transcript_path`.
 
 ## Scope

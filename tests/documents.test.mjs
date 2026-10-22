@@ -132,8 +132,8 @@ test('a document carries one scope, and only a scope its owner holds', async t =
 });
 
 test('the end of a turn notes the scope even when the host gives no reply', async () => {
-  // Codex has no last_assistant_message, so its Stop hook has nothing to
-  // append. It is still the moment the repository has been resolved, and a
+  // Codex's last_assistant_message can be null, and then its Stop hook has
+  // nothing to append. It is still the moment the repository has been resolved, and a
   // document with no scope is a document consolidation cannot place.
   const {db, owner, call} = await database();
   const topic = crypto.randomUUID();

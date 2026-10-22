@@ -384,10 +384,10 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // The reply lands before the window is read, so the router sees the
         // turn it is classifying rather than the one before it.
         //
-        // Called even when there is no reply. Codex hands us no
-        // last_assistant_message, so on that host this writes no turn at all
-        // and exists only to note the scope, which is the one thing the end of
-        // a turn always knows.
+        // Called even when there is no reply. Codex's last_assistant_message
+        // can be null, and an older Codex did not send it at all, so then this
+        // writes no turn and exists only to note the scope, which is the one
+        // thing the end of a turn always knows.
         await service.recordTurn(sessionKey, 'assistant', assistant, settings.capture_window * 2, scope.topic ?? null);
         // Only when nothing scoped the session. A linked topic already says
         // more than the codebase does. Never allowed to fail the capture.

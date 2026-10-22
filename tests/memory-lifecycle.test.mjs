@@ -583,8 +583,9 @@ test('the end of a turn tells the document which topic it was', async () => {
   await capture(service, {sessionKey: 's', repository: 'acme/ledger', assistant: 'Understood.'});
   assert.deepEqual(recorded, [{role: 'assistant', content: 'Understood.', topicId: 'p1'}]);
 
-  // Codex hands over no last_assistant_message. There is no turn to append, so
-  // the call exists only to say which topic this was.
+  // A Stop with no reply text, as Codex sends when last_assistant_message is
+  // null. There is no turn to append, so the call exists only to say which
+  // topic this was.
   recorded.length = 0;
   await capture(service, {sessionKey: 's', repository: 'acme/ledger', assistant: ''});
   assert.deepEqual(recorded, [{role: 'assistant', content: '', topicId: 'p1'}]);

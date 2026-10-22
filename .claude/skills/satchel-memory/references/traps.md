@@ -185,9 +185,9 @@ A view made with `select t.*` keeps the column list that existed when the view w
 
 A function that declares a variable of a table's row type depends on that table's columns, and adding a column changes the type. It usually works, but rehearse it rather than assume it: replay the production chain locally before the migrations are applied.
 
-### Codex has no `last_assistant_message`
+### An unsubstituted `${last_assistant_message}`
 
-The placeholder arrives as its own literal text. Recording it would put the string `${last_assistant_message}` into the window the router reads, on every turn, on that host. The server discards anything still shaped like `${...}`.
+This was a trap of the old `mcp_tool` hooks, when Codex was believed not to supply the reply. Hooks are command scripts that read stdin now, and Codex sends `last_assistant_message` there (it may be null), but the guard stays. The placeholder arrives as its own literal text. Recording it would put the string `${last_assistant_message}` into the window the router reads, on every turn, on that host. The server discards anything still shaped like `${...}`.
 
 ## Process traps
 
