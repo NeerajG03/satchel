@@ -40,7 +40,7 @@ The private folder:
 
 ## Rules
 
-Everything in the daily review's Rules applies here unchanged: production stays read only (no database, memory or topic writes, ever), code changes go through a PR from a worktree off `origin/main`, merge only on green as its own command, no AI co-author lines, secrets stay in `~/.config/env`, conversations stay in the folder, every run leaves a log entry, and the shared checkout is not touched. Read them in `.claude/skills/daily-improvement/SKILL.md`.
+Everything in the daily review's Rules applies here unchanged: production stays read only (no database, memory or topic writes, ever), code changes go through a PR from a worktree off `origin/main`, merge only on green as its own command, no AI co-author lines, secrets stay in `.env` in the main checkout and `~/.config/env`, conversations stay in the folder, every run leaves a log entry, and the shared checkout is not touched. Read them in `.claude/skills/daily-improvement/SKILL.md`.
 
 Three more:
 
