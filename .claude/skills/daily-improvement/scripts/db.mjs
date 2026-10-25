@@ -1,19 +1,23 @@
 // Read-only access to the production database through the Supabase
-// Management API, with the personal access token in ~/.config/env.
+// Management API, with the personal access token in `.env` in the main
+// checkout (SATCHEL_REPO), then ~/.config/env.
 //
 // Never the service role key. Never print the token. Every query this skill
 // runs is a select; anything else belongs in a change someone reviews.
-import {readFileSync} from 'node:fs';
+import {readFileSync, existsSync} from 'node:fs';
 
 const PROJECT = 'prpgcrwteepcunizdcut';
+const REPO = process.env.SATCHEL_REPO ?? '/Volumes/Casesensitive/Github/satchel';
 
 function token() {
-  const lines = readFileSync(`${process.env.HOME}/.config/env`, 'utf8').split('\n');
-  for (const line of lines) {
-    const clean = line.replace(/^export\s+/, '').trim();
-    if (clean.startsWith('SB_TOKEN=')) return clean.slice('SB_TOKEN='.length).replace(/^['"]|['"]$/g, '');
+  const files = [`${REPO}/.env`, `${process.env.HOME}/.config/env`];
+  for (const file of files.filter(existsSync)) {
+    for (const line of readFileSync(file, 'utf8').split('\n')) {
+      const clean = line.replace(/^export\s+/, '').trim();
+      if (clean.startsWith('SB_TOKEN=')) return clean.slice('SB_TOKEN='.length).replace(/^['"]|['"]$/g, '');
+    }
   }
-  throw new Error('SB_TOKEN is not in ~/.config/env');
+  throw new Error(`SB_TOKEN is not in ${files.join(' or ')}`);
 }
 
 export async function sql(query) {
