@@ -4,17 +4,13 @@
 // single observations by id answer 410 or 404. See
 // .claude/skills/debugging/references/langfuse.md, and ask for the fields:
 // the default topicion leaves out the model, the usage and the metadata.
-import {readFileSync} from 'node:fs';
+import {envValue, envFiles} from './env.mjs';
 
 function env() {
   const out = {};
-  for (const line of readFileSync(`${process.env.HOME}/.config/env`, 'utf8').split('\n')) {
-    const clean = line.replace(/^export\s+/, '').trim();
-    const at = clean.indexOf('=');
-    if (at > 0 && clean.startsWith('LANGFUSE_')) out[clean.slice(0, at)] = clean.slice(at + 1).replace(/^['"]|['"]$/g, '');
-  }
+  for (const name of ['LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY', 'LANGFUSE_BASE_URL']) out[name] = envValue(name);
   if (!out.LANGFUSE_PUBLIC_KEY || !out.LANGFUSE_SECRET_KEY || !out.LANGFUSE_BASE_URL)
-    throw new Error('Langfuse keys are not in ~/.config/env');
+    throw new Error(`Langfuse keys are not in ${envFiles().join(' or ')}`);
   return out;
 }
 
