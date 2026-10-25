@@ -16,6 +16,7 @@ import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {execSync} from 'node:child_process';
 import {sql, lit, runStart} from './db.mjs';
+import {envValue} from './env.mjs';
 
 const args = process.argv.slice(2);
 const flag = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
@@ -27,10 +28,8 @@ if (!folder || !NEW) throw new Error('usage: replay.mjs <folder> --new <checkout
 const {since, until} = JSON.parse(readFileSync(join(folder, 'window.json'), 'utf8'));
 
 // Only the model key, read without printing it.
-for (const line of readFileSync(`${process.env.HOME}/.config/env`, 'utf8').split('\n')) {
-  const m = line.replace(/^export\s+/, '').trim().match(/^GEMINI_API_KEY=(.*)$/);
-  if (m) process.env.GEMINI_API_KEY = m[1].replace(/^['"]|['"]$/g, '');
-}
+const geminiKey = envValue('GEMINI_API_KEY');
+if (geminiKey) process.env.GEMINI_API_KEY = geminiKey;
 
 // The old side is an archive of the ref, borrowing the new side's packages.
 const OLD = mkdtempSync(join(tmpdir(), 'satchel-replay-'));

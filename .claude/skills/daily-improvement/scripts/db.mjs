@@ -1,19 +1,16 @@
 // Read-only access to the production database through the Supabase
-// Management API, with the personal access token in ~/.config/env.
+// Management API, with the personal access token from the app's .env (see env.mjs).
 //
 // Never the service role key. Never print the token. Every query this skill
 // runs is a select; anything else belongs in a change someone reviews.
-import {readFileSync} from 'node:fs';
+import {envValue, envFiles} from './env.mjs';
 
 const PROJECT = 'prpgcrwteepcunizdcut';
 
 function token() {
-  const lines = readFileSync(`${process.env.HOME}/.config/env`, 'utf8').split('\n');
-  for (const line of lines) {
-    const clean = line.replace(/^export\s+/, '').trim();
-    if (clean.startsWith('SB_TOKEN=')) return clean.slice('SB_TOKEN='.length).replace(/^['"]|['"]$/g, '');
-  }
-  throw new Error('SB_TOKEN is not in ~/.config/env');
+  const value = envValue('SB_TOKEN');
+  if (!value) throw new Error(`SB_TOKEN is not in ${envFiles().join(' or ')}`);
+  return value;
 }
 
 export async function sql(query) {
