@@ -4,7 +4,7 @@ import { createMemoryRepository } from '../features/memories/repository';
 import { createTopicRepository } from '../features/topics/repository';
 import { createConnectionRepository } from '../features/connections/repository';
 import { createActivityRepository } from '../features/activity/repository';
-import { createOvernightRepository } from '../features/settings/repository';
+import { createOvernightRepository, createReplyCheckRepository } from '../features/settings/repository';
 
 export function useStores() {
   const db = useDb();
@@ -15,6 +15,7 @@ export function useStores() {
     connections: createConnectionRepository(db),
     activity: createActivityRepository(db),
     overnight: createOvernightRepository(db),
+    replyCheck: createReplyCheckRepository(db),
   }), [db]);
 }
 export type Stores = ReturnType<typeof useStores>;

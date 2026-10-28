@@ -21,6 +21,7 @@
 import {sessionStartBlock, personalLoad, topicLoad, promptBlock, missNote, estimateTokens, noticeFor} from './injection-format.mjs';
 import {classifyPrompt, machineTurnNote} from './machine-prompt.mjs';
 import {errorText} from './error-text.mjs';
+import {checkReply} from './reply-check.mjs';
 
 // How many of the active topic's own memories load at session start. Its
 // own cap rather than a share of block_size, so a busy topic cannot push a
@@ -355,7 +356,7 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
  *  5 every Stop re-offered the last five and consecutive Stops overlapped by
  *  four. Anything durable got five chances and was duly saved twice. */
 export async function capture(service, {sessionKey, repository = null, assistant = '',
-  commits = null, topic, ownerId, traced = untraced} = {}) {
+  commits = null, topic, ownerId, rewriting = false, traced = untraced} = {}) {
   return traced('satchel.Stop',
     {sessionId: sessionKey, userId: ownerId, metadata: {event: 'Stop', repository}, tags: ['satchel', 'Stop'], input: null},
     async (setOutput, setInput, traceId) => {
@@ -363,6 +364,14 @@ export async function capture(service, {sessionKey, repository = null, assistant
         const status = await service.status();
         if (!status) throw {code: '42501'};
         const settings = await service.settings();
+        // The reply check comes before anything is recorded. A reply sent back
+        // for a rewrite is not the one the person will read, so it is not
+        // kept; the rewrite arrives on the next Stop and is recorded then.
+        // Asked once only: a rewrite is taken as it comes.
+        if (settings.reply_check && !rewriting) {
+          const check = checkReply(assistant, {wordLimit: settings.reply_word_limit});
+          if (!check.ok) return {captured: 0, notice: '', rewrite: check.reason};
+        }
         // The setting is checked first. It is about whether the conversation is
         // kept at all, so a turn must not reach session_messages either; the
         // mcp_tool version recorded the reply before looking and that was
