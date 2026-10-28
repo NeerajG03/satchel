@@ -20,7 +20,8 @@ const TESTS = [
   ['backticks', /`[^`\n]+`/],
   ['file names', new RegExp(`(?<![\\w@/-])[\\w.-]+\\.(?:${EXTENSIONS})\\b(?![\\w-])`, 'i')],
   // Three segments, or a leading ./ ~/ ../ , so "and/or" and "client/server" are left alone.
-  ['paths', /(?<![\w/.:-])(?:(?:\.{1,2}|~)\/[\w.-]+(?:\/[\w.-]+)*|\/?[\w.-]+(?:\/[\w.-]+){2,})/],
+  // A letter somewhere, so a date like 28/10/2026 is not a path.
+  ['paths', /(?<![\w/.:-])(?=[\w.~\/-]*[a-z])(?:(?:\.{1,2}|~)\/[\w.-]+(?:\/[\w.-]+)*|\/?[\w.-]+(?:\/[\w.-]+){2,})/],
   ['command flags', /(?<![\w-])--[a-z][\w-]*/],
   // Seven or more hex characters with both a digit and a letter, so a word
   // like "defaced" is not a commit.
@@ -30,7 +31,8 @@ const TESTS = [
 /** The reply as the person reads it: fenced blocks and links taken out. */
 const prose = reply => reply.replace(FENCE, ' ').replace(URL, ' ');
 
-export const countWords = reply => (prose(reply).match(/\S+/g) ?? []).length;
+// Only runs with a letter or a digit in them, so a table's borders are not words.
+export const countWords = reply => (prose(reply).match(/\S+/g) ?? []).filter(word => /[\p{L}\p{N}]/u.test(word)).length;
 
 /** `{ok: true}` when the reply is fine, otherwise `{ok: false, reason}` where
  *  the reason is one sentence the agent can act on. `wordLimit` is the

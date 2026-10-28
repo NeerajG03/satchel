@@ -47,7 +47,12 @@ test('ordinary prose is not mistaken for code', () => {
     'Visit https://example.com/docs/page.html for more.',
     'It took 3.5 hours, about 10/12 of the plan.',
     'Wait -- then try again.',
+    'It shipped on 28/10/2026.',
   ]) assert.equal(checkReply(reply).ok, true, reply);
+});
+
+test('a table counts its words, not its borders', () => {
+  assert.equal(countWords('| a | b |\n|---|---|\n| x | y |'), 4);
 });
 
 test('a fenced block the person asked for is left alone', () => {
