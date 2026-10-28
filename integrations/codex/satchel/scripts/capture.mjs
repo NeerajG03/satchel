@@ -14,6 +14,7 @@
 // Both halves of the turn reach the server without a file being opened, which
 // is what Satchel always claimed and is true again.
 import {call} from './auth.mjs';
+import {pendingActions, clearActions} from './actions-buffer.mjs';
 import {repositoryFrom, commitsFrom, readHookInput, sessionIdOf, cwdOf, emit} from './workspace.mjs';
 
 const event = await readHookInput();
@@ -25,6 +26,11 @@ if (!sessionKey || event.hook_event_name !== 'Stop') process.exit(0);
 // and still notes the scope.
 const assistant = typeof event.last_assistant_message === 'string'
   ? event.last_assistant_message.trim() : '';
+
+// What the agent did, left by actions.mjs. Empty on Codex, which has no such
+// hook here. Read before the call and cleared after it, so a turn that could
+// not be sent is offered again with the next one.
+const actions = pendingActions(sessionKey);
 
 const cwd = cwdOf(event);
 const quiet = process.env.SATCHEL_DISABLE_REPOSITORY_STAGING === '1';
@@ -40,6 +46,7 @@ try {
     // conversation ever mentions.
     ...(repository ? {commits: commitsFrom(cwd)} : {}),
     assistant,
+    ...(actions.length ? {actions} : {}),
   }, {timeout: 20000});
   // Not connected is silent here. Session start already said so once, and
   // saying it again at the end of every turn is how a person learns to ignore
@@ -50,6 +57,7 @@ try {
       ? 'Satchel disconnected · nothing was saved' : `Satchel could not save · ${response.status}`});
     process.exit(0);
   }
+  clearActions(sessionKey, actions.length);
   emit({notice: response.data.notice ?? ''});
 } catch (error) {
   // A turn that could not be sent is not lost: the user's message is already

@@ -4,13 +4,14 @@
 
 This file was last accurate before automatic capture existed. Anything you remember from the older version, including the claim that Satchel has no `Stop` hook, is out of date.
 
-## Three hooks, all local scripts
+## Four hooks, all local scripts
 
 | Event | Script | Timeout | What it does |
 |---|---|---|---|
 | `SessionStart` on startup, clear, compact, resume | `session-start.mjs` | 10s | Fetches the topics list and every personal memory, and injects it |
 | `UserPromptSubmit` | `retrieve.mjs` | 5s | Searches by similarity, injects the matches, and records the message |
-| `Stop` | `capture.mjs` | 25s | Sends the reply so the turn can be classified |
+| `PostToolUse` (Claude only) | `actions.mjs` | 5s | Writes one line about the tool call to a local file. No network call |
+| `Stop` | `capture.mjs` | 25s | Sends the reply, and the lines of what the agent did, so the turn can be classified |
 
 There is a fourth endpoint, `POST /api/consolidate`. It reads the sessions that have gone quiet and runs the background pass over each: a model call over a whole conversation, against the memories that already exist.
 
@@ -22,7 +23,7 @@ Only sessions idle for 30 minutes are touched, whoever triggers it. The one bein
 
 **The overnight `pg_cron` job is a switch in Settings, off by default.** It costs a second sign-in and a second long-lived token in the Vault, so it asks: the person switches it on, goes through the consent page, and picks the days and one or two times a day. The tick runs every 15 minutes and fires a slot once, only when a conversation is waiting. With nobody enrolled the job loops over zero rows and does nothing, which is its resting state. Only a browser session may turn it on, off, retime it or read it; a connected app is refused.
 
-There is no `PreToolUse` or `PostToolUse` hook, and no `PostCompact` hook: Codex cannot emit `additionalContext` from `PostCompact`, so compaction is handled through `SessionStart`'s compact source on both hosts.
+`PreToolUse` exists on Claude only, to let Satchel's own reads run without a prompt. There is no `PostCompact` hook: Codex cannot emit `additionalContext` from `PostCompact`, so compaction is handled through `SessionStart`'s compact source on both hosts.
 
 The 5 second budget on retrieval is deliberate. A hook that delays the prompt is worse than a hook that misses one.
 
@@ -65,11 +66,27 @@ The stored credential is a Supabase refresh token. Those do not age out on their
 
 The repository is read from `git config --get remote.origin.url` and normalized. Remote credentials in that URL, repository contents, local paths and the prompt are never read or emitted. `SATCHEL_DISABLE_REPOSITORY_STAGING=1` turns the repository off.
 
-`retrieve.mjs` sends the session key, the repository and the prompt the host handed it, plus the ids of memories earlier prompts in the session were shown, so they are not shown again. It keeps those ids in `~/.satchel/shown/<session>.json`, and `session-start.mjs` clears the list on a compact or a clear. `capture.mjs` sends the session key, the repository and the `last_assistant_message` the host handed it. Neither opens a file of the host's.
+`retrieve.mjs` sends the session key, the repository and the prompt the host handed it, plus the ids of memories earlier prompts in the session were shown, so they are not shown again. It keeps those ids in `~/.satchel/shown/<session>.json`, and `session-start.mjs` clears the list on a compact or a clear. `capture.mjs` sends the session key, the repository, the `last_assistant_message` the host handed it, and the action lines described below. Neither opens a file of the host's.
 
 Where the list is wrong, it errs towards a repeat being missed, never towards a crash: a rewind drops later turns without a session start, so what they were shown stays skipped until the next compact or clear; a memory edited in place keeps its id, so its new wording waits for the same; and a list untouched for two days is removed, so a resume after that may repeat.
 
 Retrieval also skips what session start loaded: the personal rows and, since 0.5.2, the active topic's own rows. It assumes the block loaded: when session start withholds a block over its token budget, those rows are skipped anyway, which is rare at about 1.5k tokens against a 15k budget. On the 11 October replay of three weeks of sessions (`eval/injection-real.mjs`) the two skips together took prompt slots already in front of the agent from 60% to 0%. Since D37 that replay judges each prompt against the memories of its own day and charges the start block's rows, so a number from before 16 October was read on the old ruler and is not compared with one from after.
+
+## What the agent did
+
+A conversation holds the words and not the work: "fixed it" does not say a file was edited or a commit pushed. So on Claude, `actions.mjs` runs after every tool and appends one line to `~/.satchel/actions/<session>.log` (mode 0600, the newest 60 kept, files untouched for two days removed). It makes no network call.
+
+| Tool | Line |
+|---|---|
+| Bash | `ran: <command, first 200 characters, secrets hidden>` |
+| Edit, Write, MultiEdit, NotebookEdit | `edited: <path>` |
+| Read | `read: <path>` |
+| Grep, Glob | `searched: <pattern> in <path>` |
+| Anything else, MCP included | `used: <tool name>` |
+
+Never file contents, edit text or tool output. Satchel's own tools are skipped, and so is everything when `SATCHEL_DISABLE_REPOSITORY_STAGING=1`. `capture.mjs` sends the lines as `actions` in the same `/api/hook-capture` call as the reply and empties the file only after a successful send, so a failed turn offers them again. The server scrubs each line again, keeps at most 60 of 240 characters, and appends them to the assistant's turn under `Actions this turn:`, after the reply and inside the same 8000 characters, trimming actions first. Capture off stores none of it. The consolidation prompt reads them as evidence of what happened, never as something the person said.
+
+Codex does not register the hook: its `PostToolUse` input shape and matcher were not verified here, and Codex's `Stop` simply sends no actions.
 
 ## No transcript is read
 

@@ -416,7 +416,7 @@ test('no hook script ever opens the transcript file', async () => {
   // one afternoon, on the false premise that a command hook is not given the
   // prompt. This is the assertion that keeps the claim true.
   const {readFileSync: read} = await import('node:fs');
-  for (const script of ['session-start.mjs', 'retrieve.mjs', 'capture.mjs', 'connect.mjs', 'auth.mjs', 'workspace.mjs', 'approve.mjs']) {
+  for (const script of ['session-start.mjs', 'retrieve.mjs', 'capture.mjs', 'connect.mjs', 'auth.mjs', 'workspace.mjs', 'approve.mjs', 'actions.mjs', 'actions-buffer.mjs']) {
     const source = read(scriptPath(script), 'utf8');
     assert.doesNotMatch(source, /transcript_path/,
       `${script} reads transcript_path; both halves of a turn arrive in the hook input instead`);
@@ -453,12 +453,22 @@ test('built packages stay in sync with their shared sources', () => {
   // A reference left behind breaks progressive disclosure silently, so every skill file is checked.
   const skillFiles = ['SKILL.md', 'references/memory.md', 'references/topics.md']
     .map(file => [`context/${file}`, `skills/context/${file}`]);
-  const scripts = ['session-start.mjs', 'retrieve.mjs', 'capture.mjs', 'connect.mjs', 'auth.mjs', 'workspace.mjs']
+  const scripts = ['session-start.mjs', 'retrieve.mjs', 'capture.mjs', 'connect.mjs', 'auth.mjs', 'workspace.mjs', 'actions-buffer.mjs']
     .map(file => [file, `scripts/${file}`]);
   for (const host of ['codex', 'claude'])
-    for (const [source, built] of [...scripts, ...skillFiles, ...(host === 'claude' ? [['approve.mjs', 'scripts/approve.mjs']] : [])])
+    for (const [source, built] of [...scripts, ...skillFiles, ...(host === 'claude'
+      ? [['approve.mjs', 'scripts/approve.mjs'], ['actions.mjs', 'scripts/actions.mjs']] : [])])
       assert.equal(readFileSync(new URL(`../integrations/${host}/satchel/${built}`, import.meta.url), 'utf8'), shared(source),
         `integrations/${host}/satchel/${built} is stale; run node scripts/build-plugins.mjs`);
+});
+
+test('only the Claude package records what the agent did, on every tool', () => {
+  const hooksOf = host => JSON.parse(readFileSync(new URL(`../integrations/${host}/satchel/hooks/hooks.json`, import.meta.url))).hooks;
+  const [entry] = hooksOf('claude').PostToolUse;
+  assert.ok(entry.hooks[0].command.includes('${CLAUDE_PLUGIN_ROOT}/scripts/actions.mjs'));
+  assert.equal(entry.matcher, undefined, 'every tool, so the script decides what is worth a line');
+  assert.ok(entry.hooks[0].timeout <= 5, 'no network call, so no long budget');
+  assert.equal(hooksOf('codex').PostToolUse, undefined);
 });
 
 test('only the Claude package lets reads run unprompted, and only for Satchel', () => {

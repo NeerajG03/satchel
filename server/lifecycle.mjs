@@ -341,6 +341,21 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
     });
 }
 
+/** The reply with what the agent did under it, so the document needs no new
+ *  column. The reply is kept whole and the actions take what is left of the
+ *  turn's 8000 characters, whole lines only, oldest first to go. */
+export function withActions(assistant, actions = []) {
+  const header = '\n\nActions this turn:';
+  let room = 8000 - assistant.length - header.length;
+  const kept = [];
+  for (const line of [...actions].reverse()) {
+    if (line.length + 3 > room) break;
+    kept.unshift(`- ${line}`);
+    room -= line.length + 3;
+  }
+  return kept.length ? `${assistant}${header}\n${kept.join('\n')}` : assistant;
+}
+
 /** The end of a turn.
  *
  *  `assistant` is the host's own last_assistant_message, which the Stop hook
@@ -355,7 +370,7 @@ export async function retrieve(service, {sessionKey, prompt, repository = null,
  *  5 every Stop re-offered the last five and consecutive Stops overlapped by
  *  four. Anything durable got five chances and was duly saved twice. */
 export async function capture(service, {sessionKey, repository = null, assistant = '',
-  commits = null, topic, ownerId, traced = untraced} = {}) {
+  commits = null, actions = [], topic, ownerId, traced = untraced} = {}) {
   return traced('satchel.Stop',
     {sessionId: sessionKey, userId: ownerId, metadata: {event: 'Stop', repository}, tags: ['satchel', 'Stop'], input: null},
     async (setOutput, setInput, traceId) => {
@@ -388,7 +403,7 @@ export async function capture(service, {sessionKey, repository = null, assistant
         // can be null, and an older Codex did not send it at all, so then this
         // writes no turn and exists only to note the scope, which is the one
         // thing the end of a turn always knows.
-        await service.recordTurn(sessionKey, 'assistant', assistant, settings.capture_window * 2, scope.topic ?? null);
+        await service.recordTurn(sessionKey, 'assistant', withActions(assistant, actions), settings.capture_window * 2, scope.topic ?? null);
         // Only when nothing scoped the session. A linked topic already says
         // more than the codebase does. Never allowed to fail the capture.
         if (repository && !scope.topic)

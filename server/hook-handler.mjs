@@ -319,6 +319,14 @@ export async function handleConsolidateWith(connection, req, res, {consolidator,
   })().catch(() => { /* the row says how far it got; there is nobody to throw to */ }));
 }
 
+/** What the agent did, one short line per tool call. Anything that is not a
+ *  short string is dropped rather than refused, like the other optional
+ *  fields, and each line is scrubbed as the reply is: a command can carry a
+ *  token as easily as a paste can. */
+export const readActions = value => (Array.isArray(value) ? value : []).slice(0, 60)
+  .filter(line => typeof line === 'string')
+  .map(line => scrub(line.replace(/\s+/g, ' ').trim().slice(0, 240))).filter(Boolean);
+
 /** The end of a turn. `assistant` is the host's own last_assistant_message.
  *  Nothing is injected back; the reply is the one line the person sees when
  *  something was actually saved. */
@@ -326,7 +334,7 @@ export async function handleHookCapture(req, res, {embedder = null, router = nul
   const connection = await connect(req, res, {embedder, router});
   if (!connection) return;
   let input;
-  try { input = parseHookBody(req.body, new Set(['session_key', 'repository', 'assistant', 'commits'])); }
+  try { input = parseHookBody(req.body, new Set(['session_key', 'repository', 'assistant', 'commits', 'actions'])); }
   catch { res.writeHead(400); return res.end(); }
   let sessionKey;
   try { sessionKey = readSession(input.session_key); }
@@ -338,8 +346,9 @@ export async function handleHookCapture(req, res, {embedder = null, router = nul
   // not a number all mean the same thing: no observation this turn, which is
   // the ordinary case on a non-Git workspace.
   const commits = clamp(input.commits, null, 0, 100_000_000);
+  const actions = readActions(input.actions);
   const result = await capture(connection.service, {
-    sessionKey, repository: readRepository(input.repository), assistant, commits,
+    sessionKey, repository: readRepository(input.repository), assistant, commits, actions,
     ownerId: connection.ownerId, ...(traced ? {traced} : {})});
   send(res, {captured: result.captured, notice: result.notice});
 }
