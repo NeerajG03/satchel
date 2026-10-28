@@ -188,7 +188,8 @@ test('semantic retrieval respects scope, grants, the gate and the boost', async 
     // decides which of the two writers runs, and unsettable means the
     // turn-by-turn router is the writer forever.
     const tunable = ['per_prompt_matches', 'gate', 'scope_boost', 'session_budget_tokens',
-      'capture', 'capture_window', 'capture_mode', 'block_size', 'staleness_commits'];
+      'capture', 'capture_window', 'capture_mode', 'block_size', 'staleness_commits',
+      'reply_check', 'reply_word_limit'];
     const writable = (await as(alice,
       `select column_name from information_schema.column_privileges
        where table_name='memory_settings' and grantee='authenticated'

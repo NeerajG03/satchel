@@ -532,3 +532,41 @@ test('installed packages run every hook as a local script and none through MCP',
     assert.ok(handlers('startup')[0].command.includes('session-start.mjs'));
   }
 });
+
+test('a rewrite from the server blocks the Stop once, and never when the host is already continuing', async () => {
+  const SATCHEL_HOME = home();
+  const sent = [];
+  const {createServer} = await import('node:http');
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      sent.push(JSON.parse(body));
+      res.writeHead(200, {'content-type': 'application/json'});
+      res.end(JSON.stringify({captured: 0, notice: '', rewrite: 'Satchel: rewrite your last reply for a non-engineer: under 200 words, no file or code names.'}));
+    });
+  });
+  await new Promise(done => server.listen(0, '127.0.0.1', done));
+  writeFileSync(join(SATCHEL_HOME, 'credentials.json'), JSON.stringify({
+    client_id: 'c', refresh_token: 'r', access_token: 'test-token', expires_at: Date.now() + 3600_000}));
+  const env = {SATCHEL_HOME, SATCHEL_URL: `http://127.0.0.1:${server.address().port}`,
+    SATCHEL_DISABLE_REPOSITORY_STAGING: '1'};
+  const stop = active => JSON.stringify({session_id: 's', hook_event_name: 'Stop', cwd: tmpdir(),
+    stop_hook_active: active, last_assistant_message: 'I edited `capture.mjs`.'});
+  try {
+    const first = await run('capture.mjs', stop(false), env);
+    assert.equal(first.code, 0);
+    assert.equal(sent[0].rewriting, undefined, 'a first Stop does not claim to be a rewrite');
+    const block = JSON.parse(first.stdout);
+    assert.equal(block.decision, 'block');
+    assert.match(block.reason, /^Satchel: rewrite/);
+
+    const second = await run('capture.mjs', stop(true), env);
+    assert.equal(sent[1].rewriting, true, 'the server is told this is the rewrite');
+    assert.doesNotMatch(second.stdout, /block/,
+      'a hook that blocks a turn that is already continuing never lets it end');
+  } finally {
+    rmSync(SATCHEL_HOME, {recursive: true, force: true});
+    await new Promise(done => server.close(done));
+  }
+});

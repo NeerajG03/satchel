@@ -6,6 +6,7 @@ import { setDevMode, useDevMode } from '../../app/dev';
 import { Button } from '../../ui/Button';
 import { CheckField } from '../../ui/Field';
 import { Overnight } from './Overnight';
+import { ReplyCheck } from './ReplyCheck';
 
 export function Settings() {
   const { user, signOut, busy: authBusy } = useAuth();
@@ -24,6 +25,7 @@ export function Settings() {
         </div>
       </div>
       <Overnight />
+      <ReplyCheck />
       <div className="settings-row">
         <h2>Developer mode</h2>
         <div className="stack-tight">

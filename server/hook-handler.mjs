@@ -334,7 +334,7 @@ export async function handleHookCapture(req, res, {embedder = null, router = nul
   const connection = await connect(req, res, {embedder, router});
   if (!connection) return;
   let input;
-  try { input = parseHookBody(req.body, new Set(['session_key', 'repository', 'assistant', 'commits', 'actions'])); }
+  try { input = parseHookBody(req.body, new Set(['session_key', 'repository', 'assistant', 'commits', 'actions', 'rewriting'])); }
   catch { res.writeHead(400); return res.end(); }
   let sessionKey;
   try { sessionKey = readSession(input.session_key); }
@@ -349,6 +349,8 @@ export async function handleHookCapture(req, res, {embedder = null, router = nul
   const actions = readActions(input.actions);
   const result = await capture(connection.service, {
     sessionKey, repository: readRepository(input.repository), assistant, commits, actions,
+    // Strictly a boolean: anything else means this is not a rewrite.
+    rewriting: input.rewriting === true,
     ownerId: connection.ownerId, ...(traced ? {traced} : {})});
-  send(res, {captured: result.captured, notice: result.notice});
+  send(res, {captured: result.captured, notice: result.notice, ...(result.rewrite ? {rewrite: result.rewrite} : {})});
 }
