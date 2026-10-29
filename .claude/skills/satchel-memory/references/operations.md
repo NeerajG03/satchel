@@ -93,7 +93,7 @@ SATCHEL_GITHUB_APP_*
 
 Overridable without a code change: `SATCHEL_EMBEDDING_PROVIDER|MODEL|URL|KEY|DIMENSIONS|TIMEOUT_MS|BUDGET_MS|TASK_TYPE|FALLBACK_KEY|FALLBACK_URL`, `SATCHEL_ROUTER_PROVIDER|MODEL|URL|KEY|TIMEOUT_MS`, `SATCHEL_THINKING_LEVEL`, `SATCHEL_CONSOLIDATE_RETRY_MS`, `SATCHEL_CONSOLIDATE_TIMEOUT_MS`, `SATCHEL_PROMPT_LABEL|TIMEOUT_MS|TTL_MS`.
 
-The router uses `SATCHEL_ROUTER_MODEL` (default `gemini-3.8-flash`). The pass uses `SATCHEL_CONSOLIDATE_MODEL` (default `gemini-3.1-pro-preview`, chosen on 11 October because it made 12 changes against 2 on the same three sessions). Both read `SATCHEL_THINKING_LEVEL` (default `medium`). There is no fallback model. `SATCHEL_CONSOLIDATE_RETRY_MS` (default 120000) is how long a pass waits before asking the same model again after a 5xx or a burst limit.
+The router uses `SATCHEL_ROUTER_MODEL` (default `gemini-3.8-flash`). The pass uses `SATCHEL_CONSOLIDATE_MODEL` (default `gemini-4-argon` since 29 October, D53; before that `gemini-3.1-pro-preview`, chosen on 11 October because it made 12 changes against 2 on the same three sessions). Both read `SATCHEL_THINKING_LEVEL` (default `medium`). There is no fallback model. `SATCHEL_CONSOLIDATE_RETRY_MS` (default 120000) is how long a pass waits before asking the same model again after a 5xx or a burst limit.
 
 **Production's Gemini key is not the local one.** Production is on a paid key; a local free key allows 20 requests a day per model on the newest models. A local 429 or 503 is not evidence about production, and was once misread as exactly that.
 

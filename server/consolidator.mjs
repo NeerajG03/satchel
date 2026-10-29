@@ -390,13 +390,15 @@ export function createConsolidator({
   // and asks what the memory set should be, against everything already in
   // it. A session's worth of budget in a single call buys a better model.
   //
-  // Pro, not flash. On 11 October the same prompt on three sessions made 12
-  // changes with gemini-3.1-pro-preview and 2 with gemini-3.8-flash, and about
-  // 9 of the 12 were real misses. The cost is accepted on purpose: move back
-  // to a cheaper model when one makes the same changes. It has its own
-  // variable, so SATCHEL_ROUTER_MODEL, which the router and the tidy share,
-  // does not hold this call back on flash.
-  model = process.env.SATCHEL_CONSOLIDATE_MODEL ?? 'gemini-3.1-pro-preview',
+  // Argon, not Pro. On 29 October, over the 48 real sessions, gemini-4-argon
+  // found 25 of 27 clear memories against Pro's 22, with about none of Pro's
+  // twenty one-off tasks saved as memories, and 96% on the synthetic suite
+  // with no damage against Pro's 87% and one. On the prompt Pro was tuned on
+  // it said nothing in 13 sessions; one line in the goal fixed that. From
+  // 1 December it costs about a fifth more than Pro, accepted for the noise
+  // it does not add. It has its own variable, so SATCHEL_ROUTER_MODEL, which
+  // the router and the tidy share, does not hold this call back on flash.
+  model = process.env.SATCHEL_CONSOLIDATE_MODEL ?? 'gemini-4-argon',
   // Medium. Deciding between add, extend, replace, retire and nothing, over
   // a numbered list, with rules about which kinds may be retired, is a
   // reasoning problem. It is also the call whose mistakes are destructive,

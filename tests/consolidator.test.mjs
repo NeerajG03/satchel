@@ -567,12 +567,12 @@ test('two subjects that only share a word stay two', () => {
   assert.equal(nearSlug('infra', ['infrastructure']), null);
 });
 
-test('the pass runs on its own model variable, Pro by default', () => {
+test('the pass runs on its own model variable, Argon by default', () => {
   const saved = {own: process.env.SATCHEL_CONSOLIDATE_MODEL, router: process.env.SATCHEL_ROUTER_MODEL};
   try {
     delete process.env.SATCHEL_CONSOLIDATE_MODEL;
     process.env.SATCHEL_ROUTER_MODEL = 'some-flash-model';
-    assert.equal(createConsolidator({apiKey: 'x'}).model, 'gemini-3.1-pro-preview',
+    assert.equal(createConsolidator({apiKey: 'x'}).model, 'gemini-4-argon',
       'the router variable must not hold the pass on a cheaper model');
     process.env.SATCHEL_CONSOLIDATE_MODEL = 'gemini-3.8-flash';
     assert.equal(createConsolidator({apiKey: 'x'}).model, 'gemini-3.8-flash');
