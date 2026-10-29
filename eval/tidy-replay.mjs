@@ -7,6 +7,7 @@
 // blind reader. This shows the tidy what sits in personal today and the
 // listed topics, as the overnight job would, and scores what it moves. One
 // call per run, so repeating it is cheap and the only way to see noise.
+import './lib/tracing.mjs';
 import {readFileSync} from 'node:fs';
 import {createTidier} from '../server/tidy.mjs';
 import {localTextFor, TIDY_PROMPT} from '../server/prompt-store.mjs';

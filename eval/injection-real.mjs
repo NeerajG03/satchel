@@ -30,6 +30,7 @@
 // nothing could have shown it. Start block rows are charged on the first
 // scored prompt after they load. A run records which ruler it used, and a
 // baseline scored with another one is not compared.
+import './lib/tracing.mjs';
 import {readFileSync, writeFileSync, readdirSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {replayService, time} from './lib/injection-twin.mjs';

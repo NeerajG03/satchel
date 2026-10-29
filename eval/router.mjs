@@ -9,6 +9,7 @@
 // thing the person typed, and `statement`, what it should have become. So a
 // turn can be replayed and the answer compared. Prompts with no answer stand in
 // for turns that should produce nothing, which is the harder half.
+import './lib/tracing.mjs';
 import {corpus} from './lib/data.mjs';
 import {createRouter} from '../server/router.mjs';
 import {mean} from './lib/metrics.mjs';

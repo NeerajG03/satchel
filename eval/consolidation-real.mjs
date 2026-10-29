@@ -20,6 +20,7 @@
 //
 // The baseline is stored beside the data, not here: it is a number about a
 // private corpus.
+import './lib/tracing.mjs';
 import {readFileSync, writeFileSync, readdirSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {createConsolidator} from '../server/consolidator.mjs';

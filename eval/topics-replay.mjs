@@ -16,6 +16,7 @@
 //
 // --off replays with topics turned off, which is how the pass behaved before
 // them. That is the baseline: every fact with no topic falls into personal.
+import './lib/tracing.mjs';
 import {readFileSync} from 'node:fs';
 import {createConsolidator} from '../server/consolidator.mjs';
 import {localTextFor, CONSOLIDATE_PROMPT} from '../server/prompt-store.mjs';

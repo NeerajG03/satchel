@@ -29,6 +29,7 @@
 //
 // And the two halves are printed together. Restraint is won by changing
 // nothing and action is won by changing everything.
+import './lib/tracing.mjs';
 import {readFileSync, writeFileSync, existsSync} from 'node:fs';
 import {createConsolidator} from '../server/consolidator.mjs';
 import {consolidatePrompt, localTextFor, CONSOLIDATE_PROMPT} from '../server/prompt-store.mjs';

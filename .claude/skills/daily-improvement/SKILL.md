@@ -182,6 +182,7 @@ Every eval call is a paid model call, and the real-data eval makes about 50 per 
 - Label and audit each session once. New sessions only; never re-label the corpus to get a different number.
 - Say before a full run what it will cost in calls (sessions x repeats, plus the judge), and skip it if a slice already answers.
 - Never leave a wait loop or a watcher running after its job finished.
+- Every eval that calls a model traces to Langfuse under the environment `eval` (`eval/lib/tracing.mjs`), with tokens and cost per call. Read a run's spend there rather than estimating it, and filter on that environment so eval cost never mixes with a person's.
 
 ## The topics golden set
 
