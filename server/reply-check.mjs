@@ -47,5 +47,5 @@ export function checkReply(reply, {wordLimit = 200} = {}) {
   const fixes = [];
   if (long) fixes.push(`under ${wordLimit} words`);
   if (found.length) fixes.push('no file or code names');
-  return {ok: false, words, found, reason: `Satchel: rewrite your last reply for a non-engineer: ${fixes.join(', ')}.`};
+  return {ok: false, words, found, reason: `Satchel reply check: rewrite your last reply, ${fixes.join(', ')}.`};
 }

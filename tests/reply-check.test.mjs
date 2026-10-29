@@ -19,7 +19,7 @@ test('a reply over the limit fails, and the limit is the person’s own', () => 
   const result = checkReply(reply, {wordLimit: 100});
   assert.equal(result.ok, false);
   assert.match(result.reason, /under 100 words/);
-  assert.match(result.reason, /^Satchel: rewrite your last reply for a non-engineer/);
+  assert.match(result.reason, /^Satchel reply check: rewrite your last reply, under/);
 });
 
 test('code-looking names fail', () => {
@@ -86,7 +86,7 @@ const bad = 'I edited `capture.mjs` for you.';
 test('with the check on, a failing reply comes back as a rewrite and is not recorded', async () => {
   const recorded = [];
   const result = await capture(service(base, recorded), {sessionKey: 's', assistant: bad});
-  assert.match(result.rewrite, /^Satchel: rewrite/);
+  assert.match(result.rewrite, /^Satchel reply check: rewrite/);
   assert.equal(result.captured, 0);
   assert.deepEqual(recorded, [], 'the reply that was sent back is not the one the person reads');
 });

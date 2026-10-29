@@ -167,7 +167,7 @@ test('actions are appended to the reply, which is kept whole, and trimmed first'
     'Done.\n\nActions this turn:\n- ran: npm test\n- edited: src/app.ts');
   assert.equal(withActions('Done.', []), 'Done.');
   assert.equal(withActions('Done.'), 'Done.');
-  assert.equal(withActions('', ['ran: ls']), '\n\nActions this turn:\n- ran: ls');
+  assert.equal(withActions('', ['ran: ls']), 'Actions this turn:\n- ran: ls');
   const reply = 'r'.repeat(7900);
   const out = withActions(reply, Array.from({length: 40}, (_, i) => `ran: command number ${i}`));
   assert.ok(out.length <= 8000);

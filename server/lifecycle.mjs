@@ -354,7 +354,8 @@ export function withActions(assistant, actions = []) {
     kept.unshift(`- ${line}`);
     room -= line.length + 3;
   }
-  return kept.length ? `${assistant}${header}\n${kept.join('\n')}` : assistant;
+  if (!kept.length) return assistant;
+  return `${assistant ? assistant + header : header.trimStart()}\n${kept.join('\n')}`;
 }
 
 /** The end of a turn.

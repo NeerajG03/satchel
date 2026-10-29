@@ -84,8 +84,9 @@ export function recordAction(sessionKey, line) {
       }
     }
     appendFileSync(path, line + '\n', {mode: 0o600});
-    const lines = readFileSync(path, 'utf8').split('\n').filter(Boolean);
-    if (lines.length > MAX_LINES) writeFileSync(path, lines.slice(-MAX_LINES).join('\n') + '\n', {mode: 0o600});
+    // Reading what is waiting already keeps only the newest lines, so the file
+    // is cut back only once it is well past that, not on every tool call.
+    if (statSync(path).size > 4 * MAX_LINES * MAX_LINE) writeFileSync(path, pendingActions(sessionKey).join('\n') + '\n', {mode: 0o600});
   } catch { /* best effort */ }
 }
 
