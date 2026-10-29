@@ -27,7 +27,8 @@ Substitution stopped mattering in 0.3.0. No hook is an `mcp_tool` any more, so t
 All `command` scripts. None goes through MCP.
 
 - **SessionStart**, matching `^(startup|clear|compact|resume)$`, running `session-start.mjs`, timeout 10s. It fetches the index itself over `POST /api/hook-index`. `resume` is included: a resumed session may be days old and is the case that needs the topics list most.
-- **Stop**, running `capture.mjs`, timeout 25s. It posts the reply and, when there is a repository, `commits` (`git rev-list --count HEAD`, a count and nothing else) to `/api/hook-capture`. The server records the repository head and the assistant's half of the document. With `capture_mode = 'session'`, the default, that is all: no model call and no memory. Only in `turn` mode does it also run the router, which is what the 25s is sized for. Without this hook the assistant's half of every document and the churn signal are both missing, and before that the whole capture path shipped once with nothing calling it.
+- **PostToolUse** (Claude only), running `actions.mjs`, timeout 5s. No network: it appends one short line per tool call (`ran: <command>`, `edited: <path>`, never contents or output) to `~/.satchel/actions/<session>.log`.
+- **Stop**, running `capture.mjs`, timeout 25s. It posts the reply, those action lines as `actions` (cleared only after a successful send) and, when there is a repository, `commits` (`git rev-list --count HEAD`, a count and nothing else) to `/api/hook-capture`. The server records the repository head and the assistant's half of the document. With `capture_mode = 'session'`, the default, that is all: no model call and no memory. Only in `turn` mode does it also run the router, which is what the 25s is sized for. Without this hook the assistant's half of every document and the churn signal are both missing, and before that the whole capture path shipped once with nothing calling it.
 
 **No hook runs the consolidation pass.** A version of Stop that spawned it detached was built and reverted on 22 September: a hook that quietly spends a model call on every session end is the wrong default. The pass runs from the developer cron or the web app's button.
 
@@ -46,7 +47,8 @@ Nine files in `integrations/shared/`, copied into both packages by the build, ex
 | File | Job |
 |---|---|
 | `session-start.mjs` | the SessionStart hook |
-| `capture.mjs` | the Stop hook: the reply and the commit count |
+| `capture.mjs` | the Stop hook: the reply, the commit count and the action lines |
+| `actions.mjs`, `actions-buffer.mjs` | the PostToolUse hook (Claude only) and the local buffer it and Stop share |
 | `retrieve.mjs` | the UserPromptSubmit hook: search, and recording the message |
 | `auth.mjs` | the credential, the OAuth flow, refresh, and the one `call()` both hooks use |
 | `connect.mjs` | the interactive flow, and the throttle on offering it |

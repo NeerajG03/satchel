@@ -53,7 +53,11 @@ const description='Personal and topic memory across your agents.';
 // 0.5.8 tells the agent to save a rule the person states with kind preference.
 // 0.6.0 drops tasks: Satchel is memory and topics only.
 // 0.6.1 stops calling the reply Claude only: Codex sends it on Stop too.
-const versions={claude:'0.6.1',codex:'0.6.1'};
+// 0.7.0 adds a PostToolUse hook that keeps one line per tool call on this
+// machine, and Stop sends them with the reply so consolidation sees what the
+// agent did. Only Claude registers the hook, but both packages carry the new
+// capture.mjs, so both move.
+const versions={claude:'0.7.0',codex:'0.7.0'};
 for(const host of ['codex','claude']) {
   const target=join(root,'integrations',host,name);
   await mkdir(join(target,`.${host}-plugin`),{recursive:true});
@@ -63,7 +67,7 @@ for(const host of ['codex','claude']) {
   // than bundled because the plugin is read by people deciding whether to trust
   // it, and one readable file per job is the point.
   for(const script of ['session-start.mjs','retrieve.mjs','capture.mjs','connect.mjs',
-    'auth.mjs','workspace.mjs','background.mjs','shown.mjs',...(host==='claude'?['approve.mjs']:[])])
+    'auth.mjs','workspace.mjs','background.mjs','shown.mjs','actions-buffer.mjs',...(host==='claude'?['approve.mjs','actions.mjs']:[])])
     await cp(join(root,'integrations/shared',script),join(target,'scripts',script));
   const common={name,version:versions[host],description,author:{name:'Satchel'},repository:'https://github.com/NeerajG03/satchel'};
   const manifest=host==='codex'?{...common,skills:'./skills/',mcpServers:'./.mcp.json',interface:{
@@ -143,6 +147,14 @@ for(const host of ['codex','claude']) {
     // Claude only. Codex 0.153 parses PreToolUse but refuses
     // permissionDecision:allow, so on Codex the person's own approval
     // settings decide, as they did before.
+    // What the agent did, one line per tool call, kept in a file and sent by
+    // Stop. No network call, so 5 seconds is generous.
+    //
+    // Claude only. Codex does have a PostToolUse event, but its matcher and
+    // input shape were not checked against a Codex build here, and a hook
+    // that silently records nothing is worse than none. Codex's Stop sends no
+    // actions, and the server treats that as an ordinary turn.
+    ...(host==='claude'?{PostToolUse:[script('actions.mjs',5)]}:{}),
     ...(host==='claude'?{PreToolUse:[{...script('approve.mjs',5),
       matcher:'^mcp__(plugin_satchel_satchel|satchel|claude_ai_[Ss]atchel)__'}]}:{}),
   }},null,2)+'\n');

@@ -4,7 +4,7 @@ Goal: the next assistant who works with this person should already know what the
 
 ## What is worth keeping
 
-Only what the person said in their own words. The assistant's half is there so you can read "yes, that one". A bare "yes" does not make the assistant's design theirs, but a decision or a premise they state themselves ("assume the old tool is going away") is a fact about the topic.
+Only what the person said in their own words. The assistant's half is there so you can read "yes, that one", and a list headed "Actions this turn" under a reply is what the assistant did, which is evidence of what happened and never something the person said, so no claim rests on it alone. A bare "yes" does not make the assistant's design theirs, but a decision or a premise they state themselves ("assume the old tool is going away") is a fact about the topic.
 
 Three kinds:
 - **fact**: how something is, in their work, their topics, their setup.
