@@ -74,12 +74,8 @@ export const cwdOf = event =>
  *  that accept it, and systemMessage is what the person sees in their own
  *  terminal. Written in one place so a hook can never emit JSON we did not
  *  shape: everything that could become an instruction goes through here. */
-export function emit({event, context = '', notice = '', block = ''} = {}) {
+export function emit({event, context = '', notice = ''} = {}) {
   const payload = {};
-  // A Stop that sends the agent back to reply once more. Claude Code and Codex
-  // both read this shape on Stop, and the reason becomes the agent's next
-  // instruction, so it is only ever text the server wrote.
-  if (block) { payload.decision = 'block'; payload.reason = block; }
   if (event) payload.hookSpecificOutput = {hookEventName: event, additionalContext: context};
   if (notice) payload.systemMessage = notice;
   if (Object.keys(payload).length) process.stdout.write(JSON.stringify(payload));

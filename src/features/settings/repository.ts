@@ -58,28 +58,3 @@ export function createOvernightRepository(db: SupabaseClient) {
   };
 }
 export type OvernightRepository = ReturnType<typeof createOvernightRepository>;
-
-/** The reply check, from the person's own memory_settings row. No row means
- *  the defaults, which is off. */
-export type ReplyCheck = { reply_check: boolean; reply_word_limit: number };
-export const REPLY_LIMIT = { min: 50, max: 2000, fallback: 200 };
-
-export function createReplyCheckRepository(db: SupabaseClient) {
-  return {
-    async get(): Promise<ReplyCheck> {
-      const { data, error } = await requestWithTimeout(signal =>
-        db.from('memory_settings').select('reply_check,reply_word_limit').limit(1).abortSignal(signal));
-      if (error) throw error;
-      const row = (data as ReplyCheck[] | null)?.[0];
-      return row ?? { reply_check: false, reply_word_limit: REPLY_LIMIT.fallback };
-    },
-    // An upsert, because a person who never touched a setting has no row yet.
-    // owner_id is left to its default, which is the signed-in person.
-    async save(value: ReplyCheck): Promise<void> {
-      const { error } = await requestWithTimeout(signal =>
-        db.from('memory_settings').upsert(value, { onConflict: 'owner_id' }).abortSignal(signal));
-      if (error) throw error;
-    },
-  };
-}
-export type ReplyCheckRepository = ReturnType<typeof createReplyCheckRepository>;

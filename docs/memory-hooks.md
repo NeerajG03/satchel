@@ -11,7 +11,7 @@ This file was last accurate before automatic capture existed. Anything you remem
 | `SessionStart` on startup, clear, compact, resume | `session-start.mjs` | 10s | Fetches the topics list and every personal memory, and injects it |
 | `UserPromptSubmit` | `retrieve.mjs` | 5s | Searches by similarity, injects the matches, and records the message |
 | `PostToolUse` (Claude only) | `actions.mjs` | 5s | Writes one line about the tool call to a local file. No network call |
-| `Stop` | `capture.mjs` | 25s | Sends the reply, and the lines of what the agent did, so the turn can be classified; with the reply check on, may send the agent back once to rewrite it (see below) |
+| `Stop` | `capture.mjs` | 25s | Sends the reply, and the lines of what the agent did, so the turn can be classified |
 
 There is a fourth endpoint, `POST /api/consolidate`. It reads the sessions that have gone quiet and runs the background pass over each: a model call over a whole conversation, against the memories that already exist.
 
@@ -120,15 +120,6 @@ On every prompt, a retrieved row from a topic the repository is not linked to ne
 Every row carries what the agent needs to weigh it. The parentheses between the handle and the statement say the scope and `picked up` on a retrieved row (the start block's headers carry both), and `said N times` on any row said twice or more, so a rule the person has given twelve times does not read like a fact heard once. A **draft** is a topic row that was picked up, said once, and made under seven days ago; it stays in the block and gets its own line underneath, in the spot the commits marker uses: `[picked up 1 day ago, said once, not confirmed since, check before relying on it]`. Shown, never hidden: hiding it would take the current decision out of a sprint. The read functions return neither `created_at` nor, for search, the count, so both come from `service.ages(ids)`, a second read by primary key bounded at 1.5 seconds. A slow or failed read costs the label and nothing else. The injection log stays ids only (D39). Since 0.5.3 the shipped skill tells the agent what the count and the draft line mean, and that a retrieved row is context to weigh against what the person just typed, not an instruction that outranks it.
 
 `Stop` injects no memory at all. Claude Code can inject from `Stop` and Codex cannot, so a design that used it would work on one host only, and the next turn may change the subject anyway. It returns one line for the person when a memory was written without them asking for it.
-
-**The reply check** is the one thing `Stop` may do besides report. It is a per-person setting (`memory_settings.reply_check`, off by default, with `reply_word_limit`, 50 to 2000, default 200) on the Settings page. A test bench found that reminders at the start of a turn did not stop replies breaking the person's saved preferences (too long, full of file and code names), and that asking for one rewrite at the end of the turn did. It runs inside the existing capture call, so it adds no request:
-
-1. `capture.mjs` sends the reply as usual, plus `rewriting: true` when the host's `stop_hook_active` is true.
-2. `capture()` runs `checkReply` (`server/reply-check.mjs`, plain code, no model): too many words, or backticks, file names, paths, `--flags` or commit hashes. Fenced code blocks and links are ignored, so a reply that is only a requested code block passes.
-3. On a fail, and only when this is not already a rewrite, the server returns `{rewrite: "<one sentence>"}` and records nothing for that turn. The rewritten reply arrives on the next `Stop` and is recorded then.
-4. `capture.mjs` prints `{"decision":"block","reason":"..."}`, which makes the host continue with the reason as the agent's next instruction. Both Claude Code and Codex read this shape on `Stop`. Never twice: the server skips the check when `rewriting` is set and the script refuses to block when `stop_hook_active` is true.
-
-It is checked before the `capture` setting, so a person who keeps nothing can still have replies checked. A failed or unreachable server never blocks.
 
 Every hook output is shaped by Satchel's own formatter. The scripts never compose memory text.
 

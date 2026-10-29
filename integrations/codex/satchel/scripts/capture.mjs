@@ -32,10 +32,6 @@ const assistant = typeof event.last_assistant_message === 'string'
 // not be sent is offered again with the next one.
 const actions = pendingActions(sessionKey);
 
-// True when this Stop follows a block. Both hosts set it so a hook cannot hold
-// a turn open forever; Satchel asks for one rewrite and no more.
-const rewriting = event.stop_hook_active === true;
-
 const cwd = cwdOf(event);
 const quiet = process.env.SATCHEL_DISABLE_REPOSITORY_STAGING === '1';
 const repository = quiet ? null : repositoryFrom(cwd);
@@ -51,7 +47,6 @@ try {
     ...(repository ? {commits: commitsFrom(cwd)} : {}),
     assistant,
     ...(actions.length ? {actions} : {}),
-    ...(rewriting ? {rewriting: true} : {}),
   }, {timeout: 20000});
   // Not connected is silent here. Session start already said so once, and
   // saying it again at the end of every turn is how a person learns to ignore
@@ -62,14 +57,8 @@ try {
       ? 'Satchel disconnected · nothing was saved' : `Satchel could not save · ${response.status}`});
     process.exit(0);
   }
-  // The reply check. The server already refuses to ask twice; this is the
-  // second lock on that door, because a block while the host says it is already
-  // continuing from one is how a turn never ends.
-  const rewrite = !rewriting && typeof response.data.rewrite === 'string' ? response.data.rewrite : '';
-  // A reply sent back for a rewrite was not recorded, so what the agent did
-  // waits for the reply that will be.
-  if (!rewrite) clearActions(sessionKey, actions.length);
-  emit({notice: response.data.notice ?? '', block: rewrite});
+  clearActions(sessionKey, actions.length);
+  emit({notice: response.data.notice ?? ''});
 } catch (error) {
   // A turn that could not be sent is not lost: the user's message is already
   // in the window from retrieve.mjs and classified_at has not moved, so the
