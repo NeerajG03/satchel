@@ -14,6 +14,7 @@ import { GROUP, KIND_LABEL, jobState, summarize, summarizeJob,
   type Activity as Item, type ActivityKind, type ConsolidationJob, type MemoryEvent } from './model';
 import { EarlierJobs, Glance } from './Glance';
 import { JobReport } from './JobReport';
+import { turnParts, verbLabel, type TurnAction } from './turnParts';
 
 type Group = 'all' | 'requests' | 'documents' | 'memory';
 
@@ -54,18 +55,50 @@ function RunText({ kind, id }: { kind: 'capture' | 'consolidation'; id: string }
   </>;
 }
 
+const STEPS_SHOWN = 5;
+
+function Step({ action }: { action: TurnAction }) {
+  return <li className="step">
+    <span className="step-verb">{verbLabel(action.verb)}</span>
+    <code className="step-target">{action.target}</code>
+  </li>;
+}
+
+/** One turn: what was said, then what the agent did, so a person can check
+ *  the work without reading a raw block. */
+function Turn({ role, content, steps }: { role: string; content: string; steps: TurnAction[] }) {
+  const { text } = turnParts(content);
+  const first = steps.slice(0, STEPS_SHOWN);
+  const rest = steps.slice(STEPS_SHOWN);
+  return <div className={`turn ${role === 'user' ? 'from-you' : 'from-agent'}`}>
+    <span className="who">{role === 'user' ? 'You' : 'Agent'}</span>
+    {text && <p className="said-text">{text}</p>}
+    {steps.length > 0 && <div className="steps">
+      <span className="eyebrow">What the agent did · {count(steps.length, 'step')}</span>
+      <ul className="step-list" aria-label="What the agent did">
+        {first.map((action, n) => <Step key={n} action={action} />)}
+      </ul>
+      {rest.length > 0 && <details className="step-more">
+        <summary>Show all {steps.length}</summary>
+        <ul className="step-list" aria-label="The rest of what the agent did">
+          {rest.map((action, n) => <Step key={n} action={action} />)}
+        </ul>
+      </details>}
+    </div>}
+  </div>;
+}
+
 function Conversation({ id }: { id: string }) {
   const stores = useStores();
   const turns = useLoad(() => stores.activity.turns(id), [stores, id]);
   if (turns.loading) return <p className="muted fine">Reading…</p>;
   if (turns.error) return <Notice look="error" title="Could not read it">{turns.error}</Notice>;
   if (!turns.data?.length) return <p className="muted fine">No turns were kept.</p>;
+  const parts = turns.data.map(turn => turnParts(turn.content).actions);
+  const steps = parts.reduce((sum, actions) => sum + actions.length, 0);
   return <div className="stack-tight">
-    <span className="eyebrow">The conversation</span>
-    {turns.data.map(turn => <div key={turn.id} className="turn">
-      <span className="who">{turn.role}</span>
-      <pre className="readout">{turn.content}</pre>
-    </div>)}
+    <span className="eyebrow">The conversation{steps > 0 && ` · ${count(steps, 'agent step')}`}</span>
+    {turns.data.map((turn, n) => <Turn key={turn.id} role={turn.role} content={turn.content} steps={parts[n]} />)}
   </div>;
 }
 

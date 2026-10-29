@@ -265,8 +265,19 @@ a.entry:hover { text-decoration: none; background: linear-gradient(to right, var
   border-radius: 8px; padding: 10px 12px; margin: 0; max-height: 22em; overflow: auto;
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
-.turn { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; }
-.turn .who { font: 500 11px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.turn { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 12px 14px; border-left: 3px solid var(--line); }
+.turn.from-you { border-left-color: var(--ink); }
+.turn .who { font: 600 13px var(--font-ui); color: var(--ink); }
+.turn.from-agent .who { color: var(--muted); }
+.said-text { margin: 0; font: 15px/1.55 var(--font-ui); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 68ch; }
+.turn.from-you .said-text { font: 17px/1.5 var(--font-content); }
+.steps { display: flex; flex-direction: column; gap: 6px; padding-top: 2px; }
+.step-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.step { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.step-verb { font: 500 12px var(--font-ui); color: var(--ink); background: var(--paper-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; justify-self: start; }
+.step-target { font: 12px/1.5 var(--font-mono); overflow-wrap: anywhere; white-space: pre-wrap; }
+.step-more summary { cursor: pointer; font: 500 13px var(--font-ui); color: var(--accent); padding: 6px 0; }
+.step-more[open] summary { padding-bottom: 8px; }
 
 /* The words a captured memory came from. Paper voice, because it is the
    person's own writing, and set apart because it is evidence for the claim
