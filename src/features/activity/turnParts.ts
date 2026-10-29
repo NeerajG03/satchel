@@ -34,3 +34,11 @@ const VERB_LABEL: Record<string, string> = {
 export function verbLabel(verb: string): string {
   return VERB_LABEL[verb] ?? (verb ? verb[0].toUpperCase() + verb.slice(1) : 'Did');
 }
+
+/** An MCP tool arrives as mcp__server__tool_name, and a plugin's server as
+ *  plugin_<plugin>_<server>. Shown as "tool name · server", because the tool
+ *  is what was done and the server only says where. */
+export function targetLabel({ verb, target }: TurnAction): string {
+  const mcp = verb === 'used' ? /^mcp__(.+?)__(.+)$/.exec(target) : null;
+  return mcp ? `${mcp[2].replace(/_/g, ' ')} · ${mcp[1].replace(/^plugin_[^_]+_/, '').replace(/_/g, ' ')}` : target;
+}

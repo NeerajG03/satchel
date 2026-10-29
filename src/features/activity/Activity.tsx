@@ -14,7 +14,7 @@ import { GROUP, KIND_LABEL, jobState, summarize, summarizeJob,
   type Activity as Item, type ActivityKind, type ConsolidationJob, type MemoryEvent } from './model';
 import { EarlierJobs, Glance } from './Glance';
 import { JobReport } from './JobReport';
-import { turnParts, verbLabel, type TurnAction } from './turnParts';
+import { targetLabel, turnParts, verbLabel, type TurnAction } from './turnParts';
 
 type Group = 'all' | 'requests' | 'documents' | 'memory';
 
@@ -58,9 +58,9 @@ function RunText({ kind, id }: { kind: 'capture' | 'consolidation'; id: string }
 const STEPS_SHOWN = 5;
 
 function Step({ action }: { action: TurnAction }) {
-  return <li className="step">
+  return <li className="agent-step">
     <span className="step-verb">{verbLabel(action.verb)}</span>
-    <code className="step-target">{action.target}</code>
+    <code className="step-target">{targetLabel(action)}</code>
   </li>;
 }
 

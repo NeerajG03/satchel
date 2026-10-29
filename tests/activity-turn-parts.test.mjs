@@ -2,7 +2,7 @@
 // trailing actions block counts.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {turnParts, verbLabel} from '../src/features/activity/turnParts.ts';
+import {targetLabel, turnParts, verbLabel} from '../src/features/activity/turnParts.ts';
 
 test('a reply with actions splits into text and steps', () => {
   const parts = turnParts('Done, tests pass.\n\nActions this turn:\n- ran: npm test\n- edited: src/app.ts\n- used: WebFetch');
@@ -43,4 +43,11 @@ test('verbs read as plain words', () => {
   assert.equal(verbLabel('searched'), 'Searched');
   assert.equal(verbLabel('deleted'), 'Deleted');
   assert.equal(verbLabel(''), 'Did');
+});
+
+test('a tool from another server reads as the tool, then where it came from', () => {
+  assert.equal(targetLabel({verb: 'used', target: 'mcp__ccd_turn__update_plan'}), 'update plan · ccd turn');
+  assert.equal(targetLabel({verb: 'used', target: 'mcp__plugin_satchel_satchel__retrieve_memory'}), 'retrieve memory · satchel');
+  assert.equal(targetLabel({verb: 'used', target: 'WebFetch'}), 'WebFetch');
+  assert.equal(targetLabel({verb: 'ran', target: 'mcp__x__y'}), 'mcp__x__y', 'only a used tool is renamed');
 });

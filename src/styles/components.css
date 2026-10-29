@@ -273,7 +273,7 @@ a.entry:hover { text-decoration: none; background: linear-gradient(to right, var
 .turn.from-you .said-text { font: 17px/1.5 var(--font-content); }
 .steps { display: flex; flex-direction: column; gap: 6px; padding-top: 2px; }
 .step-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.step { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.agent-step { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; align-items: baseline; }
 .step-verb { font: 500 12px var(--font-ui); color: var(--ink); background: var(--paper-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; justify-self: start; }
 .step-target { font: 12px/1.5 var(--font-mono); overflow-wrap: anywhere; white-space: pre-wrap; }
 .step-more summary { cursor: pointer; font: 500 13px var(--font-ui); color: var(--accent); padding: 6px 0; }
