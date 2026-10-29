@@ -27,7 +27,7 @@ if (tracingEnabled) {
       publicKey: process.env.LANGFUSE_PUBLIC_KEY,
       secretKey: process.env.LANGFUSE_SECRET_KEY,
       baseUrl: process.env.LANGFUSE_BASE_URL ?? process.env.LANGFUSE_HOST,
-      environment: process.env.VERCEL_ENV ?? 'development',
+      environment: process.env.LANGFUSE_TRACING_ENVIRONMENT ?? process.env.VERCEL_ENV ?? 'development',
       // The prompt carries the user's own words. Their content is the point of
       // the trace, so it is kept, but anything that could authenticate or
       // identify beyond the owner id is removed before it leaves the process.

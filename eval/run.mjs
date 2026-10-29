@@ -5,6 +5,7 @@
 //   node eval/run.mjs                    report, and compare against baseline
 //   node eval/run.mjs --update-baseline  adopt the current numbers as the baseline
 //   node eval/run.mjs --slices           per-category breakdown for the primary
+import './lib/tracing.mjs';
 import {writeFileSync,readFileSync,existsSync} from 'node:fs';
 import {validate,answerable,answerless,slices,gold,corpus} from './lib/data.mjs';
 import {lexicalRanker,vectorRankers,hybrid,boost,gate,cap} from './lib/rankers.mjs';

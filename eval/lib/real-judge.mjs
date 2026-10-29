@@ -24,6 +24,7 @@ export function makeJudge({model, apiKey, baseURL, provider = 'google'}) {
       model: providerFor({provider, apiKey, baseURL}).languageModel(model),
       schema: SCHEMA, system: SYSTEM, prompt, temperature: 0, maxRetries: 1,
       providerOptions: {google: {thinkingConfig: {thinkingLevel: 'low'}}},
+      telemetry: {functionId: 'eval-judge'},
     });
     return object.matches;
   };

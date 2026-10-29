@@ -17,6 +17,7 @@
 //
 // The two halves must be read together. Staying quiet is trivial to win by
 // being silent, so the durable cases are the other side of the same number.
+import './lib/tracing.mjs';
 import {readFileSync} from 'node:fs';
 import {createRouter} from '../server/router.mjs';
 import {capturePrompt, localText} from '../server/prompt-store.mjs';

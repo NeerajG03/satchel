@@ -1,5 +1,6 @@
 // Caches embeddings keyed by stable id, and only embeds what is missing, so a
 // corpus that grows costs one call per new row rather than a full rebuild.
+import './lib/tracing.mjs';
 import {readFileSync,writeFileSync,mkdirSync,existsSync} from 'node:fs';
 import {corpus} from './lib/data.mjs';
 
