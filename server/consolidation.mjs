@@ -289,12 +289,14 @@ export async function tidyTopics(service, tidier, {traced = untraced, ownerId, d
 /** Personal memories and every topic's own, once each. A session with no
  *  topic can still be about one, and the pass cannot extend or affirm a
  *  topic memory it was never shown, or tell that an add repeats one. */
-async function memoriesAcross(service, topics, limit = 60) {
-  // Each topic call returns the personal rows first, so its limit is raised
-  // by that many or the personal ones would crowd the topic's own out.
+async function memoriesAcross(service, topics, limit = 200) {
+  // Each topic call returns every personal row first, then the topic's own,
+  // so its limit has to clear the whole personal set, not the part of it read
+  // above. At 131 personal rows a limit of 60 + 60 returned personal rows
+  // only, and a session with no topic was shown no topic memory at all.
   const personal = await service.memoriesInScope(null, limit);
   const own = await Promise.all(topics.map(topic =>
-    service.memoriesInScope(topic.id, limit + personal.length)));
+    service.memoriesInScope(topic.id, limit * 5)));
   return [...personal, ...own.flat().filter(memory => memory.topic_id)];
 }
 

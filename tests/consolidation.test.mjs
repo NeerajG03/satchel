@@ -247,7 +247,24 @@ test('a session with no topic is shown every topic\'s memories, once each', asyn
   assert.deepEqual(input.memories.map(m => m.id), ['m2', 'm1'], 'personal first, no repeats');
   assert.equal(input.topic, null);
   assert.deepEqual(input.topics.map(p => [p.slug, p.repositories]), [['ledger', ['acme/ledger']], ['sourdough', []]]);
-  assert.deepEqual(limits, {null: 60, p1: 61, p2: 61}, 'personal rows do not crowd out a topic\'s own');
+  assert.deepEqual(limits, {null: 200, p1: 1000, p2: 1000}, 'personal rows do not crowd out a topic\'s own');
+});
+
+test('a topic\'s memories still reach a session with no topic when personal memory is large', async () => {
+  // memories_in_scope returns personal rows first, then the topic's own, and
+  // cuts at the limit. With 131 personal rows the old limit of 120 returned
+  // personal rows only, so 60 of 173 sessions in one review saw no topic
+  // memory and could neither extend nor affirm one.
+  const {service, consolidator, of} = fake();
+  const personal = Array.from({length: 131}, (_, i) =>
+    ({id: `u${i}`, statement: `Personal rule ${i}.`, kind: 'preference', topic_id: null}));
+  const owned = {id: 't1', statement: 'Entries are append only.', kind: 'fact', topic_id: 'p1', topic_slug: 'ledger'};
+  service.memoriesInScope = async (topicId, limit) =>
+    [...personal, ...(topicId === 'p1' ? [owned] : [])].slice(0, limit);
+  await consolidateDocument(service, consolidator, {...document, topic_id: null}, {topics});
+  const [{input}] = of('consolidate');
+  assert.ok(input.memories.some(m => m.id === 't1'), 'the topic memory is in what the pass was shown');
+  assert.equal(input.memories.filter(m => !m.topic_id).length, 131, 'and so is every personal one');
 });
 
 test('the pass asks how old each memory it was shown is, and the prompt says so', async () => {
