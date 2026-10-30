@@ -267,6 +267,18 @@ test('a topic\'s memories still reach a session with no topic when personal memo
   assert.equal(input.memories.filter(m => !m.topic_id).length, 131, 'and so is every personal one');
 });
 
+test('a session inside a topic is shown that topic\'s memories when personal memory is large', async () => {
+  const {service, consolidator, of} = fake();
+  const personal = Array.from({length: 131}, (_, i) =>
+    ({id: `u${i}`, statement: `Personal rule ${i}.`, kind: 'preference', topic_id: null}));
+  const owned = {id: 't1', statement: 'Entries are append only.', kind: 'fact', topic_id: 'p1', topic_slug: 'ledger'};
+  service.memoriesInScope = async (topicId, limit) =>
+    [...personal, ...(topicId === 'p1' ? [owned] : [])].slice(0, limit);
+  await consolidateDocument(service, consolidator, {...document, topic_id: 'p1'}, {topics});
+  const [{input}] = of('consolidate');
+  assert.ok(input.memories.some(m => m.id === 't1'), 'the topic memory is in what the pass was shown');
+});
+
 test('the pass asks how old each memory it was shown is, and the prompt says so', async () => {
   // None of the read functions returns created_at, so the pass reads it by
   // id after the scoped read and merges it onto the rows. A row the read did

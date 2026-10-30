@@ -289,14 +289,18 @@ export async function tidyTopics(service, tidier, {traced = untraced, ownerId, d
 /** Personal memories and every topic's own, once each. A session with no
  *  topic can still be about one, and the pass cannot extend or affirm a
  *  topic memory it was never shown, or tell that an add repeats one. */
-async function memoriesAcross(service, topics, limit = 200) {
+const PERSONAL_READ = 200;
+// A topic read returns every personal row first, then the topic's own.
+const SCOPE_READ = PERSONAL_READ * 5;
+
+async function memoriesAcross(service, topics, limit = PERSONAL_READ) {
   // Each topic call returns every personal row first, then the topic's own,
   // so its limit has to clear the whole personal set, not the part of it read
   // above. At 131 personal rows a limit of 60 + 60 returned personal rows
   // only, and a session with no topic was shown no topic memory at all.
   const personal = await service.memoriesInScope(null, limit);
   const own = await Promise.all(topics.map(topic =>
-    service.memoriesInScope(topic.id, limit * 5)));
+    service.memoriesInScope(topic.id, SCOPE_READ)));
   return [...personal, ...own.flat().filter(memory => memory.topic_id)];
 }
 
@@ -346,7 +350,7 @@ export async function consolidateDocument(service, consolidator, document,
       if (!turns.length) return {...counts, document: document.id, session_key: document.session_key,
         skipped: 'nothing new'};
       const memories = await withAges(service, document.topic_id || !topics.length
-        ? await service.memoriesInScope(document.topic_id ?? null)
+        ? await service.memoriesInScope(document.topic_id ?? null, document.topic_id ? SCOPE_READ : PERSONAL_READ)
         : await memoriesAcross(service, topics));
       const topic = topics.find(p => p.id === document.topic_id) ?? null;
       setInput({turns: turns.length, memories: memories.length,
