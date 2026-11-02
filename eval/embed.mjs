@@ -27,6 +27,22 @@ const INDEXES={
   'gemini-768/statement': {provider:'gemini',
     model:'gemini-embedding-001', dimensions:768,
     textOf:m=>m.statement},
+  'gemini2-768/statement+source': {provider:'gemini',
+    model:'gemini-embedding-2', dimensions:768,
+    textOf:m=>`${m.statement} ${m.source}`},
+  // gemini-embedding-2 takes no taskType; Google's docs put the task in the
+  // text instead.
+  'gemini2-768-prefixed/statement+source': {provider:'gemini',
+    model:'gemini-embedding-2', dimensions:768,
+    textOf:m=>`title: none | text: ${m.statement} ${m.source}`,
+    queryOf:p=>`task: search result | query: ${p.text}`},
+  'egemma2-768/statement+source': {model:'embeddinggemma-2:740m',
+    textOf:m=>`${m.statement} ${m.source}`},
+  // The prefixes EmbeddingGemma was trained with; its card says leaving them
+  // off costs quality, so it is measured both ways.
+  'egemma2-768-prefixed/statement+source': {model:'embeddinggemma-2:740m',
+    textOf:m=>`title: none | text: ${m.statement} ${m.source}`,
+    queryOf:p=>`task: search result | query: ${p.text}`},
   'nemotron-2048/statement+source': {provider:'openrouter',
     model:'nvidia/llama-nemotron-embed-vl-1b-v2:free', dimensions:2048,
     textOf:m=>`${m.statement} ${m.source}`},
@@ -106,7 +122,7 @@ for(const [name,spec] of Object.entries(INDEXES)){
     cache.dims=v[0].length;
   }
   if(newPro.length){
-    const v=await embed(spec,newPro.map(p=>p.text));
+    const v=await embed(spec,newPro.map(spec.queryOf??(p=>p.text)));
     newPro.forEach((p,i)=>cache.prompts[p.id]=v[i]);
     cache.dims||=v[0].length;
   }
