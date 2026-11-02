@@ -4,7 +4,7 @@ import { useStores } from '../../app/stores';
 import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
 import { count } from '../../app/format';
-import { kindOf, SHELF_LIMITS, type ShelfItem } from './repository';
+import { kindOf, SHELF_LIMITS, UNSUPPORTED_FILE, type ShelfItem } from './repository';
 import { Button } from '../../ui/Button';
 import { Empty } from '../../ui/Empty';
 import { TextArea, TextField } from '../../ui/Field';
@@ -12,7 +12,6 @@ import { LoadError, SaveError, Skeleton } from '../../ui/Notice';
 import { Provenance } from '../../ui/Provenance';
 
 const KIND_LABEL = { note: 'note', photo: 'photo', voice: 'voice note' } as const;
-const STATUS_LABEL = { waiting: 'reading it…', reading: 'reading it…', ready: false, failed: 'could not read this one' } as const;
 // A read that has not come back by now was lost (a closed tab, a dropped
 // request), so the item offers a retry instead of saying "reading it…" forever.
 const LOST_AFTER_MS = 2 * 60 * 1000;
@@ -57,6 +56,18 @@ export function Shelf() {
   const { announce } = useReadout();
   const items = useLoad(() => stores.shelf.list(), [stores]);
   const [urls, setUrls] = useState<Record<string, string>>({});
+  // File links last twelve hours; a page open longer than that starts over.
+  const signedAt = useRef(Date.now());
+  if (Date.now() - signedAt.current > 11 * 3600 * 1000) { signedAt.current = Date.now(); setUrls({}); }
+  // Ticks only while something is unread, so a lost read gets its retry
+  // without a reload, and a fully read Shelf never re-renders on a timer.
+  const [now, setNow] = useState(() => Date.now());
+  const unread = (items.data ?? []).some(row => row.status !== 'ready');
+  useEffect(() => {
+    if (!unread) return;
+    const timer = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, [unread]);
   const [note, setNote] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState('');
@@ -64,7 +75,6 @@ export function Shelf() {
   const recorder = useRecorder();
   const save = useAction('save');
   const act = useAction('action');
-  const [lastId, setLastId] = useState<string | null>(null);
   // Per item, so a slow read never locks the buttons on every other item.
   const [reading, setReading] = useState<ReadonlySet<string>>(new Set());
   const [readErrors, setReadErrors] = useState<Record<string, string>>({});
@@ -94,14 +104,24 @@ export function Shelf() {
     try { result = await stores.shelf.describe(item.id); }
     catch (reason) { const text = await explain(reason, 'action'); setReadErrors(errors => ({ ...errors, [item.id]: text })); }
     setReading(ids => { const next = new Set(ids); next.delete(item.id); return next; });
-    const update = (row: ShelfItem) => row.id === item.id
-      ? { ...row, status: result?.status ?? 'failed', description: result?.description ?? row.description } : row;
-    items.replace(list => list.map(update));
-    setFound(list => list && list.map(update));
-    if (result?.status === 'ready') announce(item.kind === 'note' ? 'On your Shelf' : 'Read and on your Shelf');
+    // A refused read says nothing certain about the item: another tab may have
+    // finished it. Ask the server what it is rather than guess "failed".
+    if (!result) { items.reload(); return; }
+    patch(list => list.map(row => row.id === item.id
+      ? { ...row, status: result.status, description: result.description ?? row.description } : row));
+    if (result.status === 'ready') announce(item.kind === 'note' ? 'On your Shelf' : 'Read and on your Shelf');
   }
-  const canRetry = (item: ShelfItem) => !reading.has(item.id) && (item.status === 'failed'
-    || (item.status !== 'ready' && Date.now() - Date.parse(item.created_at) > LOST_AFTER_MS));
+  /** The full list and the search results show the same items; change both. */
+  function patch(change: (list: ShelfItem[]) => ShelfItem[]) {
+    items.replace(change);
+    setFound(list => list && change(list));
+  }
+  function statusOf(item: ShelfItem): { label: string | false; retry: boolean } {
+    if (item.status === 'ready') return { label: false, retry: false };
+    if (item.status === 'failed') return { label: 'could not read this one', retry: !reading.has(item.id) };
+    const lost = !reading.has(item.id) && now - Date.parse(item.created_at) > LOST_AFTER_MS;
+    return { label: lost ? 'not read yet' : 'reading it…', retry: lost };
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -124,11 +144,9 @@ export function Shelf() {
   }
 
   async function remove(item: ShelfItem) {
-    setLastId(item.id);
     const done = await act.run(async () => { await stores.shelf.remove(item); return true; });
     if (!done) return;
-    items.replace(list => list.filter(row => row.id !== item.id));
-    setFound(list => list && list.filter(row => row.id !== item.id));
+    patch(list => list.filter(row => row.id !== item.id));
     setRemoving(null);
     searchBox.current?.focus();
     announce('Removed from your Shelf');
@@ -137,7 +155,7 @@ export function Shelf() {
   function pick(chosen: File | null) {
     save.clear();
     const fits = !chosen || Boolean(kindOf(chosen.type));
-    setFileError(fits ? '' : 'The Shelf takes photos (JPEG, PNG, WebP, HEIC) and voice notes (WebM, M4A, MP3, WAV, OGG).');
+    setFileError(fits ? '' : UNSUPPORTED_FILE);
     setFile(fits ? chosen : null); recorder.clear();
     if (!fits && fileInput.current) fileInput.current.value = '';
   }
@@ -198,17 +216,17 @@ export function Shelf() {
     </Empty>}
     {found && rows.length > 0 && <p className="fine muted" role="status">{count(rows.length, 'match', 'matches')}, closest first.</p>}
 
-    <div>{rows.map(item => <article className="entry shelf-item" key={item.id}>
+    <div>{rows.map(item => { const status = statusOf(item); return <article className="entry shelf-item" key={item.id}>
       {item.kind === 'photo' && item.object_path && (urls[item.object_path]
-        ? <img className="shelf-photo" src={urls[item.object_path]} alt={item.description ?? 'A photo on your Shelf'} />
+        ? <img className="shelf-photo" loading="lazy" decoding="async" src={urls[item.object_path]} alt={item.description ?? 'A photo on your Shelf'} />
         : <div className="shelf-photo placeholder" aria-hidden="true" />)}
       {item.kind === 'voice' && item.object_path && urls[item.object_path] &&
         <audio controls preload="none" src={urls[item.object_path]} aria-label="Play this voice note" />}
       {item.note && <h2 className="title">{item.note}</h2>}
       {item.description && <p className={item.note ? 'muted' : 'title'}>{item.description}</p>}
-      <Provenance parts={[KIND_LABEL[item.kind], canRetry(item) && item.status !== 'failed' ? 'not read yet' : STATUS_LABEL[item.status]]} at={item.created_at} />
+      <Provenance parts={[KIND_LABEL[item.kind], status.label]} at={item.created_at} />
       <div className="actions">
-        {canRetry(item) && <Button small onClick={() => void read(item)}>Try reading it again</Button>}
+        {status.retry && <Button small onClick={() => void read(item)}>Try reading it again</Button>}
         <Button look="quiet" small disabled={act.busy} aria-expanded={removing === item.id}
           onClick={() => setRemoving(removing === item.id ? null : item.id)}>Remove</Button>
       </div>
@@ -221,7 +239,7 @@ export function Shelf() {
         </div>
       </div>}
       {readErrors[item.id] && <SaveError title="Could not read this." message={readErrors[item.id]} />}
-      {act.error && lastId === item.id && <SaveError title="Could not change this." message={act.error} />}
-    </article>)}</div>
+      {act.error && removing === item.id && <SaveError title="Could not change this." message={act.error} />}
+    </article>; })}</div>
   </>;
 }

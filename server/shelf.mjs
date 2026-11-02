@@ -14,7 +14,6 @@ import {toVectorLiteral} from './vector.mjs';
 
 const MAX_BYTES = 4096;
 const QUERY_CHARS = 300;
-const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Measured on the Shelf bench, 2 Nov: where gemini-embedding-001 at 768 did
 // best at finding the item while staying quiet when nothing fit.
@@ -118,9 +117,9 @@ export async function handleShelf(req, res, {embedder, describer, makeClient = c
       if (!describer) throw Error('No model configured');
       const {data: file, error: fileError} = await db.storage.from('shelf').download(item.object_path);
       if (fileError || !file) throw fileError ?? Error('No file');
-      // The row's size is what the browser said. The file is what arrived,
-      // and only that is checked before it goes to the model.
-      if (file.size > MAX_FILE_BYTES || file.size !== item.size_bytes) throw Error('File does not match its row');
+      // The row's size is what the browser said, capped at 20 MB by the table.
+      // The file is what arrived, and it has to be that size.
+      if (file.size !== item.size_bytes) throw Error('File does not match its row');
       description = await describer.describe({
         bytes: new Uint8Array(await file.arrayBuffer()), mimeType: item.mime_type, note: item.note,
       });

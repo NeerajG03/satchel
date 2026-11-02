@@ -9,6 +9,7 @@ export type ShelfItem = {
 };
 
 export const SHELF_LIMITS = { note: 4000, bytes: 20 * 1024 * 1024 };
+export const UNSUPPORTED_FILE = 'The Shelf takes photos (JPEG, PNG, WebP, HEIC) and voice notes (WebM, M4A, MP3, WAV, OGG).';
 const EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic',
   'audio/webm': 'webm', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/ogg': 'ogg',
@@ -53,8 +54,8 @@ export function createShelfRepository(db: SupabaseClient) {
      *  so rather than a file nothing knows about. */
     async add({ note, file }: { note: string; file?: Blob | null }): Promise<ShelfItem> {
       const id = crypto.randomUUID();
-      const kind: ShelfKind = file ? kindOf(file.type)! : 'note';
-      if (file && !kind) throw new Sentence('The Shelf takes photos (JPEG, PNG, WebP, HEIC) and voice notes (WebM, M4A, MP3, WAV, OGG).');
+      const kind = file ? kindOf(file.type) : 'note';
+      if (!kind) throw new Sentence(UNSUPPORTED_FILE);
       if (file && file.size > SHELF_LIMITS.bytes) throw new Sentence('That file is over 20 MB, so nothing was saved. Try a smaller one.');
       const type = file ? bareType(file.type) : null;
       const path = file ? `${(await session()).user.id}/${id}.${EXTENSIONS[type!]}` : null;
@@ -78,10 +79,10 @@ export function createShelfRepository(db: SupabaseClient) {
     async search(q: string): Promise<ShelfItem[]> {
       return (await server<{ items: ShelfItem[] }>({ action: 'search', q }, 20000)).items;
     },
-    /** Links that work for an hour, for the files on screen. */
+    /** Links that work for twelve hours, for the files on screen. */
     async fileUrls(paths: string[]): Promise<Record<string, string>> {
       if (!paths.length) return {};
-      const { data, error } = await db.storage.from('shelf').createSignedUrls(paths, 3600);
+      const { data, error } = await db.storage.from('shelf').createSignedUrls(paths, 12 * 3600);
       if (error) throw error;
       return Object.fromEntries((data ?? []).flatMap(row => row.signedUrl && row.path ? [[row.path, row.signedUrl]] : []));
     },
