@@ -56,3 +56,13 @@
 .days { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .days legend { padding: 0; margin-bottom: 6px; font-size: 13px; font-weight: 500; }
 .days .row { gap: 6px 18px; }
+
+/* Shelf */
+.shelf-drop .shelf-attach { gap: 8px; align-items: center; flex-wrap: wrap; }
+.shelf-drop label.btn { cursor: pointer; }
+.shelf-drop label.btn:has(input:focus-visible) { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+.shelf-search { gap: 8px; align-items: flex-end; padding: 20px 0 8px; flex-wrap: wrap; }
+.shelf-search > :first-child { flex: 1 1 280px; }
+.shelf-item .shelf-photo { display: block; max-width: min(100%, 360px); max-height: 280px; border-radius: 8px; border: 1px solid var(--line); object-fit: cover; margin-bottom: 10px; }
+.shelf-item .shelf-photo.placeholder { width: 240px; height: 160px; background: var(--paper-3); }
+.shelf-item audio { display: block; margin-bottom: 10px; max-width: 100%; }

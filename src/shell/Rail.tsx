@@ -6,6 +6,7 @@ type Destination = { to: string; label: string; end?: boolean };
 const DESTINATIONS: Destination[] = [
   { to: '/', label: 'Left off', end: true },
   { to: '/book', label: 'Book' },
+  { to: '/shelf', label: 'Shelf' },
   { to: '/topics', label: 'Topics' },
   { to: '/apps', label: 'Apps' },
   { to: '/settings', label: 'Settings' },

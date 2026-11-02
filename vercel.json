@@ -12,6 +12,10 @@
     "api/hook-capture.mjs": {
       "includeFiles": "server/prompts/**"
     },
+    "api/shelf.mjs": {
+      "includeFiles": "server/prompts/**",
+      "maxDuration": 60
+    },
     "api/consolidate.mjs": {
       "includeFiles": "server/prompts/**",
       "maxDuration": 300

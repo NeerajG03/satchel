@@ -139,9 +139,24 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - Lede: Memories you forgot, ones replaced by something newer, and things you wanted that are now done. Nothing here reaches an agent. Everything here can come back.
 - Why it is here: You forgot it · Replaced by a newer one · Done, so it was retired · Its date passed
 - Actions: Put it back · Delete for good · Reload
-- Delete for good: This is the only thing in Satchel that really destroys something. The memory and its whole history go, and nothing can bring them back. / Keep it · Delete for good
+- Delete for good: Unlike forgetting, this really destroys it. The memory and its whole history go, and nothing can bring them back. / Keep it · Delete for good
 - Empty: Nothing has been put aside. When you forget a memory, or Satchel replaces one with something newer, or something you wanted gets done, it waits here instead of disappearing.
 - Footer: {n} archived · Back in your book · Deleted for good — its history went with it
+
+## Shelf
+
+- Rail: Shelf
+- Eyebrow: Shelf
+- H1: Drop it here, find it later.
+- Lede: A thought, a photo or a voice note. Satchel reads each one and writes down what it shows, so you can find it again by typing a few words. Only you can see your Shelf.
+- Drop: Note (optional with a photo or voice note) · Add a photo or audio file · Record a voice note · Stop recording · Recording… · Voice note recorded · remove · Photos and voice notes up to 20 MB. · Put on Shelf · Saving…
+- Find: Find something (describe it the way you remember it) · Find · Looking… · Show everything · {n} matches, closest first.
+- Item: note · photo · voice note · reading it… · not read yet · could not read this one · Try reading it again · Remove
+- Remove: Remove this from your Shelf? It goes for good, with its file. Nothing can bring it back. / Keep it · Remove for good
+- Empty: Your Shelf is empty. Put a note, a photo or a voice note on it above. It is read in a few seconds and you can find it by searching.
+- No match: Nothing on your Shelf fits that. Try other words, the way you would describe it to someone.
+- Footer: {n} things on your Shelf · On your Shelf · Read and on your Shelf · Removed from your Shelf
+- Errors: Satchel could not use the microphone. Allow it for this site, then try again. · The Shelf takes photos (JPEG, PNG, WebP, HEIC) and voice notes (WebM, M4A, MP3, WAV, OGG). · That file is over 20 MB, so nothing was saved. Try a smaller one. · The file did not upload, so nothing was saved. Try again. · Satchel could not read this one, so it is saved but not searchable. Try dropping it again. · Search is busy right now. Try again in a minute.
 
 ## Activity (developer mode)
 

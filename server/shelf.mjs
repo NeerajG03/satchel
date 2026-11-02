@@ -1,0 +1,140 @@
+// The Shelf's two server jobs: read a dropped item into words, and search them.
+//
+// Both run as the person, on their own session token, under RLS. The token is
+// checked as a companion session before anything is spent: an app token never
+// reaches the Shelf, and a model call is only made for an item the person's
+// own token could read back.
+import {createClient} from '@supabase/supabase-js';
+import {generateText} from 'ai';
+import {SUPABASE_URL} from './identity.mjs';
+import {verifyCompanionToken, CHALLENGE} from './agent-token.mjs';
+import {providerFor, asBaseUrl} from './model-provider.mjs';
+import {shelfDescribePrompt} from './prompt-store.mjs';
+import {toVectorLiteral} from './vector.mjs';
+
+const MAX_BYTES = 4096;
+const QUERY_CHARS = 300;
+const MAX_FILE_BYTES = 20 * 1024 * 1024;
+const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Measured on the Shelf bench, 2 Nov: where gemini-embedding-001 at 768 did
+// best at finding the item while staying quiet when nothing fit.
+const SHELF_GATE = Number(process.env.SATCHEL_SHELF_GATE ?? 0.63);
+
+export function createDescriber({
+  model = process.env.SATCHEL_SHELF_MODEL ?? 'gemini-3.8-flash',
+  provider = process.env.SATCHEL_ROUTER_PROVIDER ?? 'google',
+  baseURL = asBaseUrl(process.env.SATCHEL_ROUTER_URL),
+  apiKey = process.env.SATCHEL_ROUTER_KEY ?? process.env.GEMINI_API_KEY,
+  // A photo or a minute of voice, read while the person watches the card.
+  timeoutMs = Number(process.env.SATCHEL_SHELF_TIMEOUT_MS ?? 45000),
+  promptResolver = shelfDescribePrompt,
+  fetchImpl = fetch,
+} = {}) {
+  if (!apiKey) return null;
+  const languageModel = providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(model);
+  return {
+    model,
+    async describe({bytes, mimeType, note}) {
+      const {text: system} = await promptResolver();
+      const {text} = await generateText({
+        model: languageModel, system, temperature: 0, maxRetries: 1,
+        abortSignal: AbortSignal.timeout(timeoutMs),
+        messages: [{role: 'user', content: [
+          {type: 'file', data: bytes, mediaType: mimeType},
+          {type: 'text', text: note ? `The person's note: ${note}` : 'No note was typed with it.'},
+        ]}],
+        telemetry: {functionId: 'shelf-describe', metadata: {mimeType}},
+      });
+      const description = text.trim().slice(0, 4000);
+      if (!description) throw Error('The model returned no description');
+      return description;
+    },
+  };
+}
+
+/** What search matches: the person's words first, then what was read off the item. */
+export const shelfText = ({note, description}) => [note, description].map(s => (s ?? '').trim()).filter(Boolean).join('\n');
+
+async function personFor(req, res, makeClient, verify) {
+  res.setHeader('Cache-Control', 'no-store');
+  if (req.method !== 'POST') { res.writeHead(405, {Allow: 'POST'}); res.end(); return null; }
+  if (Number(req.headers['content-length'] ?? 0) > MAX_BYTES) { res.writeHead(413); res.end(); return null; }
+  const token = req.headers.authorization?.match(/^Bearer (\S+)$/i)?.[1];
+  try { if (!token) throw Error('Missing token'); await verify(token); }
+  catch { res.writeHead(401, {'WWW-Authenticate': CHALLENGE}); res.end('Sign in to the web app to use the Shelf'); return null; }
+  const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!key) { res.writeHead(503); res.end('Server configuration unavailable'); return null; }
+  return makeClient(SUPABASE_URL, key, {
+    auth: {persistSession: false, autoRefreshToken: false, detectSessionInUrl: false},
+    global: {headers: {Authorization: `Bearer ${token}`}},
+  });
+}
+
+function readBody(body) {
+  let value = body;
+  if (Buffer.isBuffer(value)) value = value.toString('utf8');
+  if (typeof value === 'string') value = JSON.parse(value);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('Invalid body');
+  return value;
+}
+
+const send = (res, status, body) => {
+  res.writeHead(status, {'content-type': 'application/json'});
+  res.end(JSON.stringify(body));
+};
+
+/** POST {action:'describe', id} reads one item; POST {action:'search', q} searches. */
+export async function handleShelf(req, res, {embedder, describer, makeClient = createClient,
+  verify = verifyCompanionToken} = {}) {
+  const db = await personFor(req, res, makeClient, verify);
+  if (!db) return;
+  let body;
+  try { body = readBody(req.body); } catch { return send(res, 400, {error: 'Satchel could not read that request.'}); }
+  if (!embedder) return send(res, 503, {error: 'Search is not set up on this server, so nothing was read.'});
+
+  if (body.action === 'search') {
+    const q = typeof body.q === 'string' ? body.q.trim().slice(0, QUERY_CHARS) : '';
+    if (!q) return send(res, 400, {error: 'Type something to search for.'});
+    let vector;
+    try { vector = await embedder.embedQuery(q); }
+    catch { return send(res, 503, {error: 'Search is busy right now. Try again in a minute.'}); }
+    const {data, error} = await db.rpc('search_shelf', {
+      p_query: toVectorLiteral(vector), p_model: embedder.model, p_limit: 20, p_gate: SHELF_GATE,
+    });
+    if (error) return send(res, 502, {error: 'Satchel could not search your Shelf. Reload and try again.'});
+    return send(res, 200, {items: data});
+  }
+
+  if (body.action !== 'describe' || typeof body.id !== 'string' || !idPattern.test(body.id))
+    return send(res, 400, {error: 'Satchel could not read that request.'});
+  const {data: rows, error} = await db.rpc('claim_shelf_item', {p_id: body.id});
+  if (error?.hint === 'satchel:conflict:shelf_reading')
+    return send(res, 409, {error: 'Satchel is already reading this one, or has finished. Reload the Shelf to see it.'});
+  if (error || !rows?.length) return send(res, 404, {error: 'That shelf item is gone. Reload the Shelf.'});
+  const item = rows[0];
+  let description = null;
+  try {
+    if (item.kind !== 'note') {
+      if (!describer) throw Error('No model configured');
+      const {data: file, error: fileError} = await db.storage.from('shelf').download(item.object_path);
+      if (fileError || !file) throw fileError ?? Error('No file');
+      // The row's size is what the browser said. The file is what arrived,
+      // and only that is checked before it goes to the model.
+      if (file.size > MAX_FILE_BYTES || file.size !== item.size_bytes) throw Error('File does not match its row');
+      description = await describer.describe({
+        bytes: new Uint8Array(await file.arrayBuffer()), mimeType: item.mime_type, note: item.note,
+      });
+    }
+    const vector = await embedder.embedOne(shelfText({note: item.note, description}));
+    const {data: done, error: saveError} = await db.rpc('describe_shelf_item', {
+      p_id: item.id, p_description: description, p_embedding: toVectorLiteral(vector), p_embedding_model: embedder.model,
+    });
+    if (saveError) throw saveError;
+    return send(res, 200, {id: item.id, status: done?.[0]?.status ?? 'ready', description});
+  } catch {
+    // Kept and marked, so the person sees which one did not take and can
+    // remove it or drop it again. A failure here is never a lost item.
+    await db.rpc('describe_shelf_item', {p_id: item.id, p_description: null, p_embedding: null, p_embedding_model: null});
+    return send(res, 502, {error: 'Satchel could not read this one, so it is saved but not searchable. Try dropping it again.'});
+  }
+}

@@ -24,6 +24,7 @@ import {readFileSync} from 'node:fs';
 export const CAPTURE_PROMPT = 'satchel-capture-router';
 export const CONSOLIDATE_PROMPT = 'satchel-consolidate';
 export const TIDY_PROMPT = 'satchel-tidy';
+export const SHELF_DESCRIBE_PROMPT = 'satchel-shelf-describe';
 
 // Read at import, not per call. It is a few kilobytes and it is needed on
 // every cold start anyway, as the fallback if nothing else.
@@ -39,6 +40,7 @@ export const PROMPT_FILES = {
   [CAPTURE_PROMPT]: 'capture-router.md',
   [CONSOLIDATE_PROMPT]: 'consolidate.md',
   [TIDY_PROMPT]: 'tidy.md',
+  [SHELF_DESCRIBE_PROMPT]: 'shelf-describe.md',
 };
 
 export const localText = read(PROMPT_FILES[CAPTURE_PROMPT]);
@@ -57,6 +59,7 @@ const cached = new Map();
 export const capturePrompt = options => storedPrompt(CAPTURE_PROMPT, options);
 export const consolidatePrompt = options => storedPrompt(CONSOLIDATE_PROMPT, options);
 export const tidyPrompt = options => storedPrompt(TIDY_PROMPT, options);
+export const shelfDescribePrompt = options => storedPrompt(SHELF_DESCRIBE_PROMPT, options);
 
 export async function storedPrompt(name, {
   baseUrl = process.env.LANGFUSE_BASE_URL ?? process.env.LANGFUSE_HOST,
