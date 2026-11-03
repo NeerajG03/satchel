@@ -1,25 +1,36 @@
 package app.satchel.capture
 
-import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-/** "Share to Satchel" from any app. No screen: it queues what was shared and says so. */
-class ShareActivity : Activity() {
+/**
+ * "Share to Satchel" from any app. No screen: it queues what was shared and says so.
+ * The work runs off the main thread while this stays open, because permission
+ * to read a shared file ends when the activity finishes.
+ */
+class ShareActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val app = app
         if (!app.auth.signedIn) {
             Toast.makeText(this, "Sign in to Satchel first, then share again.", Toast.LENGTH_LONG).show()
             startActivity(Intent(this, MainActivity::class.java))
             return finish()
         }
-        val message = runCatching { take(intent) }.getOrElse { it.message ?: "Satchel could not take that." }
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-        sendSoon()
-        finish()
+        if (savedInstanceState != null) return finish()
+        lifecycleScope.launch {
+            val message = withContext(Dispatchers.IO) { take(intent) }
+            Toast.makeText(this@ShareActivity, message, Toast.LENGTH_SHORT).show()
+            sendSoon()
+            finish()
+        }
     }
 
     private fun take(intent: Intent): String {
@@ -37,22 +48,26 @@ class ShareActivity : Activity() {
         var refused = 0
         for (uri in uris.take(10)) {
             val type = contentResolver.getType(uri) ?: intent.type.orEmpty()
-            when {
-                type.startsWith("image/") && type != "image/gif" -> {
-                    app.queue.addFile("photo", "image/jpeg", Photos.shrink(this, uri), text); saved++
+            val kept = runCatching {
+                when {
+                    type.startsWith("image/") && type != "image/gif" ->
+                        app.queue.addFile("photo", "image/jpeg", Photos.shrink(this, uri), text)
+                    type.startsWith("audio/") && ShelfTypes.takes(type) && size(uri) in 1..ShelfTypes.BYTE_LIMIT.toLong() ->
+                        app.queue.addFile("voice", type, contentResolver.openInputStream(uri)!!.use { it.readBytes() }, text)
+                    else -> null
                 }
-                type.startsWith("audio/") && ShelfTypes.takes(type) -> {
-                    val bytes = contentResolver.openInputStream(uri)!!.use { it.readBytes() }
-                    if (bytes.size > ShelfTypes.BYTE_LIMIT) refused++ else { app.queue.addFile("voice", type, bytes, text); saved++ }
-                }
-                else -> refused++
-            }
+            }.getOrNull()
+            if (kept != null) saved++ else refused++
         }
         return when {
-            saved == 0 -> "The Shelf takes photos, voice notes and text, not this yet."
+            saved == 0 -> "The Shelf takes photos, voice notes up to 20 MB and text, not this."
             refused > 0 -> "Saved $saved to your Shelf. $refused could not be taken."
             saved == 1 -> "Saved to your Shelf"
             else -> "Saved $saved to your Shelf"
         }
     }
+
+    /** The size the sharing app reports, read before the file is: a large one is refused without loading it. */
+    private fun size(uri: Uri): Long = contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
+        ?.use { if (it.moveToFirst() && !it.isNull(0)) it.getLong(0) else -1L } ?: -1L
 }

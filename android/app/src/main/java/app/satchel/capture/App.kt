@@ -20,7 +20,8 @@ import java.util.concurrent.TimeUnit
 
 class App : Application() {
     val http by lazy {
-        OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(75, TimeUnit.SECONDS)
+        // Under the Shelf endpoint's 60 second limit, so the phone never gives up on a read the server is still doing.
+        OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(55, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS).build()
     }
     val auth by lazy { Auth(this, http) }
@@ -40,14 +41,21 @@ fun Context.sendSoon() {
         .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
         .build()
-    WorkManager.getInstance(this).enqueueUniqueWork("send", ExistingWorkPolicy.APPEND_OR_REPLACE, work)
+    // Replace, not append: a run waiting out its backoff would otherwise hold a
+    // new capture behind it for hours. Every step is safe to repeat, so
+    // cutting a run short loses nothing.
+    WorkManager.getInstance(this).enqueueUniqueWork("send", ExistingWorkPolicy.REPLACE, work)
 }
+
+fun Context.stopSending() { WorkManager.getInstance(this).cancelUniqueWork("send") }
 
 class SendWork(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val app = applicationContext.app
         if (!app.auth.signedIn) return Result.success()
-        return if (app.sender.run()) Result.success() else Result.retry()
+        return try { if (app.sender.run()) Result.success() else Result.retry() }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: Exception) { Result.retry() }
     }
 }
 

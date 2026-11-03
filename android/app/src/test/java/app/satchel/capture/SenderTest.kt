@@ -106,6 +106,22 @@ class SenderTest {
         assertEquals(1, calls.size)
     }
 
+    @Test fun `a stuck item does not hold up the ones after it`() = runTest {
+        queue.addFile("photo", "image/jpeg", byteArrayOf(1))
+        Thread.sleep(5)
+        queue.addNote("later note")
+        answer("upload", 503)
+        assertFalse(sender.run())
+        assertEquals(listOf("add", "upload", "add", "describe"), calls)
+        assertEquals(1, queue.pending().size)
+    }
+
+    @Test fun `a capture cleared from the phone mid-run is skipped, not a crash`() = runTest {
+        val item = queue.addNote("x")
+        queue.remove(item)
+        assertTrue(sender.run())
+    }
+
     @Test fun `signed out sends nothing and keeps everything`() = runTest {
         token = null
         queue.addNote("x")

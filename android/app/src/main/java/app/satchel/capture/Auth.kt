@@ -75,6 +75,19 @@ class Auth(context: Context, private val http: OkHttpClient) {
 
     fun signOut() { prefs.edit().clear().apply() }
 
+    /** Ends the session on the server too, then forgets it here. Forgetting happens even offline. */
+    suspend fun signOutEverywhere() {
+        val access = load()?.access
+        if (access != null) withContext(Dispatchers.IO) {
+            runCatching {
+                http.newCall(Request.Builder().url("${BuildConfig.SUPABASE_URL}/auth/v1/logout")
+                    .header("apikey", BuildConfig.SUPABASE_KEY).header("authorization", "Bearer $access")
+                    .post(ByteArray(0).toRequestBody()).build()).execute().close()
+            }
+        }
+        signOut()
+    }
+
     /** Returns null on success or a reason. Only a refusal clears the session; a dropped connection keeps it. */
     private fun token(grant: String, body: JSONObject): String? {
         val request = Request.Builder().url("${BuildConfig.SUPABASE_URL}/auth/v1/token?grant_type=$grant")
@@ -84,8 +97,11 @@ class Auth(context: Context, private val http: OkHttpClient) {
             http.newCall(request).execute().use { response ->
                 val text = response.body.string()
                 if (!response.isSuccessful) {
-                    if (response.code in 400..499) signOut()
-                    return "Satchel did not accept the sign-in (${response.code}). Sign in again."
+                    // Only a dead or refused grant ends the session. A rate limit or a slow
+                    // answer is a reason to try again later, not to sign the person out.
+                    if (response.code == 400 || response.code == 401 || response.code == 403 || response.code == 404) signOut()
+                    return if (response.code == 429 || response.code >= 500) "Satchel is busy. Try again in a minute."
+                        else "Satchel did not accept the sign-in. Sign in again."
                 }
                 val o = JSONObject(text)
                 save(Session(o.getString("access_token"), o.getString("refresh_token"),
@@ -94,6 +110,7 @@ class Auth(context: Context, private val http: OkHttpClient) {
                 null
             }
         } catch (e: IOException) { "No connection. Try again when you are online." }
+        catch (e: org.json.JSONException) { "Satchel sent back something it could not read. Try again." }
     }
 
     private fun save(session: Session) {

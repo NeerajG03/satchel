@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -72,18 +73,22 @@ class CaptureActivity : ComponentActivity() {
 @Composable
 private fun CaptureSheet(mode: String, onDone: (String) -> Unit, onCancel: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    var note by remember { mutableStateOf("") }
+    var note by rememberSaveable { mutableStateOf("") }
     var problem by remember { mutableStateOf<String?>(null) }
 
-    val photoFile = remember { File(context.cacheDir, "camera/${UUID.randomUUID()}.jpg").apply { parentFile?.mkdirs() } }
-    val photoUri = remember { FileProvider.getUriForFile(context, "${context.packageName}.files", photoFile) }
+    // Kept across a rebuild: the camera app can push this screen out of memory,
+    // and the photo it took has to land in the same file we gave it.
+    val photoPath = rememberSaveable { "camera/${UUID.randomUUID()}.jpg" }
+    var cameraOpened by rememberSaveable { mutableStateOf(false) }
+    val photoFile = remember(photoPath) { File(context.cacheDir, photoPath).apply { parentFile?.mkdirs() } }
+    val photoUri = remember(photoFile) { FileProvider.getUriForFile(context, "${context.packageName}.files", photoFile) }
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
         if (!taken) { if (mode == "photo") onCancel(); return@rememberLauncherForActivityResult }
         runCatching { context.app.queue.addFile("photo", "image/jpeg", Photos.shrink(context, photoUri), note.trim()) }
             .onSuccess { photoFile.delete(); onDone("Photo saved to your Shelf") }
             .onFailure { problem = "Satchel could not keep that photo. Try again." }
     }
-    LaunchedEffect(Unit) { if (mode == "photo") camera.launch(photoUri) }
+    LaunchedEffect(Unit) { if (mode == "photo" && !cameraOpened) { cameraOpened = true; camera.launch(photoUri) } }
 
     Box(Modifier.fillMaxSize().background(Ink.copy(alpha = 0.45f))
         .clickable(remember { MutableInteractionSource() }, null) { onCancel() }) {
@@ -131,6 +136,8 @@ private fun NoteBox(value: String, autoFocus: Boolean, onChange: (String) -> Uni
 @Composable
 private fun Recorder(note: String, onSaved: (String) -> Unit, onProblem: (String) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    // The gesture below is set up once; this keeps it reading the note as typed now.
+    val currentNote by rememberUpdatedState(note)
     var recorder by remember { mutableStateOf<VoiceRecorder?>(null) }
     var seconds by remember { mutableIntStateOf(0) }
     var allowed by remember {
@@ -147,7 +154,7 @@ private fun Recorder(note: String, onSaved: (String) -> Unit, onProblem: (String
         val r = recorder ?: return
         recorder = null
         val bytes = r.stop() ?: return onProblem("That was too short to keep. Hold a little longer.")
-        runCatching { context.app.queue.addFile("voice", "audio/mp4", bytes, note.trim()) }
+        runCatching { context.app.queue.addFile("voice", "audio/mp4", bytes, currentNote.trim()) }
             .onSuccess { onSaved("Voice note saved to your Shelf") }
             .onFailure { onProblem(it.message ?: "Satchel could not keep that voice note.") }
     }

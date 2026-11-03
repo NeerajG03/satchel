@@ -41,7 +41,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handle(intent)
+        val fromHistory = intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
+        if (savedInstanceState == null && !fromHistory) handle(intent)
         setContent { SatchelTheme { Home() } }
     }
 
@@ -56,9 +57,12 @@ class MainActivity : ComponentActivity() {
 
     private fun refresh() { signedIn = app.auth.signedIn; waiting = app.queue.pending() }
 
+    /** A sign-in code works once, so the link is cleared as soon as it is read. */
     private fun handle(intent: Intent?) {
         val data = intent?.data ?: return
         if (!data.toString().startsWith(REDIRECT)) return
+        intent.data = null
+        setIntent(intent)
         val code = data.getQueryParameter("code")
         if (code == null) {
             message = data.getQueryParameter("error_description") ?: "GitHub sign-in did not finish. Try again."
@@ -108,7 +112,10 @@ class MainActivity : ComponentActivity() {
             OutlinedButton({ startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("${BuildConfig.SATCHEL_URL}/shelf"))) },
                 Modifier.fillMaxWidth()) { Text("Open your Shelf", color = InkText) }
             Spacer(Modifier.weight(1f))
-            TextButton({ app.auth.signOut(); refresh() }) { Text("Sign out", color = Muted) }
+            val unsent = waiting.count { it.problem == null }
+            TextButton({ lifecycleScope.launch { app.auth.signOutEverywhere(); stopSending(); app.queue.clear(); refresh() } }) {
+                Text(if (unsent > 0) "Sign out (removes $unsent not yet sent)" else "Sign out", color = Muted)
+            }
         }
     }
 }

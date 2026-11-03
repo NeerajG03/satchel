@@ -66,6 +66,8 @@ class Queue(private val root: File) {
 
     fun remove(item: QueuedItem) { File(root, item.id).deleteRecursively() }
 
+    fun clear() { root.listFiles()?.forEach { it.deleteRecursively() } }
+
     private fun save(item: QueuedItem, bytes: ByteArray?): QueuedItem {
         val dir = File(root, item.id).apply { mkdirs() }
         if (bytes != null) File(dir, "data").writeBytes(bytes)
@@ -74,6 +76,7 @@ class Queue(private val root: File) {
     }
 
     private fun write(file: File, item: QueuedItem) {
+        if (!file.parentFile!!.exists()) throw java.io.FileNotFoundException(item.id)
         val o = JSONObject().put("id", item.id).put("kind", item.kind).put("note", item.note)
             .put("objectPath", item.objectPath ?: JSONObject.NULL).put("mime", item.mime ?: JSONObject.NULL)
             .put("size", item.size ?: JSONObject.NULL).put("stage", item.stage).put("readTries", item.readTries)
@@ -95,39 +98,59 @@ class Queue(private val root: File) {
 
 /** Sends what is queued, oldest first, one confirmed step at a time. */
 class Sender(private val queue: Queue, private val api: ShelfApi, private val ownerId: () -> String?) {
-    /** Returns true when everything that can be sent now was sent. */
+    /** Returns true when everything that can be sent now was sent. One stuck item never holds up the rest. */
     suspend fun run(): Boolean {
+        var allSent = true
         for (start in queue.pending()) {
             if (start.problem != null) continue
-            var item = start
-            if (item.mime != null && item.objectPath == null) {
-                val owner = ownerId() ?: return false
-                item = queue.update(item.copy(objectPath = "$owner/${item.id}.${ShelfTypes.extension(item.mime)}"))
-            }
-            while (true) {
-                val step = when (item.stage) {
-                    QueuedItem.ADD -> api.add(item)
-                    QueuedItem.UPLOAD -> api.upload(item, queue.bytes(item))
-                    else -> api.describe(item)
+            try {
+                when (send(start)) {
+                    Outcome.SENT -> {}
+                    Outcome.LATER -> allSent = false
+                    Outcome.SIGNED_OUT -> return false
                 }
-                when (step) {
-                    is Step.Done -> {
-                        if (item.stage >= QueuedItem.READ) { queue.remove(item); break }
-                        val next = if (item.stage == QueuedItem.ADD && item.objectPath == null) QueuedItem.READ else item.stage + 1
-                        item = queue.update(item.copy(stage = next))
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: java.io.FileNotFoundException) {
+                // Cleared from the phone while this run was holding it.
+            } catch (e: Exception) {
+                runCatching { queue.update(start.copy(problem = "Satchel could not read this capture back from the phone")) }
+            }
+        }
+        return allSent
+    }
+
+    private enum class Outcome { SENT, LATER, SIGNED_OUT }
+
+    private suspend fun send(start: QueuedItem): Outcome {
+        var item = start
+        if (item.mime != null && item.objectPath == null) {
+            val owner = ownerId() ?: return Outcome.SIGNED_OUT
+            item = queue.update(item.copy(objectPath = "$owner/${item.id}.${ShelfTypes.extension(item.mime)}"))
+        }
+        while (true) {
+            val step = when (item.stage) {
+                QueuedItem.ADD -> api.add(item)
+                QueuedItem.UPLOAD -> api.upload(item, queue.bytes(item))
+                else -> api.describe(item)
+            }
+            when (step) {
+                is Step.Done -> {
+                    if (item.stage >= QueuedItem.READ) { queue.remove(item); return Outcome.SENT }
+                    val next = if (item.stage == QueuedItem.ADD && item.objectPath == null) QueuedItem.READ else item.stage + 1
+                    item = queue.update(item.copy(stage = next))
+                }
+                is Step.Never -> { queue.update(item.copy(problem = step.why)); return Outcome.SENT }
+                is Step.Later -> {
+                    if (step.why == SIGNED_OUT) return Outcome.SIGNED_OUT
+                    if (item.stage == QueuedItem.READ && step.why == UNREAD) {
+                        // It is on the Shelf, saved but not read; the web page can retry it.
+                        if (item.readTries + 1 >= QueuedItem.READ_TRIES) { queue.remove(item); return Outcome.SENT }
+                        queue.update(item.copy(readTries = item.readTries + 1))
                     }
-                    is Step.Never -> { queue.update(item.copy(problem = step.why)); break }
-                    is Step.Later -> {
-                        if (item.stage == QueuedItem.READ && step.why == "Satchel could not read it") {
-                            // It is on the Shelf, saved but not read; the web page can retry it.
-                            if (item.readTries + 1 >= QueuedItem.READ_TRIES) { queue.remove(item); break }
-                            queue.update(item.copy(readTries = item.readTries + 1))
-                        }
-                        return false
-                    }
+                    return Outcome.LATER
                 }
             }
         }
-        return true
     }
 }

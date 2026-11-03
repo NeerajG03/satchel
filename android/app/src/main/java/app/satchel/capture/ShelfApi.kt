@@ -9,6 +9,9 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
 
+const val SIGNED_OUT = "signed out"
+const val UNREAD = "Satchel could not read it"
+
 /** What one step of sending came to. The queue decides what to do next from this alone. */
 sealed interface Step {
     /** Done, including the cases where a retry finds the work already done. */
@@ -47,7 +50,7 @@ class ShelfApi(
             val text = response.body.string()
             when {
                 response.isSuccessful -> Step.Done
-                response.code == 401 -> Step.Later("signed out")
+                response.code == 401 -> Step.Later(SIGNED_OUT)
                 // Same id, same thing: the database hands the row back, so a
                 // conflict means the id was used for something else.
                 text.contains("satchel:conflict:shelf_request") -> Step.Never("this capture clashes with one already on your Shelf")
@@ -68,7 +71,7 @@ class ShelfApi(
                 response.isSuccessful -> Step.Done
                 // The file is already there from an earlier try that lost its answer.
                 response.code == 409 || text.contains("Duplicate") || text.contains("already exists") -> Step.Done
-                response.code == 401 || text.contains("\"statusCode\":\"401\"") -> Step.Later("signed out")
+                response.code == 401 || text.contains("\"statusCode\":\"401\"") -> Step.Later(SIGNED_OUT)
                 response.code >= 500 -> Step.Later("storage answered ${response.code}")
                 else -> Step.Never("the file was refused (${response.code})")
             }
@@ -84,11 +87,11 @@ class ShelfApi(
         http.newCall(request).execute().use { response ->
             when (response.code) {
                 200, 409 -> Step.Done
-                401 -> Step.Later("signed out")
+                401 -> Step.Later(SIGNED_OUT)
                 404 -> Step.Never("it is no longer on your Shelf")
                 // Saved but not read. Each retry pays for another model call,
                 // so the queue caps these.
-                502 -> Step.Later("Satchel could not read it")
+                502 -> Step.Later(UNREAD)
                 else -> if (response.code >= 500) Step.Later("Satchel answered ${response.code}")
                         else Step.Never("Satchel refused it (${response.code})")
             }
@@ -96,7 +99,7 @@ class ShelfApi(
     }
 
     private suspend fun call(block: (String) -> Step): Step = withContext(Dispatchers.IO) {
-        val access = token() ?: return@withContext Step.Later("signed out")
+        val access = token() ?: return@withContext Step.Later(SIGNED_OUT)
         try { block(access) } catch (e: IOException) { Step.Later("no connection") }
     }
 
