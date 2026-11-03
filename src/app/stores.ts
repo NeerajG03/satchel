@@ -7,6 +7,7 @@ import { createActivityRepository } from '../features/activity/repository';
 import { createOvernightRepository } from '../features/settings/repository';
 import { createShelfRepository } from '../features/shelf/repository';
 import { createProfileRepository } from '../features/profiles/repository';
+import { createGoogleRepository } from '../features/profiles/google';
 
 export function useStores() {
   const db = useDb();
@@ -19,6 +20,7 @@ export function useStores() {
     overnight: createOvernightRepository(db),
     shelf: createShelfRepository(db),
     profiles: createProfileRepository(db),
+    google: createGoogleRepository(db),
   }), [db]);
 }
 export type Stores = ReturnType<typeof useStores>;

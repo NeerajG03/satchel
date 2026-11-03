@@ -70,8 +70,15 @@ export const shelfText = ({note, description, transcript}) =>
 export async function sortItem(db, sorter, {item, description, transcript, now = new Date(), calendar = null, timeoutMs}) {
   const {data: context, error} = await db.rpc('shelf_sort_context');
   if (error) throw error;
+  const timezone = context?.timezone || 'UTC';
+  // The week ahead, when a Google account is linked: it helps place "the
+  // standup" and keeps a suggestion from repeating what is already there.
+  // Capped, so a slow calendar never costs the sort itself.
+  const week = typeof calendar === 'function'
+    ? await Promise.race([calendar(timezone).catch(() => null), new Promise(done => setTimeout(done, 4000, null))])
+    : calendar;
   const result = await sorter.sort({item: {kind: item.kind, note: item.note, transcript, description},
-    topics: context?.topics ?? [], timezone: context?.timezone || 'UTC', now, calendar, timeoutMs});
+    topics: context?.topics ?? [], timezone, now, calendar: week, timeoutMs});
   const {data: added, error: saveError} = await db.rpc('save_shelf_sorting', {p_id: item.id, p_profile: result.profile,
     p_topic_id: result.topic_id, p_transcript: transcript, p_suggestions: result.suggestions});
   if (saveError) throw saveError;
@@ -81,22 +88,26 @@ export async function sortItem(db, sorter, {item, description, transcript, now =
   return {suggestions: added ?? 0, profile: result.profile};
 }
 
-async function personFor(req, res, makeClient, verify) {
+export async function personFor(req, res, makeClient, verify) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') { res.writeHead(405, {Allow: 'POST'}); res.end(); return null; }
   if (Number(req.headers['content-length'] ?? 0) > MAX_BYTES) { res.writeHead(413); res.end(); return null; }
   const token = req.headers.authorization?.match(/^Bearer (\S+)$/i)?.[1];
-  try { if (!token) throw Error('Missing token'); await verify(token); }
+  let claims;
+  try { if (!token) throw Error('Missing token'); claims = await verify(token); }
   catch { res.writeHead(401, {'WWW-Authenticate': CHALLENGE}); res.end('Sign in to the web app to use the Shelf'); return null; }
   const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (!key) { res.writeHead(503); res.end('Server configuration unavailable'); return null; }
-  return makeClient(SUPABASE_URL, key, {
+  const db = makeClient(SUPABASE_URL, key, {
     auth: {persistSession: false, autoRefreshToken: false, detectSessionInUrl: false},
     global: {headers: {Authorization: `Bearer ${token}`}},
   });
+  // Who the verified token belongs to, for sealing anything that is theirs.
+  db.ownerId = claims?.sub;
+  return db;
 }
 
-function readBody(body) {
+export function readBody(body) {
   let value = body;
   if (Buffer.isBuffer(value)) value = value.toString('utf8');
   if (typeof value === 'string') value = JSON.parse(value);
@@ -104,13 +115,13 @@ function readBody(body) {
   return value;
 }
 
-const send = (res, status, body) => {
+export const send = (res, status, body) => {
   res.writeHead(status, {'content-type': 'application/json'});
   res.end(JSON.stringify(body));
 };
 
 /** POST {action:'describe', id} reads one item, {action:'sort', id} sorts a read one, {action:'search', q} searches. */
-export async function handleShelf(req, res, {embedder, describer, sorter = null, makeClient = createClient,
+export async function handleShelf(req, res, {embedder, describer, sorter = null, calendar = null, makeClient = createClient,
   verify = verifyCompanionToken} = {}) {
   const db = await personFor(req, res, makeClient, verify);
   if (!db) return;
@@ -150,7 +161,8 @@ export async function handleShelf(req, res, {embedder, describer, sorter = null,
     ? sorter.transcribe({bytes, mimeType: item.mime_type, timeoutMs: left(SORT_MS)}).catch(() => null)
     : null;
   const sort = (item, description, transcript) => sorter && left() > MIN_CALL_MS
-    ? sortItem(db, sorter, {item, description, transcript, timeoutMs: left(2000)}).catch(() => null)
+    ? sortItem(db, sorter, {item, description, transcript, timeoutMs: left(2000),
+        calendar: calendar ? timezone => calendar(db, timezone) : null}).catch(() => null)
     : null;
 
   if (body.action === 'sort') {

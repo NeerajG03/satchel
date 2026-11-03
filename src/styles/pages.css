@@ -79,3 +79,5 @@
 .suggestion .row { gap: 6px; }
 .suggestion .notice, .suggestion [role=alert] { grid-column: 1 / -1; }
 .shelf-item .transcript { margin: 0 0 6px; font-family: var(--font-content); font-size: 17px; color: var(--ink); border-left: 3px solid var(--line); padding-left: 10px; }
+.profile-google { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.profile-google li { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

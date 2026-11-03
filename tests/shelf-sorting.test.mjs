@@ -70,6 +70,13 @@ test('sorting a Shelf item and deciding its suggestions', async t => {
       const [todo, event] = await as(alice, 'select * from list_shelf_suggestions()');
       await as(alice, 'select * from decide_shelf_suggestion($1,$2)', [todo.id, 'dismissed']);
       assert.equal(await hint(as(alice, 'select * from decide_shelf_suggestion($1,$2)', [todo.id, 'added'])), 'satchel:gone:suggestion');
+      assert.equal(await hint(as(alice, 'select * from decide_shelf_suggestion($1,$2,$3,$4)', [event.id, 'added', 'work', 'x'])),
+        'satchel:gone:suggestion', 'added only through a claim');
+      await as(alice, 'select * from claim_shelf_suggestion($1)', [event.id]);
+      assert.equal(await hint(as(alice, 'select * from claim_shelf_suggestion($1)', [event.id])), 'satchel:gone:suggestion', 'claimed once');
+      await as(alice, 'select release_shelf_suggestion($1)', [event.id]);
+      assert.equal((await as(alice, 'select * from list_shelf_suggestions()')).length, 1, 'released back onto the card');
+      await as(alice, 'select * from claim_shelf_suggestion($1)', [event.id]);
       await as(alice, 'select * from decide_shelf_suggestion($1,$2,$3,$4)', [event.id, 'added', 'work', 'https://calendar.google.com/x']);
       assert.deepEqual(await as(alice, 'select * from list_shelf_suggestions()'), []);
       assert.equal((await as(alice, 'select * from read_shelf_suggestion($1)', [event.id]))[0].profile, 'work');

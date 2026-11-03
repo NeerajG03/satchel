@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useStores } from '../../app/stores';
-import { useAction, type Loaded } from '../../app/useLoad';
+import { useAction, useLoad, type Loaded } from '../../app/useLoad';
 import { useReadout } from '../../app/readout';
-import { PROFILE_LABEL } from '../profiles/repository';
+import { PROFILE_LABEL, type ProfileKind } from '../profiles/repository';
 import { whenOf, type Suggestion } from './repository';
-import { Button } from '../../ui/Button';
+import { Button, LinkButton } from '../../ui/Button';
 import { SaveError } from '../../ui/Notice';
 
 /**
@@ -16,8 +16,22 @@ export function Suggestions({ loaded }: { loaded: Loaded<Suggestion[]> }) {
   const { announce } = useReadout();
   const act = useAction('action');
   const [actingOn, setActingOn] = useState<string | null>(null);
+  // A suggestion Satchel could not place gets its profile picked here.
+  const [picked, setPicked] = useState<Record<string, ProfileKind>>({});
+  const any = (loaded.data ?? []).length > 0;
+  // Only asked when there is something to add.
+  const links = useLoad(() => any ? stores.google.links() : Promise.resolve([]), [stores, any]);
+  const linkedTo = new Set((links.data ?? []).map(l => l.profile));
   const rows = loaded.data ?? [];
   if (!rows.length) return null;
+
+  async function add(s: Suggestion, profile: ProfileKind) {
+    setActingOn(s.id);
+    const made = await act.run(() => stores.google.add(s, profile));
+    if (!made) return;
+    loaded.replace(list => list.filter(row => row.id !== s.id));
+    announce(made.kind === 'task' ? `Added to ${PROFILE_LABEL[profile]} Google Tasks` : `Added to ${PROFILE_LABEL[profile]} Google Calendar`);
+  }
 
   async function dismiss(s: Suggestion) {
     setActingOn(s.id);
@@ -37,7 +51,20 @@ export function Suggestions({ loaded }: { loaded: Loaded<Suggestion[]> }) {
         <span className="fine muted">from “{s.source}”</span>
       </div>
       <div className="row">
-        <Button small disabled title="Link Google for this profile in Settings first">Add to Google</Button>
+        {!s.profile && <><label className="visually-hidden" htmlFor={`where-${s.id}`}>Which profile</label>
+          <select id={`where-${s.id}`} className="field compact" value={picked[s.id] ?? ''}
+            onChange={event => setPicked(current => ({ ...current, [s.id]: event.target.value as ProfileKind }))}>
+            <option value="" disabled>Which profile?</option>
+            <option value="work">Work</option>
+            <option value="personal">Personal</option>
+          </select></>}
+        {(() => {
+          const where = s.profile ?? picked[s.id];
+          if (where && !linkedTo.has(where))
+            return <LinkButton small to="/settings" title={`No Google account is linked to ${PROFILE_LABEL[where]} yet`}>Link {PROFILE_LABEL[where]} Google</LinkButton>;
+          return <Button small disabled={!where || (act.busy && actingOn === s.id)} onClick={() => where && void add(s, where)}>
+            {act.busy && actingOn === s.id ? 'Adding…' : s.kind === 'todo' ? 'Add to Tasks' : 'Add to Calendar'}</Button>;
+        })()}
         <Button small look="quiet" disabled={act.busy && actingOn === s.id} onClick={() => void dismiss(s)}>Dismiss</Button>
       </div>
       {act.error && actingOn === s.id && <SaveError title="Could not change this." message={act.error} />}
