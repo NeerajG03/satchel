@@ -70,3 +70,12 @@
 .profile-topics { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .profile-topics li { display: grid; grid-template-columns: minmax(0, 1fr) 160px; align-items: center; gap: 12px; }
 .field.compact { width: auto; padding-block: 4px; font-size: 13px; }
+
+.suggestions { border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-top: 20px; background: var(--paper-2); }
+.suggestions h2 { font-size: 18px; margin: 0 0 2px; }
+.suggestions ul { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 10px; }
+.suggestion { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; border-top: 1px solid var(--line); padding-top: 10px; }
+.suggestion .what { display: grid; gap: 2px; }
+.suggestion .row { gap: 6px; }
+.suggestion .notice, .suggestion [role=alert] { grid-column: 1 / -1; }
+.shelf-item .transcript { margin: 0 0 6px; font-family: var(--font-content); font-size: 17px; color: var(--ink); border-left: 3px solid var(--line); padding-left: 10px; }

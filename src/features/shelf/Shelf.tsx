@@ -11,6 +11,7 @@ import { Empty } from '../../ui/Empty';
 import { TextArea, TextField } from '../../ui/Field';
 import { LoadError, SaveError, Skeleton } from '../../ui/Notice';
 import { Provenance } from '../../ui/Provenance';
+import { Suggestions } from './Suggestions';
 
 const KIND_LABEL = { note: 'note', photo: 'photo', voice: 'voice note' } as const;
 // A read that has not come back by now was lost (a closed tab, a dropped
@@ -56,6 +57,7 @@ export function Shelf() {
   const stores = useStores();
   const { announce } = useReadout();
   const items = useLoad(() => stores.shelf.list(), [stores]);
+  const suggestions = useLoad(() => stores.shelf.suggestions(), [stores]);
   const [urls, setUrls] = useState<Record<string, string>>({});
   // File links last twelve hours; a page open longer than that starts over.
   const signedAt = useRef(Date.now());
@@ -111,7 +113,10 @@ export function Shelf() {
     // finished it. Ask the server what it is rather than guess "failed".
     if (!result) { items.reload(); return; }
     patch(list => list.map(row => row.id === item.id
-      ? { ...row, status: result.status, description: result.description ?? row.description } : row));
+      ? { ...row, status: result.status, description: result.description ?? row.description,
+          transcript: result.transcript ?? row.transcript, sorted_at: result.sorted ? new Date().toISOString() : row.sorted_at } : row));
+    if (result.suggestions) suggestions.reload();
+    if (result.profile) patch(list => list.map(row => row.id === item.id && !row.profile ? { ...row, profile: result.profile } : row));
     if (result.status === 'ready') announce(item.kind === 'note' ? 'On your Shelf' : 'Read and on your Shelf');
   }
   /** The full list and the search results show the same items; change both. */
@@ -146,6 +151,16 @@ export function Shelf() {
     if (result) setFound(result);
   }
 
+  async function sortNow(item: ShelfItem) {
+    setFailedOn(item.id);
+    const result = await act.run(() => stores.shelf.sort(item.id));
+    if (!result) return;
+    patch(list => list.map(row => row.id === item.id ? { ...row, sorted_at: new Date().toISOString(),
+      profile: row.profile ?? result.profile, transcript: result.transcript ?? row.transcript } : row));
+    if (result.suggestions) suggestions.reload();
+    announce(result.suggestions ? `Found ${count(result.suggestions, 'thing', 'things')} to do` : 'Nothing to do in this one');
+  }
+
   async function moveTo(item: ShelfItem, profile: ShelfItem['profile']) {
     setFailedOn(item.id);
     const done = await act.run(async () => { await stores.shelf.setProfile(item, profile); return true; });
@@ -159,6 +174,8 @@ export function Shelf() {
     const done = await act.run(async () => { await stores.shelf.remove(item); return true; });
     if (!done) return;
     patch(list => list.filter(row => row.id !== item.id));
+    // Its suggestions went with it in the database; take them off the card too.
+    suggestions.replace(list => list.filter(s => s.item_id !== item.id));
     setRemoving(null);
     searchBox.current?.focus();
     announce('Removed from your Shelf');
@@ -210,6 +227,8 @@ export function Shelf() {
       </div>
     </form>
 
+    <Suggestions loaded={suggestions} />
+
     <form className="row shelf-search" role="search" onSubmit={find}>
       <TextField ref={searchBox} label="Find something" hint="describe it the way you remember it" value={query} maxLength={300}
         onChange={event => { setQuery(event.target.value); if (!event.target.value) setFound(null); }} />
@@ -235,7 +254,8 @@ export function Shelf() {
       {item.kind === 'voice' && item.object_path && urls[item.object_path] &&
         <audio controls preload="none" src={urls[item.object_path]} aria-label="Play this voice note" />}
       {item.note && <h2 className="title">{item.note}</h2>}
-      {item.description && <p className={item.note ? 'muted' : 'title'}>{item.description}</p>}
+      {item.transcript && <blockquote className="transcript">“{item.transcript}”</blockquote>}
+      {item.description && !item.transcript && <p className={item.note ? 'muted' : 'title'}>{item.description}</p>}
       <Provenance parts={[KIND_LABEL[item.kind], status.label]} at={item.created_at} />
       <div className="actions">
         <label className="visually-hidden" htmlFor={`profile-${item.id}`}>Profile</label>
@@ -245,6 +265,8 @@ export function Shelf() {
           <option value="work">Work</option>
           <option value="personal">Personal</option>
         </select>
+        {item.status === 'ready' && !item.sorted_at && <Button small disabled={act.busy && failedOn === item.id}
+          onClick={() => void sortNow(item)}>Look for to-dos</Button>}
         {status.retry && <Button small onClick={() => void read(item)}>Try reading it again</Button>}
         <Button look="quiet" small disabled={act.busy} aria-expanded={removing === item.id}
           onClick={() => setRemoving(removing === item.id ? null : item.id)}>Remove</Button>
