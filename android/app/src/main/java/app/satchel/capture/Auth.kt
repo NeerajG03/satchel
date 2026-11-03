@@ -40,6 +40,9 @@ class Auth(context: Context, private val http: OkHttpClient) {
     private val lock = Mutex()
     private val json = "application/json".toMediaType()
 
+    // Decrypted once and kept: every widget tap asks whether the person is signed in.
+    @Volatile private var cached: Session? = null
+
     val signedIn get() = load() != null
     val userId get() = load()?.userId
 
@@ -73,7 +76,7 @@ class Auth(context: Context, private val http: OkHttpClient) {
         load()?.access
     }
 
-    fun signOut() { prefs.edit().clear().apply() }
+    fun signOut() { cached = null; prefs.edit().clear().apply() }
 
     /** Forgets the session here at once, then ends it on the server when it can. */
     suspend fun signOutEverywhere() {
@@ -99,7 +102,7 @@ class Auth(context: Context, private val http: OkHttpClient) {
                 if (!response.isSuccessful) {
                     // Only a dead or refused grant ends the session. A rate limit or a slow
                     // answer is a reason to try again later, not to sign the person out.
-                    if (response.code == 400 || response.code == 401 || response.code == 403 || response.code == 404) signOut()
+                    if (response.code in setOf(400, 401, 403, 404)) signOut()
                     return if (response.code == 429 || response.code >= 500) "Satchel is busy. Try again in a minute."
                         else "Satchel did not accept the sign-in. Sign in again."
                 }
@@ -117,13 +120,14 @@ class Auth(context: Context, private val http: OkHttpClient) {
         val plain = JSONObject().put("access", session.access).put("refresh", session.refresh)
             .put("expiresAt", session.expiresAt).put("userId", session.userId).toString()
         prefs.edit().putString("session", Sealed.seal(plain)).apply()
+        cached = session
     }
 
-    private fun load(): Session? = prefs.getString("session", null)?.let { sealed ->
+    private fun load(): Session? = cached ?: prefs.getString("session", null)?.let { sealed ->
         runCatching {
             val o = JSONObject(Sealed.open(sealed))
             Session(o.getString("access"), o.getString("refresh"), o.getLong("expiresAt"), o.getString("userId"))
-        }.getOrNull()
+        }.getOrNull()?.also { cached = it }
     }
 
     private companion object { const val URL_SAFE = Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP }

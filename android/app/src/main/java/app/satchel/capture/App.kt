@@ -37,7 +37,10 @@ class App : Application() {
 val Context.app get() = applicationContext as App
 
 /** Starts (or lines up) a send. Runs only with a connection, and backs off between tries. */
+private const val SEND_WORK = "send"
+
 fun Context.sendSoon() {
+    val manager = WorkManager.getInstance(this)
     val work = OneTimeWorkRequestBuilder<SendWork>()
         .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
@@ -45,14 +48,15 @@ fun Context.sendSoon() {
     // A run waiting out its backoff is replaced, so a new capture never sits
     // behind it for hours. A run that is sending is left alone: cutting it
     // would restart an upload, and it picks up new captures before it ends.
-    val manager = WorkManager.getInstance(this)
-    val sending = runCatching {
-        manager.getWorkInfosForUniqueWork("send").get(1, TimeUnit.SECONDS).any { it.state == WorkInfo.State.RUNNING }
-    }.getOrDefault(false)
-    manager.enqueueUniqueWork("send", if (sending) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.REPLACE, work)
+    // Decided once WorkManager has answered, so the screen never waits on its database.
+    val decide = manager.getWorkInfosForUniqueWork(SEND_WORK)
+    decide.addListener({
+        val sending = runCatching { decide.get().any { it.state == WorkInfo.State.RUNNING } }.getOrDefault(false)
+        manager.enqueueUniqueWork(SEND_WORK, if (sending) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.REPLACE, work)
+    }, androidx.core.content.ContextCompat.getMainExecutor(this))
 }
 
-fun Context.stopSending() { WorkManager.getInstance(this).cancelUniqueWork("send") }
+fun Context.stopSending() { WorkManager.getInstance(this).cancelUniqueWork(SEND_WORK) }
 
 class SendWork(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {

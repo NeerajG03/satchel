@@ -27,6 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -72,9 +76,10 @@ class CaptureActivity : ComponentActivity() {
 
 @Composable
 private fun CaptureSheet(mode: String, onDone: (String) -> Unit, onCancel: () -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     var note by rememberSaveable { mutableStateOf("") }
     var problem by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     // Kept across a rebuild: the camera app can push this screen out of memory,
     // and the photo it took has to land in the same file we gave it.
@@ -84,9 +89,14 @@ private fun CaptureSheet(mode: String, onDone: (String) -> Unit, onCancel: () ->
     val photoUri = remember(photoFile) { FileProvider.getUriForFile(context, "${context.packageName}.files", photoFile) }
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
         if (!taken) { if (mode == "photo") onCancel(); return@rememberLauncherForActivityResult }
-        runCatching { context.app.queue.addFile("photo", "image/jpeg", Photos.shrink(context, photoUri), note.trim()) }
-            .onSuccess { photoFile.delete(); onDone("Photo saved to your Shelf") }
-            .onFailure { problem = "Satchel could not keep that photo. Try again." }
+        // Shrinking a large photo takes long enough to freeze the screen, so it runs off it.
+        scope.launch {
+            val kept = withContext(Dispatchers.Default) {
+                runCatching { context.app.queue.addFile("photo", "image/jpeg", Photos.shrink(context, photoUri), note.trim()) }
+            }
+            kept.onSuccess { photoFile.delete(); onDone("Photo saved to your Shelf") }
+                .onFailure { problem = "Satchel could not keep that photo. Try again." }
+        }
     }
     LaunchedEffect(Unit) { if (mode == "photo" && !cameraOpened) { cameraOpened = true; camera.launch(photoUri) } }
 
@@ -109,10 +119,7 @@ private fun CaptureSheet(mode: String, onDone: (String) -> Unit, onCancel: () ->
                 Spacer(Modifier.weight(1f))
                 if (mode == "pick") OutlinedButton(onClick = { camera.launch(photoUri) }) { Text("Photo", color = InkText) }
                 if (mode != "voice") Button(
-                    onClick = {
-                        if (note.isBlank()) return@Button
-                        context.app.queue.addNote(note.trim()); onDone("Saved to your Shelf")
-                    },
+                    onClick = { context.app.queue.addNote(note.trim()); onDone("Saved to your Shelf") },
                     enabled = note.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(containerColor = InkText, contentColor = Paper),
                 ) { Text("Save") }
@@ -135,9 +142,10 @@ private fun NoteBox(value: String, autoFocus: Boolean, onChange: (String) -> Uni
 /** Tap to start and tap to save, or hold to talk and let go to save. */
 @Composable
 private fun Recorder(note: String, onSaved: (String) -> Unit, onProblem: (String) -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     // The gesture below is set up once; this keeps it reading the note as typed now.
     val currentNote by rememberUpdatedState(note)
+    val scope = rememberCoroutineScope()
     var recorder by remember { mutableStateOf<VoiceRecorder?>(null) }
     var seconds by remember { mutableIntStateOf(0) }
     var allowed by remember {
@@ -153,10 +161,17 @@ private fun Recorder(note: String, onSaved: (String) -> Unit, onProblem: (String
     fun save() {
         val r = recorder ?: return
         recorder = null
-        val bytes = r.stop() ?: return onProblem("That was too short to keep. Hold a little longer.")
-        runCatching { context.app.queue.addFile("voice", "audio/mp4", bytes, currentNote.trim()) }
-            .onSuccess { onSaved("Voice note saved to your Shelf") }
-            .onFailure { onProblem(it.message ?: "Satchel could not keep that voice note.") }
+        scope.launch {
+            val kept = withContext(Dispatchers.IO) {
+                val bytes = r.stop() ?: return@withContext null
+                runCatching { context.app.queue.addFile("voice", "audio/mp4", bytes, currentNote.trim()) }
+            }
+            when {
+                kept == null -> onProblem("That was too short to keep. Hold a little longer.")
+                kept.isSuccess -> onSaved("Voice note saved to your Shelf")
+                else -> onProblem("Satchel could not keep that voice note.")
+            }
+        }
     }
 
     val recording = recorder != null

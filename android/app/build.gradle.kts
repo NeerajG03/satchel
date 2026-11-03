@@ -25,8 +25,8 @@ android {
         applicationId = "app.satchel.capture"
         minSdk = 34
         targetSdk = 37
-        versionCode = 3
-        versionName = "0.1.2"
+        versionCode = 4
+        versionName = "0.1.3"
         buildConfigField("String", "SUPABASE_URL", "\"${satchelSetting("VITE_SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_KEY", "\"${satchelSetting("VITE_SUPABASE_PUBLISHABLE_KEY")}\"")
         buildConfigField("String", "SATCHEL_URL", "\"https://satchel-pi.vercel.app\"")

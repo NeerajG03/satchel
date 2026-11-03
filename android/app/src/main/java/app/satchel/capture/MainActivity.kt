@@ -23,13 +23,12 @@ val Ink = Color(0xFF26231F)
 val InkText = Color(0xFF1F1B17)
 val Muted = Color(0xFF6B6257)
 val Orange = Color(0xFFE4571E)
-val Accent = Color(0xFFB8451A)
 val Red = Color(0xFFA82720)
 
 @Composable
 fun SatchelTheme(content: @Composable () -> Unit) = MaterialTheme(
     colorScheme = lightColorScheme(primary = InkText, onPrimary = Paper, background = Paper, surface = Paper,
-        onBackground = InkText, onSurface = InkText, error = Red, secondary = Accent),
+        onBackground = InkText, onSurface = InkText, error = Red),
     content = content,
 )
 

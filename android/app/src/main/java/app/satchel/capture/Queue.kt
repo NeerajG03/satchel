@@ -17,7 +17,6 @@ data class QueuedItem(
     val mime: String?,
     val size: Int?,
     val stage: Int = ADD,
-    val readTries: Int = 0,
     val createdAt: Long = System.currentTimeMillis(),
     val problem: String? = null,
 ) {
@@ -25,7 +24,6 @@ data class QueuedItem(
         const val ADD = 0
         const val UPLOAD = 1
         const val READ = 2
-        const val READ_TRIES = 2
     }
 }
 
@@ -60,7 +58,7 @@ class Queue(private val root: File) {
         .mapNotNull { dir -> File(dir, "meta.json").takeIf { it.exists() }?.let { read(it) } }
         .sortedBy { it.createdAt }
 
-    fun bytes(item: QueuedItem): ByteArray = File(File(root, item.id), "data").readBytes()
+    fun file(item: QueuedItem): File = File(File(root, item.id), "data").also { if (!it.exists()) throw java.io.FileNotFoundException(item.id) }
 
     fun update(item: QueuedItem): QueuedItem = item.also { write(File(File(root, it.id), "meta.json"), it) }
 
@@ -79,19 +77,19 @@ class Queue(private val root: File) {
         if (!file.parentFile!!.exists()) throw java.io.FileNotFoundException(item.id)
         val o = JSONObject().put("id", item.id).put("kind", item.kind).put("note", item.note)
             .put("objectPath", item.objectPath ?: JSONObject.NULL).put("mime", item.mime ?: JSONObject.NULL)
-            .put("size", item.size ?: JSONObject.NULL).put("stage", item.stage).put("readTries", item.readTries)
+            .put("size", item.size ?: JSONObject.NULL).put("stage", item.stage)
             .put("createdAt", item.createdAt).put("problem", item.problem ?: JSONObject.NULL)
         // Written whole and then moved, so a crash mid-write never leaves half a record.
         val temp = File(file.parentFile, "meta.tmp")
         temp.writeText(o.toString())
-        temp.renameTo(file)
+        if (!temp.renameTo(file)) throw java.io.IOException("Could not save ${item.id}")
     }
 
     private fun read(file: File): QueuedItem? = try {
         val o = JSONObject(file.readText())
         fun str(k: String) = if (o.isNull(k)) null else o.getString(k)
         QueuedItem(o.getString("id"), o.getString("kind"), o.getString("note"), str("objectPath"), str("mime"),
-            if (o.isNull("size")) null else o.getInt("size"), o.getInt("stage"), o.getInt("readTries"),
+            if (o.isNull("size")) null else o.getInt("size"), o.getInt("stage"),
             o.getLong("createdAt"), str("problem"))
     } catch (e: Exception) { null }
 }
@@ -137,7 +135,7 @@ class Sender(private val queue: Queue, private val api: ShelfApi, private val ow
         while (true) {
             val step = when (item.stage) {
                 QueuedItem.ADD -> api.add(item)
-                QueuedItem.UPLOAD -> api.upload(item, queue.bytes(item))
+                QueuedItem.UPLOAD -> api.upload(item, queue.file(item))
                 else -> api.describe(item)
             }
             when (step) {
@@ -147,15 +145,8 @@ class Sender(private val queue: Queue, private val api: ShelfApi, private val ow
                     item = queue.update(item.copy(stage = next))
                 }
                 is Step.Never -> { queue.update(item.copy(problem = step.why)); return Outcome.SENT }
-                is Step.Later -> {
-                    if (step.why == SIGNED_OUT) return Outcome.SIGNED_OUT
-                    if (item.stage == QueuedItem.READ && step.why == UNREAD) {
-                        // It is on the Shelf, saved but not read; the web page can retry it.
-                        if (item.readTries + 1 >= QueuedItem.READ_TRIES) { queue.remove(item); return Outcome.SENT }
-                        queue.update(item.copy(readTries = item.readTries + 1))
-                    }
-                    return Outcome.LATER
-                }
+                is Step.SignedOut -> return Outcome.SIGNED_OUT
+                is Step.Later -> return Outcome.LATER
             }
         }
     }

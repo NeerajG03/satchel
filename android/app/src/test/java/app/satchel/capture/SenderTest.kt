@@ -20,6 +20,7 @@ class SenderTest {
     private val calls = mutableListOf<String>()
     private val answers = mutableMapOf<String, ArrayDeque<Int>>()
     private var token: String? = "person"
+    private var uploadBody = "{}"
     private lateinit var queue: Queue
     private lateinit var sender: Sender
 
@@ -36,7 +37,8 @@ class SenderTest {
                 }
                 calls += step
                 val code = answers[step]?.removeFirstOrNull() ?: 200
-                return MockResponse.Builder().code(code).body(if (code == 409 && step == "upload") "{\"error\":\"Duplicate\"}" else "{}").build()
+                val body = if (step == "upload") uploadBody else "{}"
+                return MockResponse.Builder().code(code).body(body).build()
             }
         }
         server.start()
@@ -67,7 +69,8 @@ class SenderTest {
         answer("upload", 503)
         assertFalse(sender.run())
         assertEquals(QueuedItem.UPLOAD, queue.pending().single().stage)
-        answer("upload", 409)
+        answer("upload", 400)
+        uploadBody = "{\"statusCode\":\"409\",\"error\":\"Duplicate\"}"
         assertTrue(sender.run())
         assertEquals(listOf("add", "upload", "upload", "describe"), calls)
         assertTrue(queue.pending().isEmpty())
@@ -80,14 +83,28 @@ class SenderTest {
         assertFalse(calls.contains("describe"))
     }
 
-    @Test fun `a read that keeps failing stops after two tries and leaves the item on the Shelf`() = runTest {
+    @Test fun `a read Satchel could not do is left for the web page, not retried from the phone`() = runTest {
         queue.addNote("x")
-        answer("describe", 502, 502, 502)
-        assertFalse(sender.run())
-        assertEquals(1, queue.pending().single().readTries)
-        sender.run()
+        answer("describe", 502)
+        assertTrue(sender.run())
         assertTrue(queue.pending().isEmpty())
-        assertEquals(2, calls.count { it == "describe" })
+        assertEquals(1, calls.count { it == "describe" })
+    }
+
+    @Test fun `a stale token at storage waits for sign-in instead of parking the capture`() = runTest {
+        queue.addFile("photo", "image/jpeg", byteArrayOf(1))
+        answer("upload", 400)
+        uploadBody = "{\"statusCode\":\"403\",\"error\":\"Unauthorized\",\"message\":\"jwt expired\"}"
+        assertFalse(sender.run())
+        assertEquals(null, queue.pending().single().problem)
+    }
+
+    @Test fun `a storage refusal is kept with its reason`() = runTest {
+        queue.addFile("photo", "image/jpeg", byteArrayOf(1))
+        answer("upload", 400)
+        uploadBody = "{\"statusCode\":\"403\",\"error\":\"Unauthorized\",\"message\":\"new row violates row-level security policy\"}"
+        assertTrue(sender.run())
+        assertNotNull(queue.pending().single().problem)
     }
 
     @Test fun `already read is success`() = runTest {
