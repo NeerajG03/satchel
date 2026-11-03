@@ -75,6 +75,8 @@ export function Shelf() {
   const recorder = useRecorder();
   const save = useAction('save');
   const act = useAction('action');
+  // Which item the last change or remove was for, so its error shows under it.
+  const [failedOn, setFailedOn] = useState<string | null>(null);
   // Per item, so a slow read never locks the buttons on every other item.
   const [reading, setReading] = useState<ReadonlySet<string>>(new Set());
   const [readErrors, setReadErrors] = useState<Record<string, string>>({});
@@ -143,7 +145,16 @@ export function Shelf() {
     if (result) setFound(result);
   }
 
+  async function moveTo(item: ShelfItem, profile: ShelfItem['profile']) {
+    setFailedOn(item.id);
+    const done = await act.run(async () => { await stores.shelf.setProfile(item, profile); return true; });
+    if (!done) return;
+    patch(list => list.map(row => row.id === item.id ? { ...row, profile } : row));
+    announce(profile ? `Moved to ${profile === 'work' ? 'Work' : 'Personal'}` : 'Taken out of both profiles');
+  }
+
   async function remove(item: ShelfItem) {
+    setFailedOn(item.id);
     const done = await act.run(async () => { await stores.shelf.remove(item); return true; });
     if (!done) return;
     patch(list => list.filter(row => row.id !== item.id));
@@ -226,6 +237,13 @@ export function Shelf() {
       {item.description && <p className={item.note ? 'muted' : 'title'}>{item.description}</p>}
       <Provenance parts={[KIND_LABEL[item.kind], status.label]} at={item.created_at} />
       <div className="actions">
+        <label className="visually-hidden" htmlFor={`profile-${item.id}`}>Profile</label>
+        <select id={`profile-${item.id}`} className="field compact" value={item.profile ?? ''} disabled={act.busy}
+          onChange={event => void moveTo(item, (event.target.value || null) as ShelfItem['profile'])}>
+          <option value="">No profile</option>
+          <option value="work">Work</option>
+          <option value="personal">Personal</option>
+        </select>
         {status.retry && <Button small onClick={() => void read(item)}>Try reading it again</Button>}
         <Button look="quiet" small disabled={act.busy} aria-expanded={removing === item.id}
           onClick={() => setRemoving(removing === item.id ? null : item.id)}>Remove</Button>
@@ -239,7 +257,7 @@ export function Shelf() {
         </div>
       </div>}
       {readErrors[item.id] && <SaveError title="Could not read this." message={readErrors[item.id]} />}
-      {act.error && removing === item.id && <SaveError title="Could not change this." message={act.error} />}
+      {act.error && failedOn === item.id && <SaveError title="Could not change this." message={act.error} />}
     </article>; })}</div>
   </>;
 }

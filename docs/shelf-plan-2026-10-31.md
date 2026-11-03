@@ -182,3 +182,16 @@ Fast capture comes first because it is useful on its own: steps 1 to 4 already g
 - **Storage cost.** Voice and images are far bigger than sentences. Keep originals 90 days by default, text forever.
 - **Privacy.** A screenshot can hold someone else's data. Captures are owner-only, never shown to connected agents unless the profile grant allows it, and use the same row-level security tests as memories.
 - **Scope change.** Satchel's product doc says "no automatic transcript extraction" and "memory across AI apps". This plan widens it to "your shelf for everything, where you organise your life". Worth saying out loud in the decisions log before building.
+
+## Steps 5 to 8: how they are built (4 Nov)
+
+| Piece | Design |
+|---|---|
+| Profiles | Two fixed kinds per person, `work` and `personal`, in `profiles` (with the person's timezone). A topic is tagged in `topic_profiles`; a Shelf item carries `profile`. Null means not sorted yet |
+| Sorting a capture | After the description, one more model call (`satchel-shelf-sort`) returns the profile, the topic, the words spoken (voice only), and to-dos and events. Every suggestion carries the words it came from, and the server drops any whose words are not in the capture |
+| Memories | The person's own words (their note, or the voice transcript) become a one-turn conversation record (`shelf-<item id>`), so the consolidation pass stays the one writer. A photo's description is Satchel's words and never becomes a memory |
+| The card | `shelf_suggestions`: pending, added or dismissed. Nothing reaches Google until the person taps Add |
+| Google per profile | Linked from Settings with Google's own consent screen. The refresh token is encrypted with a server-only key (`SATCHEL_GOOGLE_TOKEN_KEY`) before it is stored, so no browser, app or database reader can use it. The sort call is shown the next 7 days of calendar events and open tasks as context |
+| Adding | A to-do goes to Google Tasks with its date (the time, if any, in its notes); an event with a time goes to Google Calendar; a date-only event becomes an all-day event |
+
+Three PRs, each tested, reviewed, migrated and checked live: profiles; sorting and the card; Google.

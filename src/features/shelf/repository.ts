@@ -5,7 +5,8 @@ import { Sentence } from '../../client';
 export type ShelfKind = 'note' | 'photo' | 'voice';
 export type ShelfItem = {
   id: string; kind: ShelfKind; note: string; object_path: string | null; mime_type: string | null;
-  description: string | null; status: 'waiting' | 'reading' | 'ready' | 'failed'; created_at: string; similarity?: number;
+  description: string | null; status: 'waiting' | 'reading' | 'ready' | 'failed'; created_at: string;
+  profile: 'work' | 'personal' | null; similarity?: number;
 };
 
 export const SHELF_LIMITS = { note: 4000, bytes: 20 * 1024 * 1024 };
@@ -71,7 +72,7 @@ export function createShelfRepository(db: SupabaseClient) {
           throw new Sentence('The file did not upload, so nothing was saved. Try again.');
         }
       }
-      return { ...data!, description: null };
+      return { ...data!, description: null, profile: null };
     },
     async describe(id: string): Promise<{ status: ShelfItem['status']; description: string | null }> {
       return server({ action: 'describe', id }, 60000);
@@ -85,6 +86,10 @@ export function createShelfRepository(db: SupabaseClient) {
       const { data, error } = await db.storage.from('shelf').createSignedUrls(paths, 12 * 3600);
       if (error) throw error;
       return Object.fromEntries((data ?? []).flatMap(row => row.signedUrl && row.path ? [[row.path, row.signedUrl]] : []));
+    },
+    async setProfile(item: ShelfItem, profile: ShelfItem['profile']): Promise<void> {
+      const { error } = await requestWithTimeout(signal => db.rpc('set_shelf_profile', { p_id: item.id, p_kind: profile }).abortSignal(signal));
+      if (error) throw error;
     },
     async remove(item: ShelfItem): Promise<void> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('remove_shelf_item', { p_id: item.id }).abortSignal(signal));
