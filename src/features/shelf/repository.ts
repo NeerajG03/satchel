@@ -10,6 +10,23 @@ export type ShelfItem = {
   profile: ProfileKind | null; similarity?: number;
 };
 
+export type Suggestion = {
+  id: string; item_id: string; profile: ProfileKind | null; kind: 'todo' | 'event'; title: string;
+  due_date: string | null; starts_at: string | null; ends_at: string | null; source: string; created_at: string;
+};
+
+/** When a suggestion happens, as the person reads it. */
+export function whenOf(s: Suggestion): string | null {
+  const day = (d: Date) => d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  if (s.starts_at) {
+    const start = new Date(s.starts_at);
+    return `${day(start)}, ${start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+  }
+  // A date with no time is a calendar day, not an instant: read it at noon so no zone moves it.
+  if (s.due_date) return `${s.kind === 'todo' ? 'by ' : ''}${day(new Date(`${s.due_date}T12:00:00`))}`;
+  return null;
+}
+
 export const SHELF_LIMITS = { note: 4000, bytes: 20 * 1024 * 1024 };
 export const UNSUPPORTED_FILE = 'The Shelf takes photos (JPEG, PNG, WebP, HEIC) and voice notes (WebM, M4A, MP3, WAV, OGG).';
 const EXTENSIONS: Record<string, string> = {
@@ -75,7 +92,8 @@ export function createShelfRepository(db: SupabaseClient) {
       }
       return { ...data!, description: null, profile: null };
     },
-    async describe(id: string): Promise<{ status: ShelfItem['status']; description: string | null }> {
+    async describe(id: string): Promise<{ status: ShelfItem['status']; description: string | null;
+      profile: ShelfItem['profile']; suggestions: number }> {
       return server({ action: 'describe', id }, 60000);
     },
     async search(q: string): Promise<ShelfItem[]> {
@@ -90,6 +108,15 @@ export function createShelfRepository(db: SupabaseClient) {
     },
     async setProfile(item: ShelfItem, profile: ShelfItem['profile']): Promise<void> {
       const { error } = await requestWithTimeout(signal => db.rpc('set_shelf_profile', { p_id: item.id, p_kind: profile }).abortSignal(signal));
+      if (error) throw error;
+    },
+    async suggestions(): Promise<Suggestion[]> {
+      const { data, error } = await requestWithTimeout(signal => db.rpc('list_shelf_suggestions').abortSignal(signal));
+      if (error) throw error;
+      return (data ?? []) as Suggestion[];
+    },
+    async dismiss(s: Suggestion): Promise<void> {
+      const { error } = await requestWithTimeout(signal => db.rpc('decide_shelf_suggestion', { p_id: s.id, p_status: 'dismissed' }).abortSignal(signal));
       if (error) throw error;
     },
     async remove(item: ShelfItem): Promise<void> {

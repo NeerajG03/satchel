@@ -25,6 +25,7 @@ export const CAPTURE_PROMPT = 'satchel-capture-router';
 export const CONSOLIDATE_PROMPT = 'satchel-consolidate';
 export const TIDY_PROMPT = 'satchel-tidy';
 export const SHELF_DESCRIBE_PROMPT = 'satchel-shelf-describe';
+export const SHELF_SORT_PROMPT = 'satchel-shelf-sort';
 
 // Read at import, not per call. It is a few kilobytes and it is needed on
 // every cold start anyway, as the fallback if nothing else.
@@ -41,6 +42,7 @@ export const PROMPT_FILES = {
   [CONSOLIDATE_PROMPT]: 'consolidate.md',
   [TIDY_PROMPT]: 'tidy.md',
   [SHELF_DESCRIBE_PROMPT]: 'shelf-describe.md',
+  [SHELF_SORT_PROMPT]: 'shelf-sort.md',
 };
 
 export const localText = read(PROMPT_FILES[CAPTURE_PROMPT]);

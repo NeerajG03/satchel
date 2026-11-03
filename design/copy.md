@@ -169,6 +169,15 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - Timezone: Times in your captures are read in {zone}. · Use {browser zone} instead
 - Shelf item picker: No profile · Work · Personal
 
+## Shelf · Waiting for you
+
+- H2: Waiting for you
+- Lede: Found in what you dropped. Nothing is added anywhere until you say so.
+- Row: To-do · Event, then the profile and when ("by Fri, Nov 6" for a to-do, "Thu, Nov 5, 4:00 PM" for an event), the title, and from “the words it came from”
+- Actions: Add to Google (needs Google linked for that profile) · Dismiss
+- Footer: Dismissed
+- Error: Could not change this.
+
 ## Activity (developer mode)
 
 - Eyebrow: Developer

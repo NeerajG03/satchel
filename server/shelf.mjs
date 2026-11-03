@@ -52,7 +52,28 @@ export function createDescriber({
 }
 
 /** What search matches: the person's words first, then what was read off the item. */
-export const shelfText = ({note, description}) => [note, description].map(s => (s ?? '').trim()).filter(Boolean).join('\n');
+export const shelfText = ({note, description, transcript}) =>
+  [note, transcript, description].map(s => (s ?? '').trim()).filter(Boolean).join('\n');
+
+/**
+ * Sorts a read item: profile, topic and suggestions, saved once. The person's
+ * own words (their note, or what they said) go on as a one-turn conversation
+ * record, so the consolidation pass, the one writer of memories, can learn
+ * from them. Satchel's description of a photo is never sent on that way.
+ */
+export async function sortItem(db, sorter, {item, description, transcript, now = new Date(), calendar = null}) {
+  const {data: context, error} = await db.rpc('shelf_sort_context');
+  if (error) throw error;
+  const result = await sorter.sort({item: {kind: item.kind, note: item.note, transcript, description},
+    topics: context?.topics ?? [], timezone: context?.timezone || 'UTC', now, calendar});
+  const {data: added, error: saveError} = await db.rpc('save_shelf_sorting', {p_id: item.id, p_profile: result.profile,
+    p_topic_id: result.topic_id, p_transcript: transcript, p_suggestions: result.suggestions});
+  if (saveError) throw saveError;
+  const words = [item.note, transcript].map(s => (s ?? '').trim()).filter(Boolean).join('\n');
+  if (words) await db.rpc('record_document_turn', {p_session_key: `shelf-${item.id}`, p_role: 'user', p_content: words,
+    p_topic_id: result.topic_id});
+  return {suggestions: added ?? 0, profile: result.profile};
+}
 
 async function personFor(req, res, makeClient, verify) {
   res.setHeader('Cache-Control', 'no-store');
@@ -83,7 +104,7 @@ const send = (res, status, body) => {
 };
 
 /** POST {action:'describe', id} reads one item; POST {action:'search', q} searches. */
-export async function handleShelf(req, res, {embedder, describer, makeClient = createClient,
+export async function handleShelf(req, res, {embedder, describer, sorter = null, makeClient = createClient,
   verify = verifyCompanionToken} = {}) {
   const db = await personFor(req, res, makeClient, verify);
   if (!db) return;
@@ -112,6 +133,7 @@ export async function handleShelf(req, res, {embedder, describer, makeClient = c
   if (error || !rows?.length) return send(res, 404, {error: 'That shelf item is gone. Reload the Shelf.'});
   const item = rows[0];
   let description = null;
+  let transcript = null;
   try {
     if (item.kind !== 'note') {
       if (!describer) throw Error('No model configured');
@@ -120,16 +142,23 @@ export async function handleShelf(req, res, {embedder, describer, makeClient = c
       // The row's size is what the browser said, capped at 20 MB by the table.
       // The file is what arrived, and it has to be that size.
       if (file.size !== item.size_bytes) throw Error('File does not match its row');
-      description = await describer.describe({
-        bytes: new Uint8Array(await file.arrayBuffer()), mimeType: item.mime_type, note: item.note,
-      });
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      description = await describer.describe({bytes, mimeType: item.mime_type, note: item.note});
+      // The words as said, for search and for memory. A failure here costs the
+      // transcript, not the item.
+      if (item.kind === 'voice' && sorter)
+        transcript = await sorter.transcribe({bytes, mimeType: item.mime_type}).catch(() => null);
     }
-    const vector = await embedder.embedOne(shelfText({note: item.note, description}));
+    const vector = await embedder.embedOne(shelfText({note: item.note, description, transcript}));
     const {data: done, error: saveError} = await db.rpc('describe_shelf_item', {
       p_id: item.id, p_description: description, p_embedding: toVectorLiteral(vector), p_embedding_model: embedder.model,
     });
     if (saveError) throw saveError;
-    return send(res, 200, {id: item.id, status: done?.[0]?.status ?? 'ready', description});
+    // Best effort: an item that could not be sorted is still saved, read and searchable.
+    let sorted = null;
+    if (sorter) sorted = await sortItem(db, sorter, {item, description, transcript}).catch(() => null);
+    return send(res, 200, {id: item.id, status: done?.[0]?.status ?? 'ready', description,
+      profile: sorted?.profile ?? null, suggestions: sorted?.suggestions ?? 0});
   } catch {
     // Kept and marked, so the person sees which one did not take and can
     // remove it or drop it again. A failure here is never a lost item.

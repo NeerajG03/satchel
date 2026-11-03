@@ -11,6 +11,7 @@ import { Empty } from '../../ui/Empty';
 import { TextArea, TextField } from '../../ui/Field';
 import { LoadError, SaveError, Skeleton } from '../../ui/Notice';
 import { Provenance } from '../../ui/Provenance';
+import { Suggestions } from './Suggestions';
 
 const KIND_LABEL = { note: 'note', photo: 'photo', voice: 'voice note' } as const;
 // A read that has not come back by now was lost (a closed tab, a dropped
@@ -56,6 +57,7 @@ export function Shelf() {
   const stores = useStores();
   const { announce } = useReadout();
   const items = useLoad(() => stores.shelf.list(), [stores]);
+  const suggestions = useLoad(() => stores.shelf.suggestions(), [stores]);
   const [urls, setUrls] = useState<Record<string, string>>({});
   // File links last twelve hours; a page open longer than that starts over.
   const signedAt = useRef(Date.now());
@@ -112,6 +114,8 @@ export function Shelf() {
     if (!result) { items.reload(); return; }
     patch(list => list.map(row => row.id === item.id
       ? { ...row, status: result.status, description: result.description ?? row.description } : row));
+    if (result.suggestions) suggestions.reload();
+    if (result.profile) patch(list => list.map(row => row.id === item.id && !row.profile ? { ...row, profile: result.profile } : row));
     if (result.status === 'ready') announce(item.kind === 'note' ? 'On your Shelf' : 'Read and on your Shelf');
   }
   /** The full list and the search results show the same items; change both. */
@@ -159,6 +163,8 @@ export function Shelf() {
     const done = await act.run(async () => { await stores.shelf.remove(item); return true; });
     if (!done) return;
     patch(list => list.filter(row => row.id !== item.id));
+    // Its suggestions went with it in the database; take them off the card too.
+    suggestions.replace(list => list.filter(s => s.item_id !== item.id));
     setRemoving(null);
     searchBox.current?.focus();
     announce('Removed from your Shelf');
@@ -209,6 +215,8 @@ export function Shelf() {
         <Button type="submit" look="primary" disabled={!canSave}>{save.busy ? 'Saving…' : 'Put on Shelf'}</Button>
       </div>
     </form>
+
+    <Suggestions loaded={suggestions} />
 
     <form className="row shelf-search" role="search" onSubmit={find}>
       <TextField ref={searchBox} label="Find something" hint="describe it the way you remember it" value={query} maxLength={300}
