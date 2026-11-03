@@ -1,0 +1,30 @@
+<resources>
+    <style name="Theme.Satchel" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:statusBarColor">@color/paper</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+    <!-- The capture sheet sits over whatever was on screen. -->
+    <style name="Theme.Satchel.Sheet" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+    <style name="Theme.Satchel.Invisible" parent="android:Theme.Translucent.NoTitleBar" />
+    <style name="WidgetKey">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_margin">3dp</item>
+        <item name="android:background">@drawable/widget_key</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">#F4F0E7</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:drawablePadding">2dp</item>
+        <item name="android:paddingTop">6dp</item>
+        <item name="android:paddingBottom">6dp</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+</resources>
