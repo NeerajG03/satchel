@@ -12,6 +12,7 @@ import { Connected } from '../features/connections/Connected';
 import { Settings } from '../features/settings/Settings';
 import { ConsolidationCallback } from '../features/settings/ConsolidationCallback';
 import { Activity } from '../features/activity/Activity';
+import { Shelf } from '../features/shelf/Shelf';
 
 function AuthorizeRedirect() {
   const [params] = useSearchParams();
@@ -34,6 +35,7 @@ export const router = createBrowserRouter([
       { index: true, Component: LeftOff },
       { path: 'book', Component: Book },
       { path: 'book/archive', Component: Archive },
+      { path: 'shelf', Component: Shelf },
       { path: 'topics', Component: TopicList },
       { path: 'topics/new', Component: TopicList },
       { path: 'topics/:id', Component: TopicPage },

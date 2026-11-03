@@ -104,3 +104,17 @@ Do not mirror vendor-native memories or suppress them globally. Satchel supplies
 There is no export in the app today. The old Settings export only covered tasks and was removed with them. When an export comes back, it should export selected authorized records with stable IDs, provenance, scope, revisions, and correction links, plus non-secret topic and configuration references. Verify that an export can be read without Satchel. Record which source references still need separate authentication.
 
 An export is a snapshot, not a second writable master. Restoration needs revision reconciliation and access review. Do not overwrite newer records with an old snapshot. Exact export format, retention, encryption, hosting region, and backup policy remain implementation decisions.
+
+## The Shelf
+
+2 November 2026 (D54). The Shelf holds what the person drops in from the web app: a note, a photo or a voice note. It is a separate table, `shelf_items`, and is not memory: nothing on it loads into a session, and an app token is refused by every routine that reaches it.
+
+| What | Where | Who can reach it |
+|---|---|---|
+| The row: kind, note, file path, description, vector, status | `public.shelf_items`, no grants, read and written through definer routines | The owner, from a browser session only |
+| The file | Private Storage bucket `shelf`, at `<owner id>/<item id>.<ext>` | Upload only for a waiting row of the same owner that names that path; read and delete only inside the owner's folder; never with a `client_id` |
+| The description | Written by `/api/shelf` running as the person, from the file and their note | Same as the row |
+
+The bucket is made by hand in the Supabase dashboard (SQL on Supabase's own tables is refused): private, 20 MB per file, types `image/jpeg, image/png, image/webp, image/heic, audio/webm, audio/mp4, audio/mpeg, audio/wav, audio/ogg`.
+
+An item is read once: `claim_shelf_item` lets one caller take a waiting or failed item, so a finished item never pays for another model call, and a read that has not reported back in two minutes counts as lost. Search embeds the description with the memory model and only compares items embedded by the same model. Removing an item is a real delete, by the person; the web app then removes the file through the Storage API.

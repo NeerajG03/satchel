@@ -5,6 +5,7 @@ import { createTopicRepository } from '../features/topics/repository';
 import { createConnectionRepository } from '../features/connections/repository';
 import { createActivityRepository } from '../features/activity/repository';
 import { createOvernightRepository } from '../features/settings/repository';
+import { createShelfRepository } from '../features/shelf/repository';
 
 export function useStores() {
   const db = useDb();
@@ -15,6 +16,7 @@ export function useStores() {
     connections: createConnectionRepository(db),
     activity: createActivityRepository(db),
     overnight: createOvernightRepository(db),
+    shelf: createShelfRepository(db),
   }), [db]);
 }
 export type Stores = ReturnType<typeof useStores>;

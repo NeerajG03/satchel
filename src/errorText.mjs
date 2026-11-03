@@ -44,17 +44,21 @@ export const reasonText={
   'refused:connection':'That app’s access was revoked. Connect it again from Apps. Nothing was changed.',
   'refused:memory_read':'That scope is not open to this app. Nothing was read.',
   'refused:personal_memory':'That app may not read your personal memory. Nothing was read.',
+  'refused:shelf_path':'That file was headed somewhere other than your own Shelf, so nothing was saved. '+SATCHEL_FAULT,
   'refused:overnight_off':'Switch the overnight pass on first.',
   // Gone.
   'gone:topic':'This topic is already gone. It may have been deleted in another tab. Reload the topics list.',
   'gone:memory':'This memory is gone or was archived. Reload the book.',
   'gone:record':'Satchel could not find what it had just saved. Reload the page to see whether it is there.',
+  'gone:shelf_item':'That shelf item is gone. It may have been removed in another tab. Reload the Shelf.',
   'gone:repository_topic':'That repository is not linked to a topic this app may see. Nothing was changed.',
   // Changed since the page loaded.
   'conflict:topic_revision':'This topic changed while you were looking, so nothing was deleted. Reload it and check before you delete.',
   'conflict:topic':'This topic changed or was merged since the page loaded, so nothing was changed. Reload to see the latest version.',
   'conflict:memory':'This memory changed or was archived since the page loaded, so nothing was saved. Reload to see the latest version.',
   'conflict:topic_request':'Satchel could not tell this change apart from an earlier one, so it saved nothing. Reload the topic, then try again.',
+  'conflict:shelf_reading':'Satchel is already reading this one, or has finished. Reload the Shelf to see it.',
+  'conflict:shelf_request':'Satchel could not tell this from something already on your Shelf, so it saved nothing. Reload the Shelf, then try again.',
   'conflict:memory_request':'Satchel could not tell this memory apart from an earlier save, so it saved nothing. Reload the book, then try again.',
   // Something you picked or typed.
   'invalid:slug_taken':SHORT_NAME_TAKEN,

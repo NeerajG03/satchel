@@ -75,7 +75,7 @@ export function Archive() {
       </div>
       {destroying === memory.id && <div className="notice" role="group" aria-label="Delete this memory for good?">
         <strong>Delete for good?</strong>
-        <p>This is the only thing in Satchel that really destroys something. The memory and its whole
+        <p>Unlike forgetting, this really destroys it. The memory and its whole
           history go, and nothing can bring them back.</p>
         <div className="actions">
           <Button small disabled={action.busy} onClick={() => setDestroying(null)}>Keep it</Button>
