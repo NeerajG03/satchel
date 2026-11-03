@@ -128,3 +128,4 @@ Profiles (D54 to D57): `profiles` (two per person, work and personal, with the t
 | Profiles, topic tags, suggestions | The owner, from a browser session only; no grants, definer routines |
 | A Google refresh token | Stored sealed with a server-only key. `google_link_token` hands the sealed text to the owner's session, which cannot open it; only `/api/google` and `/api/shelf` can |
 | What reaches Google | Only a suggestion the person pressed Add on, and reads of the next week of events and open tasks while sorting |
+| What leaves for the model provider | While sorting, the titles of the next week's events and open tasks of each linked account go into the sorting prompt, and into its trace when tracing is on. Some of those titles are written by other people (invites). Each is one line of at most 120 characters, marked as data, and a suggestion still has to quote the person's own capture and wait for Add |
