@@ -16,20 +16,21 @@ export function createGoogleRepository(db: SupabaseClient) {
     },
     /** Sends the browser to Google's own consent screen. The state comes back and is checked. */
     async start(profile: ProfileKind): Promise<void> {
-      const { url, state } = await callApi<{ url: string; state: string }>(db, '/api/google', { action: 'start', profile }, 20000);
-      sessionStorage.setItem(PENDING, JSON.stringify({ state, profile }));
+      const { url, state, verifier } = await callApi<{ url: string; state: string; verifier: string }>(db, '/api/google', { action: 'start', profile }, 20000);
+      sessionStorage.setItem(PENDING, JSON.stringify({ state, profile, verifier }));
       window.location.assign(url);
     },
     /** What Google sent back, checked against what this tab sent, then linked. */
     async finish(params: URLSearchParams): Promise<GoogleLink> {
       const raw = sessionStorage.getItem(PENDING);
       sessionStorage.removeItem(PENDING);
-      const pending = raw ? JSON.parse(raw) as { state: string; profile: ProfileKind } : null;
+      const pending = raw ? JSON.parse(raw) as { state: string; profile: ProfileKind; verifier: string } : null;
       if (params.get('error')) throw new Error(params.get('error') === 'access_denied'
         ? 'You said no on Google’s screen, so nothing was linked.' : 'Google did not finish linking. Try again.');
       if (!pending || !params.get('code') || params.get('state') !== pending.state)
         throw new Error('This link did not start in this tab, so it was not used. Start again from Settings.');
-      return callApi<GoogleLink>(db, '/api/google', { action: 'link', profile: pending.profile, code: params.get('code') }, 30000);
+      return callApi<GoogleLink>(db, '/api/google', { action: 'link', profile: pending.profile, code: params.get('code'),
+        verifier: pending.verifier }, 30000);
     },
     async unlink(profile: ProfileKind): Promise<void> {
       await callApi(db, '/api/google', { action: 'unlink', profile }, 20000);

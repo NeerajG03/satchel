@@ -93,14 +93,18 @@ export async function personFor(req, res, makeClient, verify) {
   if (req.method !== 'POST') { res.writeHead(405, {Allow: 'POST'}); res.end(); return null; }
   if (Number(req.headers['content-length'] ?? 0) > MAX_BYTES) { res.writeHead(413); res.end(); return null; }
   const token = req.headers.authorization?.match(/^Bearer (\S+)$/i)?.[1];
-  try { if (!token) throw Error('Missing token'); await verify(token); }
+  let claims;
+  try { if (!token) throw Error('Missing token'); claims = await verify(token); }
   catch { res.writeHead(401, {'WWW-Authenticate': CHALLENGE}); res.end('Sign in to the web app to use the Shelf'); return null; }
   const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (!key) { res.writeHead(503); res.end('Server configuration unavailable'); return null; }
-  return makeClient(SUPABASE_URL, key, {
+  const db = makeClient(SUPABASE_URL, key, {
     auth: {persistSession: false, autoRefreshToken: false, detectSessionInUrl: false},
     global: {headers: {Authorization: `Bearer ${token}`}},
   });
+  // Who the verified token belongs to, for sealing anything that is theirs.
+  db.ownerId = claims?.sub;
+  return db;
 }
 
 export function readBody(body) {

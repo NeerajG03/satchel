@@ -2,7 +2,7 @@
 // what the person said yes to. Only the server ever sees a usable token: the
 // refresh token is sealed with SATCHEL_GOOGLE_TOKEN_KEY before it is stored,
 // and an access token lives for one request.
-import {createCipheriv, createDecipheriv, randomBytes} from 'node:crypto';
+import {createCipheriv, createDecipheriv, createHash, randomBytes} from 'node:crypto';
 
 export const SCOPES = [
   'openid', 'email',
@@ -27,25 +27,40 @@ export function googleConfig(env = process.env) {
   return {clientId, clientSecret, sealKey};
 }
 
-/** AES-256-GCM, as iv.tag.ciphertext in base64url. */
-export function seal(text, key) {
+/**
+ * AES-256-GCM, as iv.tag.ciphertext in base64url. `bound` (the owner and the
+ * profile) is authenticated with it, so a sealed token copied into another
+ * person's row, or onto the other profile, will not open.
+ */
+export const bindingFor = (ownerId, profile) => `${ownerId}|${profile}`;
+
+export function seal(text, key, bound) {
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
+  cipher.setAAD(Buffer.from(bound, 'utf8'));
   const body = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
   return [iv, cipher.getAuthTag(), body].map(b => b.toString('base64url')).join('.');
 }
 
-export function open(sealed, key) {
+export function open(sealed, key, bound) {
   const [iv, tag, body] = sealed.split('.').map(p => Buffer.from(p, 'base64url'));
   const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAAD(Buffer.from(bound, 'utf8'));
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(body), decipher.final()]).toString('utf8');
 }
 
-export function authUrl({clientId, redirectUri, state, loginHint}) {
+/** A PKCE pair: the verifier stays with the tab that started, the challenge goes to Google. */
+export function pkce() {
+  const verifier = randomBytes(48).toString('base64url');
+  return {verifier, challenge: createHash('sha256').update(verifier).digest('base64url')};
+}
+
+export function authUrl({clientId, redirectUri, state, challenge, loginHint}) {
   const url = new URL(AUTH);
   url.search = new URLSearchParams({client_id: clientId, redirect_uri: redirectUri, response_type: 'code',
     scope: SCOPES.join(' '), access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true', state,
+    code_challenge: challenge, code_challenge_method: 'S256',
     ...(loginHint ? {login_hint: loginHint} : {})}).toString();
   return url.toString();
 }
@@ -59,9 +74,9 @@ async function post(url, form, fetchImpl) {
 }
 
 /** The code Google sent back, for a refresh token and the account's email. */
-export async function exchangeCode({clientId, clientSecret, code, redirectUri, fetchImpl = fetch}) {
+export async function exchangeCode({clientId, clientSecret, code, verifier, redirectUri, fetchImpl = fetch}) {
   const body = await post(TOKEN, {code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri,
-    grant_type: 'authorization_code'}, fetchImpl);
+    grant_type: 'authorization_code', code_verifier: verifier}, fetchImpl);
   if (!body.refresh_token) throw new GoogleError('Google sent no refresh token', {reason: 'no_refresh_token'});
   // Straight from Google's token endpoint over TLS, so the id token's claims
   // can be read without checking its signature again.
@@ -128,9 +143,12 @@ export async function weekAhead(access, {timezone = 'UTC', now = new Date(), fet
     ? new Intl.DateTimeFormat('en-GB', {timeZone: timezone, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit',
       minute: '2-digit', hourCycle: 'h23'}).format(new Date(item.start.dateTime))
     : item.start?.date ?? '';
+  // Titles can be written by anyone who sends an invite, so each is one short
+  // line: it can never pose as another part of the prompt.
+  const line = text => (text ?? '(no title)').replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').trim().slice(0, 120);
   return [
-    ...(e.items ?? []).map(i => `  event: ${when(i)} ${i.summary ?? '(no title)'}`),
-    ...(t.items ?? []).map(i => `  open task: ${i.title}${i.due ? ` (due ${i.due.slice(0, 10)})` : ''}`),
+    ...(e.items ?? []).map(i => `  event: ${when(i)} ${line(i.summary)}`),
+    ...(t.items ?? []).map(i => `  open task: ${line(i.title)}${i.due ? ` (due ${i.due.slice(0, 10)})` : ''}`),
   ];
 }
 
@@ -139,7 +157,8 @@ export async function calendarContext(db, config, timezone, {fetchImpl = fetch, 
   const {data: links} = await db.rpc('google_link_status');
   const parts = await Promise.all((links ?? []).map(async link => {
     const {data: sealed} = await db.rpc('google_link_token', {p_profile: link.profile});
-    const access = await accessToken({...config, refreshToken: open(sealed, config.sealKey), fetchImpl});
+    const refreshToken = open(sealed, config.sealKey, bindingFor(db.ownerId, link.profile));
+    const access = await accessToken({...config, refreshToken, fetchImpl});
     const lines = await weekAhead(access, {timezone, now, fetchImpl});
     return lines.length ? [`${link.profile}:`, ...lines].join('\n') : null;
   }).map(p => p.catch(() => null)));
