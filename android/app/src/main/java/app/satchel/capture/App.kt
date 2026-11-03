@@ -11,6 +11,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import okhttp3.OkHttpClient
@@ -41,10 +42,14 @@ fun Context.sendSoon() {
         .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
         .build()
-    // Replace, not append: a run waiting out its backoff would otherwise hold a
-    // new capture behind it for hours. Every step is safe to repeat, so
-    // cutting a run short loses nothing.
-    WorkManager.getInstance(this).enqueueUniqueWork("send", ExistingWorkPolicy.REPLACE, work)
+    // A run waiting out its backoff is replaced, so a new capture never sits
+    // behind it for hours. A run that is sending is left alone: cutting it
+    // would restart an upload, and it picks up new captures before it ends.
+    val manager = WorkManager.getInstance(this)
+    val sending = runCatching {
+        manager.getWorkInfosForUniqueWork("send").get(1, TimeUnit.SECONDS).any { it.state == WorkInfo.State.RUNNING }
+    }.getOrDefault(false)
+    manager.enqueueUniqueWork("send", if (sending) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.REPLACE, work)
 }
 
 fun Context.stopSending() { WorkManager.getInstance(this).cancelUniqueWork("send") }

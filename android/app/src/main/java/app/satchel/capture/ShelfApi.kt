@@ -71,7 +71,9 @@ class ShelfApi(
                 response.isSuccessful -> Step.Done
                 // The file is already there from an earlier try that lost its answer.
                 response.code == 409 || text.contains("Duplicate") || text.contains("already exists") -> Step.Done
-                response.code == 401 || text.contains("\"statusCode\":\"401\"") -> Step.Later(SIGNED_OUT)
+                // Storage reports a stale token as a 400 with the real reason in the body.
+                response.code == 401 || text.contains("\"statusCode\":\"401\"") || text.contains("jwt", ignoreCase = true)
+                    || text.contains("Unauthorized") -> Step.Later(SIGNED_OUT)
                 response.code >= 500 -> Step.Later("storage answered ${response.code}")
                 else -> Step.Never("the file was refused (${response.code})")
             }

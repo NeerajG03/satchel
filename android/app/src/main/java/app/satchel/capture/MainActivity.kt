@@ -113,7 +113,11 @@ class MainActivity : ComponentActivity() {
                 Modifier.fillMaxWidth()) { Text("Open your Shelf", color = InkText) }
             Spacer(Modifier.weight(1f))
             val unsent = waiting.count { it.problem == null }
-            TextButton({ lifecycleScope.launch { app.auth.signOutEverywhere(); stopSending(); app.queue.clear(); refresh() } }) {
+            TextButton({
+                stopSending(); app.queue.clear()
+                lifecycleScope.launch { app.auth.signOutEverywhere() }
+                refresh(); signedIn = false
+            }) {
                 Text(if (unsent > 0) "Sign out (removes $unsent not yet sent)" else "Sign out", color = Muted)
             }
         }

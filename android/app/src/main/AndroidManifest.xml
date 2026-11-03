@@ -37,6 +37,7 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:taskAffinity="app.satchel.capture.sheet"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden|density"
             android:theme="@style/Theme.Satchel.Sheet"
             android:windowSoftInputMode="adjustResize" />
 

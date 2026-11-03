@@ -75,9 +75,10 @@ class Auth(context: Context, private val http: OkHttpClient) {
 
     fun signOut() { prefs.edit().clear().apply() }
 
-    /** Ends the session on the server too, then forgets it here. Forgetting happens even offline. */
+    /** Forgets the session here at once, then ends it on the server when it can. */
     suspend fun signOutEverywhere() {
         val access = load()?.access
+        signOut()
         if (access != null) withContext(Dispatchers.IO) {
             runCatching {
                 http.newCall(Request.Builder().url("${BuildConfig.SUPABASE_URL}/auth/v1/logout")
@@ -85,7 +86,6 @@ class Auth(context: Context, private val http: OkHttpClient) {
                     .post(ByteArray(0).toRequestBody()).build()).execute().close()
             }
         }
-        signOut()
     }
 
     /** Returns null on success or a reason. Only a refusal clears the session; a dropped connection keeps it. */

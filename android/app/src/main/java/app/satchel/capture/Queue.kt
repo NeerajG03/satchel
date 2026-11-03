@@ -101,20 +101,26 @@ class Sender(private val queue: Queue, private val api: ShelfApi, private val ow
     /** Returns true when everything that can be sent now was sent. One stuck item never holds up the rest. */
     suspend fun run(): Boolean {
         var allSent = true
-        for (start in queue.pending()) {
-            if (start.problem != null) continue
-            try {
-                when (send(start)) {
-                    Outcome.SENT -> {}
-                    Outcome.LATER -> allSent = false
-                    Outcome.SIGNED_OUT -> return false
+        val tried = mutableSetOf<String>()
+        // Round again while new captures arrive, so a capture made during a send goes in the same run.
+        while (true) {
+            val fresh = queue.pending().filter { it.problem == null && it.id !in tried }
+            if (fresh.isEmpty()) break
+            for (start in fresh) {
+                tried += start.id
+                try {
+                    when (send(start)) {
+                        Outcome.SENT -> {}
+                        Outcome.LATER -> allSent = false
+                        Outcome.SIGNED_OUT -> return false
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: java.io.FileNotFoundException) {
+                    // Cleared from the phone while this run was holding it.
+                } catch (e: Exception) {
+                    runCatching { queue.update(start.copy(problem = "Satchel could not read this capture back from the phone")) }
                 }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: java.io.FileNotFoundException) {
-                // Cleared from the phone while this run was holding it.
-            } catch (e: Exception) {
-                runCatching { queue.update(start.copy(problem = "Satchel could not read this capture back from the phone")) }
             }
         }
         return allSent

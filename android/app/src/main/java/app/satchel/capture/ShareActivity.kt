@@ -24,7 +24,8 @@ class ShareActivity : ComponentActivity() {
             startActivity(Intent(this, MainActivity::class.java))
             return finish()
         }
-        if (savedInstanceState != null) return finish()
+        // A rebuilt share screen cannot read the shared files again; send what the first one queued.
+        if (savedInstanceState != null) { sendSoon(); return finish() }
         lifecycleScope.launch {
             val message = withContext(Dispatchers.IO) { take(intent) }
             Toast.makeText(this@ShareActivity, message, Toast.LENGTH_SHORT).show()
