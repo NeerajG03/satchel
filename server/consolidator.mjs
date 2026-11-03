@@ -37,6 +37,17 @@ import {consolidatePrompt, localTextFor, CONSOLIDATE_PROMPT} from './prompt-stor
 // The longest a memory statement may be, and the most of one the model is shown.
 export const STATEMENT_LIMIT = 500;
 
+// The prompt does not state the limit, and a rule with its reasons runs past
+// it. Dropping the whole claim loses the rule, so keep the leading sentences
+// that fit. One unbroken sentence is still refused: cutting it mid-thought
+// would store half a claim.
+export function fitStatement(statement) {
+  if (statement.length <= STATEMENT_LIMIT) return statement;
+  const head = statement.slice(0, STATEMENT_LIMIT);
+  const end = Math.max(head.lastIndexOf('. '), head.lastIndexOf('! '), head.lastIndexOf('? '));
+  return end >= 80 ? head.slice(0, end + 1) : '';
+}
+
 export const KINDS = ['fact', 'preference', 'intent'];
 
 // The least a retry is worth starting for. The second call is cut off by the
@@ -315,7 +326,7 @@ export function validateConsolidation(payload, {turns = [], memories = [], topic
   };
   for (const change of payload?.changes ?? []) {
     const action = change?.action;
-    const statement = String(change?.statement ?? '').trim();
+    const statement = fitStatement(String(change?.statement ?? '').trim());
     // memories.source holds 4000 characters, and a model quoting a long paste
     // will quote all of it. Cut, not dropped: only the start has to match.
     const source = String(change?.source ?? '').trim().slice(0, 4000);
