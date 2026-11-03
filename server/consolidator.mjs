@@ -43,7 +43,7 @@ export const STATEMENT_LIMIT = 500;
 // would store half a claim.
 export function fitStatement(statement) {
   if (statement.length <= STATEMENT_LIMIT) return statement;
-  const head = statement.slice(0, STATEMENT_LIMIT);
+  const head = statement.slice(0, STATEMENT_LIMIT + 1);
   const end = Math.max(head.lastIndexOf('. '), head.lastIndexOf('! '), head.lastIndexOf('? '));
   return end >= 80 ? head.slice(0, end + 1) : '';
 }
@@ -453,7 +453,7 @@ export function createConsolidator({
           schema: RECONSIDER_SCHEMA, system, prompt, signal, functionId: 'reconsider'});
       } catch (error) { throw asModelError(error, signal, 'consolidation'); }
       const verdict = result.object ?? {};
-      const statement = String(verdict.statement ?? '').trim();
+      const statement = fitStatement(String(verdict.statement ?? '').trim());
       // A verdict that needs a statement and has none, or has one too long
       // for the row, falls back to the safe answer for that direction.
       const held = (verdict.action === 'extend' || verdict.action === 'replace') && (!statement || statement.length > STATEMENT_LIMIT);
