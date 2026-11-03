@@ -270,6 +270,19 @@ test('an oversized or missing statement is refused, except on a retire', () => {
     ['statement missing or too long', 'statement missing or too long']);
 });
 
+test('a long statement keeps its leading sentences, and one unbroken sentence is still refused', () => {
+  const sentence = 'Migrate skills through two internal endpoints, one per owner kind.';
+  const long = `${sentence} ${'Reruns are idempotent on name and scope. '.repeat(12)}`.trim();
+  const out = validateConsolidation({changes: [
+    change({statement: long}),
+    change({statement: 'y'.repeat(600)}),
+  ]}, context);
+  assert.equal(out.changes.length, 1);
+  assert.ok(out.changes[0].statement.length <= 500 && out.changes[0].statement.startsWith(sentence));
+  assert.ok(out.changes[0].statement.endsWith('.'));
+  assert.equal(out.dropped[0].why, 'statement missing or too long');
+});
+
 test('an unknown kind is refused rather than defaulted', () => {
   const out = validateConsolidation({changes: [change({kind: 'episode'})]}, context);
   assert.equal(out.dropped[0].why, 'unknown kind');
