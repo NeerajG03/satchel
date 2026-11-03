@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
 import { Sentence } from '../../client';
-import { callApi } from '../../app/api';
+import { callApi, SIGNED_OUT } from '../../app/api';
 import type { ProfileKind } from '../profiles/repository';
 
 export type ShelfKind = 'note' | 'photo' | 'voice';
@@ -39,7 +39,6 @@ export const bareType = (type: string) => type.split(';')[0].trim().toLowerCase(
 export const kindOf = (type: string): ShelfKind | null =>
   !(bareType(type) in EXTENSIONS) ? null : bareType(type).startsWith('image/') ? 'photo' : 'voice';
 
-const SIGNED_OUT = 'Your sign-in has expired. Sign in again, then try once more.';
 
 export function createShelfRepository(db: SupabaseClient) {
   async function session() {

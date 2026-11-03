@@ -56,12 +56,11 @@ export function pkce() {
   return {verifier, challenge: createHash('sha256').update(verifier).digest('base64url')};
 }
 
-export function authUrl({clientId, redirectUri, state, challenge, loginHint}) {
+export function authUrl({clientId, redirectUri, state, challenge}) {
   const url = new URL(AUTH);
   url.search = new URLSearchParams({client_id: clientId, redirect_uri: redirectUri, response_type: 'code',
     scope: SCOPES.join(' '), access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true', state,
-    code_challenge: challenge, code_challenge_method: 'S256',
-    ...(loginHint ? {login_hint: loginHint} : {})}).toString();
+    code_challenge: challenge, code_challenge_method: 'S256'}).toString();
   return url.toString();
 }
 

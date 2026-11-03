@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../request.mjs';
 import { Sentence } from '../client';
 
-const SIGNED_OUT = 'Your sign-in has expired. Sign in again, then try once more.';
+export const SIGNED_OUT = 'Your sign-in has expired. Sign in again, then try once more.';
 
 /** POSTs to one of Satchel's own endpoints as the signed-in person. An error comes back as a sentence to show. */
 export async function callApi<T>(db: SupabaseClient, path: string, body: object, timeout: number): Promise<T> {

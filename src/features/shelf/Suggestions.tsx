@@ -18,7 +18,9 @@ export function Suggestions({ loaded }: { loaded: Loaded<Suggestion[]> }) {
   const [actingOn, setActingOn] = useState<string | null>(null);
   // A suggestion Satchel could not place gets its profile picked here.
   const [picked, setPicked] = useState<Record<string, ProfileKind>>({});
-  const links = useLoad(() => stores.google.links(), [stores]);
+  const any = (loaded.data ?? []).length > 0;
+  // Only asked when there is something to add.
+  const links = useLoad(() => any ? stores.google.links() : Promise.resolve([]), [stores, any]);
   const linkedTo = new Set((links.data ?? []).map(l => l.profile));
   const rows = loaded.data ?? [];
   if (!rows.length) return null;
