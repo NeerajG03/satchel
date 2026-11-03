@@ -178,11 +178,11 @@ export async function handleShelf(req, res, {embedder, describer, sorter = null,
     if (item.kind !== 'note') {
       if (!describer) throw Error('No model configured');
       const bytes = await download(item);
-      description = await describer.describe({bytes, mimeType: item.mime_type, note: item.note,
-        timeoutMs: Math.max(MIN_CALL_MS, left(EMBED_MS))});
-      // The words as said, for search and for memory. A failure here costs the
-      // transcript, not the item.
+      // A voice note is its words: written down once, they are what is shown,
+      // searched and remembered. A summary is only asked for when that fails.
       transcript = await transcribe(item, bytes);
+      if (!transcript) description = await describer.describe({bytes, mimeType: item.mime_type, note: item.note,
+        timeoutMs: Math.max(MIN_CALL_MS, left(EMBED_MS))});
     }
     const vector = await embedder.embedOne(shelfText({note: item.note, description, transcript}));
     const {data: done, error: saveError} = await db.rpc('describe_shelf_item', {

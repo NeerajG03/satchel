@@ -134,7 +134,7 @@ test('search text is the note, then the description', () => {
   assert.equal(shelfText({note: '', description: null}), '');
 });
 
-test('a voice note is transcribed before it is embedded, and a failed sort still answers 200', async () => {
+test('a voice note is transcribed, not summarised, before it is embedded, and a failed sort still answers 200', async () => {
   const db = fakeDb({item: {id, kind: 'voice', note: '', object_path: `alice/${id}.m4a`, mime_type: 'audio/mp4', size_bytes: 3}});
   const order = [];
   const describer = {describe: async () => { order.push('describe'); return 'Voice note about parking.'; }};
@@ -148,7 +148,7 @@ test('a voice note is transcribed before it is embedded, and a failed sort still
   const res = fakeRes();
   await handleShelf(req({action: 'describe', id}), res, {embedder: embedding, describer, sorter, makeClient: () => db, verify});
   assert.equal(res.status, 200);
-  assert.deepEqual(order, ['describe', 'transcribe', 'embed:parked on level two\nVoice note about parking.', 'sort']);
+  assert.deepEqual(order, ['transcribe', 'embed:parked on level two', 'sort'], 'one audio call: no summary when the words came back');
   const body = JSON.parse(res.body);
   assert.equal(body.status, 'ready');
   assert.equal(body.sorted, false);
