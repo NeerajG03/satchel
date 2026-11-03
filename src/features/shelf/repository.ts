@@ -1,12 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
 import { Sentence } from '../../client';
+import type { ProfileKind } from '../profiles/repository';
 
 export type ShelfKind = 'note' | 'photo' | 'voice';
 export type ShelfItem = {
   id: string; kind: ShelfKind; note: string; object_path: string | null; mime_type: string | null;
   description: string | null; status: 'waiting' | 'reading' | 'ready' | 'failed'; created_at: string;
-  profile: 'work' | 'personal' | null; similarity?: number;
+  profile: ProfileKind | null; similarity?: number;
 };
 
 export const SHELF_LIMITS = { note: 4000, bytes: 20 * 1024 * 1024 };

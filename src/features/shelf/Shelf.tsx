@@ -4,6 +4,7 @@ import { useStores } from '../../app/stores';
 import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
 import { count } from '../../app/format';
+import { PROFILE_LABEL } from '../profiles/repository';
 import { kindOf, SHELF_LIMITS, UNSUPPORTED_FILE, type ShelfItem } from './repository';
 import { Button } from '../../ui/Button';
 import { Empty } from '../../ui/Empty';
@@ -150,7 +151,7 @@ export function Shelf() {
     const done = await act.run(async () => { await stores.shelf.setProfile(item, profile); return true; });
     if (!done) return;
     patch(list => list.map(row => row.id === item.id ? { ...row, profile } : row));
-    announce(profile ? `Moved to ${profile === 'work' ? 'Work' : 'Personal'}` : 'Taken out of both profiles');
+    announce(profile ? `Moved to ${PROFILE_LABEL[profile]}` : 'Taken out of both profiles');
   }
 
   async function remove(item: ShelfItem) {

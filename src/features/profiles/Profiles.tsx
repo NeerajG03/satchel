@@ -4,6 +4,7 @@ import { useAction, useLoad } from '../../app/useLoad';
 import { useReadout } from '../../app/readout';
 import { LoadError, SaveError, Skeleton } from '../../ui/Notice';
 import { Button } from '../../ui/Button';
+import { ZONE } from '../settings/Overnight';
 import { PROFILE_LABEL, type ProfileKind } from './repository';
 
 /** Settings section: which topics are work and which are personal. */
@@ -22,7 +23,7 @@ export function Profiles() {
   // A capture saying "Tuesday 3pm" needs the person's timezone. It is taken
   // from the browser once; after that it changes only when they say so, so a
   // laptop set to another zone cannot quietly move their events.
-  const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const browserZone = ZONE();
   const [zone, setZone] = useState<string | null>(null);
   useEffect(() => {
     if (!loaded.data) return;
