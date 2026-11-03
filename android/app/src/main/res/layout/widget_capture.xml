@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_frame"
+    android:orientation="horizontal"
+    android:padding="6dp">
+
+    <TextView android:id="@+id/widget_photo" style="@style/WidgetKey"
+        android:text="Photo" android:contentDescription="Take a photo for your Shelf"
+        android:drawableTop="@drawable/ic_photo" />
+    <TextView android:id="@+id/widget_voice" style="@style/WidgetKey"
+        android:text="Voice" android:contentDescription="Record a voice note for your Shelf"
+        android:drawableTop="@drawable/ic_voice" />
+    <TextView android:id="@+id/widget_note" style="@style/WidgetKey"
+        android:text="Note" android:contentDescription="Write a note for your Shelf"
+        android:drawableTop="@drawable/ic_note" />
+</LinearLayout>
