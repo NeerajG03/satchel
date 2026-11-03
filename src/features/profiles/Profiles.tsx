@@ -3,6 +3,7 @@ import { useStores } from '../../app/stores';
 import { useAction, useLoad } from '../../app/useLoad';
 import { useReadout } from '../../app/readout';
 import { LoadError, SaveError, Skeleton } from '../../ui/Notice';
+import { Button } from '../../ui/Button';
 import { PROFILE_LABEL, type ProfileKind } from './repository';
 
 /** Settings section: which topics are work and which are personal. */
@@ -18,12 +19,22 @@ export function Profiles() {
   const [tags, setTags] = useState<Record<string, ProfileKind>>({});
   useEffect(() => { if (loaded.data) setTags(loaded.data.tags); }, [loaded.data]);
 
-  // The browser knows the person's timezone; a capture saying "Tuesday 3pm" needs it.
+  // A capture saying "Tuesday 3pm" needs the person's timezone. It is taken
+  // from the browser once; after that it changes only when they say so, so a
+  // laptop set to another zone cannot quietly move their events.
+  const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const [zone, setZone] = useState<string | null>(null);
   useEffect(() => {
-    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (loaded.data && zone && loaded.data.profiles.some(p => p.timezone !== zone))
-      stores.profiles.setTimezone(zone).catch(() => {});
-  }, [loaded.data, stores]);
+    if (!loaded.data) return;
+    const saved = loaded.data.profiles[0]?.timezone ?? null;
+    setZone(saved);
+    if (!saved && browserZone) stores.profiles.setTimezone(browserZone).then(() => setZone(browserZone)).catch(() => {});
+  }, [loaded.data, stores, browserZone]);
+
+  async function useBrowserZone() {
+    const done = await save.run(async () => { await stores.profiles.setTimezone(browserZone); return true; });
+    if (done) { setZone(browserZone); announce(`Times are read in ${browserZone}`); }
+  }
 
   async function tag(topicId: string, value: string) {
     const kind = value === '' ? null : value as ProfileKind;
@@ -52,6 +63,9 @@ export function Profiles() {
           </select>
         </li>)}
       </ul>}
+      {zone && <p className="fine muted">Times in your captures are read in {zone}.
+        {browserZone && zone !== browserZone && <> <Button look="link" small disabled={save.busy}
+          onClick={() => void useBrowserZone()}>Use {browserZone} instead</Button></>}</p>}
       {save.error && <SaveError title="Could not change the profile." message={save.error} />}
     </div>
   </div>;

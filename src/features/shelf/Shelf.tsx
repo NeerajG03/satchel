@@ -238,7 +238,7 @@ export function Shelf() {
       <Provenance parts={[KIND_LABEL[item.kind], status.label]} at={item.created_at} />
       <div className="actions">
         <label className="visually-hidden" htmlFor={`profile-${item.id}`}>Profile</label>
-        <select id={`profile-${item.id}`} className="field compact" value={item.profile ?? ''} disabled={act.busy}
+        <select id={`profile-${item.id}`} className="field compact" value={item.profile ?? ''} disabled={act.busy && failedOn === item.id}
           onChange={event => void moveTo(item, (event.target.value || null) as ShelfItem['profile'])}>
           <option value="">No profile</option>
           <option value="work">Work</option>

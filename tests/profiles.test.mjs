@@ -70,6 +70,25 @@ test('profiles are the owner’s, from the web app only', async t => {
       assert.deepEqual((await as(alice, 'select timezone from list_profiles()')).map(p => p.timezone), ['Asia/Kolkata', 'Asia/Kolkata']);
     });
 
+    await t.test('a merged topic hands its profile on and stops being counted', async () => {
+      const other = '20000000-0000-4000-8000-000000000002';
+      await as(alice, 'select * from create_topic($1,$2,$3)', [other, 'Web app', 'The site']);
+      await as(alice, 'select set_topic_profile($1,$2)', [topic, 'work']);
+      await db.exec(`update topics set merged_into = '${other}' where id = '${topic}'`);
+      const tags = Object.fromEntries((await as(alice, 'select * from topic_profile_list()')).map(r => [r.topic_id, r.kind]));
+      assert.equal(tags[other], 'work');
+      assert.equal((await as(alice, 'select * from list_profiles()')).find(p => p.kind === 'work').topics, 1);
+    });
+
+    await t.test('a deleted topic takes its tag with it, and a bad timezone is refused', async () => {
+      const gone = '20000000-0000-4000-8000-000000000003';
+      await as(alice, 'select * from create_topic($1,$2,$3)', [gone, 'Old', 'Going']);
+      await as(alice, 'select set_topic_profile($1,$2)', [gone, 'personal']);
+      await db.exec(`delete from topics where id = '${gone}'`);
+      assert.equal((await as(alice, 'select * from topic_profile_list()')).some(r => r.topic_id === gone), false);
+      assert.equal(await hint(as(alice, 'select set_profile_timezone($1)', [''])), 'satchel:invalid:timezone');
+    });
+
     await t.test('an app token and the anonymous role get nothing', async () => {
       assert.equal(await hint(as(alice, 'select * from list_profiles()', [], { client_id: 'app' })), 'satchel:app_token');
       assert.match(await hint(as(null, 'select * from list_profiles()')), /permission denied/);

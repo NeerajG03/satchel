@@ -166,6 +166,7 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - Empty: You have no topics yet. New ones can be tagged here.
 - Footer: Moved to Work · Moved to Personal · Taken out of both profiles
 - Error: Could not change the profile.
+- Timezone: Times in your captures are read in {zone}. · Use {browser zone} instead
 - Shelf item picker: No profile · Work · Personal
 
 ## Activity (developer mode)
