@@ -6,6 +6,7 @@ import { setDevMode, useDevMode } from '../../app/dev';
 import { Button } from '../../ui/Button';
 import { CheckField } from '../../ui/Field';
 import { Overnight } from './Overnight';
+import { Profiles } from '../profiles/Profiles';
 
 export function Settings() {
   const { user, signOut, busy: authBusy } = useAuth();
@@ -23,6 +24,7 @@ export function Settings() {
           <Button disabled={authBusy} onClick={() => void signOut()}>Sign out</Button>
         </div>
       </div>
+      <Profiles />
       <Overnight />
       <div className="settings-row">
         <h2>Developer mode</h2>

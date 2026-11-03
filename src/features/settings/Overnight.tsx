@@ -11,7 +11,7 @@ import { LoadError, SaveError, Skeleton } from '../../ui/Notice';
 import { beginEnable } from './consolidationConnect';
 import { DAY_NAMES, EVERY_DAY, WEEKDAYS, describeSchedule, nextRun, sameSchedule, scheduleProblem, type Schedule } from './schedule.mjs';
 
-const ZONE = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+export const ZONE = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 export function Overnight() {
   const stores = useStores();

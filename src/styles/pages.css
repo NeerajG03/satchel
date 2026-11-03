@@ -66,3 +66,7 @@
 .shelf-item .shelf-photo { display: block; max-width: min(100%, 360px); max-height: 280px; border-radius: 8px; border: 1px solid var(--line); object-fit: cover; margin-bottom: 10px; }
 .shelf-item .shelf-photo.placeholder { width: 240px; height: 160px; background: var(--paper-3); }
 .shelf-item audio { display: block; margin-bottom: 10px; max-width: 100%; }
+
+.profile-topics { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.profile-topics li { display: grid; grid-template-columns: minmax(0, 1fr) 160px; align-items: center; gap: 12px; }
+.field.compact { width: auto; padding-block: 4px; font-size: 13px; }

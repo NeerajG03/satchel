@@ -158,6 +158,17 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - Footer: {n} things on your Shelf · On your Shelf · Read and on your Shelf · Removed from your Shelf
 - Errors: Satchel could not use the microphone. Allow it for this site, then try again. · The Shelf takes photos (JPEG, PNG, WebP, HEIC) and voice notes (WebM, M4A, MP3, WAV, OGG). · That file is over 20 MB, so nothing was saved. Try a smaller one. · The file did not upload, so nothing was saved. Try again. · Satchel could not read this one, so it is saved but not searchable. Try dropping it again. · Search is busy right now. Try again in a minute.
 
+## Settings · Profiles
+
+- H2: Profiles
+- Lede: Work and Personal. Each topic belongs to one, and so does everything on your Shelf, so a to-do lands in the right calendar and list.
+- Per topic: Not set · Work · Personal
+- Empty: You have no topics yet. New ones can be tagged here.
+- Footer: Moved to Work · Moved to Personal · Taken out of both profiles
+- Error: Could not change the profile.
+- Timezone: Times in your captures are read in {zone}. · Use {browser zone} instead
+- Shelf item picker: No profile · Work · Personal
+
 ## Activity (developer mode)
 
 - Eyebrow: Developer

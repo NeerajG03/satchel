@@ -68,6 +68,8 @@ export const reasonText={
   'invalid:no_scope':'Choose at least one scope to allow. Nothing was allowed.',
   'invalid:refresh_token':'Satchel did not get the overnight sign-in back, so nothing was switched on. Switch the overnight pass on again.',
   'invalid:overnight_https':'The overnight pass can only be switched on from the hosted Satchel, over https. Open it there.',
+  'invalid:profile':'A profile is Work or Personal. Reload the page and pick again. Nothing was changed.',
+  'invalid:timezone':'Satchel could not read your timezone, so nothing was changed. Reload the page.',
   'invalid:repository_hint':'That repository name is not one Satchel can read. Nothing was changed.',
   'invalid:repository_ambiguous':'That repository is linked to more than one topic, so it does not pick one. Nothing was changed.',
   // Only Satchel's own code can send these.
