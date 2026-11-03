@@ -51,6 +51,7 @@ export const reasonText={
   'gone:memory':'This memory is gone or was archived. Reload the book.',
   'gone:record':'Satchel could not find what it had just saved. Reload the page to see whether it is there.',
   'gone:shelf_item':'That shelf item is gone. It may have been removed in another tab. Reload the Shelf.',
+  'gone:google_link':'That profile has no Google account linked. Link one in Settings, then try again.',
   'gone:suggestion':'That suggestion is gone or was already added or dismissed. Reload the Shelf.',
   'gone:repository_topic':'That repository is not linked to a topic this app may see. Nothing was changed.',
   // Changed since the page loaded.

@@ -180,6 +180,21 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - Footer: Dismissed
 - Error: Could not change this.
 
+## Settings · Profiles · Google
+
+- Per profile: {Work|Personal} · Google: {email} · Unlink — or — {Work|Personal} · no Google account linked · Link Google account (Opening Google…)
+- Error heading: Google was not changed.
+- Fine print: Linking lets Satchel add the to-dos and events you say yes to, and read the next week of that calendar and to-do list so it can place what you drop. Nothing is added without you.
+- Footer: {Work} is linked to {email} · {Work} is no longer linked to Google
+- Return page: Linking your Google account… · Nothing was linked. · Back to Settings
+- Errors: You said no on Google’s screen, so nothing was linked. · This link did not start in this tab, so it was not used. Start again from Settings. · Google did not give Satchel the calendar and to-do permissions. Link again and leave every box ticked. · Google is not set up on this server yet, so nothing was linked.
+
+## Shelf · Waiting for you · Add
+
+- Buttons: Add to Tasks · Add to Calendar · Adding… · Link {Work} Google (when that profile has no account) · Which profile? (when Satchel could not place it)
+- Footer: Added to {Work} Google Tasks · Added to {Work} Google Calendar
+- Errors: Google no longer accepts this link. Unlink and link the account again in Settings. · Google did not take it this time, so nothing was added. Try again.
+
 ## Activity (developer mode)
 
 - Eyebrow: Developer

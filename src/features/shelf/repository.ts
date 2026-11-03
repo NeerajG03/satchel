@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requestWithTimeout } from '../../request.mjs';
 import { Sentence } from '../../client';
+import { callApi } from '../../app/api';
 import type { ProfileKind } from '../profiles/repository';
 
 export type ShelfKind = 'note' | 'photo' | 'voice';
@@ -46,21 +47,7 @@ export function createShelfRepository(db: SupabaseClient) {
     if (error || !data.session) throw new Sentence(SIGNED_OUT);
     return data.session;
   }
-  async function server<T>(body: object, timeout: number): Promise<T> {
-    const { access_token } = await session();
-    const response = await requestWithTimeout(signal => fetch('/api/shelf', {
-      method: 'POST', signal,
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${access_token}` },
-      body: JSON.stringify(body),
-    }), timeout);
-    // `npm run dev` serves the app and not the endpoints, so this answers with index.html.
-    if (!response.headers.get('content-type')?.includes('json'))
-      throw new Sentence('This server does not run the endpoints. Use npm run serve, or the deployed app.');
-    const payload = await response.json().catch(() => ({}));
-    if (response.status === 401) throw new Sentence(SIGNED_OUT);
-    if (!response.ok) throw new Sentence(payload.error ?? `Satchel answered ${response.status}. Reload and try again.`);
-    return payload as T;
-  }
+  const server = <T,>(body: object, timeout: number) => callApi<T>(db, '/api/shelf', body, timeout);
 
   return {
     async list(): Promise<ShelfItem[]> {
