@@ -133,3 +133,47 @@ test('search text is the note, then the description', () => {
   assert.equal(shelfText({note: ' toit ', description: 'Receipt.'}), 'toit\nReceipt.');
   assert.equal(shelfText({note: '', description: null}), '');
 });
+
+test('a voice note is transcribed before it is embedded, and a failed sort still answers 200', async () => {
+  const db = fakeDb({item: {id, kind: 'voice', note: '', object_path: `alice/${id}.m4a`, mime_type: 'audio/mp4', size_bytes: 3}});
+  const order = [];
+  const describer = {describe: async () => { order.push('describe'); return 'Voice note about parking.'; }};
+  const sorter = {
+    transcribe: async () => { order.push('transcribe'); return 'parked on level two'; },
+    sort: async () => { order.push('sort'); throw Error('model down'); },
+  };
+  const embedding = {model: 'm', embedOne: async text => { order.push(`embed:${text}`); return [1, 0]; }, embedQuery: async () => [0, 1]};
+  const realRpc = db.rpc;
+  db.rpc = async (name, args) => name === 'shelf_sort_context' ? {data: {timezone: 'UTC', topics: []}, error: null} : realRpc(name, args);
+  const res = fakeRes();
+  await handleShelf(req({action: 'describe', id}), res, {embedder: embedding, describer, sorter, makeClient: () => db, verify});
+  assert.equal(res.status, 200);
+  assert.deepEqual(order, ['describe', 'transcribe', 'embed:parked on level two\nVoice note about parking.', 'sort']);
+  const body = JSON.parse(res.body);
+  assert.equal(body.status, 'ready');
+  assert.equal(body.sorted, false);
+});
+
+test('sort sorts a read, unsorted item, and refuses one already sorted', async () => {
+  const read = {id, kind: 'note', note: 'call the dentist tuesday', object_path: null, mime_type: null, size_bytes: null,
+    description: null, transcript: null, status: 'ready', sorted_at: null};
+  let current = read;
+  const calls = [];
+  const db = {rpc: async (name, args) => {
+    calls.push(name);
+    if (name === 'read_shelf_item') return {data: [current], error: null};
+    if (name === 'shelf_sort_context') return {data: {timezone: 'UTC', topics: []}, error: null};
+    if (name === 'save_shelf_sorting') return {data: 1, error: null};
+    return {data: null, error: null};
+  }};
+  const sorter = {transcribe: async () => null, sort: async () => ({profile: 'personal', topic_id: null, suggestions: [{}]})};
+  const res = fakeRes();
+  await handleShelf(req({action: 'sort', id}), res, {embedder, sorter, makeClient: () => db, verify});
+  assert.equal(res.status, 200);
+  assert.equal(JSON.parse(res.body).suggestions, 1);
+  assert.ok(calls.includes('record_document_turn'), 'the person’s words go on to memory');
+  current = {...read, sorted_at: '2026-11-04T10:00:00Z'};
+  const again = fakeRes();
+  await handleShelf(req({action: 'sort', id}), again, {embedder, sorter, makeClient: () => db, verify});
+  assert.equal(again.status, 409);
+});

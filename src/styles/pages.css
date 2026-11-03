@@ -78,3 +78,4 @@
 .suggestion .what { display: grid; gap: 2px; }
 .suggestion .row { gap: 6px; }
 .suggestion .notice, .suggestion [role=alert] { grid-column: 1 / -1; }
+.shelf-item .transcript { margin: 0 0 6px; font-family: var(--font-content); font-size: 17px; color: var(--ink); border-left: 3px solid var(--line); padding-left: 10px; }

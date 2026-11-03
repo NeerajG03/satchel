@@ -108,20 +108,20 @@ export function createSorter({
   return {
     model,
     /** The words of a voice note, as said. Null when nothing was said. */
-    async transcribe({bytes, mimeType}) {
+    async transcribe({bytes, mimeType, timeoutMs: limit = timeoutMs}) {
       const {text} = await generateText({
         model: providerFor({provider, apiKey, baseURL, fetchImpl}).languageModel(model), temperature: 0, maxRetries: 1,
-        abortSignal: AbortSignal.timeout(timeoutMs),
+        abortSignal: AbortSignal.timeout(limit),
         messages: [{role: 'user', content: [{type: 'file', data: bytes, mediaType: mimeType}, {type: 'text', text: TRANSCRIBE}]}],
         telemetry: {functionId: 'shelf-transcribe'},
       });
       return text.trim().slice(0, 8000) || null;
     },
-    async sort({item, topics, timezone, now, calendar}) {
+    async sort({item, topics, timezone, now, calendar, timeoutMs: limit = timeoutMs}) {
       const {text: system} = await promptResolver();
       const prompt = buildSortPrompt({item, topics, timezone, now, calendar});
       const {object} = await ask({provider, apiKey, baseURL, fetchImpl, model, schema: SORT_SCHEMA, system, prompt,
-        signal: AbortSignal.timeout(timeoutMs), functionId: 'shelf-sort'});
+        signal: AbortSignal.timeout(limit), functionId: 'shelf-sort'});
       return settle(object, {item, topics, timezone});
     },
   };

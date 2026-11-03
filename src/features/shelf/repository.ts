@@ -7,7 +7,7 @@ export type ShelfKind = 'note' | 'photo' | 'voice';
 export type ShelfItem = {
   id: string; kind: ShelfKind; note: string; object_path: string | null; mime_type: string | null;
   description: string | null; status: 'waiting' | 'reading' | 'ready' | 'failed'; created_at: string;
-  profile: ProfileKind | null; similarity?: number;
+  profile: ProfileKind | null; transcript?: string | null; sorted_at?: string | null; similarity?: number;
 };
 
 export type Suggestion = {
@@ -93,8 +93,11 @@ export function createShelfRepository(db: SupabaseClient) {
       return { ...data!, description: null, profile: null };
     },
     async describe(id: string): Promise<{ status: ShelfItem['status']; description: string | null;
-      profile: ShelfItem['profile']; suggestions: number }> {
+      profile: ShelfItem['profile']; suggestions: number; transcript: string | null; sorted: boolean }> {
       return server({ action: 'describe', id }, 60000);
+    },
+    async sort(id: string): Promise<{ profile: ShelfItem['profile']; suggestions: number; transcript: string | null }> {
+      return server({ action: 'sort', id }, 60000);
     },
     async search(q: string): Promise<ShelfItem[]> {
       return (await server<{ items: ShelfItem[] }>({ action: 'search', q }, 20000)).items;

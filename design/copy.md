@@ -151,7 +151,9 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - Lede: A thought, a photo or a voice note. Satchel reads each one and writes down what it shows, so you can find it again by typing a few words. Only you can see your Shelf.
 - Drop: Note (optional with a photo or voice note) · Add a photo or audio file · Record a voice note · Stop recording · Recording… · Voice note recorded · remove · Photos and voice notes up to 20 MB. · Put on Shelf · Saving…
 - Find: Find something (describe it the way you remember it) · Find · Looking… · Show everything · {n} matches, closest first.
-- Item: note · photo · voice note · reading it… · not read yet · could not read this one · Try reading it again · Remove
+- Item: note · photo · voice note · reading it… · not read yet · could not read this one · Try reading it again · Look for to-dos · Remove
+- A voice note shows what was said, in quotes, instead of Satchel's summary
+- After Look for to-dos: Found {n} things to do · Nothing to do in this one
 - Remove: Remove this from your Shelf? It goes for good, with its file. Nothing can bring it back. / Keep it · Remove for good
 - Empty: Your Shelf is empty. Put a note, a photo or a voice note on it above. It is read in a few seconds and you can find it by searching.
 - No match: Nothing on your Shelf fits that. Try other words, the way you would describe it to someone.
