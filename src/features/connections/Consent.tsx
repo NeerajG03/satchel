@@ -50,6 +50,7 @@ export function Consent() {
   const action = useAction('action');
   const [memory, setMemory] = useState<Group>(NONE);
   const [memoryWrite, setMemoryWrite] = useState(false);
+  const [shelf, setShelf] = useState(false);
   useFooter('Deny closes this and sends the app back');
 
   const details = page.data && 'client' in page.data.details ? page.data.details as OAuthAuthorizationDetails : null;
@@ -76,7 +77,7 @@ export function Consent() {
         return;
       }
       const result = await stores.connections.approve(authorizationId, { clientId: details.client.id, label: details.client.name,
-        personal: memory.personal, allTopics: memory.all, topicIds: memory.ids, canWrite: memoryWrite });
+        personal: memory.personal, allTopics: memory.all, topicIds: memory.ids, canWrite: memoryWrite, shelf });
       try { sessionStorage.setItem(RETURN_URL_KEY, JSON.stringify({ url: result.redirectUrl, name: details.client.name })); } catch { /* The page still offers Back to Apps. */ }
       navigate(`/apps/connected/${partnerSlug(details.client.name)}`, { replace: true });
     });
@@ -101,16 +102,23 @@ export function Consent() {
       <div className="consent-groups">
         <ScopeGroup title="Memory" hint="Scopes it can read" group={memory} topics={topics} disabled={action.busy} onChange={setMemory}
           extras={<CheckField label="Also allow saves, corrections and forgets" hint="only when you ask it to, in that chat" checked={memoryWrite} disabled={!anyMemory} onChange={e => setMemoryWrite(e.target.checked)} />} />
+        <fieldset className="panel" disabled={action.busy} style={{ margin: 0 }}>
+          <div className="between"><legend style={{ padding: 0 }}><h3>Your Shelf</h3></legend><span className="eyebrow">{shelf && anyMemory ? 'allowed' : 'nothing'}</span></div>
+          <div className="list"><CheckField label="Search your Shelf, read its lists and add notes" hint="Work and Personal. Never photos or voice, never removes anything"
+            checked={shelf} disabled={!anyMemory} onChange={e => setShelf(e.target.checked)} /></div>
+        </fieldset>
       </div>
       <aside>
         <div className="aside-block"><div className="between"><h3>What this means</h3></div>
           <p className="fine muted">Reading means the app’s hooks get the names and descriptions of memories in these scopes. It fetches More info by name only when it needs it.</p>
           <p className="fine muted">Writing still needs your explicit ask inside the chat. The app cannot save on its own.</p>
+          <p className="fine muted">The Shelf is what you drop from your phone and the web. With it, the app can find “that receipt” or your Books list, and put a note on the Shelf when you ask. Satchel then sorts that note like any drop.</p>
           <p className="fine muted">Topics are all or none. “Every topic” keeps being true, so a topic made next month, by you or by Satchel, is included without asking again.</p></div>
         {overnight && <div className="aside-block"><div className="between"><h3>The overnight pass</h3></div>
           <p className="fine muted">This is the connection you just asked for in Settings. It reads conversations that have gone quiet and saves what it learns, so it needs your memory, every topic and you, with saves. Nothing is ticked for you: press the button above or choose your own.</p></div>}
         <div className="aside-block"><div className="between"><h3>Summary</h3></div>
-          <p className="fine">Memory: {anyMemory ? `${scopeText(memory)} · ${memoryWrite ? 'read and save' : 'read only'}` : 'nothing'}</p></div>
+          <p className="fine">Memory: {anyMemory ? `${scopeText(memory)} · ${memoryWrite ? 'read and save' : 'read only'}` : 'nothing'}</p>
+          <p className="fine">Shelf: {shelf && anyMemory ? 'search, lists and add notes' : 'nothing'}</p></div>
       </aside>
     </div>
     {action.error && <SaveError title="Could not finish connecting." message={action.error} />}

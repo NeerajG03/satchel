@@ -110,6 +110,8 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - Under: Name supplied by the app · will return to {redirect}
 - Quick start: Read everything · Read and save everything · Clear all
 - Groups: Memory / Scopes it can read · every topic and you · you only · nothing / Everything · None / For me · personal memories / Every topic · all {n}, and the ones made later / Also allow saves, corrections and forgets / Only when you ask it to, in that chat.
+- Shelf group: Your Shelf · allowed / nothing / Search your Shelf, read its lists and add notes · Work and Personal. Never photos or voice, never removes anything (needs a memory scope first). Aside: The Shelf is what you drop from your phone and the web. With it, the app can find “that receipt” or your Books list, and put a note on the Shelf when you ask. Satchel then sorts that note like any drop. Summary: Shelf: search, lists and add notes / nothing
+- Apps card: Shelf · Search, lists and add notes · Work and Personal / Not allowed. On a Shelf card: from {app}
 - Note: Topics are all or none. "Every topic" keeps being true, so a topic made next month, by you or by Satchel, is included without asking again.
 - Actions: Allow this access · Deny · You can change or revoke this later in Apps.
 - Aside: What this means / Reading means the app's hooks get the names and descriptions of memories in these scopes. It fetches More info by name only when it needs it. / Writing still needs your explicit ask inside the chat. The app cannot save on its own. / Summary

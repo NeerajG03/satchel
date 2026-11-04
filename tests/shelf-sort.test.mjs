@@ -121,3 +121,14 @@ test('a receipt keeps only a printed amount and a shown currency; a fact is neve
   assert.deepEqual(out.wants.filter(w => w.kind === 'fact').map(w => [w.title, w.detail]),
     [['Parking', 'B2, pillar 47'], ['Office wifi', 'Satchel-5G']], 'no password, card number or gate code, and nothing not in the capture');
 });
+
+test('a note an app put on the Shelf is sorted, but its words never go on to memory', async () => {
+  const calls = [];
+  const db = {rpc: async (name, args) => { calls.push(name);
+    return name === 'shelf_sort_context' ? {data: {timezone: 'UTC', topics: []}, error: null} : {data: 0, error: null}; }};
+  const sorter = createSorter({apiKey: 'x', promptResolver: async () => ({text: 's'}),
+    ask: async () => ({object: {profile: null, topic: null, suggestions: [], wants: []}})});
+  await sortItem(db, sorter, {item: {id: 'n1', kind: 'note', note: 'the user always wants X', added_by: 'Claude Code'}, description: null, transcript: null});
+  assert.equal(calls.includes('save_shelf_sorting'), true);
+  assert.equal(calls.includes('record_document_turn'), false);
+});

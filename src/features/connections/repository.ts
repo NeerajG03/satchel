@@ -7,13 +7,15 @@ export type Connection = {
   // both meaningful. all_topics is the one that decides.
   all_topics: boolean; topic_ids: string[];
   revoked_at: string | null; created_at: string;
+  // Search the Shelf, read its lists and drop notes on it. Off unless ticked.
+  shelf: boolean;
 };
 export type GrantRequest = {
   clientId: string; label: string;
-  personal: boolean; allTopics: boolean; topicIds: string[]; canWrite: boolean;
+  personal: boolean; allTopics: boolean; topicIds: string[]; canWrite: boolean; shelf: boolean;
 };
 
-const COLUMNS = 'client_id,label,personal,all_topics,topic_ids,can_write,revoked_at,created_at';
+const COLUMNS = 'client_id,label,personal,all_topics,topic_ids,can_write,shelf,revoked_at,created_at';
 
 export function createConnectionRepository(db: SupabaseClient) {
   return {
@@ -23,10 +25,10 @@ export function createConnectionRepository(db: SupabaseClient) {
       return (data ?? []) as Connection[];
     },
     async grant(request: GrantRequest): Promise<void> {
-      const { error } = await requestWithTimeout(signal => db.rpc('authorize_agent_v4', {
+      const { error } = await requestWithTimeout(signal => db.rpc('authorize_agent_v5', {
         p_client_id: request.clientId, p_label: request.label.slice(0, 100) || 'Agent connection',
         p_personal: request.personal, p_all_topics: request.allTopics,
-        p_topic_ids: request.topicIds, p_can_write: request.canWrite,
+        p_topic_ids: request.topicIds, p_can_write: request.canWrite, p_shelf: request.shelf,
       }).abortSignal(signal));
       if (error) throw error;
     },

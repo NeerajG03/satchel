@@ -29,6 +29,7 @@ function AppCard({ app, topics, busy, confirming, onAskRevoke, onRevoke }: { app
       <Light color="green" word={app.can_write ? 'reads and saves' : 'reads only'} /></div>
     <dl className="grants">
       <dt>Memory</dt><GrantLine personal={app.personal} all={app.all_topics} ids={app.topic_ids} topics={topics} level={app.can_write ? 'read and save' : 'read only'} />
+      <dt>Shelf</dt><dd>{app.shelf ? 'Search, lists and add notes · Work and Personal' : 'Not allowed'}</dd>
     </dl>
     <p className="fine muted">Connected {whenText(app.created_at)} · a permission here applies to every installation using this app identity.</p>
     {!confirming && <div className="card-actions"><Button small disabled={busy} onClick={() => onAskRevoke(true)}>Revoke access</Button></div>}

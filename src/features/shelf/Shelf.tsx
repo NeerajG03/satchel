@@ -87,6 +87,8 @@ export function Shelf() {
   useEffect(() => {
     if (looked.current || !items.data?.length) return;
     looked.current = true;
+    // A note an app put on the Shelf waits for the person's own sign-in to be read and sorted.
+    for (const row of items.data) if (row.added_by && row.status === 'waiting') void read(row);
     stores.shelf.listOldDrops().then(added => { if (added) wants.reload(); }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.data, stores]);
@@ -295,7 +297,7 @@ export function Shelf() {
         `${list} (${n})`).join(', ')} · <Button look="link" small disabled={act.busy}
         onClick={() => void undoLines(item)}>Undo</Button></p>}
       <div className="card-foot">
-        <Provenance parts={[KIND_SHORT[item.kind], item.topic_name, profile === 'all' && item.profile ? PROFILE_LABEL[item.profile] : null, status.label]} at={item.created_at} />
+        <Provenance parts={[KIND_SHORT[item.kind], item.added_by ? `from ${item.added_by}` : null, item.topic_name, profile === 'all' && item.profile ? PROFILE_LABEL[item.profile] : null, status.label]} at={item.created_at} />
         {status.retry && <Button look="link" small onClick={() => void read(item)}>Try again</Button>}
         {(item.status === 'ready' || item.status === 'failed') && <button type="button" className="icon-key" disabled={busy}
           aria-label={item.note ? 'Edit the note' : 'Add a note'} aria-expanded={editing?.id === item.id}

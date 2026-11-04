@@ -41,6 +41,8 @@ export const reasonText={
   'refused:repository_link':'This topic could not take the link. It may have been deleted or merged. Reload the page. Nothing was linked.',
   'refused:topic_selection':'One of the topics you picked is gone. Reload this page and choose again. Nothing was allowed.',
   'refused:scope':'That scope is not open to this app. Reload the page and choose again. Nothing was changed.',
+  'refused:shelf':'This app was not allowed your Shelf. To allow it, connect it again from Satchel and tick Your Shelf on the consent page.',
+  'invalid:shelf_note':'A Shelf note needs some words, up to 4000 characters. Nothing was added.',
   'refused:connection':'That app’s access was revoked. Connect it again from Apps. Nothing was changed.',
   'refused:memory_read':'That scope is not open to this app. Nothing was read.',
   'refused:personal_memory':'That app may not read your personal memory. Nothing was read.',
