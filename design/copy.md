@@ -18,8 +18,9 @@
 - Eyebrow: Your work, with you
 - H1: A place for what you want to remember.
 - Body: Keep the decisions, preferences and next steps that make your work yours. Write them once. Every connected AI app can read them.
-- Button: Continue with GitHub
-- Under button: GitHub is only used to sign you in. Satchel never asks for repository access here.
+- Button: Continue with Google / Opening sign-in…
+- Second button: Use GitHub instead (for accounts made with GitHub before Google sign-in; a Google account with the same email opens the same account)
+- Under buttons: Your account is only used to sign you in. Satchel asks for nothing else here.
 - Side list: The book / Preferences and decisions you chose to save. Names and short descriptions form an index agents read first. · Topics / One subject, its repositories and the apps allowed to see it. · Apps / Each connected agent gets only the scopes you grant. Revoke any time.
 - Footer: Satchel · Private pilot — A little less repeating yourself
 
@@ -122,7 +123,7 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 ## Settings
 
 - H1: Settings.
-- Account: {handle} · {email} / Sign out / GitHub is used only to sign you in.
+- Account: {handle} · {email} / Sign out / Your Google or GitHub account is used only to sign you in.
 - Developer mode: Adds an Activity page showing every request that came in, every conversation Satchel kept, and every change to a memory, and lets you run the consolidation pass by hand. It is a view and one button, not a permission: nothing about what is stored or who may read it changes. / Show Activity in the rail · this browser only / Open Activity
 - Overnight pass: While you are away, Satchel reads the conversations that have gone quiet and updates your memory from them. It signs in as its own connection, listed in Apps as Satchel consolidation, and you can revoke it there. It is off until you switch it on. / Run overnight / How often: Once a day · Twice a day / Run at · First run · Second run / On these days: Sun to Sat · Every day · Weekdays / Times are in {zone}, this browser's time zone. A pass only runs when there is a conversation that has been quiet for 30 minutes, so a night with nothing new costs nothing. / Save schedule
 - Overnight pass, problems: Choose at least one day of the week. · Choose one time, or two at most. · Two passes need to be at least an hour apart. · That time zone is not recognised. · Switch the overnight pass on first.
@@ -235,7 +236,7 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 
 - Save failed: Could not save. Satchel didn't get a reply. Your draft is still here and nothing was written. / Try again
 - Revision conflict: This {memory/topic} changed while you were editing. {app} saved revision {n} at {time}. Your text was not saved and nothing was overwritten. / Show revision {n} · Keep my text as a new draft · Discard mine
-- Sign-in failed: GitHub sign-in didn't finish. It was cancelled or timed out. Nothing was created. Try again, or check that pop-ups are allowed.
+- Sign-in failed: Sign-in didn't finish. It was cancelled or timed out. Nothing was created. Try again, or check that pop-ups are allowed.
 - Load failed: Couldn't reach your Satchel. {what} didn't load. Nothing is lost. Your apps keep whatever they already read. / Reload
 - Refusals from the database: one sentence per reason, kept in `src/errorText.mjs` (`reasonText`, keyed on the `satchel:<reason>` hint every raise carries; `raisedText`, `constraintText` and `raisedPatterns` for a database that sends no hint). `tests/web-error-text.test.mjs` fails when a routine raises without a hint, or with a reason that has no line there. Each says what failed, what is safe, and one thing to do, for example: This topic is already gone. It may have been deleted in another tab. Reload the topics list.
 - Session gone (only when the auth client has no session, or the token is expired): Your sign-in has expired. Sign in again, then try once more. Nothing was changed.

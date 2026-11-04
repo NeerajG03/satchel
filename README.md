@@ -6,7 +6,7 @@
 
 Satchel keeps your memory and topics in one place and hands them to the AI coding apps you already use. You decide what gets saved. Every app sees only what you allowed it to see, and you can revoke that any time.
 
-The hosted pilot is at [satchel-pi.vercel.app](https://satchel-pi.vercel.app). Sign in with GitHub. It is a personal pilot, not a product with uptime promises yet.
+The hosted pilot is at [satchel-pi.vercel.app](https://satchel-pi.vercel.app). Sign in with Google (or GitHub). It is a personal pilot, not a product with uptime promises yet.
 
 ## What it does
 

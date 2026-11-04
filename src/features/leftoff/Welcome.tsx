@@ -16,9 +16,10 @@ export function Welcome() {
       <h1>A place for what you want to remember.</h1>
       <p className="intro">Keep the decisions and preferences that make your work yours. Write them once. Every connected AI app can read them.</p>
       {db ? <div className="stack-tight" style={{ alignItems: 'flex-start' }}>
-        <Button look="primary" disabled={busy} onClick={() => void signIn()}>{busy ? 'Opening GitHub…' : 'Continue with GitHub'} <span aria-hidden="true">↗</span></Button>
-        <p className="fine muted">GitHub is only used to sign you in. Satchel never asks for repository access here.</p>
-        {error && <Notice look="error" title="GitHub sign-in didn’t finish.">{error}</Notice>}
+        <Button look="primary" disabled={busy} onClick={() => void signIn('google')}>{busy ? 'Opening sign-in…' : 'Continue with Google'} <span aria-hidden="true">↗</span></Button>
+        <Button look="link" small disabled={busy} onClick={() => void signIn('github')}>Use GitHub instead</Button>
+        <p className="fine muted">Your account is only used to sign you in. Satchel asks for nothing else here.</p>
+        {error && <Notice look="error" title="Sign-in didn’t finish.">{error}</Notice>}
       </div> : <Notice look="amber">This instance is awaiting account setup. Sign-in will be available once it is connected.</Notice>}
     </div>
     <ul className="list">

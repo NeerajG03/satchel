@@ -20,7 +20,7 @@ export function Settings() {
         <h2>Account</h2>
         <div className="stack-tight">
           <p><strong>{accountHandle(user)}</strong> <span className="muted">· {user?.email}</span></p>
-          <p className="fine muted">GitHub is used only to sign you in.</p>
+          <p className="fine muted">Your Google or GitHub account is used only to sign you in.</p>
           <Button disabled={authBusy} onClick={() => void signOut()}>Sign out</Button>
         </div>
       </div>

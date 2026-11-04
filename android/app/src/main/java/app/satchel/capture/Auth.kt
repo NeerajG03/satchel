@@ -46,12 +46,12 @@ class Auth(context: Context, private val http: OkHttpClient) {
     val signedIn get() = load() != null
     val userId get() = load()?.userId
 
-    fun startSignIn(context: Context) {
+    fun startSignIn(context: Context, provider: String = "google") {
         val verifier = Base64.encodeToString(ByteArray(48).also { SecureRandom().nextBytes(it) }, URL_SAFE)
         prefs.edit().putString("verifier", verifier).apply()
         val challenge = Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()), URL_SAFE)
         val url = Uri.parse("${BuildConfig.SUPABASE_URL}/auth/v1/authorize").buildUpon()
-            .appendQueryParameter("provider", "github")
+            .appendQueryParameter("provider", provider)
             .appendQueryParameter("redirect_to", REDIRECT)
             .appendQueryParameter("code_challenge", challenge)
             .appendQueryParameter("code_challenge_method", "s256")
@@ -59,7 +59,7 @@ class Auth(context: Context, private val http: OkHttpClient) {
         CustomTabsIntent.Builder().build().launchUrl(context, url)
     }
 
-    /** The code GitHub sign-in sent back, swapped for a session. Null and a reason on failure. */
+    /** The code the sign-in sent back, swapped for a session. Null and a reason on failure. */
     suspend fun finishSignIn(code: String): String? = withContext(Dispatchers.IO) {
         val verifier = prefs.getString("verifier", null) ?: return@withContext "Start the sign-in again from the app."
         val body = JSONObject().put("auth_code", code).put("code_verifier", verifier)
