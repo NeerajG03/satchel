@@ -1,19 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- One key: the whole widget opens capture on the camera. Tap for a photo there, hold to talk, or type. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@android:id/background"
+    android:id="@+id/widget_drop"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_frame"
+    android:background="@drawable/widget_bg"
+    android:clipToOutline="true"
+    android:contentDescription="Drop something on your Shelf"
+    android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="6dp">
+    android:paddingStart="10dp"
+    android:paddingEnd="18dp">
 
-    <TextView android:id="@+id/widget_photo" style="@style/WidgetKey"
-        android:text="Photo" android:contentDescription="Take a photo for your Shelf"
-        android:drawableTop="@drawable/ic_photo" />
-    <TextView android:id="@+id/widget_voice" style="@style/WidgetKey"
-        android:text="Voice" android:contentDescription="Record a voice note for your Shelf"
-        android:drawableTop="@drawable/ic_voice" />
-    <TextView android:id="@+id/widget_note" style="@style/WidgetKey"
-        android:text="Note" android:contentDescription="Write a note for your Shelf"
-        android:drawableTop="@drawable/ic_note" />
+    <FrameLayout
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:background="@drawable/widget_dot">
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_drop"
+            android:tint="@color/widget_on_key" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Drop to Satchel"
+            android:textColor="@color/widget_on_surface"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:maxLines="1" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tap · photo, voice or note"
+            android:textColor="@color/widget_on_surface"
+            android:alpha="0.75"
+            android:textSize="12sp"
+            android:maxLines="1" />
+    </LinearLayout>
 </LinearLayout>

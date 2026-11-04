@@ -4,17 +4,21 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
+import android.util.SizeF
 import android.service.quicksettings.TileService
 import android.widget.RemoteViews
 
-/** Home screen widget: Photo, Voice and Note, each one tap into the capture sheet. */
+/**
+ * Home screen widget: one key. The whole widget opens capture on the camera,
+ * where a tap takes a photo, a hold talks, and Type writes. One cell shows just
+ * the key; wider shows its name too.
+ */
 class CaptureWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val views = RemoteViews(context.packageName, R.layout.widget_capture).apply {
-            setOnClickPendingIntent(R.id.widget_photo, open(context, "photo", 1))
-            setOnClickPendingIntent(R.id.widget_voice, open(context, "voice", 2))
-            setOnClickPendingIntent(R.id.widget_note, open(context, "note", 3))
-        }
+        val tap = open(context, "camera", 1)
+        fun layout(id: Int) = RemoteViews(context.packageName, id).apply { setOnClickPendingIntent(R.id.widget_drop, tap) }
+        val views = RemoteViews(mapOf(SizeF(40f, 40f) to layout(R.layout.widget_capture_small),
+            SizeF(140f, 40f) to layout(R.layout.widget_capture)))
         manager.updateAppWidget(ids, views)
     }
 }

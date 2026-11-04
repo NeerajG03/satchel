@@ -1,4 +1,9 @@
 <resources>
     <color name="hw">#26231F</color>
     <color name="paper">#F4F0E7</color>
+    <!-- The widget takes the home screen's own colours (Material You), so it sits with the rest. -->
+    <color name="widget_surface">@android:color/system_accent1_100</color>
+    <color name="widget_on_surface">@android:color/system_accent1_900</color>
+    <color name="widget_key">@android:color/system_accent1_600</color>
+    <color name="widget_on_key">@android:color/system_accent1_0</color>
 </resources>

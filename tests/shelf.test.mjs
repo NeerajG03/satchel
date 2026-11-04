@@ -100,6 +100,19 @@ test('the shelf is its owner’s alone, and only from the web app', async t => {
       assert.deepEqual(await as(bob, 'select id from search_shelf($1,$2,20,0.0)', [unit(0), 'model-a']), []);
     });
 
+    await t.test('a read item’s note can be changed, with its new vector; not while it is arriving, and not by anyone else', async () => {
+      assert.equal(await hint(as(alice, 'select * from edit_shelf_note($1,$2,$3,$4)', [note, 'dentist moved to wednesday', null, null])),
+        'satchel:gone:shelf_item', 'a ready item needs its new vector');
+      const [edited] = await as(alice, 'select * from edit_shelf_note($1,$2,$3,$4)', [note, '  dentist moved to wednesday ', unit(1), 'model-a']);
+      assert.equal(edited.note, 'dentist moved to wednesday');
+      assert.equal(await hint(as(bob, 'select * from edit_shelf_note($1,$2,$3,$4)', [note, 'mine now', unit(1), 'model-a'])), 'satchel:gone:shelf_item');
+      assert.notEqual(await hint(as(alice, 'select * from edit_shelf_note($1,$2,$3,$4)', [note, '   ', unit(1), 'model-a'])), 'no error',
+        'a note keeps some words');
+      const arriving = '40000000-0000-4000-8000-0000000000b1';
+      await add(alice, arriving, 'note', 'on its way', null, null, null);
+      assert.equal(await hint(as(alice, 'select * from edit_shelf_note($1,$2,$3,$4)', [arriving, 'changed', null, null])), 'satchel:gone:shelf_item');
+    });
+
     await t.test('storage takes a file only for a waiting row of the same person', async () => {
       const waiting = '40000000-0000-4000-8000-000000000004';
       await add(alice, waiting, 'voice', '', `${alice}/${waiting}.webm`, 'audio/webm', 100);
