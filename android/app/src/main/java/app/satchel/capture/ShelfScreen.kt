@@ -16,6 +16,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,7 +68,6 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
     var query by remember { mutableStateOf("") }
     var found by remember { mutableStateOf<List<ShelfEntry>?>(null) }
     var said by remember { mutableStateOf<String?>(null) }
-    var openId by remember { mutableStateOf<String?>(null) }
     var lines by remember { mutableStateOf(listOf<ListLine>()) }
     var asDropped by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var lookedBack by remember { mutableStateOf(false) }
@@ -202,9 +203,8 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
                             modifier = Modifier.padding(top = 8.dp))
                     }
                     items(entries, key = { it.id }) { e ->
-                        EntryCard(e, links, reader, player, showProfile = profile == "all", open = openId == e.id,
-                            added = lines.filter { e.id in it.itemIds }.groupingBy { it.list }.eachCount(),
-                            onOpen = { openId = if (openId == e.id) null else e.id }) { act, done ->
+                        EntryCard(e, links, reader, player, showProfile = profile == "all",
+                            added = lines.filter { e.id in it.itemIds }.groupingBy { it.list }.eachCount(),) { act, done ->
                             scope.launch {
                                 runCatching { act() }
                                     .onSuccess { message -> said = message; problem = null; done(); load() }
@@ -289,32 +289,80 @@ private fun Outbox(unsent: Int, stuck: List<QueuedItem>, onClear: () -> Unit) {
     }
 }
 
+/**
+ * One drop, as it rests on the shelf: the photo, the words (four lines, then
+ * More), a voice note as its round key. Under it, one quiet line and two small
+ * keys: the pencil for the note, the dots for everything else.
+ */
 @Composable
 private fun EntryCard(e: ShelfEntry, links: Map<String, String>, reader: ShelfReader, player: Player, showProfile: Boolean,
-                      open: Boolean, added: Map<String, Int>, onOpen: () -> Unit, run: (suspend () -> String, () -> Unit) -> Unit) {
+                      added: Map<String, Int>, run: (suspend () -> String, () -> Unit) -> Unit) {
     var editing by remember(e.id) { mutableStateOf(false) }
     var removing by remember(e.id) { mutableStateOf(false) }
-    Surface(color = Paper, shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, if (open) Muted else Line), modifier = Modifier.clickable(onClick = onOpen)) {
+    var menu by remember(e.id) { mutableStateOf(false) }
+    var more by remember(e.id) { mutableStateOf(false) }
+    val voice = (if (e.kind == "voice") e.objectPath else e.voicePath)?.let { links[it] }
+    Surface(color = Paper, shape = RoundedCornerShape(12.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Line)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (e.kind == "photo") Thumbnail(e.objectPath, links, reader, e.description ?: "A photo on your Shelf")
-            val voice = if (e.kind == "voice") e.objectPath else e.voicePath
-            voice?.let { path -> links[path]?.let { url -> PlayKey(url, player, if (e.kind == "photo") "Hear what you said" else "Play") } }
+            if (e.kind == "photo") Box {
+                Thumbnail(e.objectPath, links, reader, e.description ?: "A photo on your Shelf")
+                voice?.let {
+                    VoiceKey(it, player, "Hear what you said about this photo", Modifier.align(Alignment.BottomStart).padding(10.dp)
+                        .clip(RoundedCornerShape(24.dp)).background(Paper.copy(alpha = 0.9f)).padding(4.dp))
+                }
+            }
+            if (e.kind == "voice") voice?.let { VoiceKey(it, player, "Play this voice note") }
             if (e.note.isNotBlank()) Text(e.note, fontFamily = FontFamily.Serif, fontSize = 18.sp, color = InkText)
-            e.transcript?.let { Text("“$it”", fontFamily = FontFamily.Serif, fontSize = 16.sp, color = InkText) }
-            if (e.transcript == null || e.kind == "photo") e.description?.let { Text(it, color = Muted, fontSize = 14.sp, maxLines = 4) }
-            Text(listOfNotNull(
-                when (e.kind) { "photo" -> if (e.voicePath != null) "PHOTO + VOICE" else "PHOTO"; "voice" -> "VOICE NOTE"; else -> "NOTE" },
-                if (showProfile) e.profile?.let { PROFILE[it]?.uppercase() } else null,
-                dayOf(e.createdAt),
-                when (e.status) { "ready" -> null; "failed" -> "COULD NOT READ"; else -> "READING…" },
-            ).joinToString(" · "), color = Muted, fontSize = 11.sp, letterSpacing = 1.sp, fontFamily = FontFamily.Monospace)
+            val words = e.transcript?.let { "“$it”" } ?: e.description
+            words?.let {
+                Text(it, fontFamily = FontFamily.Serif, fontSize = 16.sp, lineHeight = 23.sp,
+                    color = if (e.transcript == null && e.note.isNotBlank()) Muted else InkText,
+                    maxLines = if (more) Int.MAX_VALUE else 4, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                if (it.length > 220) Text(if (more) "Less" else "More", color = Accent, fontSize = 13.sp,
+                    modifier = Modifier.clickable { more = !more }.padding(vertical = 4.dp))
+            }
             if (added.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Added to " + added.entries.joinToString(", ") { "${it.key} (${it.value})" }, color = InkText, fontSize = 13.sp,
+                Text("On " + added.entries.joinToString(", ") { "${it.key} (${it.value})" }, color = InkText, fontSize = 13.sp,
                     modifier = Modifier.weight(1f))
                 TextButton({ run({ reader.undoLines(e.id); "Taken off your lists" }) {} }) { Text("Undo", color = Muted) }
             }
-            if (open) ItemActions(e, onEdit = { editing = true }, onRemove = { removing = true }, run = run, reader = reader)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(listOfNotNull(
+                    when (e.kind) { "photo" -> "photo"; "voice" -> "voice"; else -> "note" },
+                    e.topicName,
+                    if (showProfile) e.profile?.let { PROFILE[it] } else null,
+                    dayOf(e.createdAt)?.lowercase(),
+                    when (e.status) { "ready" -> null; "failed" -> "could not read"; else -> "reading…" },
+                ).joinToString("  ·  "), color = Muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                if (e.status == "ready" || e.status == "failed") IconButton({ editing = true }, Modifier.size(40.dp)) {
+                    Icon(painterResource(R.drawable.ic_edit), if (e.note.isBlank()) "Add a note" else "Edit the note",
+                        tint = Muted, modifier = Modifier.size(18.dp))
+                }
+                Box {
+                    IconButton({ menu = true }, Modifier.size(40.dp)) {
+                        Icon(painterResource(R.drawable.ic_more), "More for this one", tint = Muted, modifier = Modifier.size(18.dp))
+                    }
+                    DropdownMenu(menu, { menu = false }, containerColor = Paper) {
+                        for ((key, label) in listOf("work" to "Move to Work", "personal" to "Move to Personal", null to "No profile")) {
+                            DropdownMenuItem({ Text(label + if (e.profile == key) "  ✓" else "") }, enabled = e.profile != key, onClick = {
+                                menu = false
+                                run({ reader.setProfile(e.id, key); if (key == null) "Taken out of both profiles" else "Moved to ${PROFILE[key]}" }) {}
+                            })
+                        }
+                        if (e.status == "ready" && e.sortedAt == null) DropdownMenuItem({ Text("Look for to-dos") }, onClick = {
+                            menu = false
+                            run({ reader.sort(e.id).let { n -> if (n == 0) "Nothing to do in this one" else "Found $n to do" } }) {}
+                        })
+                        if (e.status == "failed") DropdownMenuItem({ Text("Read again") }, onClick = {
+                            menu = false
+                            run({ reader.reread(e.id); "Reading it again" }) {}
+                        })
+                        HorizontalDivider(color = Line)
+                        DropdownMenuItem({ Text("Remove…", color = Red) }, onClick = { menu = false; removing = true })
+                    }
+                }
+            }
         }
     }
     if (editing) EditNote(e, onCancel = { editing = false }) { text -> run({ reader.edit(e.id, text); "Note changed" }) { editing = false } }
@@ -325,34 +373,6 @@ private fun EntryCard(e: ShelfEntry, links: Map<String, String>, reader: ShelfRe
         confirmButton = { TextButton({ run({ reader.remove(e.id); "Removed from your Shelf" }) { removing = false } }) { Text("Remove for good", color = Red) } },
         dismissButton = { TextButton({ removing = false }) { Text("Keep it", color = InkText) } },
     )
-}
-
-/** What can be done to one item: change its note or profile, find its to-dos, read it again, or remove it. */
-@Composable
-private fun ItemActions(e: ShelfEntry, onEdit: () -> Unit, onRemove: () -> Unit, run: (suspend () -> String, () -> Unit) -> Unit,
-                        reader: ShelfReader) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        HorizontalDivider(color = Line)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Profile", color = Muted, fontSize = 13.sp)
-            for ((key, label) in listOf("work" to "Work", "personal" to "Personal", null to "None")) {
-                val on = e.profile == key
-                Text(label, color = if (on) Paper else InkText, fontSize = 13.sp,
-                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (on) Ink else Paper2)
-                        .clickable(enabled = !on) { run({ reader.setProfile(e.id, key); if (key == null) "Taken out of both profiles" else "Moved to $label" }) {} }
-                        .padding(horizontal = 12.dp, vertical = 10.dp))
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (e.status == "ready" || e.status == "failed") TextButton(onEdit) { Text(if (e.note.isBlank()) "Add a note" else "Edit note", color = InkText) }
-            if (e.status == "ready" && e.sortedAt == null) TextButton({
-                run({ reader.sort(e.id).let { n -> if (n == 0) "Nothing to do in this one" else "Found $n to do" } }) {}
-            }) { Text("Look for to-dos", color = InkText) }
-            if (e.status == "failed") TextButton({ run({ reader.reread(e.id); "Reading it again" }) {} }) { Text("Read again", color = InkText) }
-            Spacer(Modifier.weight(1f))
-            TextButton(onRemove) { Text("Remove", color = Red) }
-        }
-    }
 }
 
 @Composable
@@ -404,6 +424,10 @@ private fun Thumbnail(path: String?, links: Map<String, String>, reader: ShelfRe
 private class Player {
     var playing by mutableStateOf<String?>(null)
         private set
+    var position by mutableIntStateOf(0)
+        private set
+    var length by mutableIntStateOf(0)
+        private set
     private var media: MediaPlayer? = null
     fun toggle(url: String) {
         val again = playing == url
@@ -412,23 +436,43 @@ private class Player {
         media = MediaPlayer().apply {
             setAudioAttributes(AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
             setDataSource(url)
-            setOnPreparedListener { it.start() }
+            setOnPreparedListener { length = it.duration; it.start() }
             setOnCompletionListener { stop() }
             setOnErrorListener { _, _, _ -> stop(); true }
             prepareAsync()
         }
         playing = url
     }
-    fun stop() { media?.release(); media = null; playing = null }
+    /** Read on a timer while playing, for the line beside the key. */
+    fun tick() { position = runCatching { media?.currentPosition ?: 0 }.getOrDefault(0) }
+    fun stop() { media?.release(); media = null; playing = null; position = 0; length = 0 }
 }
 
+/** A voice note as a round key, like the hardware keys: orange while playing, with a line that fills. */
 @Composable
-private fun PlayKey(url: String, player: Player, label: String) {
+private fun VoiceKey(url: String, player: Player, label: String, modifier: Modifier = Modifier) {
     val on = player.playing == url
-    Row(Modifier.clip(RoundedCornerShape(24.dp)).background(Ink).clickable { player.toggle(url) }.padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.size(10.dp).background(if (on) Red else Orange, CircleShape))
-        Text(if (on) "Stop" else label, color = Paper, fontSize = 14.sp)
+    LaunchedEffect(on) { while (on) { player.tick(); kotlinx.coroutines.delay(200) } }
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(if (on) Orange else Ink)
+            .clickable { player.toggle(url) }
+            .semantics { contentDescription = if (on) "Stop: $label" else label }, contentAlignment = Alignment.Center) {
+            androidx.compose.foundation.Canvas(Modifier.size(14.dp)) {
+                if (on) drawRect(Paper, topLeft = androidx.compose.ui.geometry.Offset(size.width * .15f, size.height * .15f),
+                    size = androidx.compose.ui.geometry.Size(size.width * .7f, size.height * .7f))
+                else drawPath(androidx.compose.ui.graphics.Path().apply {
+                    moveTo(size.width * .2f, 0f); lineTo(size.width, size.height / 2); lineTo(size.width * .2f, size.height); close()
+                }, Paper)
+            }
+        }
+        if (on) {
+            val share = if (player.length > 0) player.position.toFloat() / player.length else 0f
+            Box(Modifier.width(120.dp).height(2.dp).background(Line)) {
+                Box(Modifier.fillMaxWidth(share.coerceIn(0f, 1f)).fillMaxHeight().background(Orange))
+            }
+            Text("%d:%02d".format(player.position / 60000, player.position / 1000 % 60), color = Muted, fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace)
+        }
     }
 }
 
@@ -453,8 +497,15 @@ private fun ListCard(name: String, lines: List<ListLine>, names: List<String>, i
     val kind = lines.firstOrNull()?.kind ?: "item"
     val doneWord = if (kind == "expense") "claimed" else "done"
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
-    Card(name, if (kind == "fact") "Tap Copy to use one" else
-        "${open.size} ${if (kind == "expense") "to claim" else "to go"}${if (done.isNotEmpty()) " · ${done.size} $doneWord" else ""}") {
+    // An expense block says what is owed, one total per currency, not how many receipts.
+    val owed = if (kind == "expense") open.mapNotNull { l -> l.amount?.toBigDecimalOrNull()?.let { (l.currency ?: "") to it } }
+        .groupBy({ it.first }, { it.second }).mapValues { (_, v) -> v.fold(java.math.BigDecimal.ZERO, java.math.BigDecimal::add) } else emptyMap()
+    val summary = when {
+        kind == "fact" -> ""
+        owed.isNotEmpty() -> owed.entries.joinToString(" + ") { money(it.value, it.key.ifEmpty { null }) } + " to claim"
+        else -> "${open.size} ${if (kind == "expense") "to claim" else "to go"}"
+    }
+    Card(name, summary + if (done.isNotEmpty()) "${if (summary.isNotEmpty()) " · " else ""}${done.size} $doneWord" else "") {
         (open + if (showDone) done else emptyList()).forEach { line ->
             Column {
                 Row(Modifier.fillMaxWidth().clickable { openLine = if (openLine == line.id) null else line.id }
@@ -471,10 +522,12 @@ private fun ListCard(name: String, lines: List<ListLine>, names: List<String>, i
                             fontFamily = if (kind == "fact") FontFamily.Monospace else FontFamily.Serif, fontSize = 17.sp,
                             color = if (line.status == "done") Muted else InkText,
                             textDecoration = if (line.status == "done") androidx.compose.ui.text.style.TextDecoration.LineThrough else null)
-                        if (kind == "expense") Text(listOfNotNull(moneyOf(line), line.spentOn?.let(::dayOf), if (line.profile == "work") "WORK" else null)
+                        if (kind == "expense") Text(listOfNotNull(line.spentOn?.let(::dayOf), if (line.profile == "work") "WORK" else null)
                             .joinToString(" · "), color = Muted, fontSize = 13.sp)
                         else if (kind == "item") line.detail?.let { Text(it, color = Muted, fontSize = 13.sp) }
                     }
+                    if (kind == "expense") Text(moneyOf(line), fontFamily = FontFamily.Monospace, fontSize = 15.sp,
+                        color = if (line.status == "done") Muted else InkText, modifier = Modifier.padding(start = 8.dp))
                 }
                 if (openLine == line.id) Column(Modifier.padding(start = 48.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     line.itemIds.mapNotNull { id -> items.find { it.id == id } }.forEach { e ->
@@ -497,10 +550,16 @@ private fun ListCard(name: String, lines: List<ListLine>, names: List<String>, i
     }
 }
 
-/** An amount as printed: ₹2,340.00, $23.40, or the bare number when no currency was shown. */
-private fun moneyOf(line: ListLine): String {
-    val n = line.amount?.toBigDecimalOrNull() ?: return "amount?"
+/** An amount as printed: ₹2,340, $23.40, or the bare number when no currency was shown. */
+private fun moneyOf(line: ListLine): String = line.amount?.toBigDecimalOrNull()?.let { money(it, line.currency) } ?: "amount?"
+
+/** An amount as a receipt shows it, with no ".00" on a whole one. */
+private fun money(n: java.math.BigDecimal, currency: String?): String {
+    val whole = n.stripTrailingZeros().scale() <= 0
     return runCatching {
-        java.text.NumberFormat.getCurrencyInstance().apply { currency = java.util.Currency.getInstance(line.currency!!) }.format(n)
-    }.getOrElse { java.text.DecimalFormat("#,##0.00").format(n) }
+        java.text.NumberFormat.getCurrencyInstance().apply {
+            this.currency = java.util.Currency.getInstance(currency!!)
+            if (whole) { minimumFractionDigits = 0; maximumFractionDigits = 0 }
+        }.format(n)
+    }.getOrElse { java.text.DecimalFormat(if (whole) "#,##0" else "#,##0.00").format(n) }
 }
