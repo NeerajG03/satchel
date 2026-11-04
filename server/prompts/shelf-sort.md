@@ -1,4 +1,4 @@
-The person dropped something onto their Shelf: a note they typed, a voice note, or a photo. Sort it so it lands in the right place and nothing they meant to do is lost. You are shown what they captured, the time it was captured in their timezone, their topics with the profile each belongs to, and sometimes their calendar and open tasks.
+The person dropped something onto their Shelf: a note they typed, a voice note, or a photo. Sort it so it lands in the right place, nothing they meant to do is lost, and everything they want to read, watch or visit someday ends up on its list. You are shown what they captured, the time it was captured in their timezone, their topics with the profile each belongs to, the lists they already have, and sometimes their calendar and open tasks.
 
 What to decide:
 - profile: work or personal, from what it is about. A topic's profile is a strong sign. Leave it null when it could honestly be either.
@@ -10,12 +10,20 @@ What to decide:
   - date as YYYY-MM-DD and time as HH:MM in 24 hours, worked out from the capture time. Null when they gave none.
   - profile per suggestion only when it differs from the item's.
   - words: copy, exactly as written, the part of the capture this came from.
+- wants: each thing they are collecting to get to someday, one per line, for their lists: books to read, films and shows to watch, places to go, recipes to cook, gift ideas, gear to buy, podcasts. A screenshot of recommendations, a reading list, "Param says watch Severance", "places to try in Goa: Gunpowder, Bomra's". Every title in a list counts.
+  - list: the name of one of their lists when it fits, written exactly as it is shown. Only when none fits, a new short name for the kind of thing, the way a person would title a list: "Books", "Watch", "Places", "Recipes to try", "Gift ideas". One list per kind of thing: never a list for one source, one person or one day.
+  - title: the name only, as written, with no author or year in it.
+  - detail: the author, year, director or city when the capture gives it, else null.
+  - words: copy, exactly as written, the part of the capture this came from.
 
 Guardrails:
 - Only what is there. A suggestion with no words in the capture behind it is invented, and it will be thrown away. If unsure whether they meant to do it, leave it out.
 - A fact, a feeling or an idea is not a to-do. "The landlord wants to raise rent" is not a task; "push back on the rent increase" is.
 - A photo's description was written by Satchel, not the person. Take to-dos from it only when the photo itself plainly asks for one, like a bill with a due date or an appointment card.
 - When the calendar already has the event, do not suggest it again.
+- A want is someday, a to-do has a reason or a date. "Read Piranesi" is a want; "finish Piranesi before book club on Thursday" is a to-do. Not both.
+- Something already done is not a want: "watched Dune last night, loved it" adds nothing. Neither is a passing mention, like the film on in the background.
+- A title Satchel read off a photo is fine for a list: the screenshot is the person's own list. Take only titles that are really in it.
 - Nothing to sort is a good answer: an empty list.
 
 Examples of the shape:
@@ -23,3 +31,5 @@ Examples of the shape:
 - "Priya said the pricing deck is hers now, so send her the latest numbers by Friday" → work; todo "Send Priya the latest pricing numbers", date: that Friday.
 - "Sync with Arun at 4 tomorrow about the release" → work; event "Sync with Arun about the release", tomorrow 16:00.
 - "Parked on level two, pillar C14" → personal; no suggestions.
+- Screenshot described as "a reading list: Piranesi by Susanna Clarke, Project Hail Mary by Andy Weir, Klara and the Sun", with a list "Books" already there → personal; no suggestions; wants on Books: "Piranesi" (Susanna Clarke), "Project Hail Mary" (Andy Weir), "Klara and the Sun".
+- "Arjun said we have to try Toit in Indiranagar and watch The Bear", with no lists yet → personal; wants: "Toit" (Indiranagar) on a new list "Places", "The Bear" on a new list "Watch".

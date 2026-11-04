@@ -176,6 +176,15 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - Timezone: Times in your captures are read in {zone}. · Use {browser zone} instead
 - Shelf item picker: No profile · Work · Personal
 
+## Shelf · Lists
+
+- A section per list, named by Satchel as drops call for it (Books, Watch, Recipes to try), biggest first: {name} · {n} to go
+- Line: a tick, the title, · detail (author, year, city) / from a drop · from {n} drops (shows “what the drop said”) / Move to list / Remove
+- Done fold: Done · {n}; a ticked title is struck through
+- On a drop that made lines: Added to {List} ({n}), {List} ({n}) · Undo → Taken off your lists
+- Footer: Done: {title} · Back on {List}: {title} · Moved to {List} · Removed {title}
+- View switch: As dropped / Rearranged (As dropped shows every drop by date, lists folded away)
+
 ## Shelf · Coming up
 
 - H2: Coming up · Next 7 days · from Google

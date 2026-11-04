@@ -53,6 +53,7 @@ export const reasonText={
   'gone:shelf_item':'That shelf item is gone. It may have been removed in another tab. Reload the Shelf.',
   'gone:google_link':'That profile has no Google account linked. Link one in Settings, then try again.',
   'gone:suggestion':'That suggestion is gone or was already added or dismissed. Reload the Shelf.',
+  'gone:want':'That line is gone from your list. Reload the Shelf.',
   'gone:repository_topic':'That repository is not linked to a topic this app may see. Nothing was changed.',
   // Changed since the page loaded.
   'conflict:topic_revision':'This topic changed while you were looking, so nothing was deleted. Reload it and check before you delete.',
@@ -73,6 +74,7 @@ export const reasonText={
   'invalid:profile':'A profile is Work or Personal. Reload the page and pick again. Nothing was changed.',
   'invalid:timezone':'Satchel could not read your timezone, so nothing was changed. Reload the page.',
   'invalid:suggestion':'Satchel sent a choice it does not know for that suggestion. '+SATCHEL_FAULT,
+  'invalid:want':'Satchel sent a list or a tick it does not know for that line. '+SATCHEL_FAULT,
   'invalid:repository_hint':'That repository name is not one Satchel can read. Nothing was changed.',
   'invalid:repository_ambiguous':'That repository is linked to more than one topic, so it does not pick one. Nothing was changed.',
   // Only Satchel's own code can send these.

@@ -67,6 +67,9 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
     var found by remember { mutableStateOf<List<ShelfEntry>?>(null) }
     var said by remember { mutableStateOf<String?>(null) }
     var openId by remember { mutableStateOf<String?>(null) }
+    var lines by remember { mutableStateOf(listOf<ListLine>()) }
+    var asDropped by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var lookedBack by remember { mutableStateOf(false) }
     val player = remember { Player() }
     DisposableEffect(Unit) { onDispose { player.stop() } }
 
@@ -77,12 +80,19 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
             val list = async { runCatching { reader.items() } }
             val wait = async { runCatching { reader.waiting() } }
             val ahead = async { runCatching { reader.week() } }
+            val listed = async { runCatching { reader.lines() } }
             list.await().onSuccess { items = it }.onFailure { problem = it.message }
             wait.await().onSuccess { waiting = it }
             ahead.await().onSuccess { week = it }
+            listed.await().onSuccess { lines = it }
             val paths = (items ?: emptyList()).flatMap { listOfNotNull(it.objectPath, it.voicePath) }.filter { it !in links }
             runCatching { reader.links(paths) }.onSuccess { links = links + it }
             loading = false
+            // Drops from before lists are looked at once, a few per visit, quietly.
+            if (!lookedBack) {
+                lookedBack = true
+                if (runCatching { reader.listOldDrops() }.getOrDefault(0) > 0) runCatching { reader.lines() }.onSuccess { lines = it }
+            }
         }
     }
     LaunchedEffect(Unit) { load() }
@@ -95,7 +105,8 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
 
     val inProfile = { p: String? -> profile == "all" || p == null || p == profile }
     val shown = found ?: (items ?: emptyList()).filter { inProfile(it.profile) }
-    val sections = shown.groupBy { it.topicName ?: "" }.entries
+    val lined = lines.flatMap { it.itemIds }.toSet()
+    val sections = shown.filter { asDropped || it.id !in lined }.groupBy { if (asDropped) "As dropped" else it.topicName ?: "" }.entries
         .sortedWith(compareBy<Map.Entry<String, List<ShelfEntry>>> { it.key.isEmpty() }.thenByDescending { it.value.size })
 
     Box(Modifier.fillMaxSize().background(Paper)) {
@@ -158,6 +169,28 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
                     }
                 }
 
+                val myLines = lines.filter { inProfile(it.profile) }
+                if (found == null && !asDropped) {
+                    val names = lines.groupBy { it.list }.entries.sortedByDescending { it.value.size }.map { it.key }
+                    for (name in names) {
+                        val here = myLines.filter { it.list == name }
+                        if (here.isEmpty()) continue
+                        item(key = "list-$name") {
+                            ListCard(name, here, names, items ?: emptyList(), onRun = { act ->
+                                scope.launch {
+                                    runCatching { act() }.onSuccess { said = it; problem = null; runCatching { reader.lines() }.onSuccess { l -> lines = l } }
+                                        .onFailure { problem = it.message }
+                                }
+                            }, reader = reader)
+                        }
+                    }
+                }
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Spacer(Modifier.weight(1f))
+                        TextButton({ asDropped = !asDropped }) { Text(if (asDropped) "Rearranged" else "As dropped", color = Muted) }
+                    }
+                }
                 if (found != null) item { Text(if (shown.isEmpty()) "Nothing on your Shelf fits that." else "${shown.size} closest first",
                     color = Muted, fontSize = 13.sp) }
                 if (items != null && items!!.isEmpty()) item {
@@ -170,6 +203,7 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
                     }
                     items(entries, key = { it.id }) { e ->
                         EntryCard(e, links, reader, player, showProfile = profile == "all", open = openId == e.id,
+                            added = lines.filter { e.id in it.itemIds }.groupingBy { it.list }.eachCount(),
                             onOpen = { openId = if (openId == e.id) null else e.id }) { act, done ->
                             scope.launch {
                                 runCatching { act() }
@@ -257,7 +291,7 @@ private fun Outbox(unsent: Int, stuck: List<QueuedItem>, onClear: () -> Unit) {
 
 @Composable
 private fun EntryCard(e: ShelfEntry, links: Map<String, String>, reader: ShelfReader, player: Player, showProfile: Boolean,
-                      open: Boolean, onOpen: () -> Unit, run: (suspend () -> String, () -> Unit) -> Unit) {
+                      open: Boolean, added: Map<String, Int>, onOpen: () -> Unit, run: (suspend () -> String, () -> Unit) -> Unit) {
     var editing by remember(e.id) { mutableStateOf(false) }
     var removing by remember(e.id) { mutableStateOf(false) }
     Surface(color = Paper, shape = RoundedCornerShape(12.dp),
@@ -275,6 +309,11 @@ private fun EntryCard(e: ShelfEntry, links: Map<String, String>, reader: ShelfRe
                 dayOf(e.createdAt),
                 when (e.status) { "ready" -> null; "failed" -> "COULD NOT READ"; else -> "READING…" },
             ).joinToString(" · "), color = Muted, fontSize = 11.sp, letterSpacing = 1.sp, fontFamily = FontFamily.Monospace)
+            if (added.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Added to " + added.entries.joinToString(", ") { "${it.key} (${it.value})" }, color = InkText, fontSize = 13.sp,
+                    modifier = Modifier.weight(1f))
+                TextButton({ run({ reader.undoLines(e.id); "Taken off your lists" }) {} }) { Text("Undo", color = Muted) }
+            }
             if (open) ItemActions(e, onEdit = { editing = true }, onRemove = { removing = true }, run = run, reader = reader)
         }
     }
@@ -402,3 +441,46 @@ private fun dayOf(value: String): String? = runCatching {
     if (value.length == 10) LocalDate.parse(value).format(SHORT_DAY).uppercase()
     else OffsetDateTime.parse(value).atZoneSameInstant(java.time.ZoneId.systemDefault()).format(SHORT_DAY).uppercase()
 }.getOrNull()
+
+/** One list the Shelf made: lines to go, a tick each, and a fold of the ones done. */
+@Composable
+private fun ListCard(name: String, lines: List<ListLine>, names: List<String>, items: List<ShelfEntry>,
+                     onRun: (suspend () -> String) -> Unit, reader: ShelfReader) {
+    val open = lines.filter { it.status == "want" }
+    val done = lines.filter { it.status == "done" }
+    var showDone by remember(name) { mutableStateOf(false) }
+    var openLine by remember(name) { mutableStateOf<String?>(null) }
+    Card(name, "${open.size} to go${if (done.isNotEmpty()) " · ${done.size} done" else ""}") {
+        (open + if (showDone) done else emptyList()).forEach { line ->
+            Column {
+                Row(Modifier.fillMaxWidth().clickable { openLine = if (openLine == line.id) null else line.id }
+                    .padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(line.status == "done", { on -> onRun { reader.tick(line.id, on); if (on) "Done: ${line.title}" else "Back on $name" } },
+                        colors = CheckboxDefaults.colors(checkedColor = Ink))
+                    Column(Modifier.weight(1f)) {
+                        Text(line.title, fontFamily = FontFamily.Serif, fontSize = 17.sp,
+                            color = if (line.status == "done") Muted else InkText,
+                            textDecoration = if (line.status == "done") androidx.compose.ui.text.style.TextDecoration.LineThrough else null)
+                        line.detail?.let { Text(it, color = Muted, fontSize = 13.sp) }
+                    }
+                }
+                if (openLine == line.id) Column(Modifier.padding(start = 48.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    line.itemIds.mapNotNull { id -> items.find { it.id == id } }.forEach { e ->
+                        Text("from “" + (listOf(e.note, e.transcript, e.description).firstOrNull { !it.isNullOrBlank() } ?: "a drop").take(120) + "”",
+                            color = Muted, fontSize = 13.sp)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        names.filter { it != name }.take(3).forEach { other ->
+                            Text("→ $other", color = InkText, fontSize = 13.sp, modifier = Modifier.clip(RoundedCornerShape(8.dp))
+                                .background(Paper).clickable { onRun { reader.moveLine(line.id, other); "Moved to $other" } }
+                                .padding(horizontal = 10.dp, vertical = 8.dp))
+                        }
+                        Spacer(Modifier.weight(1f))
+                        TextButton({ onRun { reader.removeLine(line.id); "Removed ${line.title}" } }) { Text("Remove", color = Red) }
+                    }
+                }
+            }
+        }
+        if (done.isNotEmpty()) TextButton({ showDone = !showDone }) { Text(if (showDone) "Hide done" else "Show done (${done.size})", color = Muted) }
+    }
+}

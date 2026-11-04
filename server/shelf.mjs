@@ -78,15 +78,32 @@ export async function sortItem(db, sorter, {item, description, transcript, now =
   const week = typeof calendar === 'function'
     ? await Promise.race([calendar(timezone).catch(() => null), new Promise(done => setTimeout(done, 4000, null))])
     : calendar;
+  const {data: lists} = await db.rpc('shelf_list_names');
   const result = await sorter.sort({item: {kind: item.kind, note: item.note, transcript, description},
-    topics: context?.topics ?? [], timezone, now, calendar: week, timeoutMs});
+    topics: context?.topics ?? [], lists: Array.isArray(lists) ? lists : [], timezone, now, calendar: week, timeoutMs});
   const {data: added, error: saveError} = await db.rpc('save_shelf_sorting', {p_id: item.id, p_profile: result.profile,
     p_topic_id: result.topic_id, p_transcript: transcript, p_suggestions: result.suggestions});
   if (saveError) throw saveError;
+  // The books, films and places it names go on their lists. Best effort: the
+  // sort itself is saved either way.
+  const {data: lined} = await db.rpc('save_shelf_wants', {p_item: item.id, p_wants: result.wants ?? []});
   const words = [item.note, transcript].map(s => (s ?? '').trim()).filter(Boolean).join('\n');
   if (words) await db.rpc('record_document_turn', {p_session_key: `shelf-${item.id}`, p_role: 'user', p_content: words,
     p_topic_id: result.topic_id});
-  return {suggestions: added ?? 0, profile: result.profile};
+  return {suggestions: added ?? 0, profile: result.profile, lines: lined ?? 0};
+}
+
+/**
+ * The one-time pass over drops sorted before lists existed: the same sorting
+ * call, keeping only the list lines. Profile, topic and to-dos stay as they were.
+ */
+export async function listItem(db, sorter, {item, timeoutMs}) {
+  const [{data: context}, {data: lists}] = await Promise.all([db.rpc('shelf_sort_context'), db.rpc('shelf_list_names')]);
+  const result = await sorter.sort({item: {kind: item.kind, note: item.note, transcript: item.transcript, description: item.description},
+    topics: context?.topics ?? [], lists: Array.isArray(lists) ? lists : [], timezone: context?.timezone || 'UTC', now: new Date(), calendar: null, timeoutMs});
+  const {data: lined, error} = await db.rpc('save_shelf_wants', {p_item: item.id, p_wants: result.wants ?? []});
+  if (error) throw error;
+  return lined ?? 0;
 }
 
 export async function personFor(req, res, makeClient, verify) {
@@ -121,7 +138,7 @@ export const send = (res, status, body) => {
   res.end(JSON.stringify(body));
 };
 
-/** POST {action:'describe', id} reads one item, {action:'sort', id} sorts a read one, {action:'edit', id, note} changes its note, {action:'search', q} searches. */
+/** POST {action:'describe', id} reads one item, {action:'sort', id} sorts a read one, {action:'edit', id, note} changes its note, {action:'lists', id} finds list lines in an old one, {action:'search', q} searches. */
 export async function handleShelf(req, res, {embedder, describer, sorter = null, calendar = null, makeClient = createClient,
   verify = verifyCompanionToken} = {}) {
   const db = await personFor(req, res, makeClient, verify);
@@ -161,6 +178,17 @@ export async function handleShelf(req, res, {embedder, describer, sorter = null,
       p_embedding: vector ? toVectorLiteral(vector) : null, p_embedding_model: vector ? embedder.model : null});
     if (saveError) return send(res, 409, {error: 'That one changed or went while you were editing. Reload the Shelf.'});
     return send(res, 200, {id: item.id, note});
+  }
+
+  if (body.action === 'lists') {
+    if (typeof body.id !== 'string' || !idPattern.test(body.id)) return send(res, 400, {error: 'Satchel could not read that request.'});
+    if (!sorter) return send(res, 503, {error: 'Sorting is not set up on this server.'});
+    const {data: rows, error} = await db.rpc('read_shelf_item', {p_id: body.id});
+    const item = rows?.[0];
+    if (error || !item) return send(res, 404, {error: 'That shelf item is gone. Reload the Shelf.'});
+    if (item.status !== 'ready' || item.wants_at) return send(res, 200, {id: item.id, lines: 0});
+    try { return send(res, 200, {id: item.id, lines: await listItem(db, sorter, {item, timeoutMs: REQUEST_MS - 4000})}); }
+    catch { return send(res, 502, {error: 'Satchel could not look at this one for lists. It will try again later.'}); }
   }
 
   if (typeof body.id !== 'string' || !idPattern.test(body.id) || !['describe', 'sort'].includes(body.action))
@@ -203,7 +231,7 @@ export async function handleShelf(req, res, {embedder, describer, sorter = null,
     if (!transcript && spoken(item)) transcript = await transcribe(item);
     const sorted = await sort(item, item.description, transcript);
     if (!sorted) return send(res, 502, {error: 'Satchel could not sort this one. Try again in a minute.'});
-    return send(res, 200, {id: item.id, profile: sorted.profile, suggestions: sorted.suggestions, transcript});
+    return send(res, 200, {id: item.id, profile: sorted.profile, suggestions: sorted.suggestions, lines: sorted.lines, transcript});
   }
 
   const {data: rows, error} = await db.rpc('claim_shelf_item', {p_id: body.id});
@@ -235,7 +263,7 @@ export async function handleShelf(req, res, {embedder, describer, sorter = null,
     // searchable, and the Shelf offers to sort it later.
     const sorted = await sort(item, description, transcript);
     return send(res, 200, {id: item.id, status: done?.[0]?.status ?? 'ready', description, transcript,
-      profile: sorted?.profile ?? null, suggestions: sorted?.suggestions ?? 0, sorted: Boolean(sorted)});
+      profile: sorted?.profile ?? null, suggestions: sorted?.suggestions ?? 0, lines: sorted?.lines ?? 0, sorted: Boolean(sorted)});
   } catch {
     // Kept and marked, so the person sees which one did not take and can
     // remove it or drop it again. A failure here is never a lost item.
