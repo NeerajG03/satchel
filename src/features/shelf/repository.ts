@@ -95,6 +95,10 @@ export function createShelfRepository(db: SupabaseClient) {
     async sort(id: string): Promise<{ profile: ShelfItem['profile']; suggestions: number; transcript: string | null }> {
       return server({ action: 'sort', id }, 60000);
     },
+    /** Changes the note; the server makes the new search vector from the new words. */
+    async edit(id: string, note: string): Promise<void> {
+      await server({ action: 'edit', id, note }, 20000);
+    },
     async search(q: string): Promise<ShelfItem[]> {
       return (await server<{ items: ShelfItem[] }>({ action: 'search', q }, 20000)).items;
     },

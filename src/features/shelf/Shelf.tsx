@@ -105,6 +105,7 @@ export function Shelf() {
   const form = useRef<HTMLFormElement>(null);
   const searchBox = useRef<HTMLInputElement>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ id: string; note: string } | null>(null);
   const [query, setQuery] = useState('');
   const [found, setFound] = useState<ShelfItem[] | null>(null);
   const search = useAction('action');
@@ -201,6 +202,15 @@ export function Shelf() {
     announce(profile ? `Moved to ${PROFILE_LABEL[profile]}` : 'Taken out of both profiles');
   }
 
+  async function saveNote(item: ShelfItem, note: string) {
+    setFailedOn(item.id);
+    const done = await act.run(async () => { await stores.shelf.edit(item.id, note); return true; });
+    if (!done) return;
+    patch(list => list.map(row => row.id === item.id ? { ...row, note: note.trim() } : row));
+    setEditing(null);
+    announce('Note changed');
+  }
+
   async function remove(item: ShelfItem) {
     setFailedOn(item.id);
     const done = await act.run(async () => { await stores.shelf.remove(item); return true; });
@@ -253,9 +263,20 @@ export function Shelf() {
         {item.status === 'ready' && !item.sorted_at && <Button small disabled={act.busy && failedOn === item.id}
           onClick={() => void sortNow(item)}>Look for to-dos</Button>}
         {status.retry && <Button small onClick={() => void read(item)}>Try reading it again</Button>}
+        {(item.status === 'ready' || item.status === 'failed') && editing?.id !== item.id && <Button small disabled={act.busy}
+          onClick={() => setEditing({ id: item.id, note: item.note })}>{item.note ? 'Edit note' : 'Add a note'}</Button>}
         <Button look="quiet" small disabled={act.busy} aria-expanded={removing === item.id}
           onClick={() => setRemoving(removing === item.id ? null : item.id)}>Remove</Button>
       </div>
+      {editing?.id === item.id && <form className="stack-tight" onSubmit={event => { event.preventDefault(); void saveNote(item, editing.note); }}>
+        <TextArea label="Note" limit={SHELF_LIMITS.note} rows={3} value={editing.note} disabled={act.busy}
+          onChange={event => setEditing({ id: item.id, note: event.target.value })} />
+        <div className="actions">
+          <Button small onClick={() => setEditing(null)} disabled={act.busy}>Cancel</Button>
+          <Button small look="primary" type="submit" disabled={act.busy || (item.kind === 'note' && !editing.note.trim())}>
+            {act.busy && failedOn === item.id ? 'Saving…' : 'Save note'}</Button>
+        </div>
+      </form>}
       {removing === item.id && <div className="notice" role="group" aria-label="Remove this from your Shelf?">
         <strong>Remove this from your Shelf?</strong>
         <p>It goes for good, with its file. Nothing can bring it back.</p>

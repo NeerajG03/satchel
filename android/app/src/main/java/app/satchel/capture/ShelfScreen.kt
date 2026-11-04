@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -65,6 +66,7 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
     var query by remember { mutableStateOf("") }
     var found by remember { mutableStateOf<List<ShelfEntry>?>(null) }
     var said by remember { mutableStateOf<String?>(null) }
+    var openId by remember { mutableStateOf<String?>(null) }
     val player = remember { Player() }
     DisposableEffect(Unit) { onDispose { player.stop() } }
 
@@ -166,7 +168,16 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
                         Text(name.ifEmpty { "Not in a topic yet" }, fontFamily = FontFamily.Serif, fontSize = 22.sp, color = InkText,
                             modifier = Modifier.padding(top = 8.dp))
                     }
-                    items(entries, key = { it.id }) { e -> EntryCard(e, links, reader, player, showProfile = profile == "all") }
+                    items(entries, key = { it.id }) { e ->
+                        EntryCard(e, links, reader, player, showProfile = profile == "all", open = openId == e.id,
+                            onOpen = { openId = if (openId == e.id) null else e.id }) { act, done ->
+                            scope.launch {
+                                runCatching { act() }
+                                    .onSuccess { message -> said = message; problem = null; done(); load() }
+                                    .onFailure { problem = it.message; done() }
+                            }
+                        }
+                    }
                 }
                 item {
                     Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -240,9 +251,12 @@ private fun Outbox(unsent: Int, stuck: List<QueuedItem>, onClear: () -> Unit) {
 }
 
 @Composable
-private fun EntryCard(e: ShelfEntry, links: Map<String, String>, reader: ShelfReader, player: Player, showProfile: Boolean) {
+private fun EntryCard(e: ShelfEntry, links: Map<String, String>, reader: ShelfReader, player: Player, showProfile: Boolean,
+                      open: Boolean, onOpen: () -> Unit, run: (suspend () -> String, () -> Unit) -> Unit) {
+    var editing by remember(e.id) { mutableStateOf(false) }
+    var removing by remember(e.id) { mutableStateOf(false) }
     Surface(color = Paper, shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Line)) {
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (open) Muted else Line), modifier = Modifier.clickable(onClick = onOpen)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (e.kind == "photo") Thumbnail(e.objectPath, links, reader, e.description ?: "A photo on your Shelf")
             val voice = if (e.kind == "voice") e.objectPath else e.voicePath
@@ -256,8 +270,67 @@ private fun EntryCard(e: ShelfEntry, links: Map<String, String>, reader: ShelfRe
                 dayOf(e.createdAt),
                 when (e.status) { "ready" -> null; "failed" -> "COULD NOT READ"; else -> "READING…" },
             ).joinToString(" · "), color = Muted, fontSize = 11.sp, letterSpacing = 1.sp, fontFamily = FontFamily.Monospace)
+            if (open) ItemActions(e, onEdit = { editing = true }, onRemove = { removing = true }, run = run, reader = reader)
         }
     }
+    if (editing) EditNote(e, onCancel = { editing = false }) { text -> run({ reader.edit(e.id, text); "Note changed" }) { editing = false } }
+    if (removing) AlertDialog(
+        onDismissRequest = { removing = false },
+        title = { Text("Remove this from your Shelf?") },
+        text = { Text("It goes for good, with its file. Nothing can bring it back.") },
+        confirmButton = { TextButton({ run({ reader.remove(e.id); "Removed from your Shelf" }) { removing = false } }) { Text("Remove for good", color = Red) } },
+        dismissButton = { TextButton({ removing = false }) { Text("Keep it", color = InkText) } },
+    )
+}
+
+/** What can be done to one item: change its note or profile, find its to-dos, read it again, or remove it. */
+@Composable
+private fun ItemActions(e: ShelfEntry, onEdit: () -> Unit, onRemove: () -> Unit, run: (suspend () -> String, () -> Unit) -> Unit,
+                        reader: ShelfReader) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        HorizontalDivider(color = Line)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Profile", color = Muted, fontSize = 13.sp)
+            for ((key, label) in listOf("work" to "Work", "personal" to "Personal", null to "None")) {
+                val on = e.profile == key
+                Text(label, color = if (on) Paper else InkText, fontSize = 13.sp,
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (on) Ink else Paper2)
+                        .clickable(enabled = !on) { run({ reader.setProfile(e.id, key); if (key == null) "Taken out of both profiles" else "Moved to $label" }) {} }
+                        .padding(horizontal = 12.dp, vertical = 10.dp))
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (e.status == "ready" || e.status == "failed") TextButton(onEdit) { Text(if (e.note.isBlank()) "Add a note" else "Edit note", color = InkText) }
+            if (e.status == "ready" && e.sortedAt == null) TextButton({
+                run({ reader.sort(e.id).let { n -> if (n == 0) "Nothing to do in this one" else "Found $n to do" } }) {}
+            }) { Text("Look for to-dos", color = InkText) }
+            if (e.status == "failed") TextButton({ run({ reader.reread(e.id); "Reading it again" }) {} }) { Text("Read again", color = InkText) }
+            Spacer(Modifier.weight(1f))
+            TextButton(onRemove) { Text("Remove", color = Red) }
+        }
+    }
+}
+
+@Composable
+private fun EditNote(e: ShelfEntry, onCancel: () -> Unit, onSave: (String) -> Unit) {
+    var text by remember(e.id) { mutableStateOf(e.note) }
+    var saving by remember(e.id) { mutableStateOf(false) }
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    AlertDialog(
+        onDismissRequest = { if (!saving) onCancel() },
+        title = { Text(if (e.note.isBlank()) "Add a note" else "Edit note") },
+        text = {
+            OutlinedTextField(text, { text = it.take(ShelfTypes.NOTE_LIMIT) }, minLines = 3, maxLines = 8,
+                modifier = Modifier.fillMaxWidth().focusRequester(focus))
+            LaunchedEffect(Unit) { focus.requestFocus() }
+        },
+        confirmButton = {
+            TextButton({ saving = true; onSave(text.trim()) }, enabled = !saving && (e.kind != "note" || text.isNotBlank())) {
+                Text(if (saving) "Saving…" else "Save", color = InkText)
+            }
+        },
+        dismissButton = { TextButton(onCancel, enabled = !saving) { Text("Cancel", color = Muted) } },
+    )
 }
 
 @Composable

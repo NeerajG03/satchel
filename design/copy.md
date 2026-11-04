@@ -156,7 +156,7 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - Nothing in view: Nothing here. Nothing on your Shelf fits this profile and type. Pick Everything or All to see the rest.
 - Drop: Note (optional with a photo or voice note) · Add a photo or audio file · Record a voice note (with a photo chosen: Say what this photo is; saved as one item, "{file} with your voice note") · Stop recording · Recording… · Voice note recorded · remove · Photos and voice notes up to 20 MB. · Put on Shelf · Saving…
 - Find: Find something (describe it the way you remember it) · Find · Looking… · Show everything · {n} matches, closest first.
-- Item: note · photo · voice note · reading it… · not read yet · could not read this one · Try reading it again · Look for to-dos · Remove
+- Item: note · photo · voice note · reading it… · not read yet · could not read this one · Try reading it again · Look for to-dos · Edit note / Add a note (Save note · Cancel · Note changed) · Remove
 - A voice note shows what was said, in quotes, instead of Satchel's summary
 - After Look for to-dos: Found {n} things to do · Nothing to do in this one
 - Remove: Remove this from your Shelf? It goes for good, with its file. Nothing can bring it back. / Keep it · Remove for good

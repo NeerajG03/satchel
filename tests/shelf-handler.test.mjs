@@ -177,6 +177,35 @@ test('a photo with a voice note: the words are written down and the photo is rea
   assert.equal(words[1].p_content, 'office\nthis is the router config', 'what they said goes on to memory');
 });
 
+test('editing a note saves it with a vector made from the new words, and refuses an item still being read', async () => {
+  const db = fakeDb({item: null});
+  let row = {id, kind: 'photo', note: 'old', description: 'A router.', transcript: 'the office one', status: 'ready'};
+  const realRpc = db.rpc;
+  db.rpc = async (name, args) => {
+    db.calls.push([name, args]);
+    if (name === 'read_shelf_item') return {data: [row], error: null};
+    if (name === 'edit_shelf_note') return {data: [{id, note: args.p_note}], error: null};
+    return realRpc(name, args);
+  };
+  const texts = [];
+  const embedding = {model: 'm', embedOne: async text => { texts.push(text); return [1, 0]; }, embedQuery: async () => [0, 1]};
+  const res = fakeRes();
+  await handleShelf(req({action: 'edit', id, note: ' new words '}), res, {embedder: embedding, makeClient: () => db, verify});
+  assert.equal(res.status, 200);
+  assert.deepEqual(texts, ['new words\nthe office one\nA router.']);
+  const saved = db.calls.find(c => c[0] === 'edit_shelf_note')[1];
+  assert.equal(saved.p_note, 'new words');
+  assert.equal(saved.p_embedding_model, 'm');
+  row = {...row, status: 'reading'};
+  const busy = fakeRes();
+  await handleShelf(req({action: 'edit', id, note: 'x'}), busy, {embedder: embedding, makeClient: () => db, verify});
+  assert.equal(busy.status, 409);
+  row = {...row, kind: 'note', status: 'ready'};
+  const empty = fakeRes();
+  await handleShelf(req({action: 'edit', id, note: '  '}), empty, {embedder: embedding, makeClient: () => db, verify});
+  assert.equal(empty.status, 400);
+});
+
 test('sort sorts a read, unsorted item, and refuses one already sorted', async () => {
   const read = {id, kind: 'note', note: 'call the dentist tuesday', object_path: null, mime_type: null, size_bytes: null,
     description: null, transcript: null, status: 'ready', sorted_at: null};

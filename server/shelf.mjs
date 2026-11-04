@@ -12,7 +12,8 @@ import {providerFor, asBaseUrl} from './model-provider.mjs';
 import {shelfDescribePrompt} from './prompt-store.mjs';
 import {toVectorLiteral} from './vector.mjs';
 
-const MAX_BYTES = 4096;
+// A note of 4000 characters, in any script, with room for the rest of the request.
+const MAX_BYTES = 16384;
 const QUERY_CHARS = 300;
 // Under the function's 60 seconds, with room to answer. What the later steps
 // keep back from the earlier ones: the embed and save, and a sort.
@@ -120,7 +121,7 @@ export const send = (res, status, body) => {
   res.end(JSON.stringify(body));
 };
 
-/** POST {action:'describe', id} reads one item, {action:'sort', id} sorts a read one, {action:'search', q} searches. */
+/** POST {action:'describe', id} reads one item, {action:'sort', id} sorts a read one, {action:'edit', id, note} changes its note, {action:'search', q} searches. */
 export async function handleShelf(req, res, {embedder, describer, sorter = null, calendar = null, makeClient = createClient,
   verify = verifyCompanionToken} = {}) {
   const db = await personFor(req, res, makeClient, verify);
@@ -140,6 +141,26 @@ export async function handleShelf(req, res, {embedder, describer, sorter = null,
     });
     if (error) return send(res, 502, {error: 'Satchel could not search your Shelf. Reload and try again.'});
     return send(res, 200, {items: data});
+  }
+
+  if (body.action === 'edit') {
+    if (typeof body.id !== 'string' || !idPattern.test(body.id) || typeof body.note !== 'string' || body.note.length > 4000)
+      return send(res, 400, {error: 'Satchel could not read that request.'});
+    const {data: rows, error} = await db.rpc('read_shelf_item', {p_id: body.id});
+    const item = rows?.[0];
+    if (error || !item) return send(res, 404, {error: 'That shelf item is gone. Reload the Shelf.'});
+    if (!['ready', 'failed'].includes(item.status)) return send(res, 409, {error: 'Satchel is still reading this one. Try again in a moment.'});
+    const note = body.note.trim();
+    if (item.kind === 'note' && !note) return send(res, 400, {error: 'A note needs some words. Remove it instead if it is not needed.'});
+    let vector = null;
+    if (item.status === 'ready') {
+      try { vector = await embedder.embedOne(shelfText({note, description: item.description, transcript: item.transcript})); }
+      catch { return send(res, 503, {error: 'Search is busy right now, so the note was not changed. Try again in a minute.'}); }
+    }
+    const {error: saveError} = await db.rpc('edit_shelf_note', {p_id: item.id, p_note: note,
+      p_embedding: vector ? toVectorLiteral(vector) : null, p_embedding_model: vector ? embedder.model : null});
+    if (saveError) return send(res, 409, {error: 'That one changed or went while you were editing. Reload the Shelf.'});
+    return send(res, 200, {id: item.id, note});
   }
 
   if (typeof body.id !== 'string' || !idPattern.test(body.id) || !['describe', 'sort'].includes(body.action))

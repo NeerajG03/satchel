@@ -13,7 +13,7 @@ import java.io.IOException
 data class ShelfEntry(
     val id: String, val kind: String, val note: String, val objectPath: String?, val voicePath: String?,
     val description: String?, val transcript: String?, val status: String, val createdAt: String,
-    val profile: String?, val topicName: String?,
+    val profile: String?, val topicName: String?, val sortedAt: String? = null,
 )
 data class Waiting(val id: String, val kind: String, val title: String, val profile: String?, val when_: String?, val source: String)
 data class Coming(val profile: String, val kind: String, val title: String, val at: String?, val day: String?)
@@ -55,6 +55,29 @@ class ShelfReader(private val http: OkHttpClient, private val token: suspend () 
         }
         fun list(key: String) = o.optJSONArray(key)?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList()
         return Week(items, list("linked"), list("failed"))
+    }
+
+    /** Changes the note; the server makes the new search vector from the new words. */
+    suspend fun edit(id: String, note: String) { api("/api/shelf", JSONObject().put("action", "edit").put("id", id).put("note", note)) }
+
+    suspend fun setProfile(id: String, profile: String?) {
+        rpc("set_shelf_profile", JSONObject().put("p_id", id).put("p_kind", profile ?: JSONObject.NULL))
+    }
+
+    /** Finds to-dos and events in a read item that was never sorted. Returns how many. */
+    suspend fun sort(id: String): Int = JSONObject(api("/api/shelf", JSONObject().put("action", "sort").put("id", id))).optInt("suggestions")
+
+    /** Asks Satchel to read an item again. */
+    suspend fun reread(id: String) { api("/api/shelf", JSONObject().put("action", "describe").put("id", id)) }
+
+    /** Removes the item for good, then its files. A file left behind is only reachable by its owner. */
+    suspend fun remove(id: String) {
+        val gone = rows(rpc("remove_shelf_item", JSONObject().put("p_id", id))).firstOrNull()
+        val paths = listOfNotNull(gone?.str("object_path"), gone?.str("voice_path"))
+        if (paths.isNotEmpty()) runCatching {
+            send(Request.Builder().url("$supabase/storage/v1/object/shelf").supabase()
+                .delete(JSONObject().put("prefixes", JSONArray(paths)).toString().toRequestBody(json)))
+        }
     }
 
     /** Links to the files on screen, good for an hour. */
@@ -103,7 +126,7 @@ class ShelfReader(private val http: OkHttpClient, private val token: suspend () 
 
     private fun entry(o: JSONObject) = ShelfEntry(o.getString("id"), o.getString("kind"), o.optString("note"), o.str("object_path"),
         o.str("voice_path"), o.str("description"), o.str("transcript"), o.optString("status"), o.optString("created_at"),
-        o.str("profile"), o.str("topic_name"))
+        o.str("profile"), o.str("topic_name"), o.str("sorted_at"))
 }
 
 private fun JSONObject.str(key: String): String? = if (isNull(key)) null else optString(key).takeIf { it.isNotEmpty() }
