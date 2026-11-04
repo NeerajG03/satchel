@@ -2,7 +2,7 @@
 
 Updated 16 September 2026.
 
-The repository contains a React/TypeScript companion with GitHub sign-in through Supabase, topics, explicit memory, the book and connected apps. It uses the notebook palette and typography with responsive light/dark themes.
+The repository contains a React/TypeScript companion with Google (or GitHub) sign-in through Supabase, topics, explicit memory, the book and connected apps. It uses the notebook palette and typography with responsive light/dark themes.
 
 Memory hooks, generation-bound agent grants and the production MCP transport are implemented. Hosted rollback-only RPC checks and the production read/render path pass; cleanup scheduling, a restore drill and broader signed-in browser mutation evidence remain release-hardening work.
 
@@ -25,13 +25,13 @@ Without configuration, the app shows a setup-pending state and disables login. T
 Use a dedicated Supabase Free project with synthetic records first. Needed from the owner: project URL and publishable key, Vercel personal account/team, repository access, and the preferred region before creating any project. No billing upgrade is required by this foundation.
 
 1. Apply every file in `supabase/migrations` in filename order using Supabase migration tooling. They are one-time migrations; an existing installation applies only migrations not already recorded. This pilot previously applied early memory migrations manually in the Dashboard, so reconcile remote migration history before `supabase db push` instead of replaying them.
-2. Register a GitHub OAuth App. The callback is `https://<project-ref>.supabase.co/auth/v1/callback` (copy the real value from Supabase). Set its homepage to the stable Satchel deployment URL.
-3. Enable GitHub in Supabase Authentication → Providers. Enter the GitHub client ID and secret directly in that dashboard. Satchel does not request repository scopes.
+2. Create a Google OAuth client (Web application). Add two redirect URIs: `https://<project-ref>.supabase.co/auth/v1/callback` for sign-in and `<site origin>/settings/google` for profile links. Enable Google in Supabase Authentication → Providers with that client ID and secret, and set the same pair as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in Vercel.
+3. Optionally, register a GitHub OAuth App with the same Supabase callback and enable GitHub there too; the sign-in page offers it as a second button. Satchel does not request repository scopes.
 4. In Supabase URL Configuration, set the Site URL to the stable deployed app origin. Allow that exact origin and `http://127.0.0.1:5173` for development. Avoid wildcard preview origins.
 5. In Vercel, import the private repository. Root is the repository root; framework is Vite. Set only the two public browser environment values, then deploy.
 6. Verify memory capture, edit, correction, topic links, agent consent and revocation, and stale revision behavior against the hosted project.
 
-GitHub account login is identity-only and separate from optional GitHub repository links on a topic. Website sign-in also does not authorize agent connections; the consent interface grants memory read and write separately.
+Google or GitHub login is identity-only and separate from optional GitHub repository links on a topic. Website sign-in also does not authorize agent connections; the consent interface grants memory read and write separately.
 
 [GitHub provider setup](https://supabase.com/docs/guides/auth/social-login/auth-github), [PKCE flow](https://supabase.com/docs/guides/auth/sessions/pkce-flow), [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).
 

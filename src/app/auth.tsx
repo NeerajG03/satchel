@@ -8,9 +8,12 @@ type Auth = {
   ready: boolean;
   busy: boolean;
   error: string;
-  signIn: () => Promise<void>;
+  signIn: (provider?: Provider) => Promise<void>;
   signOut: () => Promise<void>;
 };
+
+export type Provider = 'google' | 'github';
+const NOT_FINISHED = 'Sign-in didn’t finish. It was cancelled or timed out. Nothing was created. Try again, or check that pop-ups are allowed.';
 
 const AuthContext = createContext<Auth | null>(null);
 const RETURN_KEY = 'satchel-return-to';
@@ -42,24 +45,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cancelled = new URLSearchParams(location.search).has('error') || location.hash.includes('error=');
     client.auth.getSession().then(({ data, error: authError }) => {
       if (!active) return;
-      if (authError) setError('GitHub sign-in didn’t finish. It was cancelled or timed out. Nothing was created. Try again, or check that pop-ups are allowed.');
+      if (authError) setError(NOT_FINISHED);
       setUser(data.session?.user ?? null);
       setReady(true);
     }).catch(() => { if (active) { setError('Sign-in is unavailable right now. Try again in a moment.'); setReady(true); } });
     const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
       if (active) { setUser(session?.user ?? null); setReady(true); }
     });
-    if (cancelled) setError('GitHub sign-in didn’t finish. It was cancelled or timed out. Nothing was created. Try again, or check that pop-ups are allowed.');
+    if (cancelled) setError(NOT_FINISHED);
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
 
-  async function signIn() {
+  async function signIn(provider: Provider = 'google') {
     if (!client) return;
     setBusy(true); setError('');
     try {
-      const { error: oauthError } = await client.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: location.origin } });
+      const { error: oauthError } = await client.auth.signInWithOAuth({ provider, options: { redirectTo: location.origin } });
       if (oauthError) throw oauthError;
-    } catch { setError('GitHub sign-in is unavailable right now. Nothing was created. Try again in a moment.'); setBusy(false); }
+    } catch { setError('Sign-in is unavailable right now. Nothing was created. Try again in a moment.'); setBusy(false); }
   }
   async function signOut() {
     if (!client) return;

@@ -9,7 +9,7 @@ The pilot uses React/TypeScript with Vite, react-router and Supabase Auth/Postgr
 | Module | Responsibility |
 |---|---|
 | `app/routes.tsx` | Route table. Every destination and detail page has a URL. Unknown routes go to `/`. |
-| `app/auth.tsx` | Session state, GitHub sign-in and sign-out, return-to path for signed-out visits |
+| `app/auth.tsx` | Session state, Google or GitHub sign-in and sign-out, return-to path for signed-out visits |
 | `app/scope.ts` | The `?scope=me|topic:<id>` query and its labels |
 | `app/readout.tsx` | Footer readout and header status word, set per page with `useFooter` |
 | `app/useLoad.ts` | Page loading, in-place error text, busy actions, conflict detection |

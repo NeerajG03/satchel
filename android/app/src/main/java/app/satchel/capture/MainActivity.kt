@@ -64,7 +64,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         val code = data.getQueryParameter("code")
         if (code == null) {
-            message = data.getQueryParameter("error_description") ?: "GitHub sign-in did not finish. Try again."
+            message = data.getQueryParameter("error_description") ?: "Sign-in did not finish. Try again."
             return
         }
         message = "Signing you in…"
@@ -83,8 +83,9 @@ class MainActivity : ComponentActivity() {
             Text("Drop it here, find it later.", fontFamily = FontFamily.Serif, fontSize = 24.sp, color = InkText)
             message?.let { Text(it, color = if (it.endsWith("…")) Muted else Red) }
             if (!signedIn) {
-                Text("Sign in with the GitHub account you use for Satchel. Your Shelf stays yours: only you can see it.", color = Muted)
-                Button({ app.auth.startSignIn(this@MainActivity) }, Modifier.fillMaxWidth().height(52.dp)) { Text("Continue with GitHub") }
+                Text("Sign in with the account you use for Satchel. Your Shelf stays yours: only you can see it.", color = Muted)
+                Button({ app.auth.startSignIn(this@MainActivity, "google") }, Modifier.fillMaxWidth().height(52.dp)) { Text("Continue with Google") }
+                TextButton({ app.auth.startSignIn(this@MainActivity, "github") }) { Text("Use GitHub instead", color = Muted) }
                 return@Column
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
