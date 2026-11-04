@@ -178,8 +178,8 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 
 ## Shelf · Lists
 
-- A section per list, named by Satchel as drops call for it (Books, Watch, Recipes to try), biggest first: {name} · {n} to go
-- Line: a tick, the title, · detail (author, year, city) / from a drop · from {n} drops (shows “what the drop said”) / Move to list / Remove
+- A block per list, named by Satchel as drops call for it (Books, Watch, Recipes to try), biggest first; a list of more than 8 gets a wider block: {name} · {n} to go · {n} done · All done. · Show all {n} / Show fewer · Done · {n} / Hide done
+- Line: a tick, the title, and the detail (author, year, city) under it. Tapping the title shows: from “what the drop said” · On {List} / Move to {List} · Remove
 - Done fold: Done · {n}; a ticked title is struck through
 - On a drop that made lines: Added to {List} ({n}), {List} ({n}) · Undo → Taken off your lists
 - Footer: Done: {title} · Back on {List}: {title} · Moved to {List} · Removed {title}
