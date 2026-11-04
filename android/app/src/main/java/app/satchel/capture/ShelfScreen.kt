@@ -107,8 +107,8 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
     val inProfile = { p: String? -> profile == "all" || p == null || p == profile }
     val shown = found ?: (items ?: emptyList()).filter { inProfile(it.profile) }
     val lined = lines.flatMap { it.itemIds }.toSet()
-    val sections = shown.filter { asDropped || it.id !in lined }.groupBy { if (asDropped) "As dropped" else it.topicName ?: "" }.entries
-        .sortedWith(compareBy<Map.Entry<String, List<ShelfEntry>>> { it.key.isEmpty() }.thenByDescending { it.value.size })
+    // One board, no topic headings: a drop's topic is on its card, as on the web.
+    val sections = mapOf("" to shown.filter { asDropped || it.id !in lined }).entries
 
     Box(Modifier.fillMaxSize().background(Paper)) {
         PullToRefreshBox(isRefreshing = loading, onRefresh = ::load, modifier = Modifier.fillMaxSize()) {
@@ -198,10 +198,6 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
                     Text("Your Shelf is empty. Press Drop to put a photo, a voice note or a note on it.", color = Muted)
                 }
                 for ((name, entries) in if (found != null) listOf(mapOf("" to shown).entries.first()) else sections) {
-                    if (found == null) item(key = "h-$name") {
-                        Text(name.ifEmpty { "Not in a topic yet" }, fontFamily = FontFamily.Serif, fontSize = 22.sp, color = InkText,
-                            modifier = Modifier.padding(top = 8.dp))
-                    }
                     items(entries, key = { it.id }) { e ->
                         EntryCard(e, links, reader, player, showProfile = profile == "all",
                             added = lines.filter { e.id in it.itemIds }.groupingBy { it.list }.eachCount(),) { act, done ->
@@ -333,7 +329,7 @@ private fun EntryCard(e: ShelfEntry, links: Map<String, String>, reader: ShelfRe
                     if (showProfile) e.profile?.let { PROFILE[it] } else null,
                     dayOf(e.createdAt)?.lowercase(),
                     when (e.status) { "ready" -> null; "failed" -> "could not read"; else -> "reading…" },
-                ).joinToString("  ·  "), color = Muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+                ).joinToString(" · "), color = Muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 if (e.status == "ready" || e.status == "failed") IconButton({ editing = true }, Modifier.size(40.dp)) {
                     Icon(painterResource(R.drawable.ic_edit), if (e.note.isBlank()) "Add a note" else "Edit the note",
@@ -420,6 +416,13 @@ private fun Thumbnail(path: String?, links: Map<String, String>, reader: ShelfRe
         ?: Box(Modifier.fillMaxWidth().height(160.dp).clip(shape).background(Paper2))
 }
 
+/** Voice note lengths already read, by link, so scrolling back does not read them again. */
+private object Lengths {
+    private val cache = android.util.LruCache<String, Int>(80)
+    fun get(url: String): Int? = cache.get(url)
+    fun put(url: String, ms: Int) { cache.put(url, ms) }
+}
+
 /** One voice note plays at a time; starting another stops the first. */
 private class Player {
     var playing by mutableStateOf<String?>(null)
@@ -453,6 +456,19 @@ private class Player {
 private fun VoiceKey(url: String, player: Player, label: String, modifier: Modifier = Modifier) {
     val on = player.playing == url
     LaunchedEffect(on) { while (on) { player.tick(); kotlinx.coroutines.delay(200) } }
+    // The length at rest, read from the file's header without playing it.
+    var length by remember(url) { mutableIntStateOf(Lengths.get(url) ?: 0) }
+    LaunchedEffect(url) {
+        if (length > 0) return@LaunchedEffect
+        length = withContext(Dispatchers.IO) {
+            runCatching {
+                android.media.MediaMetadataRetriever().run {
+                    try { setDataSource(url, emptyMap()); extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toIntOrNull() ?: 0 }
+                    finally { release() }
+                }
+            }.getOrDefault(0)
+        }.also { if (it > 0) Lengths.put(url, it) }
+    }
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box(Modifier.size(40.dp).clip(CircleShape).background(if (on) Orange else Ink)
             .clickable { player.toggle(url) }
@@ -472,7 +488,8 @@ private fun VoiceKey(url: String, player: Player, label: String, modifier: Modif
             }
             Text("%d:%02d".format(player.position / 60000, player.position / 1000 % 60), color = Muted, fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace)
-        }
+        } else if (length > 0) Text("%d:%02d".format(length / 60000, length / 1000 % 60), color = Muted, fontSize = 12.sp,
+            fontFamily = FontFamily.Monospace)
     }
 }
 
