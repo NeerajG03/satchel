@@ -307,8 +307,9 @@ test('agent grants enforce isolation, writes, revocation and generation at the d
       const status=(await call(agent,'select agent_connection_status() s'))[0].s;
       assert.equal(status.all_topics,true,'the agent has to be able to tell a blanket grant from a list');
       assert.deepEqual(status.topic_ids,[],'and a blanket grant keeps no stale list beside it');
-      assert.deepEqual(Object.keys(status).sort(),['all_topics','can_write','client_id','label','personal','topic_ids'],
-        'a connection is memory and topics only');
+      assert.deepEqual(Object.keys(status).sort(),['all_topics','can_write','client_id','label','personal','shelf','topic_ids'],
+        'a connection is memory, topics and whether the Shelf is allowed');
+      assert.equal(status.shelf,false,'the Shelf is off unless the consent page turned it on');
 
       // Personal was not granted, so it is still a denial. Blanket means every
       // topic, not everything.

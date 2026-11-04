@@ -118,6 +118,16 @@ export function createMemoryServer(service, {ownerId} = {}) {
       limit:z.number().int().min(1).max(20).default(5),
       exclude:z.array(z.uuid()).max(50).default([]).describe('Memory ids already in this conversation, so nothing is injected twice.')},
     a=>service.search(a));
+  // The Shelf: what the person dropped (photos, voice notes, notes) and the lists Satchel made from it.
+  register('search_shelf','Search the person\'s Shelf by meaning: things they dropped from their phone or the web (notes, what they said in voice notes, what Satchel read off photos and screenshots). Use when they point to something they saved or captured, like "that receipt" or "the book Param recommended". Needs the Shelf allowed for this connection.',
+    {query:z.string().trim().min(1).max(300),limit:z.number().int().min(1).max(20).default(8)},
+    a=>service.shelfSearch(a));
+  register('shelf_lists','Read the lists Satchel made from the person\'s Shelf: books, films, places, recipes and the like, Expenses (shop, amount, day, whether claimed) and Good to know (small facts such as a parking spot or a booking code). Optionally one list by name. Read only.',
+    {list:z.string().trim().min(1).max(40).nullable().default(null)},
+    a=>service.shelfLists(a));
+  register('drop_on_shelf','Put a typed note on the person\'s Shelf only when they ask you to ("put this on my Shelf", "add Dune to my watch list"). Satchel reads and sorts it like any drop: to-dos wait for their yes, titles land on lists. Cannot add photos, remove or change anything.',
+    {note:z.string().trim().min(1).max(4000)},
+    a=>service.shelfDrop({id:newId(),note:a.note}),writeAnnotations);
   register('read_memory','Read the rare memory that carries more_info, by scope and id. The index already contains every statement, so this is only for a row whose has_more_info is true.',
     {topic_id:scope,id:z.uuid()},a=>service.read(a.topic_id,a.id));
   // A memory has one scope: a topic, or personal. There is no task_id any

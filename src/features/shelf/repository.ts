@@ -10,6 +10,8 @@ export type ShelfItem = {
   description: string | null; status: 'waiting' | 'reading' | 'ready' | 'failed'; created_at: string;
   profile: ProfileKind | null; transcript?: string | null; sorted_at?: string | null; similarity?: number;
   topic_id?: string | null; topic_name?: string | null; voice_path?: string | null;
+  // The app that put it here, when one did.
+  added_by?: string | null;
 };
 
 export type Suggestion = {

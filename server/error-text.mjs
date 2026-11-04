@@ -28,6 +28,9 @@ export const raisedText={
   // 42501: the grant, not the input. The first four are thrown by the services
   // before any query, the rest by routines.
   'Connection unavailable':'This connection is no longer authorized. Ask the user to reconnect Satchel',
+  'This connection was not allowed the Shelf':'This connection may not use the Shelf. Ask the user to reconnect Satchel and tick Your Shelf on the consent page',
+  'A note needs some words, up to 4000 characters':'note is 1 to 4000 characters of text',
+  'This id was already used for something else':'That Shelf id is taken by something else. Retry the call, which picks a new id',
   'Memory read unavailable':'This connection may not read memories in that scope. Use a scope from list_topics',
   'Memory write unavailable':'This connection may not write memories in that scope. Use a scope list_topics shows as writable, or ask the user to grant write for it in Satchel',
   'Personal memory unavailable':'This connection has no grant for personal memory. Pass a topic_id from list_topics, or ask the user to allow personal memory for it in Satchel',
@@ -74,6 +77,8 @@ export const constraintText={
   topics_owner_slug:'That slug is already used by another of this user\'s topics. Pick another and retry',
   topic_repositories_repository_check:'A repository is a lowercase owner/repository, like acme/web',
   agent_session_scopes_session_key_check:'session_key is 1 to 200 characters',
+  shelf_items_note_check:'note is at most 4000 characters',
+  shelf_note_has_words:'note needs some words',
 };
 
 // Constraints only Satchel's own code can break: values it derives, stamps or
@@ -85,6 +90,12 @@ export const internalConstraints=new Set([
   'memories_mentions_check','topic_repositories_provider_check','topics_made_by_check',
   'topics_not_merged_into_itself','topic_write_requests_payload_hash_check',
   'topic_write_requests_result_check','topics_revision_check',
+  // A Shelf note from an app: Satchel sets everything but the words.
+  'shelf_file_has_type','shelf_items_added_by_check','shelf_items_description_check','shelf_items_kind_check',
+  'shelf_items_mime_type_check','shelf_items_object_path','shelf_items_object_path_check','shelf_items_profile_check',
+  'shelf_items_size_bytes_check','shelf_items_status_check','shelf_items_transcript_check','shelf_items_voice_mime_check',
+  'shelf_items_voice_path','shelf_items_voice_path_check','shelf_items_voice_size_check','shelf_note_has_no_file',
+  'shelf_type_fits_kind','shelf_voice_is_its_own_file','shelf_voice_rides_a_photo',
 ]);
 
 // PostgREST's own codes. None of these is the agent's input.

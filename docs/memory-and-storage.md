@@ -107,7 +107,7 @@ An export is a snapshot, not a second writable master. Restoration needs revisio
 
 ## The Shelf
 
-2 November 2026 (D54). The Shelf holds what the person drops in from the web app: a note, a photo or a voice note. It is a separate table, `shelf_items`, and is not memory: nothing on it loads into a session, and an app token is refused by every routine that reaches it.
+2 November 2026 (D54). The Shelf holds what the person drops in from the web app: a note, a photo or a voice note. It is a separate table, `shelf_items`, and is not memory: nothing on it loads into a session, and an app token is refused by every routine that reaches it, except the three made for apps (D63): an app the person allowed the Shelf can search it, read its lists and drop a typed note, through routines that check that grant.
 
 | What | Where | Who can reach it |
 |---|---|---|

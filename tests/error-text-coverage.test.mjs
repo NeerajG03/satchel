@@ -16,6 +16,7 @@ const TOOL_ROUTINES={
   upsert_topic:['upsert_topic_with_slug'],
   select_topic:['select_agent_topic','select_agent_repository','list_memories'],
   save_memory:['save_memory'],correct_memory:['correct_memory'],confirm_memory:['confirm_memory'],forget_memory:['end_memory'],
+  search_shelf:['agent_search_shelf'],shelf_lists:['agent_shelf_lists'],drop_on_shelf:['agent_add_shelf_note'],
 };
 
 // The line a refusal falls back to when nobody wrote one for it.

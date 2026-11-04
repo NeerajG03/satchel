@@ -82,6 +82,27 @@ export function memoryService(db, embedder = null, router = null) {
   }
   const api = {
     status: () => result(db.rpc('agent_connection_status')),
+    // The Shelf, when the person allowed it for this app: words only, never a file.
+    shelfSearch: async ({query, limit}) => {
+      if (!embedder) throw {code:'PT503',reason:'Shelf search is unavailable: no embedding model is configured for this connection'};
+      const vector = await embedder.embedQuery(query);
+      const rows = await result(db.rpc('agent_search_shelf', {p_query:toVectorLiteral(vector), p_model:embedder.model, p_limit:limit}));
+      return {items:(rows ?? []).map(r => ({id:r.id, kind:r.kind, said:r.transcript ?? null, typed:r.note || null,
+        seen:r.description ?? null, topic:r.topic_name ?? null, profile:r.profile ?? null, dropped_at:r.created_at}))};
+    },
+    shelfLists: async ({list}) => {
+      const rows = await result(db.rpc('agent_shelf_lists', {p_list:list ?? null}));
+      const lists = {};
+      for (const r of rows ?? []) (lists[r.list] ??= []).push({title:r.title, detail:r.detail ?? null, done:r.status === 'done',
+        ...(r.kind === 'expense' ? {amount:r.amount == null ? null : Number(r.amount), currency:r.currency ?? null, day:r.spent_on ?? null} : {}),
+        profile:r.profile ?? null});
+      return {lists};
+    },
+    shelfDrop: async ({id, note}) => {
+      const [row] = await result(db.rpc('agent_add_shelf_note', {p_id:id, p_note:note}));
+      return {id:row?.id ?? id, status:row?.status ?? 'waiting',
+        next:'Satchel reads and sorts it the next time the person opens their Shelf: to-dos, lists and facts come from it then.'};
+    },
     // A merged topic is kept for its undo and left out of everything else.
     topics: () => result(db.from('topics')
       .select('id,slug,name,brief,revision,updated_at,made_by,topic_repositories(provider,repository)')

@@ -87,7 +87,9 @@ export async function sortItem(db, sorter, {item, description, transcript, now =
   // The books, films and places it names go on their lists. Best effort: the
   // sort itself is saved either way.
   const {data: lined} = await db.rpc('save_shelf_wants', {p_item: item.id, p_wants: result.wants ?? []});
-  const words = [item.note, transcript].map(s => (s ?? '').trim()).filter(Boolean).join('\n');
+  // An app's note is sorted like any drop, but its words are the app's, not the
+  // person's, so they never reach the memory pass.
+  const words = item.added_by ? '' : [item.note, transcript].map(s => (s ?? '').trim()).filter(Boolean).join('\n');
   if (words) await db.rpc('record_document_turn', {p_session_key: `shelf-${item.id}`, p_role: 'user', p_content: words,
     p_topic_id: result.topic_id});
   return {suggestions: added ?? 0, profile: result.profile, lines: lined ?? 0};
