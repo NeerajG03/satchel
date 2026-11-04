@@ -95,7 +95,7 @@
 .clamped { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .more-words { justify-self: start; background: none; border: 0; padding: 4px 0; color: var(--accent); font: inherit; font-size: var(--text-fine); cursor: pointer; }
 .card-foot { display: flex; align-items: center; gap: 4px; min-height: var(--control-h-sm); }
-.card-foot .prov { flex: 1; min-width: 0; }
+.card-foot .prov { flex: 1; min-width: 0; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Small keys that stay out of the way until reached for: faint at rest, clear on hover, focus or touch. */
 .icon-key { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--muted); cursor: pointer; opacity: .55; transition: opacity var(--t-hover) var(--ease), background var(--t-hover) var(--ease); }
 .icon-key svg { width: 16px; height: 16px; fill: currentColor; }
