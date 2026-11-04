@@ -32,7 +32,17 @@ export function whenOf(s: Suggestion): string | null {
 export type Want = {
   id: string; list: string; title: string; detail: string | null; profile: ProfileKind | null;
   status: 'want' | 'done'; created_at: string; done_at: string | null; item_ids: string[];
+  // A receipt has its amount as printed (null when it was not) and its day; a fact is a label and a value.
+  kind: 'item' | 'expense' | 'fact'; amount: string | number | null; currency: string | null; spent_on: string | null;
 };
+
+/** An amount as the person reads it: ₹2,340.00, $23.40, or the bare number when no currency was shown. */
+export function moneyOf(w: Want): string {
+  if (w.amount == null) return 'amount?';
+  const n = Number(w.amount);
+  return w.currency ? new Intl.NumberFormat(undefined, { style: 'currency', currency: w.currency }).format(n)
+    : new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+}
 /** The lists there are, the biggest first: they are made as drops call for them. */
 export function listsOf(wants: Want[]): string[] {
   const sizes = new Map<string, number>();

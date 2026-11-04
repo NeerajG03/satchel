@@ -16,7 +16,8 @@ data class ShelfEntry(
     val profile: String?, val topicName: String?, val sortedAt: String? = null,
 )
 data class ListLine(val id: String, val list: String, val title: String, val detail: String?, val profile: String?,
-                val status: String, val itemIds: List<String>)
+                    val status: String, val itemIds: List<String>, val kind: String = "item", val amount: String? = null,
+                    val currency: String? = null, val spentOn: String? = null)
 data class Waiting(val id: String, val kind: String, val title: String, val profile: String?, val when_: String?, val source: String)
 data class Coming(val profile: String, val kind: String, val title: String, val at: String?, val day: String?)
 data class Week(val items: List<Coming>, val linked: List<String>, val failed: List<String>)
@@ -84,7 +85,8 @@ class ShelfReader(private val http: OkHttpClient, private val token: suspend () 
 
     suspend fun lines(): List<ListLine> = rows(rpc("list_shelf_wants", JSONObject())).map { o ->
         val ids = o.optJSONArray("item_ids")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList()
-        ListLine(o.getString("id"), o.getString("list"), o.getString("title"), o.str("detail"), o.str("profile"), o.getString("status"), ids)
+        ListLine(o.getString("id"), o.getString("list"), o.getString("title"), o.str("detail"), o.str("profile"), o.getString("status"), ids,
+            o.optString("kind", "item"), o.str("amount"), o.str("currency"), o.str("spent_on"))
     }
 
     suspend fun tick(id: String, done: Boolean) {

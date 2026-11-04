@@ -3,9 +3,10 @@ import { useStores } from '../../app/stores';
 import { useAction, type Loaded } from '../../app/useLoad';
 import { useReadout } from '../../app/readout';
 import type { ProfileKind } from '../profiles/repository';
-import { listsOf, type ShelfItem, type Want } from './repository';
+import { listsOf, moneyOf, type ShelfItem, type Want } from './repository';
 import { Button } from '../../ui/Button';
 import { SaveError } from '../../ui/Notice';
+import { CardMenu } from './CardMenu';
 
 /** What a drop said, in a line, so a list line can show where it came from. */
 const gist = (item: ShelfItem) => [item.note, item.transcript, item.description].find(t => t?.trim())?.trim().slice(0, 140) ?? 'A drop';
@@ -50,24 +51,38 @@ function ListBlock({ name, lines, names, items, wants }: { name: string; lines: 
     announce(said);
   }
 
-  const line = (w: Want) => <li key={w.id} className={`want ${w.status}`}>
-    <input type="checkbox" aria-label={w.status === 'done' ? `Not done: ${w.title}` : `Done: ${w.title}`}
-      checked={w.status === 'done'} disabled={act.busy && actingOn === w.id}
-      onChange={event => void change(w, () => stores.shelf.setWant(w.id, event.target.checked ? 'done' : 'want'),
-        event.target.checked ? `Done: ${w.title}` : `Back on ${name}: ${w.title}`)} />
+  const kind = lines[0]?.kind ?? 'item';
+  const doneWord = kind === 'expense' ? 'Claimed' : 'Done';
+  async function copy(text: string, said: string) {
+    try { await navigator.clipboard.writeText(text); announce(said); } catch { announce('This browser would not copy. Select the text instead.'); }
+  }
+  const line = (w: Want) => <li key={w.id} className={`want ${w.status} ${kind}`}>
+    {kind === 'fact'
+      ? <button type="button" className="icon-key" onClick={() => void copy(w.detail ?? '', `Copied ${w.title}`)} aria-label={`Copy ${w.title}`}>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M3 10.5V3.5A1.5 1.5 0 0 1 4.5 2H10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
+      </button>
+      : <input type="checkbox" aria-label={w.status === 'done' ? `Not ${doneWord.toLowerCase()}: ${w.title}` : `${doneWord}: ${w.title}`}
+        checked={w.status === 'done'} disabled={act.busy && actingOn === w.id}
+        onChange={event => void change(w, () => stores.shelf.setWant(w.id, event.target.checked ? 'done' : 'want'),
+          event.target.checked ? `${doneWord}: ${w.title}` : `Back on ${name}: ${w.title}`)} />}
     <button type="button" className="want-what" aria-expanded={opened === w.id} onClick={() => setOpened(opened === w.id ? null : w.id)}>
-      <span className="title">{w.title}</span>
-      {w.detail && <span className="detail">{w.detail}</span>}
+      {kind === 'fact' && <span className="eyebrow">{w.title}</span>}
+      <span className="title">{kind === 'fact' ? w.detail : w.title}</span>
+      {kind === 'expense' && <span className="detail">{[moneyOf(w), w.spent_on && new Date(`${w.spent_on}T12:00:00`)
+        .toLocaleDateString(undefined, { day: 'numeric', month: 'short' }), w.profile === 'work' ? 'Work' : null].filter(Boolean).join(' · ')}</span>}
+      {kind === 'item' && w.detail && <span className="detail">{w.detail}</span>}
     </button>
     {opened === w.id && <div className="want-more">
       <ul className="want-sources">{w.item_ids.map(source => <li key={source} className="fine muted">
         from {byId.has(source) ? `“${gist(byId.get(source)!)}”` : 'a drop further down your Shelf'}</li>)}</ul>
       <div className="row">
-        <label className="visually-hidden" htmlFor={`move-${w.id}`}>Move to list</label>
+        {kind === 'item' && <><label className="visually-hidden" htmlFor={`move-${w.id}`}>Move to list</label>
         <select id={`move-${w.id}`} className="field compact" value={w.list} disabled={act.busy}
           onChange={event => { const to = event.target.value; void change(w, () => stores.shelf.moveWant(w.id, to), `Moved to ${to}`); }}>
-          {names.map(n => <option key={n} value={n}>{n === name ? `On ${n}` : `Move to ${n}`}</option>)}
-        </select>
+          {names.filter(n => !['expenses', 'good to know'].includes(n.toLowerCase())).map(n =>
+            <option key={n} value={n}>{n === name ? `On ${n}` : `Move to ${n}`}</option>)}
+        </select></>}
         <Button look="quiet" small disabled={act.busy} onClick={() => void change(w, () => stores.shelf.removeWant(w.id), `Removed ${w.title}`)}>Remove</Button>
       </div>
     </div>}
@@ -77,14 +92,18 @@ function ListBlock({ name, lines, names, items, wants }: { name: string; lines: 
   return <section className="list-block" aria-labelledby={id}>
     <header>
       <h2 id={id}>{name}</h2>
-      <span className="eyebrow">{open.length} to go{done.length ? ` · ${done.length} done` : ''}</span>
+      <span className="eyebrow">{kind === 'fact' ? `${open.length}` : `${open.length} ${kind === 'expense' ? 'to claim' : 'to go'}`}{done.length ? ` · ${done.length} ${doneWord.toLowerCase()}` : ''}</span>
+      {kind === 'expense' && open.some(w => w.profile === 'work') && <CardMenu label="More for Expenses">{close =>
+        <Button look="quiet" small onClick={() => { close(); void copy(open.filter(w => w.profile === 'work')
+          .map(w => [w.spent_on ?? 'date?', w.title, moneyOf(w)].join(' · ')).join('\n'), 'Work expenses copied, one per line'); }}>
+          Copy Work expenses for a claim</Button>}</CardMenu>}
     </header>
-    {open.length === 0 && <p className="fine muted">All done.</p>}
+    {open.length === 0 && <p className="fine muted">{kind === 'expense' ? 'All claimed.' : 'All done.'}</p>}
     <ul className="wants">{shown.map(line)}</ul>
     <div className="row list-block-foot">
       {open.length > SHOWN && <Button look="link" small onClick={() => setAll(!all)}>{all ? 'Show fewer' : `Show all ${open.length}`}</Button>}
       {done.length > 0 && <Button look="link" small aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
-        {showDone ? 'Hide done' : `Done · ${done.length}`}</Button>}
+        {showDone ? `Hide ${doneWord.toLowerCase()}` : `${doneWord} · ${done.length}`}</Button>}
     </div>
     {showDone && <ul className="wants">{done.map(line)}</ul>}
   </section>;

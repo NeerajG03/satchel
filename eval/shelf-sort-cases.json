@@ -417,7 +417,13 @@
    "expect": {
     "profile": null,
     "topic": null,
-    "suggestions": []
+    "suggestions": [],
+    "facts": [
+     {
+      "label": "Parking",
+      "value": "B2, pillar 47"
+     }
+    ]
    }
   },
   {
@@ -498,7 +504,14 @@
    "expect": {
     "profile": "personal",
     "topic": null,
-    "suggestions": []
+    "suggestions": [],
+    "expenses": [
+     {
+      "shop": "rent",
+      "amount": null,
+      "currency": null
+     }
+    ]
    }
   },
   {
@@ -657,7 +670,13 @@
    "expect": {
     "profile": "personal",
     "topic": null,
-    "suggestions": []
+    "suggestions": [],
+    "facts": [
+     {
+      "label": "Parking",
+      "value": "Level P2 - Zone Blue - Slot 218"
+     }
+    ]
    }
   },
   {
@@ -669,7 +688,14 @@
    "expect": {
     "profile": null,
     "topic": null,
-    "suggestions": []
+    "suggestions": [],
+    "expenses": [
+     {
+      "shop": "Toit",
+      "amount": 3860,
+      "currency": "INR"
+     }
+    ]
    }
   },
   {
@@ -1037,6 +1063,214 @@
      {
       "list": "new",
       "title": "lemon orzo"
+     }
+    ]
+   }
+  },
+  {
+   "id": "e01",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "Uber receipt screenshot: trip from SFO to Mission District, San Francisco, 3 Nov 2026, total $23.40, paid with Visa.",
+   "expect": {
+    "profile": null,
+    "topic": null,
+    "suggestions": [],
+    "expenses": [
+     {
+      "shop": "Uber",
+      "amount": 23.4,
+      "currency": "USD"
+     }
+    ]
+   }
+  },
+  {
+   "id": "e02",
+   "kind": "photo",
+   "note": "work dinner",
+   "transcript": null,
+   "description": "A crumpled restaurant receipt from Meghana Foods, Koramangala. The bottom of the receipt is torn off, so the total is not visible.",
+   "expect": {
+    "profile": "work",
+    "topic": null,
+    "suggestions": [],
+    "expenses": [
+     {
+      "shop": "Meghana Foods",
+      "amount": null,
+      "currency": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "e03",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Just paid 450 for parking at the airport, need to claim that.",
+   "description": null,
+   "expect": {
+    "profile": null,
+    "topic": null,
+    "suggestions": [],
+    "expenses": [
+     {
+      "shop": "airport parking",
+      "amount": 450,
+      "currency": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "f01",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "IndiGo boarding pass: flight 6E 2134 Bengaluru to Goa, 12 Nov 2026, departs 06:40, seat 14C, PNR X7KQ2P.",
+   "expect": {
+    "profile": "personal",
+    "topic": "Goa trip",
+    "suggestions": [
+     {
+      "kind": "event",
+      "title": "Flight 6E 2134 to Goa",
+      "date": "2026-11-12",
+      "time": "06:40"
+     }
+    ],
+    "facts": [
+     {
+      "label": "Flight",
+      "value": "6E 2134"
+     },
+     {
+      "label": "Seat",
+      "value": "14C"
+     },
+     {
+      "label": "PNR",
+      "value": "X7KQ2P"
+     }
+    ]
+   }
+  },
+  {
+   "id": "f02",
+   "kind": "note",
+   "note": "my shoe size in Nike is UK 9, Adidas runs small so UK 9.5",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [],
+    "facts": [
+     {
+      "label": "Nike shoe size",
+      "value": "UK 9"
+     },
+     {
+      "label": "Adidas shoe size",
+      "value": "UK 9.5"
+     }
+    ]
+   }
+  },
+  {
+   "id": "x01",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "Screenshot of an SMS: 'Your OTP for HDFC NetBanking login is 482913. Do not share it with anyone.'",
+   "expect": {
+    "profile": null,
+    "topic": null,
+    "suggestions": [],
+    "secret": "482913"
+   }
+  },
+  {
+   "id": "x02",
+   "kind": "note",
+   "note": "home wifi: Gopal_Home, password Bluefin@2024",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [],
+    "facts": [
+     {
+      "label": "Home wifi",
+      "value": "Gopal_Home"
+     }
+    ],
+    "secret": "Bluefin@2024"
+   }
+  },
+  {
+   "id": "x03",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "Photo of the front of a credit card: HDFC Regalia, card number 4111 1111 1111 1111, valid thru 08/29.",
+   "expect": {
+    "profile": null,
+    "topic": null,
+    "suggestions": [],
+    "secret": "4111"
+   }
+  },
+  {
+   "id": "x04",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Remember the gate code for Ravi's apartment is 4590 hash.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [],
+    "secret": "4590"
+   }
+  },
+  {
+   "id": "u01",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Arun said he'll send me the updated deck by Friday.",
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Chase Arun for the updated deck",
+      "date": "2026-11-06",
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "u02",
+   "kind": "note",
+   "note": "Priya will share the signed contract by Monday",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Chase Priya for the signed contract",
+      "date": "2026-11-09",
+      "time": null
      }
     ]
    }
