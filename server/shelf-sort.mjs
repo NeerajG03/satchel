@@ -27,7 +27,26 @@ export const SORT_SCHEMA = z.object({
     words: z.string(),
   // Google refuses a schema that allows 40; a screenshot rarely shows more than 20 titles.
   })).max(20),
+  expenses: z.array(z.object({
+    shop: z.string(),
+    amount: z.number().nullable(),
+    currency: z.string().nullable(),
+    date: z.string().nullable(),
+    words: z.string(),
+  })).max(5),
+  facts: z.array(z.object({
+    label: z.string(),
+    value: z.string(),
+    words: z.string(),
+  })).max(10),
 });
+
+// Never kept as a fact, whatever the model says: a page of tap-to-copy secrets
+// is the one thing the Shelf must not become.
+const SECRET_LABEL = /pass ?(word|code|phrase)|\bpin\b|(door|gate|lock|alarm) ?code|\botp\b|one[- ]?time|verification code|security code|\bcvv|\bcvc|card (number|no)|account (number|no)|\biban\b|aadh?aar|\bpan\b|passport (number|no)|licen[cs]e (number|no)|\bssn\b|social security|api key|secret|token|private key|seed phrase|recovery (code|phrase)/i;
+const SECRET_VALUE = /\b(?:\d[ -]?){12,19}\b/;
+const CURRENCY_MARKS = {INR: /₹|\brs\.?\b|\binr\b|rupee/i, USD: /\$|\busd\b|dollar/i, EUR: /€|\beur\b|euro/i,
+  GBP: /£|\bgbp\b|pound/i, AED: /\baed\b|dirham/i, SGD: /\bsgd\b|s\$/i, JPY: /¥|\bjpy\b|\byen\b/i};
 
 const TRANSCRIBE = 'Write down exactly what is said in this voice note, word for word, in the language it is spoken. No summary, no labels, no commentary. If nothing is said, reply with nothing.';
 
@@ -78,6 +97,15 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /** What the model proposed, cut down to what is grounded and well formed. */
+/** Is this amount printed in the text, as 240, 240.00, 2,340 or 2340.5? */
+export function amountShown(text, amount) {
+  const digits = (text ?? '').replace(/(\d),(?=\d)/g, '$1');
+  const whole = Math.trunc(amount), cents = Math.round((amount - whole) * 100);
+  const forms = !cents ? [`${whole}`, `${whole}.00`, `${whole}.0`]
+    : cents % 10 ? [`${whole}.${String(cents).padStart(2, '0')}`] : [`${whole}.${String(cents).padStart(2, '0')}`, `${whole}.${cents / 10}`];
+  return forms.some(f => new RegExp(`(^|[^\\d.])${f.replace('.', '\\.')}($|[^\\d])`).test(digits));
+}
+
 export function settle(proposal, {item, topics = [], timezone}) {
   const haystack = squash([item.note, item.transcript, item.description].filter(Boolean).join(' '));
   const topic = Number.isInteger(proposal.topic) ? topics[proposal.topic - 1] ?? null : null;
@@ -111,6 +139,25 @@ export function settle(proposal, {item, topics = [], timezone}) {
     const list = (w.list ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);
     if (!title || !list || !squash(title) || !haystack.includes(squash(title))) continue;
     wants.push({list, title, detail: (w.detail ?? '').trim().slice(0, 200) || null, words: (w.words ?? '').trim().slice(0, 1000)});
+  }
+  const raw = [item.note, item.transcript, item.description].filter(Boolean).join(' ');
+  // A receipt keeps its amount only when that number is printed in the capture,
+  // and its currency only when the capture shows it: never a guess at either.
+  for (const e of proposal.expenses ?? []) {
+    const shop = (e.shop ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
+    if (!shop || !haystack.includes(squash(shop))) continue;
+    const amount = Number.isFinite(e.amount) && e.amount >= 0 && amountShown(raw, e.amount) ? e.amount.toFixed(2) : null;
+    const code = (e.currency ?? '').trim().toUpperCase();
+    const currency = CURRENCY_MARKS[code]?.test(raw) ? code : null;
+    const date = DATE.test(e.date ?? '') && !Number.isNaN(Date.parse(e.date)) ? e.date : null;
+    wants.push({kind: 'expense', title: shop, amount, currency, date, words: (e.words ?? '').trim().slice(0, 1000)});
+  }
+  for (const f of proposal.facts ?? []) {
+    const label = (f.label ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
+    const value = (f.value ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
+    if (!label || !value || !squash(value) || !haystack.includes(squash(value))) continue;
+    if (SECRET_LABEL.test(label) || SECRET_LABEL.test(f.words ?? '') || SECRET_VALUE.test(value)) continue;
+    wants.push({kind: 'fact', title: label, detail: value, words: (f.words ?? '').trim().slice(0, 1000)});
   }
   return {profile: proposal.profile ?? null, topic_id: topic?.id ?? null, suggestions, wants};
 }

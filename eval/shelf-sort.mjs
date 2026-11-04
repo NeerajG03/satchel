@@ -28,6 +28,7 @@ const sorter = createSorter({
 if (!sorter) { console.error('No model key: set GEMINI_API_KEY.'); process.exit(2); }
 
 const words = text => new Set((text ?? '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length >= 3));
+const squashed = t => (t ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
 const overlap = (a, b) => { const x = words(a), y = words(b); const both = [...x].filter(w => y.has(w)).length;
   return both / Math.max(1, Math.min(x.size, y.size)); };
 const dayOf = s => s.due_date ?? (s.starts_at ? new Intl.DateTimeFormat('en-CA', {timeZone: set.timezone}).format(new Date(s.starts_at)) : null);
@@ -35,7 +36,9 @@ const timeOf = s => s.starts_at ? new Intl.DateTimeFormat('en-GB', {timeZone: se
 
 const tally = {profileRight: 0, profileAsked: 0, nullGuessed: 0, nullCases: 0, topicRight: 0, topicCases: 0,
   expected: 0, got: 0, matched: 0, dateRight: 0, timeRight: 0, timeAsked: 0, quiet: 0, quietCases: 0, failed: 0,
-  wantsExpected: 0, wantsGot: 0, wantsMatched: 0, wantsListRight: 0, noWantCases: 0, noWantClean: 0};
+  wantsExpected: 0, wantsGot: 0, wantsMatched: 0, wantsListRight: 0, noWantCases: 0, noWantClean: 0,
+  spendExpected: 0, spendGot: 0, spendMatched: 0, amountRight: 0, currencyRight: 0,
+  factsExpected: 0, factsGot: 0, factsMatched: 0, secretCases: 0, secretsKept: 0};
 const misses = [];
 for (const c of set.cases) {
   const item = {kind: c.kind, note: c.note ?? '', transcript: c.transcript ?? null, description: c.description ?? null};
@@ -59,8 +62,40 @@ for (const c of set.cases) {
   }
   for (const extra of left) if (e.suggestions.length) misses.push(`${c.id} extra ${extra.kind} "${extra.title}"`);
   // List lines: matched on the title alone, then checked for the right list.
+  const lines = out.wants ?? [];
+  // Receipts: matched on the shop, then the amount and currency checked exactly (null means "not printed").
+  const spentWant = e.expenses ?? [], spentGot = lines.filter(w => w.kind === 'expense');
+  tally.spendExpected += spentWant.length; tally.spendGot += spentGot.length;
+  const spentLeft = [...spentGot];
+  for (const want of spentWant) {
+    const i = spentLeft.findIndex(g => overlap(g.title, want.shop) >= 0.5);
+    if (i < 0) { misses.push(`${c.id} missed expense "${want.shop}"`); continue; }
+    const got = spentLeft.splice(i, 1)[0];
+    tally.spendMatched++;
+    const amount = got.amount == null ? null : Number(got.amount);
+    if (amount === want.amount) tally.amountRight++; else misses.push(`${c.id} "${want.shop}" amount ${amount} ≠ ${want.amount}`);
+    if ((got.currency ?? null) === want.currency) tally.currencyRight++; else misses.push(`${c.id} "${want.shop}" currency ${got.currency} ≠ ${want.currency}`);
+  }
+  for (const extra of spentLeft) misses.push(`${c.id} extra expense "${extra.title}" ${extra.amount}`);
+  // Facts: matched on the value.
+  const factWant = e.facts ?? [], factGot = lines.filter(w => w.kind === 'fact');
+  tally.factsExpected += factWant.length; tally.factsGot += factGot.length;
+  const factLeft = [...factGot];
+  for (const want of factWant) {
+    const i = factLeft.findIndex(g => overlap(g.detail, want.value) >= 0.5 || squashed(g.detail).includes(squashed(want.value)));
+    if (i < 0) { misses.push(`${c.id} missed fact "${want.label}: ${want.value}"`); continue; }
+    factLeft.splice(i, 1); tally.factsMatched++;
+  }
+  for (const extra of factLeft) misses.push(`${c.id} extra fact "${extra.title}: ${extra.detail}"`);
+  // A secret in the capture must not appear on any line.
+  if (e.secret) {
+    tally.secretCases++;
+    if (lines.some(w => [w.title, w.detail].some(t => (t ?? '').replace(/\s/g, '').includes(e.secret)))) {
+      tally.secretsKept++; misses.push(`${c.id} KEPT A SECRET`);
+    }
+  }
   const wanted = e.wants ?? [];
-  const gotWants = [...(out.wants ?? [])];
+  const gotWants = lines.filter(w => !w.kind || w.kind === 'item');
   tally.wantsExpected += wanted.length; tally.wantsGot += gotWants.length;
   if (!wanted.length) { tally.noWantCases++; if (!gotWants.length) tally.noWantClean++; else misses.push(`${c.id} should add no lines, got: ${gotWants.map(w => w.title).join('; ')}`); }
   for (const want of wanted) {
@@ -89,5 +124,12 @@ console.log(`list lines found           ${pct(tally.wantsMatched, tally.wantsExp
 console.log(`list lines right           ${pct(tally.wantsMatched, tally.wantsGot)}`);
 console.log(`on the right list          ${pct(tally.wantsListRight, tally.wantsMatched)}`);
 console.log(`no lines when none meant   ${pct(tally.noWantClean, tally.noWantCases)}`);
+console.log(`expenses found             ${pct(tally.spendMatched, tally.spendExpected)}`);
+console.log(`expenses right             ${pct(tally.spendMatched, tally.spendGot)}`);
+console.log(`amount right, of found     ${pct(tally.amountRight, tally.spendMatched)}`);
+console.log(`currency right, of found   ${pct(tally.currencyRight, tally.spendMatched)}`);
+console.log(`facts found                ${pct(tally.factsMatched, tally.factsExpected)}`);
+console.log(`facts right                ${pct(tally.factsMatched, tally.factsGot)}`);
+console.log(`secrets kept (must be 0)   ${tally.secretsKept} of ${tally.secretCases}`);
 console.log(`dropped by the checks      ${proposed - tally.got} of ${proposed} proposed (words not in the capture, or an event with no day)`);
 if (args.includes('--misses')) console.log('\n' + misses.join('\n'));

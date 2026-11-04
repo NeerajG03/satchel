@@ -74,6 +74,36 @@ test('drops become list lines, merged by title, ticked, moved and gone with thei
       assert.match(await hint(save(bob, first, [{list: 'books', title: 'Mine', words: 'm'}])), /gone:shelf_item/);
     });
 
+    await t.test('receipts and facts are lines too: one per shop, amount and day; one per label and value', async () => {
+      const r1 = '40000000-0000-4000-8000-0000000000d1', r2 = '40000000-0000-4000-8000-0000000000d2';
+      for (const id of [r1, r2]) await as(alice, 'select * from add_shelf_item($1,$2,$3,$4,$5,$6)', [id, 'note', `receipt ${id}`, null, null, null]);
+      await save(alice, r1, [
+        {kind: 'expense', title: 'Third Wave Coffee', amount: '240.00', currency: 'INR', date: '2026-11-04', words: '240'},
+        {kind: 'expense', title: 'Uber', amount: null, currency: null, date: '2026-11-04', words: 'uber'},
+        {kind: 'fact', title: 'Parking', detail: 'Level 2, pillar C14', words: 'C14'},
+        {kind: 'expense', title: 'Bad', amount: '12abc', currency: 'rupees', date: 'today', words: 'x'}]);
+      await save(alice, r2, [
+        {kind: 'expense', title: 'Third Wave Coffee', amount: '240.00', currency: 'INR', date: '2026-11-05', words: '240'},
+        {kind: 'fact', title: 'Parking', detail: 'Level 4, pillar A2', words: 'A2'}]);
+      const all = await lines(alice);
+      const spent = all.filter(l => l.kind === 'expense');
+      assert.equal(spent.length, 4);
+      assert.ok(spent.every(l => l.list === 'Expenses'));
+      assert.equal(spent.filter(l => l.title === 'Third Wave Coffee').length, 2, 'two days, two coffees');
+      assert.equal(spent.find(l => l.title === 'Uber').amount, null, 'no amount is never a guess');
+      assert.equal(spent.find(l => l.title === 'Bad').amount, null, 'a malformed amount is dropped, not read');
+      assert.equal(spent.find(l => l.title === 'Bad').currency, null);
+      const facts = all.filter(l => l.kind === 'fact');
+      assert.deepEqual(facts.map(l => [l.list, l.detail]).sort(), [['Good to know', 'Level 2, pillar C14'], ['Good to know', 'Level 4, pillar A2']]);
+      const coffee = spent[0];
+      assert.match(await hint(as(alice, 'select move_shelf_want($1,$2)', [coffee.id, 'Books'])), /invalid:want/, 'an expense stays on Expenses');
+      const book = all.find(l => l.kind === 'item');
+      assert.match(await hint(as(alice, 'select move_shelf_want($1,$2)', [book.id, 'expenses'])), /invalid:want/, 'a book never lands on Expenses');
+      await as(alice, 'select set_shelf_want($1,$2)', [coffee.id, 'done']);
+      for (const id of [r1, r2]) await as(alice, 'select * from remove_shelf_item($1)', [id]);
+      assert.equal((await lines(alice)).filter(l => l.kind !== 'item').length, 0);
+    });
+
     await t.test('undo on a drop takes the lines only it made; removing the last drop takes the rest', async () => {
       await as(alice, 'select undo_shelf_wants($1)', [first]);
       const left = await lines(alice);

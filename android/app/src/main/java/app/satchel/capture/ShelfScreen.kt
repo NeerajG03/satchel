@@ -450,18 +450,30 @@ private fun ListCard(name: String, lines: List<ListLine>, names: List<String>, i
     val done = lines.filter { it.status == "done" }
     var showDone by remember(name) { mutableStateOf(false) }
     var openLine by remember(name) { mutableStateOf<String?>(null) }
-    Card(name, "${open.size} to go${if (done.isNotEmpty()) " · ${done.size} done" else ""}") {
+    val kind = lines.firstOrNull()?.kind ?: "item"
+    val doneWord = if (kind == "expense") "claimed" else "done"
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    Card(name, if (kind == "fact") "Tap Copy to use one" else
+        "${open.size} ${if (kind == "expense") "to claim" else "to go"}${if (done.isNotEmpty()) " · ${done.size} $doneWord" else ""}") {
         (open + if (showDone) done else emptyList()).forEach { line ->
             Column {
                 Row(Modifier.fillMaxWidth().clickable { openLine = if (openLine == line.id) null else line.id }
                     .padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(line.status == "done", { on -> onRun { reader.tick(line.id, on); if (on) "Done: ${line.title}" else "Back on $name" } },
+                    if (kind == "fact") TextButton({
+                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(line.detail ?: ""))
+                        onRun { "Copied ${line.title}" }
+                    }) { Text("Copy", color = InkText) }
+                    else Checkbox(line.status == "done", { on -> onRun { reader.tick(line.id, on); if (on) "${doneWord.replaceFirstChar { it.uppercase() }}: ${line.title}" else "Back on $name" } },
                         colors = CheckboxDefaults.colors(checkedColor = Ink))
                     Column(Modifier.weight(1f)) {
-                        Text(line.title, fontFamily = FontFamily.Serif, fontSize = 17.sp,
+                        if (kind == "fact") Text(line.title.uppercase(), color = Muted, fontSize = 11.sp, letterSpacing = 1.sp)
+                        Text(if (kind == "fact") line.detail ?: "" else line.title,
+                            fontFamily = if (kind == "fact") FontFamily.Monospace else FontFamily.Serif, fontSize = 17.sp,
                             color = if (line.status == "done") Muted else InkText,
                             textDecoration = if (line.status == "done") androidx.compose.ui.text.style.TextDecoration.LineThrough else null)
-                        line.detail?.let { Text(it, color = Muted, fontSize = 13.sp) }
+                        if (kind == "expense") Text(listOfNotNull(moneyOf(line), line.spentOn?.let(::dayOf), if (line.profile == "work") "WORK" else null)
+                            .joinToString(" · "), color = Muted, fontSize = 13.sp)
+                        else if (kind == "item") line.detail?.let { Text(it, color = Muted, fontSize = 13.sp) }
                     }
                 }
                 if (openLine == line.id) Column(Modifier.padding(start = 48.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -470,7 +482,7 @@ private fun ListCard(name: String, lines: List<ListLine>, names: List<String>, i
                             color = Muted, fontSize = 13.sp)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        names.filter { it != name }.take(3).forEach { other ->
+                        if (kind == "item") names.filter { it != name && it.lowercase() !in setOf("expenses", "good to know") }.take(3).forEach { other ->
                             Text("→ $other", color = InkText, fontSize = 13.sp, modifier = Modifier.clip(RoundedCornerShape(8.dp))
                                 .background(Paper).clickable { onRun { reader.moveLine(line.id, other); "Moved to $other" } }
                                 .padding(horizontal = 10.dp, vertical = 8.dp))
@@ -483,4 +495,12 @@ private fun ListCard(name: String, lines: List<ListLine>, names: List<String>, i
         }
         if (done.isNotEmpty()) TextButton({ showDone = !showDone }) { Text(if (showDone) "Hide done" else "Show done (${done.size})", color = Muted) }
     }
+}
+
+/** An amount as printed: ₹2,340.00, $23.40, or the bare number when no currency was shown. */
+private fun moneyOf(line: ListLine): String {
+    val n = line.amount?.toBigDecimalOrNull() ?: return "amount?"
+    return runCatching {
+        java.text.NumberFormat.getCurrencyInstance().apply { currency = java.util.Currency.getInstance(line.currency!!) }.format(n)
+    }.getOrElse { java.text.DecimalFormat("#,##0.00").format(n) }
 }
