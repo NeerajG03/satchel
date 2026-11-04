@@ -149,17 +149,23 @@ export async function handleShelf(req, res, {embedder, describer, sorter = null,
   // never started and cut off.
   const deadline = Date.now() + REQUEST_MS;
   const left = (reserve = 0) => deadline - Date.now() - reserve;
-  const download = async item => {
-    const {data: file, error: fileError} = await db.storage.from('shelf').download(item.object_path);
+  // A file has to be the size its row says: the row's size is what the browser
+  // said, capped at 20 MB by the table, and the file is what arrived.
+  const download = async (path, size) => {
+    const {data: file, error: fileError} = await db.storage.from('shelf').download(path);
     if (fileError || !file) throw fileError ?? Error('No file');
-    // The row's size is what the browser said, capped at 20 MB by the table.
-    // The file is what arrived, and it has to be that size.
-    if (file.size !== item.size_bytes) throw Error('File does not match its row');
+    if (file.size !== size) throw Error('File does not match its row');
     return new Uint8Array(await file.arrayBuffer());
   };
-  const transcribe = (item, bytes) => item.kind === 'voice' && sorter && left(SORT_MS) > MIN_CALL_MS
-    ? sorter.transcribe({bytes, mimeType: item.mime_type, timeoutMs: left(SORT_MS)}).catch(() => null)
-    : null;
+  // The person's own words, spoken: a voice note itself, or one said about a photo.
+  const spoken = item => item.kind === 'voice' ? {path: item.object_path, size: item.size_bytes, mime: item.mime_type}
+    : item.voice_path ? {path: item.voice_path, size: item.voice_size, mime: item.voice_mime} : null;
+  const transcribe = async item => {
+    const voice = spoken(item);
+    if (!voice || !sorter || left(SORT_MS) <= MIN_CALL_MS) return null;
+    const bytes = await download(voice.path, voice.size).catch(() => null);
+    return bytes ? sorter.transcribe({bytes, mimeType: voice.mime, timeoutMs: left(SORT_MS)}).catch(() => null) : null;
+  };
   const sort = (item, description, transcript) => sorter && left() > MIN_CALL_MS
     ? sortItem(db, sorter, {item, description, transcript, timeoutMs: left(2000),
         calendar: calendar ? timezone => calendar(db, timezone) : null}).catch(() => null)
@@ -173,7 +179,7 @@ export async function handleShelf(req, res, {embedder, describer, sorter = null,
       return send(res, 409, {error: 'This one is not ready to sort, or is already sorted. Reload the Shelf.'});
     if (!sorter) return send(res, 503, {error: 'Sorting is not set up on this server.'});
     let transcript = item.transcript;
-    if (!transcript && item.kind === 'voice') transcript = await transcribe(item, await download(item).catch(() => null));
+    if (!transcript && spoken(item)) transcript = await transcribe(item);
     const sorted = await sort(item, item.description, transcript);
     if (!sorted) return send(res, 502, {error: 'Satchel could not sort this one. Try again in a minute.'});
     return send(res, 200, {id: item.id, profile: sorted.profile, suggestions: sorted.suggestions, transcript});
@@ -189,12 +195,15 @@ export async function handleShelf(req, res, {embedder, describer, sorter = null,
   try {
     if (item.kind !== 'note') {
       if (!describer) throw Error('No model configured');
-      const bytes = await download(item);
       // A voice note is its words: written down once, they are what is shown,
       // searched and remembered. A summary is only asked for when that fails.
-      transcript = await transcribe(item, bytes);
-      if (!transcript) description = await describer.describe({bytes, mimeType: item.mime_type, note: item.note,
-        timeoutMs: Math.max(MIN_CALL_MS, left(EMBED_MS))});
+      transcript = await transcribe(item);
+      if (item.kind === 'photo' || !transcript) {
+        const bytes = await download(item.object_path, item.size_bytes);
+        // What they said about a photo is the context it is read with.
+        const note = [item.note, transcript].map(t => (t ?? '').trim()).filter(Boolean).join('\n');
+        description = await describer.describe({bytes, mimeType: item.mime_type, note, timeoutMs: Math.max(MIN_CALL_MS, left(EMBED_MS))});
+      }
     }
     const vector = await embedder.embedOne(shelfText({note: item.note, description, transcript}));
     const {data: done, error: saveError} = await db.rpc('describe_shelf_item', {

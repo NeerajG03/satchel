@@ -112,6 +112,34 @@ test('the shelf is its owner’s alone, and only from the web app', async t => {
       assert.equal((await as(alice, "select name from storage.objects where bucket_id = 'shelf'")).length, 1);
     });
 
+    await t.test('a photo can carry one voice note: stored with it, uploaded while waiting, handed back on remove', async () => {
+      const pic = '40000000-0000-4000-8000-0000000000a1';
+      const voicePath = `${alice}/${pic}-voice.m4a`;
+      await as(alice, 'select * from add_shelf_item($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [pic, 'photo', '', `${alice}/${pic}.jpg`, 'image/jpeg', 900, voicePath, 'audio/mp4', 300]);
+      const [again] = await as(alice, 'select * from add_shelf_item($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [pic, 'photo', '', `${alice}/${pic}.jpg`, 'image/jpeg', 900, voicePath, 'audio/mp4', 300]);
+      assert.equal(again.id, pic, 'a retry hands back the same row');
+      assert.match(await hint(as(alice, 'select * from add_shelf_item($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [pic, 'photo', '', `${alice}/${pic}.jpg`, 'image/jpeg', 900, null, null, null])), /shelf_request/, 'dropping the voice is a different thing');
+      const put = name => as(alice, "insert into storage.objects(bucket_id,name) values ('shelf',$1)", [name]);
+      await put(voicePath);
+      const [listed] = await as(alice, 'select voice_path from list_shelf_items(50) where id = $1', [pic]);
+      assert.equal(listed.voice_path, voicePath);
+      const [claimed] = await as(alice, 'select * from claim_shelf_item($1)', [pic]);
+      assert.deepEqual([claimed.voice_mime, claimed.voice_size], ['audio/mp4', 300]);
+      const [gone] = await as(alice, 'select * from remove_shelf_item($1)', [pic]);
+      assert.deepEqual([gone.object_path, gone.voice_path], [`${alice}/${pic}.jpg`, voicePath]);
+    });
+
+    await t.test('a voice note rides only a photo, and only from your own folder', async () => {
+      const n = '40000000-0000-4000-8000-0000000000a2';
+      assert.notEqual(await hint(as(alice, 'select * from add_shelf_item($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [n, 'note', 'hello', null, null, null, `${alice}/${n}-voice.m4a`, 'audio/mp4', 300])), 'no error');
+      assert.match(await hint(as(alice, 'select * from add_shelf_item($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [n, 'photo', '', `${alice}/${n}.jpg`, 'image/jpeg', 900, `${bob}/${n}-voice.m4a`, 'audio/mp4', 300])), /shelf_path/);
+    });
+
     await t.test('removing hands back the file path for the Storage API', async () => {
       const [gone] = await as(alice, 'select * from remove_shelf_item($1)', [photo]);
       assert.equal(gone.object_path, `${alice}/${photo}.jpg`);

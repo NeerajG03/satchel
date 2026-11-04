@@ -24,6 +24,8 @@ val InkText = Color(0xFF1F1B17)
 val Muted = Color(0xFF6B6257)
 val Orange = Color(0xFFE4571E)
 val Red = Color(0xFFA82720)
+val Green = Color(0xFF2E7A4A)
+val Line = Color(0xFFD9D1C4)
 
 @Composable
 fun SatchelTheme(content: @Composable () -> Unit) = MaterialTheme(
@@ -32,7 +34,7 @@ fun SatchelTheme(content: @Composable () -> Unit) = MaterialTheme(
     content = content,
 )
 
-/** Sign-in, what is still waiting to send, and the three ways to capture. Reading and searching stay on the web. */
+/** Sign-in, then the Shelf: what waits for a yes, the week ahead, everything dropped, and the key that opens capture. */
 class MainActivity : ComponentActivity() {
     private var signedIn by mutableStateOf(false)
     private var message by mutableStateOf<String?>(null)
@@ -77,49 +79,26 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun Home() {
+        if (signedIn) {
+            val stuck = waiting.filter { it.problem != null }
+            ShelfScreen(app.reader, unsent = waiting.size - stuck.size, stuck = stuck,
+                onClearStuck = { stuck.forEach(app.queue::remove); refresh() },
+                onCapture = { startActivity(CaptureActivity.intent(this, it)) },
+                onSignOut = {
+                    stopSending(); app.queue.clear()
+                    lifecycleScope.launch { app.auth.signOutEverywhere() }
+                    refresh(); signedIn = false
+                })
+            return
+        }
         Column(Modifier.fillMaxSize().background(Paper).statusBarsPadding().navigationBarsPadding().padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("satchel", fontFamily = FontFamily.Cursive, fontSize = 34.sp, color = InkText)
             Text("Drop it here, find it later.", fontFamily = FontFamily.Serif, fontSize = 24.sp, color = InkText)
             message?.let { Text(it, color = if (it.endsWith("…")) Muted else Red) }
-            if (!signedIn) {
-                Text("Sign in with the account you use for Satchel. Your Shelf stays yours: only you can see it.", color = Muted)
-                Button({ app.auth.startSignIn(this@MainActivity, "google") }, Modifier.fillMaxWidth().height(52.dp)) { Text("Continue with Google") }
-                TextButton({ app.auth.startSignIn(this@MainActivity, "github") }) { Text("Use GitHub instead", color = Muted) }
-                return@Column
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                for ((label, mode) in listOf("Photo" to "photo", "Voice" to "voice", "Note" to "note"))
-                    Button({ startActivity(CaptureActivity.intent(this@MainActivity, mode)) }, Modifier.weight(1f).height(56.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Ink, contentColor = Paper)) { Text(label) }
-            }
-            Text(
-                "For one tap from anywhere, add the Satchel widget to your home screen, or the Satchel tile to Quick Settings.",
-                color = Muted, fontSize = 14.sp,
-            )
-            Surface(color = Paper2, shape = MaterialTheme.shapes.medium) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    val stuck = waiting.filter { it.problem != null }
-                    Text(when {
-                        waiting.isEmpty() -> "Everything you saved is on your Shelf."
-                        stuck.size == waiting.size -> "${stuck.size} could not be sent."
-                        else -> "${waiting.size - stuck.size} waiting to send. They go as soon as there is a connection."
-                    }, color = InkText)
-                    stuck.forEach { Text("· ${it.kind}: ${it.problem}", color = Red, fontSize = 13.sp) }
-                    if (stuck.isNotEmpty()) TextButton({ stuck.forEach(app.queue::remove); refresh() }) { Text("Clear these") }
-                }
-            }
-            OutlinedButton({ startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("${BuildConfig.SATCHEL_URL}/shelf"))) },
-                Modifier.fillMaxWidth()) { Text("Open your Shelf", color = InkText) }
-            Spacer(Modifier.weight(1f))
-            val unsent = waiting.count { it.problem == null }
-            TextButton({
-                stopSending(); app.queue.clear()
-                lifecycleScope.launch { app.auth.signOutEverywhere() }
-                refresh(); signedIn = false
-            }) {
-                Text(if (unsent > 0) "Sign out (removes $unsent not yet sent)" else "Sign out", color = Muted)
-            }
+            Text("Sign in with the account you use for Satchel. Your Shelf stays yours: only you can see it.", color = Muted)
+            Button({ app.auth.startSignIn(this@MainActivity, "google") }, Modifier.fillMaxWidth().height(52.dp)) { Text("Continue with Google") }
+            TextButton({ app.auth.startSignIn(this@MainActivity, "github") }) { Text("Use GitHub instead", color = Muted) }
         }
     }
 }

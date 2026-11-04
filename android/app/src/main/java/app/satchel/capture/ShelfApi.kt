@@ -45,6 +45,8 @@ class ShelfApi(
             .put("p_object_path", item.objectPath ?: JSONObject.NULL)
             .put("p_mime_type", item.mime ?: JSONObject.NULL)
             .put("p_size_bytes", item.size ?: JSONObject.NULL)
+        // Only sent when there is one, so the call stays the one the database has always taken.
+        if (item.voicePath != null) body.put("p_voice_path", item.voicePath).put("p_voice_mime", item.voiceMime).put("p_voice_size", item.voiceSize)
         val request = supabase("/rest/v1/rpc/add_shelf_item", it)
             .post(body.toString().toRequestBody(json)).build()
         http.newCall(request).execute().use { response ->
@@ -62,11 +64,11 @@ class ShelfApi(
     }
 
     /** Streams the file from the phone's storage rather than holding it in memory. */
-    suspend fun upload(item: QueuedItem, file: File): Step = call {
-        val path = item.objectPath ?: return@call Step.Done
+    suspend fun upload(path: String?, mime: String?, file: File): Step = call {
+        if (path == null || mime == null) return@call Step.Done
         val request = supabase("/storage/v1/object/shelf/$path", it)
             .header("x-upsert", "false")
-            .post(file.asRequestBody(item.mime!!.toMediaType())).build()
+            .post(file.asRequestBody(mime.toMediaType())).build()
         http.newCall(request).execute().use { response ->
             // Storage answers most failures as a 400 with the real status in the body.
             val error = errorOf(response.body.string())
