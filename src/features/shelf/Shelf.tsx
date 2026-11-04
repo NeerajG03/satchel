@@ -16,8 +16,11 @@ import { Segments } from '../../ui/Segments';
 import { Suggestions } from './Suggestions';
 import { ComingUp } from './ComingUp';
 import { Lists } from './Lists';
+import { VoiceKey } from './VoiceKey';
+import { CardMenu } from './CardMenu';
 
 const KIND_LABEL = { note: 'note', photo: 'photo', voice: 'voice note' } as const;
+const KIND_SHORT = { note: 'note', photo: 'photo', voice: 'voice' } as const;
 const TYPES: { key: ShelfKind | 'all'; label: string }[] = [
   { key: 'all', label: 'Everything' }, { key: 'photo', label: 'Photos' }, { key: 'voice', label: 'Voice notes' }, { key: 'note', label: 'Notes' }];
 type ProfileView = ProfileKind | 'all';
@@ -116,6 +119,8 @@ export function Shelf() {
   const searchBox = useRef<HTMLInputElement>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: string; note: string } | null>(null);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const toggleExpanded = (id: string) => setExpanded(set => { const next = new Set(set); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const [query, setQuery] = useState('');
   const [found, setFound] = useState<ShelfItem[] | null>(null);
   const search = useAction('action');
@@ -268,36 +273,44 @@ export function Shelf() {
     announce('Taken off your lists');
   }
 
-  function card(item: ShelfItem) { const status = statusOf(item); return <article className="shelf-card shelf-item" key={item.id}>
-      {item.kind === 'photo' && item.object_path && (urls[item.object_path]
-        ? <img className="shelf-photo" loading="lazy" decoding="async" src={urls[item.object_path]} alt={item.description ?? 'A photo on your Shelf'} />
-        : <div className="shelf-photo placeholder" aria-hidden="true" />)}
-      {item.kind === 'voice' && item.object_path && urls[item.object_path] &&
-        <audio controls preload="none" src={urls[item.object_path]} aria-label="Play this voice note" />}
-      {item.voice_path && urls[item.voice_path] &&
-        <audio controls preload="none" src={urls[item.voice_path]} aria-label="Play what you said about this photo" />}
+  function card(item: ShelfItem) {
+    const status = statusOf(item);
+    const voice = item.kind === 'voice' ? item.object_path : item.voice_path;
+    const words = item.transcript ? `“${item.transcript}”` : item.description;
+    const long = (words?.length ?? 0) > 220;
+    const busy = act.busy && failedOn === item.id;
+    return <article className="shelf-card shelf-item" key={item.id}>
+      {item.kind === 'photo' && item.object_path && <div className="shelf-photo-wrap">
+        {urls[item.object_path]
+          ? <img className="shelf-photo" loading="lazy" decoding="async" src={urls[item.object_path]} alt={item.description ?? 'A photo on your Shelf'} />
+          : <div className="shelf-photo placeholder" aria-hidden="true" />}
+        {voice && urls[voice] && <VoiceKey overlay src={urls[voice]} label="Hear what you said about this photo" />}
+      </div>}
+      {item.kind === 'voice' && voice && urls[voice] && <VoiceKey src={urls[voice]} label="Play this voice note" />}
       {item.note && <h2 className="title">{item.note}</h2>}
-      {item.transcript && <blockquote className="transcript">“{item.transcript}”</blockquote>}
-      {item.description && !item.transcript && <p className={item.note ? 'muted' : 'title'}>{item.description}</p>}
-      {linesOf.has(item.id) && <p className="fine">Added to {[...linesOf.get(item.id)!].map(([list, n]) =>
+      {words && <p className={`${item.transcript ? 'transcript' : item.note ? 'muted' : 'title'}${long && !expanded.has(item.id) ? ' clamped' : ''}`}>{words}</p>}
+      {long && <button type="button" className="more-words" onClick={() => toggleExpanded(item.id)}>
+        {expanded.has(item.id) ? 'Less' : 'More'}</button>}
+      {linesOf.has(item.id) && <p className="fine">On {[...linesOf.get(item.id)!].map(([list, n]) =>
         `${list} (${n})`).join(', ')} · <Button look="link" small disabled={act.busy}
         onClick={() => void undoLines(item)}>Undo</Button></p>}
-      <Provenance parts={[KIND_LABEL[item.kind], item.topic_name, profile === 'all' && item.profile ? PROFILE_LABEL[item.profile] : null, status.label]} at={item.created_at} />
-      <div className="actions">
-        <label className="visually-hidden" htmlFor={`profile-${item.id}`}>Profile</label>
-        <select id={`profile-${item.id}`} className="field compact" value={item.profile ?? ''} disabled={act.busy && failedOn === item.id}
-          onChange={event => void moveTo(item, (event.target.value || null) as ShelfItem['profile'])}>
-          <option value="">No profile</option>
-          <option value="work">Work</option>
-          <option value="personal">Personal</option>
-        </select>
-        {item.status === 'ready' && !item.sorted_at && <Button small disabled={act.busy && failedOn === item.id}
-          onClick={() => void sortNow(item)}>Look for to-dos</Button>}
-        {status.retry && <Button small onClick={() => void read(item)}>Try reading it again</Button>}
-        {(item.status === 'ready' || item.status === 'failed') && editing?.id !== item.id && <Button small disabled={act.busy}
-          onClick={() => setEditing({ id: item.id, note: item.note })}>{item.note ? 'Edit note' : 'Add a note'}</Button>}
-        <Button look="quiet" small disabled={act.busy} aria-expanded={removing === item.id}
-          onClick={() => setRemoving(removing === item.id ? null : item.id)}>Remove</Button>
+      <div className="card-foot">
+        <Provenance parts={[KIND_SHORT[item.kind], item.topic_name, profile === 'all' && item.profile ? PROFILE_LABEL[item.profile] : null, status.label]} at={item.created_at} />
+        {status.retry && <Button look="link" small onClick={() => void read(item)}>Try again</Button>}
+        {(item.status === 'ready' || item.status === 'failed') && <button type="button" className="icon-key" disabled={busy}
+          aria-label={item.note ? 'Edit the note' : 'Add a note'} aria-expanded={editing?.id === item.id}
+          onClick={() => setEditing(editing?.id === item.id ? null : { id: item.id, note: item.note })}>
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 11.5V13h1.5l6.8-6.8-1.5-1.5zM12.6 4.9l-1.5-1.5 1-1 1.5 1.5z" /></svg>
+        </button>}
+        <CardMenu label="More for this one">{close => <>
+          {(['work', 'personal', null] as ShelfItem['profile'][]).map(p => <button type="button" key={p ?? 'none'}
+            aria-pressed={item.profile === p} disabled={busy || item.profile === p}
+            onClick={() => { close(); void moveTo(item, p); }}>{p ? `Move to ${PROFILE_LABEL[p]}` : 'No profile'}</button>)}
+          {item.status === 'ready' && !item.sorted_at && <button type="button" disabled={busy}
+            onClick={() => { close(); void sortNow(item); }}>Look for to-dos</button>}
+          <button type="button" className="danger" disabled={act.busy}
+            onClick={() => { close(); setRemoving(item.id); }}>Remove…</button>
+        </>}</CardMenu>
       </div>
       {editing?.id === item.id && <form className="stack-tight" onSubmit={event => { event.preventDefault(); void saveNote(item, editing.note); }}>
         <TextArea label="Note" limit={SHELF_LIMITS.note} rows={3} value={editing.note} disabled={act.busy}
@@ -305,7 +318,7 @@ export function Shelf() {
         <div className="actions">
           <Button small onClick={() => setEditing(null)} disabled={act.busy}>Cancel</Button>
           <Button small look="primary" type="submit" disabled={act.busy || (item.kind === 'note' && !editing.note.trim())}>
-            {act.busy && failedOn === item.id ? 'Saving…' : 'Save note'}</Button>
+            {busy ? 'Saving…' : 'Save note'}</Button>
         </div>
       </form>}
       {removing === item.id && <div className="notice" role="group" aria-label="Remove this from your Shelf?">
@@ -318,7 +331,8 @@ export function Shelf() {
       </div>}
       {readErrors[item.id] && <SaveError title="Could not read this." message={readErrors[item.id]} />}
       {act.error && failedOn === item.id && <SaveError title="Could not change this." message={act.error} />}
-    </article>; }
+    </article>;
+  }
 
   return <>
     <div className="head">

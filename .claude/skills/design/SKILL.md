@@ -40,6 +40,17 @@ Everything under `design/mockup/`, `design/prototype/` and `design/archive/` is 
 
 **Routing.** Every destination and detail page has a real URL. Back and refresh must work. Scope lives in the `?scope=me|topic:<id>` query, see `src/app/scope.ts`.
 
+## The Shelf
+
+The Shelf is a shelf: things the person dropped, resting side by side. The rules from 5 Nov (`design/decisions.md`):
+
+- **The object is the card.** A photo, the words (clamped to four lines, then More), a voice note as its round play key and length. Nothing else above the bottom line.
+- **One quiet bottom line.** Kind, topic and time as provenance; the profile only when All is picked. Then two icon keys: ✎ (note) and ⋯ (move to Work or Personal, look for to-dos, remove). Icon keys are faint at rest, clear on hover or focus, always shown on touch, and each has an `aria-label`.
+- **No form controls on a card at rest.** No select, no row of buttons. Anything done now and then goes in ⋯. A confirm (Remove) opens in place.
+- **Voice is a key, never the browser's audio player.** `VoiceKey`: hardware-dark round key, orange while playing, a thin line that fills, the length in mono. One plays at a time.
+- **One board.** List blocks and loose drops share one column-filled board, so nothing short sits under something tall. Lists are blocks (tick, title, detail under it; tap the title for source, move, remove), named by Satchel, never typed in.
+- **The phone app follows the same rules** in Compose: same card, same keys, same board order.
+
 ## Not in v1
 
 Dark theme, phone layouts, Skills, Resume buttons, correction history view, account delete. Do not add them without a new decision row.
