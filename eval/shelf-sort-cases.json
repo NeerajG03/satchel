@@ -1,164 +1,1059 @@
 {
-  "capture_time": "2026-11-04T15:30:00+05:30",
-  "timezone": "Asia/Kolkata",
-  "topics": [
-    {"name": "Release", "profile": "work"},
-    {"name": "Pricing", "profile": "work"},
-    {"name": "Hiring", "profile": "work"},
-    {"name": "Satchel", "profile": "personal"},
-    {"name": "Goa trip", "profile": "personal"},
-    {"name": "Knee rehab", "profile": "personal"}
-  ],
-  "cases": [
-    {"id": "s01", "kind": "voice", "note": "", "transcript": "Okay so Arun just pinged, the release is moving to Friday. Which means we have to cut the release branch tomorrow morning, before ten. I'll do that first thing.", "description": null,
-      "expect": {"profile": "work", "topic": "Release", "suggestions": [
-        {"kind": "todo", "title": "Cut the release branch", "date": "2026-11-05", "time": "10:00"},
-        {"kind": "event", "title": "Release", "date": "2026-11-06", "time": null}]}},
-
-    {"id": "s02", "kind": "voice", "note": "", "transcript": "Mom's birthday is on the 12th. I need to order the cake by the 10th, the chocolate one from Lavonne that she likes. Don't forget this time.", "description": null,
-      "expect": {"profile": "personal", "topic": null, "suggestions": [
-        {"kind": "todo", "title": "Order Lavonne cake for Mom", "date": "2026-11-10", "time": null},
-        {"kind": "event", "title": "Mom's birthday", "date": "2026-11-12", "time": null}]}},
-
-    {"id": "s03", "kind": "voice", "note": "", "transcript": "Landlord called, he says he wants to raise the rent by like ten percent from January. Ugh. Not happy about it at all.", "description": null,
-      "expect": {"profile": "personal", "topic": null, "suggestions": []}},
-
-    {"id": "s04", "kind": "voice", "note": "", "transcript": "Physio said keep doing the wall sits, three sets of fifteen, and the step-downs. And come back on the 12th, six in the evening.", "description": null,
-      "expect": {"profile": "personal", "topic": "Knee rehab", "suggestions": [
-        {"kind": "event", "title": "Physio appointment", "date": "2026-11-12", "time": "18:00"}]}},
-
-    {"id": "s05", "kind": "voice", "note": "", "transcript": "Yaar Sandeep ne bola the auth PR review kal tak kar dena, warna release block ho jayega.", "description": null,
-      "expect": {"profile": "work", "topic": "Release", "suggestions": [
-        {"kind": "todo", "title": "Review the auth PR", "date": "2026-11-05", "time": null}]}},
-
-    {"id": "s06", "kind": "voice", "note": "", "transcript": "Random thought for Satchel. What if the shelf could group stuff by week instead of by day, like a weekly review kind of thing? Not sure, just parking the idea here.", "description": null,
-      "expect": {"profile": "personal", "topic": "Satchel", "suggestions": []}},
-
-    {"id": "s07", "kind": "voice", "note": "", "transcript": "Did a 10k this morning, fifty-eight minutes. And the knee didn't hurt at all, so I guess the rehab is actually working.", "description": null,
-      "expect": {"profile": "personal", "topic": "Knee rehab", "suggestions": []}},
-
-    {"id": "s08", "kind": "voice", "note": "", "transcript": "For Goa, Rohan says we should book the flights before the fares go up, he's saying by Sunday latest. Dates are nineteenth to twenty-third December.", "description": null,
-      "expect": {"profile": "personal", "topic": "Goa trip", "suggestions": [
-        {"kind": "todo", "title": "Book Goa flights", "date": "2026-11-08", "time": null},
-        {"kind": "event", "title": "Goa trip", "date": "2026-12-19", "time": null}]}},
-
-    {"id": "s09", "kind": "voice", "note": "", "transcript": "Priya wants a call on the new pricing tiers tomorrow at 4, she'll send the invite. I need to pull the usage numbers before that, otherwise it's pointless.", "description": null,
-      "expect": {"profile": "work", "topic": "Pricing", "suggestions": [
-        {"kind": "event", "title": "Pricing tiers call with Priya", "date": "2026-11-05", "time": "16:00"},
-        {"kind": "todo", "title": "Pull usage numbers for pricing call", "date": "2026-11-05", "time": null}]}},
-
-    {"id": "s10", "kind": "voice", "note": "", "transcript": "Oh, Arun already merged the fix for the flaky CI test, so we're good there, nothing for me to do.", "description": null,
-      "expect": {"profile": "work", "topic": null, "suggestions": []}},
-
-    {"id": "s11", "kind": "voice", "note": "", "transcript": "Dentist ka appointment Saturday ko hai, eleven baje, the Indiranagar wala clinic.", "description": null,
-      "expect": {"profile": "personal", "topic": null, "suggestions": [
-        {"kind": "event", "title": "Dentist appointment", "date": "2026-11-07", "time": "11:00"}]}},
-
-    {"id": "s12", "kind": "voice", "note": "", "transcript": "Need to get a new laptop bag, the strap on this one is totally gone.", "description": null,
-      "expect": {"profile": null, "topic": null, "suggestions": [
-        {"kind": "todo", "title": "Buy a new laptop bag", "date": null, "time": null}]}},
-
-    {"id": "s13", "kind": "voice", "note": "", "transcript": "The candidate from yesterday, Meera, was really strong on system design. I'd say strong hire. I should write the feedback in the hiring doc before end of day today.", "description": null,
-      "expect": {"profile": "work", "topic": "Hiring", "suggestions": [
-        {"kind": "todo", "title": "Write interview feedback for Meera", "date": "2026-11-04", "time": null}]}},
-
-    {"id": "s14", "kind": "voice", "note": "", "transcript": "Honestly feeling pretty burnt out this week. Just tired all the time. Wanted to note that down somewhere.", "description": null,
-      "expect": {"profile": null, "topic": null, "suggestions": []}},
-
-    {"id": "s15", "kind": "voice", "note": "", "transcript": "Sourdough note: went to seventy-five percent hydration and a twelve hour cold proof, and the crumb was way better. Keep that.", "description": null,
-      "expect": {"profile": "personal", "topic": null, "suggestions": []}},
-
-    {"id": "s16", "kind": "voice", "note": "", "transcript": "So the sprint demo got moved to Monday at eleven, and I'm presenting the export feature, which means I need to put together a few slides over the weekend.", "description": null,
-      "expect": {"profile": "work", "topic": null, "suggestions": [
-        {"kind": "event", "title": "Sprint demo", "date": "2026-11-09", "time": "11:00"},
-        {"kind": "todo", "title": "Prep slides for export feature demo", "date": "2026-11-08", "time": null}]}},
-
-    {"id": "s17", "kind": "voice", "note": "", "transcript": "Just remember, the electricity guy came last week and replaced the meter, so that crazy high bill was because of the faulty meter, not us.", "description": null,
-      "expect": {"profile": "personal", "topic": null, "suggestions": []}},
-
-    {"id": "s18", "kind": "voice", "note": "", "transcript": "Car insurance renew karna hai, it expires end of the month. Policybazaar pe compare kar lena first.", "description": null,
-      "expect": {"profile": "personal", "topic": null, "suggestions": [
-        {"kind": "todo", "title": "Renew car insurance", "date": "2026-11-30", "time": null}]}},
-
-    {"id": "s19", "kind": "note", "note": "call landlord re: leaking tap", "transcript": null, "description": null,
-      "expect": {"profile": "personal", "topic": null, "suggestions": [
-        {"kind": "todo", "title": "Call landlord about leaking tap", "date": null, "time": null}]}},
-
-    {"id": "s20", "kind": "note", "note": "notion ticket for export bug, assign satwik", "transcript": null, "description": null,
-      "expect": {"profile": "work", "topic": null, "suggestions": [
-        {"kind": "todo", "title": "File Notion ticket for export bug for Satwik", "date": null, "time": null}]}},
-
-    {"id": "s21", "kind": "note", "note": "groceries: eggs, curd, atta, coriander", "transcript": null, "description": null,
-      "expect": {"profile": "personal", "topic": null, "suggestions": [
-        {"kind": "todo", "title": "Buy groceries", "date": null, "time": null}]}},
-
-    {"id": "s22", "kind": "note", "note": "parking B2, pillar 47", "transcript": null, "description": null,
-      "expect": {"profile": null, "topic": null, "suggestions": []}},
-
-    {"id": "s23", "kind": "note", "note": "release notes v2.4 due fri", "transcript": null, "description": null,
-      "expect": {"profile": "work", "topic": "Release", "suggestions": [
-        {"kind": "todo", "title": "Write v2.4 release notes", "date": "2026-11-06", "time": null}]}},
-
-    {"id": "s24", "kind": "note", "note": "satchel: try pgvector halfvec to cut index size", "transcript": null, "description": null,
-      "expect": {"profile": "personal", "topic": "Satchel", "suggestions": [
-        {"kind": "todo", "title": "Try pgvector halfvec to shrink index", "date": null, "time": null}]}},
-
-    {"id": "s25", "kind": "note", "note": "pricing idea - annual plan, 2 months free", "transcript": null, "description": null,
-      "expect": {"profile": "work", "topic": "Pricing", "suggestions": []}},
-
-    {"id": "s26", "kind": "note", "note": "customer call w/ Acme thu 3pm, sandeep joining", "transcript": null, "description": null,
-      "expect": {"profile": "work", "topic": null, "suggestions": [
-        {"kind": "event", "title": "Customer call with Acme", "date": "2026-11-05", "time": "15:00"}]}},
-
-    {"id": "s27", "kind": "note", "note": "rent paid for nov ✔", "transcript": null, "description": null,
-      "expect": {"profile": "personal", "topic": null, "suggestions": []}},
-
-    {"id": "s28", "kind": "note", "note": "knee - ice 15 min after every run", "transcript": null, "description": null,
-      "expect": {"profile": "personal", "topic": "Knee rehab", "suggestions": []}},
-
-    {"id": "s29", "kind": "note", "note": "gift ideas for mom: silk saree, kindle", "transcript": null, "description": null,
-      "expect": {"profile": "personal", "topic": null, "suggestions": []}},
-
-    {"id": "s30", "kind": "note", "note": "CI green on main again", "transcript": null, "description": null,
-      "expect": {"profile": "work", "topic": null, "suggestions": []}},
-
-    {"id": "s31", "kind": "note", "note": "airport pickup tue 6am - mom's flight", "transcript": null, "description": null,
-      "expect": {"profile": "personal", "topic": null, "suggestions": [
-        {"kind": "event", "title": "Pick up Mom from airport", "date": "2026-11-10", "time": "06:00"}]}},
-
-    {"id": "s32", "kind": "note", "note": "ask arun + sandeep re: code freeze date", "transcript": null, "description": null,
-      "expect": {"profile": "work", "topic": "Release", "suggestions": [
-        {"kind": "todo", "title": "Ask Arun and Sandeep about code freeze date", "date": null, "time": null}]}},
-
-    {"id": "s33", "kind": "photo", "note": "", "transcript": null, "description": "A BESCOM electricity bill. Account holder name at the top, billing period 01-Oct-2026 to 31-Oct-2026. Units consumed: 212. Amount payable: Rs 2,340.00. Due date: 12-Nov-2026. A QR code for payment at the bottom right.",
-      "expect": {"profile": "personal", "topic": null, "suggestions": [
-        {"kind": "todo", "title": "Pay electricity bill", "date": "2026-11-12", "time": null}]}},
-
-    {"id": "s34", "kind": "photo", "note": "", "transcript": null, "description": "A small printed appointment card from 'StrideWell Physiotherapy, Koramangala'. Handwritten: 'Next appointment: Mon 09/11/2026, 7:30 PM. Dr. Kavya R.' A phone number is printed at the bottom.",
-      "expect": {"profile": "personal", "topic": "Knee rehab", "suggestions": [
-        {"kind": "event", "title": "Physio appointment with Dr. Kavya", "date": "2026-11-09", "time": "19:30"}]}},
-
-    {"id": "s35", "kind": "photo", "note": "", "transcript": null, "description": "A whiteboard in a meeting room. Heading: 'Release 2.5'. Lines below: 'Code freeze - Thu 19 Nov', 'Ship - Tue 24 Nov', 'Owners: Arun (backend), Satwik (web)'. Some arrows and a crossed-out line that is not readable.",
-      "expect": {"profile": "work", "topic": "Release", "suggestions": [
-        {"kind": "event", "title": "Release 2.5 code freeze", "date": "2026-11-19", "time": null},
-        {"kind": "event", "title": "Release 2.5 ship", "date": "2026-11-24", "time": null}]}},
-
-    {"id": "s36", "kind": "photo", "note": "", "transcript": null, "description": "A sign on a concrete pillar in a mall basement car park: 'Phoenix Marketcity - Level P2 - Zone Blue - Slot 218'.",
-      "expect": {"profile": "personal", "topic": null, "suggestions": []}},
-
-    {"id": "s37", "kind": "photo", "note": "", "transcript": null, "description": "A restaurant receipt from Toit, Indiranagar, dated 04-Nov-2026, 1:42 PM. Items include 4 mains, 2 pizzas and 5 soft drinks. Total: Rs 3,860 including GST. Paid by card.",
-      "expect": {"profile": null, "topic": null, "suggestions": []}},
-
-    {"id": "s38", "kind": "photo", "note": "", "transcript": null, "description": "A printed wedding invitation, gold on cream. 'Ananya weds Karthik'. 'Reception on Sunday, 22nd November 2026, 7 PM onwards, Palace Grounds, Bengaluru.' RSVP names at the bottom.",
-      "expect": {"profile": "personal", "topic": null, "suggestions": [
-        {"kind": "event", "title": "Ananya and Karthik's wedding reception", "date": "2026-11-22", "time": "19:00"}]}},
-
-    {"id": "s39", "kind": "photo", "note": "signing up for this", "transcript": null, "description": "A flyer pinned on a cafe notice board: 'Bengaluru 10K Community Run - Sunday 29 November 2026 - Flag off 6:00 AM - Cubbon Park. Registration closes 20 November. Scan to register.'",
-      "expect": {"profile": "personal", "topic": null, "suggestions": [
-        {"kind": "todo", "title": "Register for Cubbon Park 10K", "date": "2026-11-20", "time": null},
-        {"kind": "event", "title": "Bengaluru 10K run", "date": "2026-11-29", "time": "06:00"}]}},
-
-    {"id": "s40", "kind": "photo", "note": "", "transcript": null, "description": "A yellow sticky note stuck on a monitor bezel. Handwritten: 'Pricing page demo for Priya - DONE' with a tick mark and a smiley.",
-      "expect": {"profile": "work", "topic": "Pricing", "suggestions": []}}
-  ]
+ "capture_time": "2026-11-04T15:30:00+05:30",
+ "timezone": "Asia/Kolkata",
+ "topics": [
+  {
+   "name": "Release",
+   "profile": "work"
+  },
+  {
+   "name": "Pricing",
+   "profile": "work"
+  },
+  {
+   "name": "Hiring",
+   "profile": "work"
+  },
+  {
+   "name": "Satchel",
+   "profile": "personal"
+  },
+  {
+   "name": "Goa trip",
+   "profile": "personal"
+  },
+  {
+   "name": "Knee rehab",
+   "profile": "personal"
+  }
+ ],
+ "cases": [
+  {
+   "id": "s01",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Okay so Arun just pinged, the release is moving to Friday. Which means we have to cut the release branch tomorrow morning, before ten. I'll do that first thing.",
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": "Release",
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Cut the release branch",
+      "date": "2026-11-05",
+      "time": "10:00"
+     },
+     {
+      "kind": "event",
+      "title": "Release",
+      "date": "2026-11-06",
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s02",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Mom's birthday is on the 12th. I need to order the cake by the 10th, the chocolate one from Lavonne that she likes. Don't forget this time.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Order Lavonne cake for Mom",
+      "date": "2026-11-10",
+      "time": null
+     },
+     {
+      "kind": "event",
+      "title": "Mom's birthday",
+      "date": "2026-11-12",
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s03",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Landlord called, he says he wants to raise the rent by like ten percent from January. Ugh. Not happy about it at all.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s04",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Physio said keep doing the wall sits, three sets of fifteen, and the step-downs. And come back on the 12th, six in the evening.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": "Knee rehab",
+    "suggestions": [
+     {
+      "kind": "event",
+      "title": "Physio appointment",
+      "date": "2026-11-12",
+      "time": "18:00"
+     }
+    ]
+   }
+  },
+  {
+   "id": "s05",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Yaar Sandeep ne bola the auth PR review kal tak kar dena, warna release block ho jayega.",
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": "Release",
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Review the auth PR",
+      "date": "2026-11-05",
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s06",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Random thought for Satchel. What if the shelf could group stuff by week instead of by day, like a weekly review kind of thing? Not sure, just parking the idea here.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": "Satchel",
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s07",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Did a 10k this morning, fifty-eight minutes. And the knee didn't hurt at all, so I guess the rehab is actually working.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": "Knee rehab",
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s08",
+   "kind": "voice",
+   "note": "",
+   "transcript": "For Goa, Rohan says we should book the flights before the fares go up, he's saying by Sunday latest. Dates are nineteenth to twenty-third December.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": "Goa trip",
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Book Goa flights",
+      "date": "2026-11-08",
+      "time": null
+     },
+     {
+      "kind": "event",
+      "title": "Goa trip",
+      "date": "2026-12-19",
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s09",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Priya wants a call on the new pricing tiers tomorrow at 4, she'll send the invite. I need to pull the usage numbers before that, otherwise it's pointless.",
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": "Pricing",
+    "suggestions": [
+     {
+      "kind": "event",
+      "title": "Pricing tiers call with Priya",
+      "date": "2026-11-05",
+      "time": "16:00"
+     },
+     {
+      "kind": "todo",
+      "title": "Pull usage numbers for pricing call",
+      "date": "2026-11-05",
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s10",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Oh, Arun already merged the fix for the flaky CI test, so we're good there, nothing for me to do.",
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": null,
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s11",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Dentist ka appointment Saturday ko hai, eleven baje, the Indiranagar wala clinic.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "event",
+      "title": "Dentist appointment",
+      "date": "2026-11-07",
+      "time": "11:00"
+     }
+    ]
+   }
+  },
+  {
+   "id": "s12",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Need to get a new laptop bag, the strap on this one is totally gone.",
+   "description": null,
+   "expect": {
+    "profile": null,
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Buy a new laptop bag",
+      "date": null,
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s13",
+   "kind": "voice",
+   "note": "",
+   "transcript": "The candidate from yesterday, Meera, was really strong on system design. I'd say strong hire. I should write the feedback in the hiring doc before end of day today.",
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": "Hiring",
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Write interview feedback for Meera",
+      "date": "2026-11-04",
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s14",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Honestly feeling pretty burnt out this week. Just tired all the time. Wanted to note that down somewhere.",
+   "description": null,
+   "expect": {
+    "profile": null,
+    "topic": null,
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s15",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Sourdough note: went to seventy-five percent hydration and a twelve hour cold proof, and the crumb was way better. Keep that.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s16",
+   "kind": "voice",
+   "note": "",
+   "transcript": "So the sprint demo got moved to Monday at eleven, and I'm presenting the export feature, which means I need to put together a few slides over the weekend.",
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "event",
+      "title": "Sprint demo",
+      "date": "2026-11-09",
+      "time": "11:00"
+     },
+     {
+      "kind": "todo",
+      "title": "Prep slides for export feature demo",
+      "date": "2026-11-08",
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s17",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Just remember, the electricity guy came last week and replaced the meter, so that crazy high bill was because of the faulty meter, not us.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s18",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Car insurance renew karna hai, it expires end of the month. Policybazaar pe compare kar lena first.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Renew car insurance",
+      "date": "2026-11-30",
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s19",
+   "kind": "note",
+   "note": "call landlord re: leaking tap",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Call landlord about leaking tap",
+      "date": null,
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s20",
+   "kind": "note",
+   "note": "notion ticket for export bug, assign satwik",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "File Notion ticket for export bug for Satwik",
+      "date": null,
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s21",
+   "kind": "note",
+   "note": "groceries: eggs, curd, atta, coriander",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Buy groceries",
+      "date": null,
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s22",
+   "kind": "note",
+   "note": "parking B2, pillar 47",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": null,
+    "topic": null,
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s23",
+   "kind": "note",
+   "note": "release notes v2.4 due fri",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": "Release",
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Write v2.4 release notes",
+      "date": "2026-11-06",
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s24",
+   "kind": "note",
+   "note": "satchel: try pgvector halfvec to cut index size",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": "Satchel",
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Try pgvector halfvec to shrink index",
+      "date": null,
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s25",
+   "kind": "note",
+   "note": "pricing idea - annual plan, 2 months free",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": "Pricing",
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s26",
+   "kind": "note",
+   "note": "customer call w/ Acme thu 3pm, sandeep joining",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "event",
+      "title": "Customer call with Acme",
+      "date": "2026-11-05",
+      "time": "15:00"
+     }
+    ]
+   }
+  },
+  {
+   "id": "s27",
+   "kind": "note",
+   "note": "rent paid for nov ✔",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s28",
+   "kind": "note",
+   "note": "knee - ice 15 min after every run",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": "Knee rehab",
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s29",
+   "kind": "note",
+   "note": "gift ideas for mom: silk saree, kindle",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [],
+    "wants": [
+     {
+      "list": "new",
+      "title": "silk saree"
+     },
+     {
+      "list": "new",
+      "title": "kindle"
+     }
+    ]
+   }
+  },
+  {
+   "id": "s30",
+   "kind": "note",
+   "note": "CI green on main again",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": null,
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s31",
+   "kind": "note",
+   "note": "airport pickup tue 6am - mom's flight",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "event",
+      "title": "Pick up Mom from airport",
+      "date": "2026-11-10",
+      "time": "06:00"
+     }
+    ]
+   }
+  },
+  {
+   "id": "s32",
+   "kind": "note",
+   "note": "ask arun + sandeep re: code freeze date",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": "Release",
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Ask Arun and Sandeep about code freeze date",
+      "date": null,
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s33",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "A BESCOM electricity bill. Account holder name at the top, billing period 01-Oct-2026 to 31-Oct-2026. Units consumed: 212. Amount payable: Rs 2,340.00. Due date: 12-Nov-2026. A QR code for payment at the bottom right.",
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Pay electricity bill",
+      "date": "2026-11-12",
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s34",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "A small printed appointment card from 'StrideWell Physiotherapy, Koramangala'. Handwritten: 'Next appointment: Mon 09/11/2026, 7:30 PM. Dr. Kavya R.' A phone number is printed at the bottom.",
+   "expect": {
+    "profile": "personal",
+    "topic": "Knee rehab",
+    "suggestions": [
+     {
+      "kind": "event",
+      "title": "Physio appointment with Dr. Kavya",
+      "date": "2026-11-09",
+      "time": "19:30"
+     }
+    ]
+   }
+  },
+  {
+   "id": "s35",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "A whiteboard in a meeting room. Heading: 'Release 2.5'. Lines below: 'Code freeze - Thu 19 Nov', 'Ship - Tue 24 Nov', 'Owners: Arun (backend), Satwik (web)'. Some arrows and a crossed-out line that is not readable.",
+   "expect": {
+    "profile": "work",
+    "topic": "Release",
+    "suggestions": [
+     {
+      "kind": "event",
+      "title": "Release 2.5 code freeze",
+      "date": "2026-11-19",
+      "time": null
+     },
+     {
+      "kind": "event",
+      "title": "Release 2.5 ship",
+      "date": "2026-11-24",
+      "time": null
+     }
+    ]
+   }
+  },
+  {
+   "id": "s36",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "A sign on a concrete pillar in a mall basement car park: 'Phoenix Marketcity - Level P2 - Zone Blue - Slot 218'.",
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s37",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "A restaurant receipt from Toit, Indiranagar, dated 04-Nov-2026, 1:42 PM. Items include 4 mains, 2 pizzas and 5 soft drinks. Total: Rs 3,860 including GST. Paid by card.",
+   "expect": {
+    "profile": null,
+    "topic": null,
+    "suggestions": []
+   }
+  },
+  {
+   "id": "s38",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "A printed wedding invitation, gold on cream. 'Ananya weds Karthik'. 'Reception on Sunday, 22nd November 2026, 7 PM onwards, Palace Grounds, Bengaluru.' RSVP names at the bottom.",
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "event",
+      "title": "Ananya and Karthik's wedding reception",
+      "date": "2026-11-22",
+      "time": "19:00"
+     }
+    ]
+   }
+  },
+  {
+   "id": "s39",
+   "kind": "photo",
+   "note": "signing up for this",
+   "transcript": null,
+   "description": "A flyer pinned on a cafe notice board: 'Bengaluru 10K Community Run - Sunday 29 November 2026 - Flag off 6:00 AM - Cubbon Park. Registration closes 20 November. Scan to register.'",
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Register for Cubbon Park 10K",
+      "date": "2026-11-20",
+      "time": null
+     },
+     {
+      "kind": "event",
+      "title": "Bengaluru 10K run",
+      "date": "2026-11-29",
+      "time": "06:00"
+     }
+    ]
+   }
+  },
+  {
+   "id": "s40",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "A yellow sticky note stuck on a monitor bezel. Handwritten: 'Pricing page demo for Priya - DONE' with a tick mark and a smiley.",
+   "expect": {
+    "profile": "work",
+    "topic": "Pricing",
+    "suggestions": []
+   }
+  },
+  {
+   "id": "w01",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "Screenshot of a Goodreads list titled 'Want to read': Piranesi by Susanna Clarke, Project Hail Mary by Andy Weir, Klara and the Sun by Kazuo Ishiguro, The Ministry for the Future by Kim Stanley Robinson, and Tomorrow, and Tomorrow, and Tomorrow by Gabrielle Zevin.",
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [],
+    "wants": [
+     {
+      "list": "books",
+      "title": "Piranesi"
+     },
+     {
+      "list": "books",
+      "title": "Project Hail Mary"
+     },
+     {
+      "list": "books",
+      "title": "Klara and the Sun"
+     },
+     {
+      "list": "books",
+      "title": "The Ministry for the Future"
+     },
+     {
+      "list": "books",
+      "title": "Tomorrow, and Tomorrow, and Tomorrow"
+     }
+    ]
+   }
+  },
+  {
+   "id": "w02",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Param was saying I have to watch Severance, and also that movie Past Lives. Adding both.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [],
+    "wants": [
+     {
+      "list": "watch",
+      "title": "Severance"
+     },
+     {
+      "list": "watch",
+      "title": "Past Lives"
+     }
+    ]
+   }
+  },
+  {
+   "id": "w03",
+   "kind": "note",
+   "note": "places to try in Goa: Gunpowder in Assagao, Bomra's, and the Saturday night market",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": "Goa trip",
+    "suggestions": [],
+    "wants": [
+     {
+      "list": "places",
+      "title": "Gunpowder"
+     },
+     {
+      "list": "places",
+      "title": "Bomra's"
+     },
+     {
+      "list": "places",
+      "title": "Saturday night market"
+     }
+    ]
+   }
+  },
+  {
+   "id": "w04",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Watched Dune Part Two last night, honestly loved it. The sound was unreal.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [],
+    "wants": []
+   }
+  },
+  {
+   "id": "w05",
+   "kind": "note",
+   "note": "finish Piranesi before book club on Thursday",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Finish Piranesi",
+      "date": "2026-11-05",
+      "time": null
+     }
+    ],
+    "wants": []
+   }
+  },
+  {
+   "id": "w06",
+   "kind": "photo",
+   "note": "",
+   "transcript": "these are from the Letterboxd thread, want to get through them this winter",
+   "description": "Screenshot of a Letterboxd list 'Slow cinema starter pack': In the Mood for Love (2000), Stalker (1979), Perfect Days (2023), Aftersun (2022).",
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [],
+    "wants": [
+     {
+      "list": "watch",
+      "title": "In the Mood for Love"
+     },
+     {
+      "list": "watch",
+      "title": "Stalker"
+     },
+     {
+      "list": "watch",
+      "title": "Perfect Days"
+     },
+     {
+      "list": "watch",
+      "title": "Aftersun"
+     }
+    ]
+   }
+  },
+  {
+   "id": "w07",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "Screenshot of Google Maps saved places in Bengaluru: Toit Brewpub in Indiranagar, Third Wave Coffee in Koramangala, Lalbagh Botanical Garden, Bangalore Palace.",
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [],
+    "wants": [
+     {
+      "list": "places",
+      "title": "Toit Brewpub"
+     },
+     {
+      "list": "places",
+      "title": "Third Wave Coffee"
+     },
+     {
+      "list": "places",
+      "title": "Lalbagh Botanical Garden"
+     },
+     {
+      "list": "places",
+      "title": "Bangalore Palace"
+     }
+    ]
+   }
+  },
+  {
+   "id": "w08",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Arun recommended the Acquired podcast episode on TSMC, and the book Chip War by Chris Miller, for the hardware context.",
+   "description": null,
+   "expect": {
+    "profile": "work",
+    "topic": null,
+    "suggestions": [],
+    "wants": [
+     {
+      "list": "new",
+      "title": "Acquired"
+     },
+     {
+      "list": "books",
+      "title": "Chip War"
+     }
+    ]
+   }
+  },
+  {
+   "id": "w09",
+   "kind": "photo",
+   "note": "",
+   "transcript": null,
+   "description": "Photo of a bookshop shelf with a staff picks sign. Visible spines include The Overstory and Sea of Tranquility; other titles are unclear.",
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [],
+    "wants": [
+     {
+      "list": "books",
+      "title": "The Overstory"
+     },
+     {
+      "list": "books",
+      "title": "Sea of Tranquility"
+     }
+    ]
+   }
+  },
+  {
+   "id": "w10",
+   "kind": "voice",
+   "note": "",
+   "transcript": "Someday I want to do Hampi properly, like three days, and also Spiti in summer.",
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [],
+    "wants": [
+     {
+      "list": "places",
+      "title": "Hampi"
+     },
+     {
+      "list": "places",
+      "title": "Spiti"
+     }
+    ]
+   }
+  },
+  {
+   "id": "w11",
+   "kind": "note",
+   "note": "The Bear was on in the background while I fixed the sink, need to call the plumber tomorrow about the leak",
+   "transcript": null,
+   "description": null,
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [
+     {
+      "kind": "todo",
+      "title": "Call the plumber about the leak",
+      "date": "2026-11-05",
+      "time": null
+     }
+    ],
+    "wants": []
+   }
+  },
+  {
+   "id": "w12",
+   "kind": "photo",
+   "note": "for the flight",
+   "transcript": null,
+   "description": "Screenshot of a Netflix 'My List' row: The Diplomat, Shogun, Slow Horses, and Kaala Paani.",
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [],
+    "wants": [
+     {
+      "list": "watch",
+      "title": "The Diplomat"
+     },
+     {
+      "list": "watch",
+      "title": "Shogun"
+     },
+     {
+      "list": "watch",
+      "title": "Slow Horses"
+     },
+     {
+      "list": "watch",
+      "title": "Kaala Paani"
+     }
+    ]
+   }
+  },
+  {
+   "id": "w13",
+   "kind": "photo",
+   "note": "",
+   "transcript": "want to make these on the weekend",
+   "description": "Screenshot of an Instagram post with two recipes: shakshuka with feta, and a one-pot lemon orzo.",
+   "expect": {
+    "profile": "personal",
+    "topic": null,
+    "suggestions": [],
+    "wants": [
+     {
+      "list": "new",
+      "title": "shakshuka"
+     },
+     {
+      "list": "new",
+      "title": "lemon orzo"
+     }
+    ]
+   }
+  }
+ ],
+ "lists": [
+  {
+   "list": "Books",
+   "lines": 12
+  },
+  {
+   "list": "Watch",
+   "lines": 7
+  },
+  {
+   "list": "Places",
+   "lines": 5
+  }
+ ]
 }

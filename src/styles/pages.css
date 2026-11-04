@@ -90,6 +90,15 @@
 .shelf-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--paper); min-width: 0; }
 .shelf-card .actions { flex-wrap: wrap; }
 .shelf-found { justify-content: space-between; align-items: center; gap: 8px; }
+.wants { list-style: none; margin: 0; padding: 0; display: grid; }
+.want { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; border-bottom: 1px solid var(--line); padding: 6px 0; }
+.want-tick { display: flex; align-items: center; gap: 10px; min-height: var(--key-h); cursor: pointer; min-width: 0; }
+.want-tick input { width: 20px; height: 20px; accent-color: var(--hw); flex: 0 0 auto; }
+.want-tick .title { font-family: var(--font-content); font-size: 18px; }
+.want.done .title { text-decoration: line-through; color: var(--muted); }
+.want-actions { gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.want-sources, .want [role=alert] { grid-column: 1 / -1; margin: 0 0 6px 30px; padding: 0; list-style: none; }
+.wants-done > summary { cursor: pointer; padding: 8px 0; }
 .coming-up { list-style: none; margin: 0; padding: 0; }
 .coming-up li { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; border-top: 1px solid var(--line); padding: 9px 0; }
 .coming-up .when { font-family: var(--font-mono); font-size: var(--text-prov); color: var(--muted); }

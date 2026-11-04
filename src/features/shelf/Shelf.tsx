@@ -15,6 +15,7 @@ import { Provenance } from '../../ui/Provenance';
 import { Segments } from '../../ui/Segments';
 import { Suggestions } from './Suggestions';
 import { ComingUp } from './ComingUp';
+import { Lists } from './Lists';
 
 const KIND_LABEL = { note: 'note', photo: 'photo', voice: 'voice note' } as const;
 const TYPES: { key: ShelfKind | 'all'; label: string }[] = [
@@ -77,6 +78,15 @@ export function Shelf() {
   const { announce } = useReadout();
   const items = useLoad(() => stores.shelf.list(), [stores]);
   const suggestions = useLoad(() => stores.shelf.suggestions(), [stores]);
+  const wants = useLoad(() => stores.shelf.wants(), [stores]);
+  // Drops from before lists existed are looked at once, a few per visit, quietly.
+  const looked = useRef(false);
+  useEffect(() => {
+    if (looked.current || !items.data?.length) return;
+    looked.current = true;
+    stores.shelf.listOldDrops().then(added => { if (added) wants.reload(); }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.data, stores]);
   const [urls, setUrls] = useState<Record<string, string>>({});
   // File links last twelve hours; a page open longer than that starts over.
   const signedAt = useRef(Date.now());
@@ -112,7 +122,8 @@ export function Shelf() {
   const [params, setParams] = useSearchParams();
   const profile = asProfile(params.get('profile'));
   const type = asType(params.get('type'));
-  const view = (key: 'profile' | 'type', value: string) => setParams(current => {
+  const asDropped = params.get('view') === 'dropped';
+  const view = (key: 'profile' | 'type' | 'view', value: string) => setParams(current => {
     const next = new URLSearchParams(current);
     if (value === 'all') next.delete(key); else next.set(key, value);
     return next;
@@ -148,6 +159,7 @@ export function Shelf() {
       ? { ...row, status: result.status, description: result.description ?? row.description,
           transcript: result.transcript ?? row.transcript, sorted_at: result.sorted ? new Date().toISOString() : row.sorted_at } : row));
     if (result.suggestions) suggestions.reload();
+    if (result.lines) wants.reload();
     if (result.profile) patch(list => list.map(row => row.id === item.id && !row.profile ? { ...row, profile: result.profile } : row));
     if (result.status === 'ready') announce(item.kind === 'note' ? 'On your Shelf' : 'Read and on your Shelf');
   }
@@ -191,6 +203,7 @@ export function Shelf() {
     patch(list => list.map(row => row.id === item.id ? { ...row, sorted_at: new Date().toISOString(),
       profile: row.profile ?? result.profile, transcript: result.transcript ?? row.transcript } : row));
     if (result.suggestions) suggestions.reload();
+    if (result.lines) wants.reload();
     announce(result.suggestions ? `Found ${count(result.suggestions, 'thing', 'things')} to do` : 'Nothing to do in this one');
   }
 
@@ -239,6 +252,21 @@ export function Shelf() {
   const typeCounts = (items.data ?? []).filter(row => profile === 'all' || !row.profile || row.profile === profile);
   const profileCount = (p: ProfileView) => (items.data ?? []).filter(row => p === 'all' || !row.profile || row.profile === p).length;
   const showComposer = dropping ?? items.data?.length === 0;
+  // Which lists each drop added to, so a drop that became list lines can say so, and step aside.
+  const linesOf = new Map<string, Map<string, number>>();
+  for (const w of wants.data ?? []) for (const id of w.item_ids) {
+    const per = linesOf.get(id) ?? new Map<string, number>();
+    per.set(w.list, (per.get(w.list) ?? 0) + 1);
+    linesOf.set(id, per);
+  }
+  const loose = visible.filter(item => !linesOf.has(item.id));
+  async function undoLines(item: ShelfItem) {
+    setFailedOn(item.id);
+    const done = await act.run(async () => { await stores.shelf.undoWants(item.id); return true; });
+    if (!done) return;
+    wants.reload();
+    announce('Taken off your lists');
+  }
 
   function card(item: ShelfItem) { const status = statusOf(item); return <article className="shelf-card shelf-item" key={item.id}>
       {item.kind === 'photo' && item.object_path && (urls[item.object_path]
@@ -251,6 +279,9 @@ export function Shelf() {
       {item.note && <h2 className="title">{item.note}</h2>}
       {item.transcript && <blockquote className="transcript">“{item.transcript}”</blockquote>}
       {item.description && !item.transcript && <p className={item.note ? 'muted' : 'title'}>{item.description}</p>}
+      {linesOf.has(item.id) && <p className="fine">Added to {[...linesOf.get(item.id)!].map(([list, n]) =>
+        `${list} (${n})`).join(', ')} · <Button look="link" small disabled={act.busy}
+        onClick={() => void undoLines(item)}>Undo</Button></p>}
       <Provenance parts={[KIND_LABEL[item.kind], profile === 'all' && item.profile ? PROFILE_LABEL[item.profile] : null, status.label]} at={item.created_at} />
       <div className="actions">
         <label className="visually-hidden" htmlFor={`profile-${item.id}`}>Profile</label>
@@ -309,6 +340,8 @@ export function Shelf() {
           onChange={event => { setQuery(event.target.value); if (!event.target.value) setFound(null); }} />
         <Button type="submit" disabled={search.busy || !query.trim()}>{search.busy ? 'Looking…' : 'Find'}</Button>
       </form>
+      <Button look="quiet" aria-pressed={asDropped} onClick={() => view('view', asDropped ? 'all' : 'dropped')}>
+        {asDropped ? 'Rearranged' : 'As dropped'}</Button>
       <Button look={showComposer ? 'default' : 'primary'} aria-expanded={showComposer} onClick={() => setDropping(!showComposer)}>
         {showComposer ? 'Close' : 'Drop something'}</Button>
     </div>
@@ -358,9 +391,10 @@ export function Shelf() {
           <p className="fine muted" role="status">{visible.length ? `${count(visible.length, 'match', 'matches')}, closest first.` : 'Nothing on your Shelf fits that. Try other words, the way you would describe it to someone.'}</p>
           <Button look="quiet" small onClick={() => { setFound(null); setQuery(''); }}>Show everything</Button>
         </div>}
-        {found
+        {!found && !asDropped && <Lists wants={wants} items={items.data ?? []} profile={profile} />}
+        {found || asDropped
           ? <div className="shelf-grid">{visible.map(card)}</div>
-          : sectionsOf(visible).map(section => <details key={section.key} className="shelf-section" open>
+          : sectionsOf(loose).map(section => <details key={section.key} className="shelf-section" open>
             <summary><span className="name">{section.name}</span>
               <span className="eyebrow">{count(section.items.length, 'thing', 'things')}</span></summary>
             <div className="shelf-grid">{section.items.map(card)}</div>

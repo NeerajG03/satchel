@@ -15,6 +15,8 @@ data class ShelfEntry(
     val description: String?, val transcript: String?, val status: String, val createdAt: String,
     val profile: String?, val topicName: String?, val sortedAt: String? = null,
 )
+data class ListLine(val id: String, val list: String, val title: String, val detail: String?, val profile: String?,
+                val status: String, val itemIds: List<String>)
 data class Waiting(val id: String, val kind: String, val title: String, val profile: String?, val when_: String?, val source: String)
 data class Coming(val profile: String, val kind: String, val title: String, val at: String?, val day: String?)
 data class Week(val items: List<Coming>, val linked: List<String>, val failed: List<String>)
@@ -77,6 +79,30 @@ class ShelfReader(private val http: OkHttpClient, private val token: suspend () 
         if (paths.isNotEmpty()) runCatching {
             send(Request.Builder().url("$supabase/storage/v1/object/shelf").supabase()
                 .delete(JSONObject().put("prefixes", JSONArray(paths)).toString().toRequestBody(json)))
+        }
+    }
+
+    suspend fun lines(): List<ListLine> = rows(rpc("list_shelf_wants", JSONObject())).map { o ->
+        val ids = o.optJSONArray("item_ids")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList()
+        ListLine(o.getString("id"), o.getString("list"), o.getString("title"), o.str("detail"), o.str("profile"), o.getString("status"), ids)
+    }
+
+    suspend fun tick(id: String, done: Boolean) {
+        rpc("set_shelf_want", JSONObject().put("p_id", id).put("p_status", if (done) "done" else "want"))
+    }
+
+    suspend fun moveLine(id: String, list: String) { rpc("move_shelf_want", JSONObject().put("p_id", id).put("p_list", list)) }
+
+    suspend fun removeLine(id: String) { rpc("remove_shelf_want", JSONObject().put("p_id", id)) }
+
+    /** Takes back the lines one drop made, unless another drop has them too. */
+    suspend fun undoLines(itemId: String) { rpc("undo_shelf_wants", JSONObject().put("p_item", itemId)) }
+
+    /** The one-time pass over drops from before lists, a few at a time. Returns lines added. */
+    suspend fun listOldDrops(limit: Int = 5): Int {
+        val ids = rows(rpc("shelf_items_for_lists", JSONObject().put("p_limit", limit))).map { it.getString("id") }
+        return ids.sumOf { id ->
+            runCatching { JSONObject(api("/api/shelf", JSONObject().put("action", "lists").put("id", id))).optInt("lines") }.getOrDefault(0)
         }
     }
 

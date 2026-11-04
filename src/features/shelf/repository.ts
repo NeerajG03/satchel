@@ -29,6 +29,17 @@ export function whenOf(s: Suggestion): string | null {
   return null;
 }
 
+export type Want = {
+  id: string; list: string; title: string; detail: string | null; profile: ProfileKind | null;
+  status: 'want' | 'done'; created_at: string; done_at: string | null; item_ids: string[];
+};
+/** The lists there are, the biggest first: they are made as drops call for them. */
+export function listsOf(wants: Want[]): string[] {
+  const sizes = new Map<string, number>();
+  for (const w of wants) sizes.set(w.list, (sizes.get(w.list) ?? 0) + 1);
+  return [...sizes].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name);
+}
+
 export const SHELF_LIMITS = { note: 4000, bytes: 20 * 1024 * 1024 };
 export const UNSUPPORTED_FILE = 'The Shelf takes photos (JPEG, PNG, WebP, HEIC) and voice notes (WebM, M4A, MP3, WAV, OGG).';
 const EXTENSIONS: Record<string, string> = {
@@ -89,10 +100,10 @@ export function createShelfRepository(db: SupabaseClient) {
       return { ...data!, description: null, profile: null, voice_path: voicePath };
     },
     async describe(id: string): Promise<{ status: ShelfItem['status']; description: string | null;
-      profile: ShelfItem['profile']; suggestions: number; transcript: string | null; sorted: boolean }> {
+      profile: ShelfItem['profile']; suggestions: number; transcript: string | null; sorted: boolean; lines?: number }> {
       return server({ action: 'describe', id }, 60000);
     },
-    async sort(id: string): Promise<{ profile: ShelfItem['profile']; suggestions: number; transcript: string | null }> {
+    async sort(id: string): Promise<{ profile: ShelfItem['profile']; suggestions: number; transcript: string | null; lines?: number }> {
       return server({ action: 'sort', id }, 60000);
     },
     /** Changes the note; the server makes the new search vector from the new words. */
@@ -121,6 +132,37 @@ export function createShelfRepository(db: SupabaseClient) {
     async dismiss(s: Suggestion): Promise<void> {
       const { error } = await requestWithTimeout(signal => db.rpc('decide_shelf_suggestion', { p_id: s.id, p_status: 'dismissed' }).abortSignal(signal));
       if (error) throw error;
+    },
+    async wants(): Promise<Want[]> {
+      const { data, error } = await requestWithTimeout(signal => db.rpc('list_shelf_wants').abortSignal(signal));
+      if (error) throw error;
+      return (data ?? []) as Want[];
+    },
+    async setWant(id: string, status: Want['status']): Promise<void> {
+      const { error } = await requestWithTimeout(signal => db.rpc('set_shelf_want', { p_id: id, p_status: status }).abortSignal(signal));
+      if (error) throw error;
+    },
+    async moveWant(id: string, list: string): Promise<void> {
+      const { error } = await requestWithTimeout(signal => db.rpc('move_shelf_want', { p_id: id, p_list: list }).abortSignal(signal));
+      if (error) throw error;
+    },
+    async removeWant(id: string): Promise<void> {
+      const { error } = await requestWithTimeout(signal => db.rpc('remove_shelf_want', { p_id: id }).abortSignal(signal));
+      if (error) throw error;
+    },
+    /** Takes back the lines one drop made, unless another drop has them too. */
+    async undoWants(itemId: string): Promise<void> {
+      const { error } = await requestWithTimeout(signal => db.rpc('undo_shelf_wants', { p_item: itemId }).abortSignal(signal));
+      if (error) throw error;
+    },
+    /** The one-time pass over drops from before lists: a few at a time, quietly. Returns lines added. */
+    async listOldDrops(limit = 5): Promise<number> {
+      const { data, error } = await requestWithTimeout(signal => db.rpc('shelf_items_for_lists', { p_limit: limit }).abortSignal(signal));
+      if (error) throw error;
+      let added = 0;
+      for (const row of (data ?? []) as { id: string }[])
+        added += (await server<{ lines: number }>({ action: 'lists', id: row.id }, 60000).catch(() => ({ lines: 0 }))).lines;
+      return added;
     },
     async remove(item: ShelfItem): Promise<void> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('remove_shelf_item', { p_id: item.id }).abortSignal(signal));

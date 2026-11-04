@@ -55,13 +55,16 @@ test('sorting saves once and sends only the person’s own words on to memory', 
     calls.push([name, args]);
     if (name === 'shelf_sort_context') return {data: {timezone: 'Asia/Kolkata', topics}, error: null};
     if (name === 'save_shelf_sorting') return {data: 1, error: null};
+    if (name === 'save_shelf_wants') return {data: args.p_wants.length, error: null};
     return {data: null, error: null};
   }};
   const sorter = createSorter({apiKey: 'x', promptResolver: async () => ({text: 'sort'}),
     ask: async () => ({object: {profile: 'work', topic: 1, suggestions: [
-      {kind: 'event', title: 'Sync with Arun', date: '2026-11-05', time: '16:00', end_time: null, profile: null, words: 'sync with Arun at 4 tomorrow'}]}})});
+      {kind: 'event', title: 'Sync with Arun', date: '2026-11-05', time: '16:00', end_time: null, profile: null, words: 'sync with Arun at 4 tomorrow'}],
+      wants: [{list: 'other', title: 'Arun', detail: null, words: 'Arun'}]}})});
   const out = await sortItem(db, sorter, {item: {...item, id: 'i1', note: 'release'}, description: item.description, transcript: item.transcript});
-  assert.deepEqual(out, {suggestions: 1, profile: 'work'});
+  assert.deepEqual(out, {suggestions: 1, profile: 'work', lines: 1});
+  assert.deepEqual(calls.find(c => c[0] === 'save_shelf_wants')[1], {p_item: 'i1', p_wants: [{list: 'other', title: 'Arun', detail: null, words: 'Arun'}]});
   const saved = calls.find(c => c[0] === 'save_shelf_sorting')[1];
   assert.equal(saved.p_topic_id, 't1');
   assert.equal(saved.p_suggestions[0].starts_at, '2026-11-05T10:30:00.000Z');
@@ -79,4 +82,17 @@ test('a photo with no note sends nothing on to memory', async () => {
     ask: async () => ({object: {profile: null, topic: null, suggestions: []}})});
   await sortItem(db, sorter, {item: {id: 'p1', kind: 'photo', note: ''}, description: 'A receipt.', transcript: null});
   assert.equal(calls.includes('record_document_turn'), false);
+});
+
+test('a list title survives only when it is in the capture, Satchel’s reading of a screenshot included', () => {
+  const shot = {kind: 'photo', note: '', transcript: null,
+    description: 'Screenshot of a reading list: Piranesi by Susanna Clarke, Project Hail Mary.'};
+  const out = settle({profile: 'personal', topic: null, suggestions: [], wants: [
+    {list: 'books', title: 'Piranesi', detail: 'Susanna Clarke', words: 'Piranesi by Susanna Clarke'},
+    {list: 'books', title: ' Project   Hail Mary ', detail: null, words: 'Project Hail Mary'},
+    {list: 'books', title: 'The Martian', detail: 'Andy Weir', words: 'Project Hail Mary'},
+    {list: 'watch', title: '   ', detail: null, words: ''},
+  ]}, {item: shot, topics: [], timezone: 'UTC'});
+  assert.deepEqual(out.wants.map(w => [w.list, w.title, w.detail]),
+    [['books', 'Piranesi', 'Susanna Clarke'], ['books', 'Project Hail Mary', null]], 'a title not in it is invented');
 });

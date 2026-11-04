@@ -34,12 +34,13 @@ const dayOf = s => s.due_date ?? (s.starts_at ? new Intl.DateTimeFormat('en-CA',
 const timeOf = s => s.starts_at ? new Intl.DateTimeFormat('en-GB', {timeZone: set.timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23'}).format(new Date(s.starts_at)) : null;
 
 const tally = {profileRight: 0, profileAsked: 0, nullGuessed: 0, nullCases: 0, topicRight: 0, topicCases: 0,
-  expected: 0, got: 0, matched: 0, dateRight: 0, timeRight: 0, timeAsked: 0, quiet: 0, quietCases: 0, failed: 0};
+  expected: 0, got: 0, matched: 0, dateRight: 0, timeRight: 0, timeAsked: 0, quiet: 0, quietCases: 0, failed: 0,
+  wantsExpected: 0, wantsGot: 0, wantsMatched: 0, wantsListRight: 0, noWantCases: 0, noWantClean: 0};
 const misses = [];
 for (const c of set.cases) {
   const item = {kind: c.kind, note: c.note ?? '', transcript: c.transcript ?? null, description: c.description ?? null};
   let out;
-  try { out = await sorter.sort({item, topics, timezone: set.timezone, now}); }
+  try { out = await sorter.sort({item, topics, lists: set.lists ?? [], timezone: set.timezone, now}); }
   catch (e) { tally.failed++; misses.push(`${c.id} failed: ${e.message}`); continue; }
   const e = c.expect;
   if (e.profile) { tally.profileAsked++; if (out.profile === e.profile) tally.profileRight++; else misses.push(`${c.id} profile ${out.profile} ≠ ${e.profile}`); }
@@ -57,6 +58,22 @@ for (const c of set.cases) {
     if (want.time) { tally.timeAsked++; if (timeOf(got) === want.time) tally.timeRight++; else misses.push(`${c.id} "${want.title}" time ${timeOf(got)} ≠ ${want.time}`); }
   }
   for (const extra of left) if (e.suggestions.length) misses.push(`${c.id} extra ${extra.kind} "${extra.title}"`);
+  // List lines: matched on the title alone, then checked for the right list.
+  const wanted = e.wants ?? [];
+  const gotWants = [...(out.wants ?? [])];
+  tally.wantsExpected += wanted.length; tally.wantsGot += gotWants.length;
+  if (!wanted.length) { tally.noWantCases++; if (!gotWants.length) tally.noWantClean++; else misses.push(`${c.id} should add no lines, got: ${gotWants.map(w => w.title).join('; ')}`); }
+  for (const want of wanted) {
+    const i = gotWants.findIndex(w => overlap(w.title, want.title) >= 0.6);
+    if (i < 0) { misses.push(`${c.id} missed ${want.list} "${want.title}"`); continue; }
+    const got = gotWants.splice(i, 1)[0];
+    tally.wantsMatched++;
+    // "new" means none of their lists fits, so a new one should start; otherwise reuse that list by name.
+    const existing = (set.lists ?? []).map(l => l.list.toLowerCase());
+    const right = want.list === 'new' ? !existing.includes(got.list.toLowerCase()) : got.list.toLowerCase() === want.list;
+    if (right) tally.wantsListRight++; else misses.push(`${c.id} "${want.title}" list ${got.list} ≠ ${want.list}`);
+  }
+  for (const extra of gotWants) if (wanted.length) misses.push(`${c.id} extra line ${extra.list} "${extra.title}"`);
 }
 const pct = (a, b) => b ? `${Math.round(100 * a / b)}% (${a}/${b})` : 'n/a';
 console.log(`prompt: ${which}   cases: ${set.cases.length}   failed: ${tally.failed}`);
@@ -68,5 +85,9 @@ console.log(`suggestions right (precision) ${pct(tally.matched, tally.got)}`);
 console.log(`date right, of found       ${pct(tally.dateRight, tally.matched)}`);
 console.log(`time right, of timed       ${pct(tally.timeRight, tally.timeAsked)}`);
 console.log(`quiet when nothing to do   ${pct(tally.quiet, tally.quietCases)}`);
+console.log(`list lines found           ${pct(tally.wantsMatched, tally.wantsExpected)}`);
+console.log(`list lines right           ${pct(tally.wantsMatched, tally.wantsGot)}`);
+console.log(`on the right list          ${pct(tally.wantsListRight, tally.wantsMatched)}`);
+console.log(`no lines when none meant   ${pct(tally.noWantClean, tally.noWantCases)}`);
 console.log(`dropped by the checks      ${proposed - tally.got} of ${proposed} proposed (words not in the capture, or an event with no day)`);
 if (args.includes('--misses')) console.log('\n' + misses.join('\n'));
