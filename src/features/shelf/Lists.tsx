@@ -3,7 +3,7 @@ import { useStores } from '../../app/stores';
 import { useAction, type Loaded } from '../../app/useLoad';
 import { useReadout } from '../../app/readout';
 import type { ProfileKind } from '../profiles/repository';
-import { listsOf, moneyOf, type ShelfItem, type Want } from './repository';
+import { listsOf, money, moneyOf, type ShelfItem, type Want } from './repository';
 import { Button } from '../../ui/Button';
 import { SaveError } from '../../ui/Notice';
 import { CardMenu } from './CardMenu';
@@ -69,10 +69,11 @@ function ListBlock({ name, lines, names, items, wants }: { name: string; lines: 
     <button type="button" className="want-what" aria-expanded={opened === w.id} onClick={() => setOpened(opened === w.id ? null : w.id)}>
       {kind === 'fact' && <span className="eyebrow">{w.title}</span>}
       <span className="title">{kind === 'fact' ? w.detail : w.title}</span>
-      {kind === 'expense' && <span className="detail">{[moneyOf(w), w.spent_on && new Date(`${w.spent_on}T12:00:00`)
+      {kind === 'expense' && <span className="detail">{[w.spent_on && new Date(`${w.spent_on}T12:00:00`)
         .toLocaleDateString(undefined, { day: 'numeric', month: 'short' }), w.profile === 'work' ? 'Work' : null].filter(Boolean).join(' · ')}</span>}
       {kind === 'item' && w.detail && <span className="detail">{w.detail}</span>}
     </button>
+    {kind === 'expense' && <span className="amount">{moneyOf(w)}</span>}
     {opened === w.id && <div className="want-more">
       <ul className="want-sources">{w.item_ids.map(source => <li key={source} className="fine muted">
         from {byId.has(source) ? `“${gist(byId.get(source)!)}”` : 'a drop further down your Shelf'}</li>)}</ul>
@@ -89,10 +90,16 @@ function ListBlock({ name, lines, names, items, wants }: { name: string; lines: 
     {act.error && actingOn === w.id && <SaveError title="Could not change this." message={act.error} />}
   </li>;
 
-  return <section className="list-block" aria-labelledby={id}>
+  // An expense block says what is owed, not how many receipts: one total per currency.
+  const owed = new Map<string, number>();
+  for (const w of open) if (kind === 'expense' && w.amount != null) owed.set(w.currency ?? '', (owed.get(w.currency ?? '') ?? 0) + Number(w.amount));
+  const summary = kind === 'fact' ? ''
+    : kind === 'expense' && owed.size ? `${[...owed].map(([c, n]) => money(n, c || null)).join(' + ')} to claim`
+    : `${open.length} ${kind === 'expense' ? 'to claim' : 'to go'}`;
+  return <section className={`list-block ${kind}`} aria-labelledby={id}>
     <header>
       <h2 id={id}>{name}</h2>
-      <span className="eyebrow">{kind === 'fact' ? `${open.length}` : `${open.length} ${kind === 'expense' ? 'to claim' : 'to go'}`}{done.length ? ` · ${done.length} ${doneWord.toLowerCase()}` : ''}</span>
+      {(summary || done.length > 0) && <span className="eyebrow">{summary}{done.length ? `${summary ? ' · ' : ''}${done.length} ${doneWord.toLowerCase()}` : ''}</span>}
       {kind === 'expense' && open.some(w => w.profile === 'work') && <CardMenu label="More for Expenses">{close =>
         <Button look="quiet" small onClick={() => { close(); void copy(open.filter(w => w.profile === 'work')
           .map(w => [w.spent_on ?? 'date?', w.title, moneyOf(w)].join(' · ')).join('\n'), 'Work expenses copied, one per line'); }}>

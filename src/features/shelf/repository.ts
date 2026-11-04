@@ -39,9 +39,15 @@ export type Want = {
 /** An amount as the person reads it: ₹2,340.00, $23.40, or the bare number when no currency was shown. */
 export function moneyOf(w: Want): string {
   if (w.amount == null) return 'amount?';
-  const n = Number(w.amount);
-  return w.currency ? new Intl.NumberFormat(undefined, { style: 'currency', currency: w.currency }).format(n)
-    : new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  return money(Number(w.amount), w.currency);
+}
+
+/** An amount as a receipt shows it: no ".00" on a whole one. */
+export function money(n: number, currency: string | null): string {
+  const whole = Number.isInteger(n);
+  const digits = { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 };
+  return currency ? new Intl.NumberFormat(undefined, { style: 'currency', currency, ...digits }).format(n)
+    : new Intl.NumberFormat(undefined, digits).format(n);
 }
 /** The lists there are, the biggest first: they are made as drops call for them. */
 export function listsOf(wants: Want[]): string[] {
