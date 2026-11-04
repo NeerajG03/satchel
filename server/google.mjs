@@ -130,25 +130,59 @@ export async function addToGoogle(access, suggestion, {timezone, fetchImpl = fet
   return {kind, link: made.htmlLink ?? made.webViewLink ?? (kind === 'task' ? 'https://tasks.google.com/' : 'https://calendar.google.com/')};
 }
 
-/** The week ahead as lines the sorting call can read: events, then open tasks. */
-export async function weekAhead(access, {timezone = 'UTC', now = new Date(), fetchImpl = fetch} = {}) {
+// Titles can be written by anyone who sends an invite, so each is one short
+// line: it can never pose as another part of the prompt or the page.
+const oneLine = text => (text ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').trim().slice(0, 120) || '(no title)';
+
+/** The next seven days of one account: events by start time, then open tasks. */
+export async function fetchWeek(access, {now = new Date(), fetchImpl = fetch} = {}) {
   const events = new URL(CALENDAR);
   events.search = new URLSearchParams({timeMin: now.toISOString(), timeMax: new Date(now.getTime() + 7 * 86400000).toISOString(),
     singleEvents: 'true', orderBy: 'startTime', maxResults: '30'}).toString();
   const tasks = new URL(TASKS);
   tasks.search = new URLSearchParams({showCompleted: 'false', maxResults: '20'}).toString();
   const [e, t] = await Promise.all([call(events, access, {fetchImpl}), call(tasks, access, {fetchImpl})]);
-  const when = item => item.start?.dateTime
-    ? new Intl.DateTimeFormat('en-GB', {timeZone: timezone, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit',
-      minute: '2-digit', hourCycle: 'h23'}).format(new Date(item.start.dateTime))
-    : item.start?.date ?? '';
-  // Titles can be written by anyone who sends an invite, so each is one short
-  // line: it can never pose as another part of the prompt.
-  const line = text => (text ?? '(no title)').replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').trim().slice(0, 120);
   return [
-    ...(e.items ?? []).map(i => `  event: ${when(i)} ${line(i.summary)}`),
-    ...(t.items ?? []).map(i => `  open task: ${line(i.title)}${i.due ? ` (due ${i.due.slice(0, 10)})` : ''}`),
+    ...(e.items ?? []).map(i => ({kind: 'event', title: oneLine(i.summary), at: i.start?.dateTime ?? null,
+      day: i.start?.date ?? null, link: i.htmlLink ?? null})),
+    ...(t.items ?? []).map(i => ({kind: 'task', title: oneLine(i.title), at: null,
+      day: i.due ? i.due.slice(0, 10) : null, link: i.webViewLink ?? null})),
   ];
+}
+
+/** The week ahead as lines the sorting call can read. */
+export async function weekAhead(access, {timezone = 'UTC', now = new Date(), fetchImpl = fetch} = {}) {
+  const when = item => item.at
+    ? new Intl.DateTimeFormat('en-GB', {timeZone: timezone, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit',
+      minute: '2-digit', hourCycle: 'h23'}).format(new Date(item.at))
+    : item.day ?? '';
+  return (await fetchWeek(access, {now, fetchImpl})).map(i => i.kind === 'event'
+    ? `  event: ${when(i)} ${i.title}`
+    : `  open task: ${i.title}${i.day ? ` (due ${i.day})` : ''}`);
+}
+
+/**
+ * What is coming up across every linked profile, for the Shelf page. A
+ * profile Google would not answer for is named, so the page can say so.
+ */
+export async function upcoming(db, config, {fetchImpl = fetch, now = new Date()} = {}) {
+  const {data: links, error} = await db.rpc('google_link_status');
+  if (error) throw error;
+  const failed = [];
+  const end = now.getTime() + 7 * 86400000;
+  const parts = await Promise.all((links ?? []).map(async link => {
+    try {
+      const {data: sealed} = await db.rpc('google_link_token', {p_profile: link.profile});
+      const access = await accessToken({...config, refreshToken: open(sealed, config.sealKey, bindingFor(db.ownerId, link.profile)), fetchImpl});
+      // Only tasks due by the end of the week, overdue ones included: the panel says "next 7 days".
+      return (await fetchWeek(access, {now, fetchImpl}))
+        .filter(i => i.kind === 'event' || (i.day && Date.parse(`${i.day}T00:00:00Z`) <= end))
+        .map(i => ({...i, profile: link.profile}));
+    } catch { failed.push(link.profile); return []; }
+  }));
+  // Google gives times in each calendar's own offset, so compare instants, not strings.
+  const key = i => Date.parse(i.at ?? `${i.day}T00:00:00Z`);
+  return {items: parts.flat().sort((a, b) => key(a) - key(b)), failed, linked: (links ?? []).map(l => l.profile)};
 }
 
 /** Every linked profile's week ahead, labelled, or null when none is linked. */

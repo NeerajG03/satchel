@@ -66,6 +66,18 @@ test('sorting a Shelf item and deciding its suggestions', async t => {
       assert.deepEqual(row, { profile: 'personal', topic_id: null });
     });
 
+    await t.test('the list names each item’s topic, and the topic it was merged into', async () => {
+      const row = (await as(alice, 'select topic_id, topic_name from list_shelf_items(10) where id = $1', [item]))[0];
+      assert.deepEqual(row, { topic_id: topic, topic_name: 'Pricing' });
+      const merged = '30000000-0000-4000-8000-0000000000aa';
+      await as(alice, 'select * from create_topic($1,$2,$3)', [merged, 'Revenue', 'Where pricing went']);
+      await db.exec(`update topics set merged_into = '${merged}' where id = '${topic}'`);
+      const after = (await as(alice, 'select topic_id, topic_name from list_shelf_items(10) where id = $1', [item]))[0];
+      assert.deepEqual(after, { topic_id: merged, topic_name: 'Revenue' });
+      await db.exec(`update topics set merged_into = null where id = '${topic}'`);
+      assert.equal((await as(bob, 'select * from list_shelf_items(10)')).length, 0, 'never another person’s items');
+    });
+
     await t.test('dismissing and adding decide once', async () => {
       const [todo, event] = await as(alice, 'select * from list_shelf_suggestions()');
       await as(alice, 'select * from decide_shelf_suggestion($1,$2)', [todo.id, 'dismissed']);

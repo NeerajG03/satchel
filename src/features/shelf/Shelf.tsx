@@ -1,19 +1,38 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router';
 import { explain } from '../../client';
 import { useStores } from '../../app/stores';
 import { useAction, useLoad } from '../../app/useLoad';
 import { useFooter, useReadout } from '../../app/readout';
 import { count } from '../../app/format';
-import { PROFILE_LABEL } from '../profiles/repository';
-import { kindOf, SHELF_LIMITS, UNSUPPORTED_FILE, type ShelfItem } from './repository';
+import { PROFILE_LABEL, type ProfileKind } from '../profiles/repository';
+import { kindOf, SHELF_LIMITS, UNSUPPORTED_FILE, type ShelfItem, type ShelfKind } from './repository';
 import { Button } from '../../ui/Button';
 import { Empty } from '../../ui/Empty';
 import { TextArea, TextField } from '../../ui/Field';
 import { LoadError, SaveError, Skeleton } from '../../ui/Notice';
 import { Provenance } from '../../ui/Provenance';
+import { Segments } from '../../ui/Segments';
 import { Suggestions } from './Suggestions';
+import { ComingUp } from './ComingUp';
 
 const KIND_LABEL = { note: 'note', photo: 'photo', voice: 'voice note' } as const;
+const TYPES: { key: ShelfKind | 'all'; label: string }[] = [
+  { key: 'all', label: 'Everything' }, { key: 'photo', label: 'Photos' }, { key: 'voice', label: 'Voice notes' }, { key: 'note', label: 'Notes' }];
+type ProfileView = ProfileKind | 'all';
+const asProfile = (v: string | null): ProfileView => v === 'work' || v === 'personal' ? v : 'all';
+const asType = (v: string | null): ShelfKind | 'all' => v === 'photo' || v === 'voice' || v === 'note' ? v : 'all';
+
+/** Items grouped into their topic's section, the biggest first, with "Not sorted yet" last. */
+function sectionsOf(rows: ShelfItem[]): { key: string; name: string; items: ShelfItem[] }[] {
+  const groups = new Map<string, { key: string; name: string; items: ShelfItem[] }>();
+  for (const row of rows) {
+    const key = row.topic_id ?? 'none';
+    if (!groups.has(key)) groups.set(key, { key, name: row.topic_name ?? 'Not in a topic yet', items: [] });
+    groups.get(key)!.items.push(row);
+  }
+  return [...groups.values()].sort((a, b) => (a.key === 'none' ? 1 : 0) - (b.key === 'none' ? 1 : 0) || b.items.length - a.items.length);
+}
 // A read that has not come back by now was lost (a closed tab, a dropped
 // request), so the item offers a retry instead of saying "reading it…" forever.
 const LOST_AFTER_MS = 2 * 60 * 1000;
@@ -89,6 +108,16 @@ export function Shelf() {
   const [query, setQuery] = useState('');
   const [found, setFound] = useState<ShelfItem[] | null>(null);
   const search = useAction('action');
+  const [params, setParams] = useSearchParams();
+  const profile = asProfile(params.get('profile'));
+  const type = asType(params.get('type'));
+  const view = (key: 'profile' | 'type', value: string) => setParams(current => {
+    const next = new URLSearchParams(current);
+    if (value === 'all') next.delete(key); else next.set(key, value);
+    return next;
+  }, { replace: true });
+  // Null until the person opens or closes it: then an empty Shelf opens it on its own.
+  const [dropping, setDropping] = useState<boolean | null>(null);
 
   const rows = found ?? items.data ?? [];
   const attachment: Blob | null = file ?? recorder.clip;
@@ -137,6 +166,7 @@ export function Shelf() {
     const added = await save.run(() => stores.shelf.add({ note, file: attachment }));
     if (!added) return;
     items.replace(list => [added, ...list]);
+    setDropping(true);
     setNote(''); setFile(null); recorder.clear();
     if (fileInput.current) fileInput.current.value = '';
     setFound(null); setQuery('');
@@ -189,65 +219,14 @@ export function Shelf() {
     if (!fits && fileInput.current) fileInput.current.value = '';
   }
 
-  return <>
-    <div className="head">
-      <div className="col">
-        <span className="eyebrow">Shelf</span>
-        <h1>Drop it here, find it later.</h1>
-        <p className="lede">A thought, a photo or a voice note. Satchel reads each one and writes down what it
-          shows, so you can find it again by typing a few words. Only you can see your Shelf.</p>
-      </div>
-      <Button onClick={items.reload} disabled={items.loading}>Reload</Button>
-    </div>
+  const inView = (row: ShelfItem) => (profile === 'all' || !row.profile || row.profile === profile) && (type === 'all' || row.kind === type);
+  // Search covers the whole Shelf: a match is never hidden by the profile or type picked.
+  const visible = found ?? rows.filter(inView);
+  const typeCounts = (items.data ?? []).filter(row => profile === 'all' || !row.profile || row.profile === profile);
+  const profileCount = (p: ProfileView) => (items.data ?? []).filter(row => p === 'all' || !row.profile || row.profile === p).length;
+  const showComposer = dropping ?? items.data?.length === 0;
 
-    <form ref={form} className="composer expanded shelf-drop" onSubmit={submit} aria-label="Put something on your Shelf">
-      <TextArea label="Note" hint="optional with a photo or voice note" limit={SHELF_LIMITS.note} rows={2}
-        value={note} disabled={save.busy} onChange={event => setNote(event.target.value)} />
-      <div className="row shelf-attach">
-        <label className="btn sm">
-          Add a photo or audio file
-          <input ref={fileInput} type="file" className="visually-hidden" accept="image/*,audio/*" disabled={save.busy}
-            onChange={event => pick(event.target.files?.[0] ?? null)} />
-        </label>
-        {recorder.recording
-          ? <Button small look="danger" onClick={recorder.stop}>Stop recording</Button>
-          : <Button small disabled={save.busy || recorder.starting} onClick={() => { setFile(null); void recorder.start(); }}>Record a voice note</Button>}
-        {recorder.recording && <span className="fine" role="status">Recording…</span>}
-        {attachment && !recorder.recording && <span className="fine" role="status">
-          {file ? file.name : 'Voice note recorded'} · <Button look="link" small
-            onClick={() => { setFile(null); recorder.clear(); if (fileInput.current) fileInput.current.value = ''; }}>remove</Button>
-        </span>}
-      </div>
-      {recorder.error && <SaveError title="No voice note." message={recorder.error} />}
-      {fileError && <SaveError title="Not that file." message={fileError} />}
-      {save.error && <SaveError message={save.error} />}
-      <div className="actions">
-        <span className="fine muted">Photos and voice notes up to 20 MB.</span>
-        <Button type="submit" look="primary" disabled={!canSave}>{save.busy ? 'Saving…' : 'Put on Shelf'}</Button>
-      </div>
-    </form>
-
-    <Suggestions loaded={suggestions} />
-
-    <form className="row shelf-search" role="search" onSubmit={find}>
-      <TextField ref={searchBox} label="Find something" hint="describe it the way you remember it" value={query} maxLength={300}
-        onChange={event => { setQuery(event.target.value); if (!event.target.value) setFound(null); }} />
-      <Button type="submit" disabled={search.busy || !query.trim()}>{search.busy ? 'Looking…' : 'Find'}</Button>
-      {found && <Button look="quiet" onClick={() => { setFound(null); setQuery(''); }}>Show everything</Button>}
-    </form>
-    {search.error && <SaveError title="Could not search." message={search.error} />}
-
-    {items.error && <LoadError what="Your Shelf" message={items.error} onReload={items.reload} />}
-    {items.loading && !items.data && <Skeleton rows={3} />}
-    {items.data && !found && rows.length === 0 && <Empty title="Your Shelf is empty">
-      Put a note, a photo or a voice note on it above. It is read in a few seconds and you can find it by searching.
-    </Empty>}
-    {found && rows.length === 0 && <Empty title="Nothing on your Shelf fits that">
-      Try other words, the way you would describe it to someone.
-    </Empty>}
-    {found && rows.length > 0 && <p className="fine muted" role="status">{count(rows.length, 'match', 'matches')}, closest first.</p>}
-
-    <div>{rows.map(item => { const status = statusOf(item); return <article className="entry shelf-item" key={item.id}>
+  function card(item: ShelfItem) { const status = statusOf(item); return <article className="shelf-card shelf-item" key={item.id}>
       {item.kind === 'photo' && item.object_path && (urls[item.object_path]
         ? <img className="shelf-photo" loading="lazy" decoding="async" src={urls[item.object_path]} alt={item.description ?? 'A photo on your Shelf'} />
         : <div className="shelf-photo placeholder" aria-hidden="true" />)}
@@ -256,7 +235,7 @@ export function Shelf() {
       {item.note && <h2 className="title">{item.note}</h2>}
       {item.transcript && <blockquote className="transcript">“{item.transcript}”</blockquote>}
       {item.description && !item.transcript && <p className={item.note ? 'muted' : 'title'}>{item.description}</p>}
-      <Provenance parts={[KIND_LABEL[item.kind], status.label]} at={item.created_at} />
+      <Provenance parts={[KIND_LABEL[item.kind], profile === 'all' && item.profile ? PROFILE_LABEL[item.profile] : null, status.label]} at={item.created_at} />
       <div className="actions">
         <label className="visually-hidden" htmlFor={`profile-${item.id}`}>Profile</label>
         <select id={`profile-${item.id}`} className="field compact" value={item.profile ?? ''} disabled={act.busy && failedOn === item.id}
@@ -281,6 +260,95 @@ export function Shelf() {
       </div>}
       {readErrors[item.id] && <SaveError title="Could not read this." message={readErrors[item.id]} />}
       {act.error && failedOn === item.id && <SaveError title="Could not change this." message={act.error} />}
-    </article>; })}</div>
+    </article>; }
+
+  return <>
+    <div className="head">
+      <div className="col">
+        <span className="eyebrow">Shelf</span>
+        <h1>Your Shelf</h1>
+        <p className="lede">Everything you dropped, sorted by topic, beside what needs you and your week ahead. Only you can see your Shelf.</p>
+      </div>
+      <Button onClick={() => { items.reload(); suggestions.reload(); }} disabled={items.loading}>Reload</Button>
+    </div>
+
+    <div className="shelf-bar">
+      <Segments label="Profile" value={profile} onChange={key => view('profile', key)} items={[
+        { key: 'all', label: 'All', count: profileCount('all') },
+        { key: 'work', label: 'Work', count: profileCount('work') },
+        { key: 'personal', label: 'Personal', count: profileCount('personal') }]} />
+      <form className="shelf-search" role="search" onSubmit={find}>
+        <TextField ref={searchBox} label="Find something" hint="describe it the way you remember it" value={query} maxLength={300}
+          onChange={event => { setQuery(event.target.value); if (!event.target.value) setFound(null); }} />
+        <Button type="submit" disabled={search.busy || !query.trim()}>{search.busy ? 'Looking…' : 'Find'}</Button>
+      </form>
+      <Button look={showComposer ? 'default' : 'primary'} aria-expanded={showComposer} onClick={() => setDropping(!showComposer)}>
+        {showComposer ? 'Close' : 'Drop something'}</Button>
+    </div>
+
+    {showComposer && <form ref={form} className="composer expanded shelf-drop" onSubmit={submit} aria-label="Put something on your Shelf">
+      <TextArea label="Note" hint="optional with a photo or voice note" limit={SHELF_LIMITS.note} rows={2}
+        value={note} disabled={save.busy} onChange={event => setNote(event.target.value)} />
+      <div className="row shelf-attach">
+        <label className="btn sm">
+          Add a photo or audio file
+          <input ref={fileInput} type="file" className="visually-hidden" accept="image/*,audio/*" disabled={save.busy}
+            onChange={event => pick(event.target.files?.[0] ?? null)} />
+        </label>
+        {recorder.recording
+          ? <Button small look="danger" onClick={recorder.stop}>Stop recording</Button>
+          : <Button small disabled={save.busy || recorder.starting} onClick={() => { setFile(null); void recorder.start(); }}>Record a voice note</Button>}
+        {recorder.recording && <span className="fine" role="status">Recording…</span>}
+        {attachment && !recorder.recording && <span className="fine" role="status">
+          {file ? file.name : 'Voice note recorded'} · <Button look="link" small
+            onClick={() => { setFile(null); recorder.clear(); if (fileInput.current) fileInput.current.value = ''; }}>remove</Button>
+        </span>}
+      </div>
+      {recorder.error && <SaveError title="No voice note." message={recorder.error} />}
+      {fileError && <SaveError title="Not that file." message={fileError} />}
+      {save.error && <SaveError message={save.error} />}
+      <div className="actions">
+        <span className="fine muted">Photos and voice notes up to 20 MB.</span>
+        <Button type="submit" look="primary" disabled={!canSave}>{save.busy ? 'Saving…' : 'Put on Shelf'}</Button>
+      </div>
+    </form>}
+
+    <div className="shelf-home">
+      <section className="shelf-main" aria-label={found ? 'Search results' : 'Your Shelf, by topic'}>
+        {search.error && <SaveError title="Could not search." message={search.error} />}
+        {items.error && <LoadError what="Your Shelf" message={items.error} onReload={items.reload} />}
+        {items.loading && !items.data && <Skeleton rows={3} />}
+        {items.data && !found && items.data.length === 0 && <Empty title="Your Shelf is empty">
+          Put a note, a photo or a voice note on it above. It is read in a few seconds and sorted into a topic.
+        </Empty>}
+        {items.data && !found && items.data.length > 0 && visible.length === 0 && <Empty title="Nothing here">
+          Nothing on your Shelf fits this profile and type. Pick Everything or All to see the rest.
+        </Empty>}
+        {found && <div className="row shelf-found">
+          <p className="fine muted" role="status">{visible.length ? `${count(visible.length, 'match', 'matches')}, closest first.` : 'Nothing on your Shelf fits that. Try other words, the way you would describe it to someone.'}</p>
+          <Button look="quiet" small onClick={() => { setFound(null); setQuery(''); }}>Show everything</Button>
+        </div>}
+        {found
+          ? <div className="shelf-grid">{visible.map(card)}</div>
+          : sectionsOf(visible).map(section => <details key={section.key} className="shelf-section" open>
+            <summary><span className="name">{section.name}</span>
+              <span className="eyebrow">{count(section.items.length, 'thing', 'things')}</span></summary>
+            <div className="shelf-grid">{section.items.map(card)}</div>
+          </details>)}
+      </section>
+
+      <aside className="shelf-side" aria-label="What needs you">
+        <div className="shelf-side-top">
+          <Suggestions loaded={suggestions} profile={profile} />
+          <nav className="shelf-panel shelf-types" aria-label="Type">
+            {TYPES.map(t => <button key={t.key} type="button" aria-pressed={type === t.key} onClick={() => view('type', t.key)}>
+              <span>{t.label}</span>
+              <span className="mono">{t.key === 'all' ? typeCounts.length : typeCounts.filter(row => row.kind === t.key).length}</span>
+            </button>)}
+          </nav>
+        </div>
+        <ComingUp profile={profile} />
+      </aside>
+    </div>
   </>;
 }
