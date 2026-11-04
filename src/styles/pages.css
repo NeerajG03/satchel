@@ -88,7 +88,9 @@
 .shelf-section .name { font-family: var(--font-content); font-size: var(--text-h3); }
 .shelf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; align-items: start; }
 .shelf-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--paper); min-width: 0; }
-.shelf-card .actions { flex-wrap: wrap; }
+.shelf-card .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.shelf-card .actions .field.compact { height: var(--control-h-sm); min-height: var(--control-h-sm); padding-block: 0; }
+.shelf-card .prov { display: block; margin-top: 6px; }
 .shelf-found { justify-content: space-between; align-items: center; gap: 8px; }
 /* One board, filled column by column, so a short card sits beside a tall list instead of under it. */
 .shelf-board { columns: 280px; column-gap: 12px; }
