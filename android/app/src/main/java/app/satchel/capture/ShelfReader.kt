@@ -14,6 +14,8 @@ data class ShelfEntry(
     val id: String, val kind: String, val note: String, val objectPath: String?, val voicePath: String?,
     val description: String?, val transcript: String?, val status: String, val createdAt: String,
     val profile: String?, val topicName: String?, val sortedAt: String? = null,
+    /** The connected app that dropped it (Claude Code, Codex), or null when the person did. */
+    val addedBy: String? = null,
 )
 data class ListLine(val id: String, val list: String, val title: String, val detail: String?, val profile: String?,
                     val status: String, val itemIds: List<String>, val kind: String = "item", val amount: String? = null,
@@ -154,7 +156,7 @@ class ShelfReader(private val http: OkHttpClient, private val token: suspend () 
 
     private fun entry(o: JSONObject) = ShelfEntry(o.getString("id"), o.getString("kind"), o.optString("note"), o.str("object_path"),
         o.str("voice_path"), o.str("description"), o.str("transcript"), o.optString("status"), o.optString("created_at"),
-        o.str("profile"), o.str("topic_name"), o.str("sorted_at"))
+        o.str("profile"), o.str("topic_name"), o.str("sorted_at"), o.str("added_by"))
 }
 
 private fun JSONObject.str(key: String): String? = if (isNull(key)) null else optString(key).takeIf { it.isNotEmpty() }
