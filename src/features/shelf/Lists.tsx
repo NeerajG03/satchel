@@ -13,19 +13,18 @@ const SHOWN = 8;
 
 /**
  * The Shelf, rearranged: one block per list Satchel made as drops called for
- * it (Books, Watch, Recipes to try), each line a tick and a title. A bigger
- * list gets a wider block. Lines are never typed in here, only dropped.
+ * it (Books, Watch, Recipes to try), each line a tick and a title. Lines are
+ * never typed in here, only dropped.
  */
 export function Lists({ wants, items, profile }: { wants: Loaded<Want[]>; items: ShelfItem[]; profile: ProfileKind | 'all' }) {
   const rows = (wants.data ?? []).filter(w => profile === 'all' || !w.profile || w.profile === profile);
   if (!rows.length) return null;
   const names = listsOf(wants.data ?? []);
-  return <div className="list-blocks">
-    {names.map(name => {
-      const mine = rows.filter(w => w.list === name);
-      return mine.length ? <ListBlock key={name} name={name} lines={mine} names={names} items={items} wants={wants} /> : null;
-    })}
-  </div>;
+  // Blocks only, no wrapper: they sit on the Shelf's one board with the drops.
+  return <>{names.map(name => {
+    const mine = rows.filter(w => w.list === name);
+    return mine.length ? <ListBlock key={name} name={name} lines={mine} names={names} items={items} wants={wants} /> : null;
+  })}</>;
 }
 
 function ListBlock({ name, lines, names, items, wants }: { name: string; lines: Want[]; names: string[]; items: ShelfItem[]; wants: Loaded<Want[]> }) {
@@ -75,7 +74,7 @@ function ListBlock({ name, lines, names, items, wants }: { name: string; lines: 
     {act.error && actingOn === w.id && <SaveError title="Could not change this." message={act.error} />}
   </li>;
 
-  return <section className={`list-block${open.length > SHOWN ? ' wide' : ''}`} aria-labelledby={id}>
+  return <section className="list-block" aria-labelledby={id}>
     <header>
       <h2 id={id}>{name}</h2>
       <span className="eyebrow">{open.length} to go{done.length ? ` · ${done.length} done` : ''}</span>

@@ -90,13 +90,12 @@
 .shelf-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--paper); min-width: 0; }
 .shelf-card .actions { flex-wrap: wrap; }
 .shelf-found { justify-content: space-between; align-items: center; gap: 8px; }
-.list-blocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; align-items: start; }
+/* One board, filled column by column, so a short card sits beside a tall list instead of under it. */
+.shelf-board { columns: 280px; column-gap: 12px; }
+.shelf-board > * { break-inside: avoid; margin: 0 0 12px; width: 100%; box-sizing: border-box; }
 .list-block { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 10px; background: var(--paper-2); min-width: 0; }
-.list-block.wide { grid-column: span 2; }
-@media (max-width: 640px) { .list-block.wide { grid-column: auto; } }
 .list-block header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
 .list-block h2 { font-size: var(--text-h3); margin: 0; }
-.list-block.wide .wants { columns: 2 240px; column-gap: 20px; }
 .wants { list-style: none; margin: 0; padding: 0; }
 .want { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 10px; align-items: start; padding: 4px 0; break-inside: avoid; }
 .want input[type=checkbox] { width: 20px; height: 20px; margin: 12px 0 0; accent-color: var(--hw); }

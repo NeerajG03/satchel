@@ -282,7 +282,7 @@ export function Shelf() {
       {linesOf.has(item.id) && <p className="fine">Added to {[...linesOf.get(item.id)!].map(([list, n]) =>
         `${list} (${n})`).join(', ')} · <Button look="link" small disabled={act.busy}
         onClick={() => void undoLines(item)}>Undo</Button></p>}
-      <Provenance parts={[KIND_LABEL[item.kind], profile === 'all' && item.profile ? PROFILE_LABEL[item.profile] : null, status.label]} at={item.created_at} />
+      <Provenance parts={[KIND_LABEL[item.kind], item.topic_name, profile === 'all' && item.profile ? PROFILE_LABEL[item.profile] : null, status.label]} at={item.created_at} />
       <div className="actions">
         <label className="visually-hidden" htmlFor={`profile-${item.id}`}>Profile</label>
         <select id={`profile-${item.id}`} className="field compact" value={item.profile ?? ''} disabled={act.busy && failedOn === item.id}
@@ -391,14 +391,13 @@ export function Shelf() {
           <p className="fine muted" role="status">{visible.length ? `${count(visible.length, 'match', 'matches')}, closest first.` : 'Nothing on your Shelf fits that. Try other words, the way you would describe it to someone.'}</p>
           <Button look="quiet" small onClick={() => { setFound(null); setQuery(''); }}>Show everything</Button>
         </div>}
-        {!found && !asDropped && <Lists wants={wants} items={items.data ?? []} profile={profile} />}
         {found || asDropped
           ? <div className="shelf-grid">{visible.map(card)}</div>
-          : sectionsOf(loose).map(section => <details key={section.key} className="shelf-section" open>
-            <summary><span className="name">{section.name}</span>
-              <span className="eyebrow">{count(section.items.length, 'thing', 'things')}</span></summary>
-            <div className="shelf-grid">{section.items.map(card)}</div>
-          </details>)}
+          // One board: the lists Satchel made, then the drops that did not become lines, flowing into columns.
+          : <div className="shelf-board">
+            <Lists wants={wants} items={items.data ?? []} profile={profile} />
+            {sectionsOf(loose).flatMap(section => section.items).map(card)}
+          </div>}
       </section>
 
       <aside className="shelf-side" aria-label="What needs you">
