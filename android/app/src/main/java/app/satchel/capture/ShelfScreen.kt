@@ -83,6 +83,12 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
             val ahead = async { runCatching { reader.week() } }
             val listed = async { runCatching { reader.lines() } }
             list.await().onSuccess { items = it }.onFailure { problem = it.message }
+            // A note a connected app dropped waits for someone to ask for its read; the phone asks, as the web does.
+            val fromApps = (items ?: emptyList()).filter { it.addedBy != null && it.status == "waiting" }
+            if (fromApps.isNotEmpty()) {
+                fromApps.forEach { runCatching { reader.reread(it.id) } }
+                runCatching { reader.items() }.onSuccess { items = it }
+            }
             wait.await().onSuccess { waiting = it }
             ahead.await().onSuccess { week = it }
             listed.await().onSuccess { lines = it }
@@ -325,6 +331,7 @@ private fun EntryCard(e: ShelfEntry, links: Map<String, String>, reader: ShelfRe
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(listOfNotNull(
                     when (e.kind) { "photo" -> "photo"; "voice" -> "voice"; else -> "note" },
+                    e.addedBy?.let { "from $it" },
                     e.topicName,
                     if (showProfile) e.profile?.let { PROFILE[it] } else null,
                     dayOf(e.createdAt)?.lowercase(),
