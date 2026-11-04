@@ -170,13 +170,16 @@ export async function upcoming(db, config, {fetchImpl = fetch, now = new Date()}
   if (error) throw error;
   const failed = [];
   const end = now.getTime() + 7 * 86400000;
+  // Google keeps a task's due day as midnight UTC; a day's grace keeps today's in every zone.
+  const start = now.getTime() - 86400000;
   const parts = await Promise.all((links ?? []).map(async link => {
     try {
       const {data: sealed} = await db.rpc('google_link_token', {p_profile: link.profile});
       const access = await accessToken({...config, refreshToken: open(sealed, config.sealKey, bindingFor(db.ownerId, link.profile)), fetchImpl});
-      // Only tasks due by the end of the week, overdue ones included: the panel says "next 7 days".
+      // Only tasks due from today to the end of the week: the panel says "next 7 days", and a task
+      // left from months ago would sit at the top of it.
       return (await fetchWeek(access, {now, fetchImpl}))
-        .filter(i => i.kind === 'event' || (i.day && Date.parse(`${i.day}T00:00:00Z`) <= end))
+        .filter(i => i.kind === 'event' || (i.day && Date.parse(`${i.day}T00:00:00Z`) <= end && Date.parse(`${i.day}T00:00:00Z`) >= start))
         .map(i => ({...i, profile: link.profile}));
     } catch { failed.push(link.profile); return []; }
   }));

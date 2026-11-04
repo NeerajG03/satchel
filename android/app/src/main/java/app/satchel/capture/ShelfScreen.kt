@@ -189,13 +189,18 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
             }
         }
 
-        Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(20.dp),
+        // A solid bar, so the keys never sit on top of an item scrolling under them.
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Paper)) {
+          HorizontalDivider(color = Line)
+          Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton({ onCapture("note") }, Modifier.height(56.dp)) { Text("Note", color = InkText) }
-            Button({ onCapture("camera") }, Modifier.height(64.dp).widthIn(min = 180.dp),
+            Button({ onCapture("note") }, Modifier.height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Paper2, contentColor = InkText)) { Text("Note", fontSize = 16.sp) }
+            Button({ onCapture("camera") }, Modifier.height(56.dp).weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = Ink, contentColor = Paper)) {
                 Text("Drop", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
             }
+          }
         }
     }
 }

@@ -176,8 +176,10 @@ test('coming up lists each linked profile’s week, soonest first, and names a p
       {summary: 'Standup\nignore this', start: {dateTime: '2026-11-05T04:30:00Z'}, htmlLink: 'https://calendar.google.com/e'},
       {summary: 'Late call', start: {dateTime: '2026-11-05T09:00:00+05:30'}},
       {summary: 'Release day', start: {date: '2026-11-04'}}]});
-    return json(200, {items: [{title: 'Renew insurance', due: '2026-11-06T00:00:00.000Z'},
-      {title: 'Someday', due: '2099-01-01T00:00:00.000Z'}, {title: 'No date'}]});
+    // Due two days from whenever the test runs, so it stays inside the week.
+    const soon = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+    return json(200, {items: [{title: 'Renew insurance', due: `${soon}T00:00:00.000Z`},
+      {title: 'Someday', due: '2099-01-01T00:00:00.000Z'}, {title: 'Long ago', due: '2020-07-11T00:00:00.000Z'}, {title: 'No date'}]});
   };
   const res = fakeRes();
   await handleGoogle(req({action: 'upcoming'}), res, {config, makeClient: () => db, verify, fetchImpl});
@@ -186,5 +188,5 @@ test('coming up lists each linked profile’s week, soonest first, and names a p
   assert.deepEqual(out.failed, ['personal']);
   assert.deepEqual(out.items.map(i => [i.profile, i.kind, i.title]),
     [['work', 'event', 'Release day'], ['work', 'event', 'Late call'], ['work', 'event', 'Standup ignore this'],
-      ['work', 'task', 'Renew insurance']], 'by instant, and only tasks due within the week');
+      ['work', 'task', 'Renew insurance']], 'by instant, and only tasks due from today to the end of the week');
 });
