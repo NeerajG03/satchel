@@ -24,11 +24,11 @@ private fun open(context: Context, mode: String, request: Int) = PendingIntent.g
     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
 )
 
-/** Quick Settings tile: opens the sheet with all three ways ready, from any screen. */
+/** Quick Settings tile: opens capture on the camera, from any screen, locked or not. */
 class CaptureTile : TileService() {
     override fun onClick() {
         super.onClick()
-        val pending = open(this, "pick", 4)
-        if (isLocked) unlockAndRun { startActivityAndCollapse(pending) } else startActivityAndCollapse(pending)
+        // Capture opens over the lock screen, like the camera: no unlock needed to put something on the Shelf.
+        startActivityAndCollapse(open(this, "camera", 4))
     }
 }

@@ -26,6 +26,7 @@ class App : Application() {
             .writeTimeout(60, TimeUnit.SECONDS).build()
     }
     val auth by lazy { Auth(this, http) }
+    val reader by lazy { ShelfReader(http) { auth.accessToken() } }
     val queue by lazy { Queue(File(filesDir, "queue")) }
     val sender by lazy {
         Sender(queue, ShelfApi(http, BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_KEY, BuildConfig.SATCHEL_URL) {

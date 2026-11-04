@@ -154,6 +154,29 @@ test('a voice note is transcribed, not summarised, before it is embedded, and a 
   assert.equal(body.sorted, false);
 });
 
+test('a photo with a voice note: the words are written down and the photo is read with them', async () => {
+  const db = fakeDb({item: {id, kind: 'photo', note: 'office', object_path: `alice/${id}.jpg`, mime_type: 'image/jpeg', size_bytes: 3,
+    voice_path: `alice/${id}-voice.m4a`, voice_mime: 'audio/mp4', voice_size: 3}});
+  let readWith = null, heard = null;
+  const describer = {describe: async ({note, mimeType}) => { readWith = [note, mimeType]; return 'A router on a shelf.'; }};
+  const sorter = {transcribe: async ({mimeType}) => { heard = mimeType; return 'this is the router config'; },
+    sort: async () => ({profile: 'work', topic_id: null, suggestions: []})};
+  const texts = [];
+  const embedding = {model: 'm', embedOne: async text => { texts.push(text); return [1, 0]; }, embedQuery: async () => [0, 1]};
+  const realRpc = db.rpc;
+  db.rpc = async (name, args) => name === 'shelf_sort_context' ? {data: {timezone: 'UTC', topics: []}, error: null}
+    : name === 'save_shelf_sorting' || name === 'record_document_turn' ? (db.calls.push([name, args]), {data: 0, error: null}) : realRpc(name, args);
+  const res = fakeRes();
+  await handleShelf(req({action: 'describe', id}), res, {embedder: embedding, describer, sorter, makeClient: () => db, verify});
+  assert.equal(res.status, 200);
+  assert.equal(heard, 'audio/mp4');
+  assert.deepEqual(readWith, ['office\nthis is the router config', 'image/jpeg']);
+  assert.equal(texts[0], 'office\nthis is the router config\nA router on a shelf.');
+  assert.deepEqual(db.calls.filter(c => c[0] === 'download').map(c => c[2]), [`alice/${id}-voice.m4a`, `alice/${id}.jpg`]);
+  const words = db.calls.find(c => c[0] === 'record_document_turn');
+  assert.equal(words[1].p_content, 'office\nthis is the router config', 'what they said goes on to memory');
+});
+
 test('sort sorts a read, unsorted item, and refuses one already sorted', async () => {
   const read = {id, kind: 'note', note: 'call the dentist tuesday', object_path: null, mime_type: null, size_bytes: null,
     description: null, transcript: null, status: 'ready', sorted_at: null};

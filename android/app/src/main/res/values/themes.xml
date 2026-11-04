@@ -11,6 +11,11 @@
         <item name="android:windowNoTitle">true</item>
         <item name="android:backgroundDimEnabled">false</item>
     </style>
+    <!-- Capture opens on the camera: dark from the first frame, edge to edge. -->
+    <style name="Theme.Satchel.Capture" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
     <style name="Theme.Satchel.Invisible" parent="android:Theme.Translucent.NoTitleBar" />
     <style name="WidgetKey">
         <item name="android:layout_width">0dp</item>

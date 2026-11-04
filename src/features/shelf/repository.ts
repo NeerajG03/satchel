@@ -9,7 +9,7 @@ export type ShelfItem = {
   id: string; kind: ShelfKind; note: string; object_path: string | null; mime_type: string | null;
   description: string | null; status: 'waiting' | 'reading' | 'ready' | 'failed'; created_at: string;
   profile: ProfileKind | null; transcript?: string | null; sorted_at?: string | null; similarity?: number;
-  topic_id?: string | null; topic_name?: string | null;
+  topic_id?: string | null; topic_name?: string | null; voice_path?: string | null;
 };
 
 export type Suggestion = {
@@ -58,26 +58,35 @@ export function createShelfRepository(db: SupabaseClient) {
     /** The row first, then the file, then the read. Storage only takes a file
      *  a waiting row already names, so a half-done drop leaves a row that says
      *  so rather than a file nothing knows about. */
-    async add({ note, file }: { note: string; file?: Blob | null }): Promise<ShelfItem> {
+    /** A photo may bring a voice note of what it is; it is saved with the photo, as one item. */
+    async add({ note, file, voice }: { note: string; file?: Blob | null; voice?: Blob | null }): Promise<ShelfItem> {
       const id = crypto.randomUUID();
       const kind = file ? kindOf(file.type) : 'note';
       if (!kind) throw new Sentence(UNSUPPORTED_FILE);
-      if (file && file.size > SHELF_LIMITS.bytes) throw new Sentence('That file is over 20 MB, so nothing was saved. Try a smaller one.');
+      if (voice && (kind !== 'photo' || kindOf(voice.type) !== 'voice')) throw new Sentence(UNSUPPORTED_FILE);
+      if ([file, voice].some(f => f && f.size > SHELF_LIMITS.bytes)) throw new Sentence('That file is over 20 MB, so nothing was saved. Try a smaller one.');
+      const owner = file ? (await session()).user.id : null;
       const type = file ? bareType(file.type) : null;
-      const path = file ? `${(await session()).user.id}/${id}.${EXTENSIONS[type!]}` : null;
+      const voiceType = voice ? bareType(voice.type) : null;
+      const path = file ? `${owner}/${id}.${EXTENSIONS[type!]}` : null;
+      const voicePath = voice ? `${owner}/${id}-voice.${EXTENSIONS[voiceType!]}` : null;
       const { data, error } = await requestWithTimeout(signal => db.rpc('add_shelf_item', {
         p_id: id, p_kind: kind, p_note: note.trim(), p_object_path: path, p_mime_type: type, p_size_bytes: file?.size ?? null,
+        ...(voice ? { p_voice_path: voicePath, p_voice_mime: voiceType, p_voice_size: voice.size } : {}),
       }).abortSignal(signal).single<ShelfItem>());
       if (error) throw error;
-      if (file && path) {
-        const { error: uploadError } = await db.storage.from('shelf').upload(path, file, { contentType: type!, upsert: false });
+      const uploads: [string | null, Blob | null | undefined, string | null][] = [[path, file, type], [voicePath, voice, voiceType]];
+      for (const [where, blob, contentType] of uploads) {
+        if (!where || !blob) continue;
+        const { error: uploadError } = await db.storage.from('shelf').upload(where, blob, { contentType: contentType!, upsert: false });
         if (uploadError) {
-          // Take the row back out, so nothing is left that names a file that never arrived.
+          // Take the row (and any file already up) back out, so nothing is left half there.
           await db.rpc('remove_shelf_item', { p_id: id });
+          await db.storage.from('shelf').remove([path, voicePath].filter((p): p is string => Boolean(p)));
           throw new Sentence('The file did not upload, so nothing was saved. Try again.');
         }
       }
-      return { ...data!, description: null, profile: null };
+      return { ...data!, description: null, profile: null, voice_path: voicePath };
     },
     async describe(id: string): Promise<{ status: ShelfItem['status']; description: string | null;
       profile: ShelfItem['profile']; suggestions: number; transcript: string | null; sorted: boolean }> {
@@ -112,10 +121,11 @@ export function createShelfRepository(db: SupabaseClient) {
     async remove(item: ShelfItem): Promise<void> {
       const { data, error } = await requestWithTimeout(signal => db.rpc('remove_shelf_item', { p_id: item.id }).abortSignal(signal));
       if (error) throw error;
-      const path = (data as { object_path: string | null }[] | null)?.[0]?.object_path;
+      const row = (data as { object_path: string | null; voice_path?: string | null }[] | null)?.[0];
+      const paths = [row?.object_path, row?.voice_path].filter((p): p is string => Boolean(p));
       // The row is gone either way. A file left behind is only reachable by
       // its owner, and is not worth failing the remove over.
-      if (path) await db.storage.from('shelf').remove([path]);
+      if (paths.length) await db.storage.from('shelf').remove(paths);
     },
   };
 }

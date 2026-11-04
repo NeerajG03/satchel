@@ -19,6 +19,10 @@ data class QueuedItem(
     val stage: Int = ADD,
     val createdAt: Long = System.currentTimeMillis(),
     val problem: String? = null,
+    // What the person said about a photo: a second file on the same item.
+    val voicePath: String? = null,
+    val voiceMime: String? = null,
+    val voiceSize: Int? = null,
 ) {
     companion object {
         const val ADD = 0
@@ -54,11 +58,22 @@ class Queue(private val root: File) {
         return save(item, bytes)
     }
 
+    /** A photo and what was said about it, as one item. */
+    fun addPhotoWithVoice(photo: ByteArray, voice: ByteArray, note: String = ""): QueuedItem {
+        require(photo.size in 1..ShelfTypes.BYTE_LIMIT && voice.size in 1..ShelfTypes.BYTE_LIMIT) { "That file is over 20 MB" }
+        val item = QueuedItem(UUID.randomUUID().toString(), "photo", note.take(ShelfTypes.NOTE_LIMIT), null, "image/jpeg", photo.size,
+            voiceMime = "audio/mp4", voiceSize = voice.size)
+        val dir = File(root, item.id).apply { mkdirs() }
+        File(dir, "voice").writeBytes(voice)
+        return save(item, photo)
+    }
+
     fun pending(): List<QueuedItem> = (root.listFiles() ?: emptyArray())
         .mapNotNull { dir -> File(dir, "meta.json").takeIf { it.exists() }?.let { read(it) } }
         .sortedBy { it.createdAt }
 
     fun file(item: QueuedItem): File = File(File(root, item.id), "data").also { if (!it.exists()) throw java.io.FileNotFoundException(item.id) }
+    fun voice(item: QueuedItem): File = File(File(root, item.id), "voice").also { if (!it.exists()) throw java.io.FileNotFoundException(item.id) }
 
     fun update(item: QueuedItem): QueuedItem = item.also { write(File(File(root, it.id), "meta.json"), it) }
 
@@ -79,6 +94,8 @@ class Queue(private val root: File) {
             .put("objectPath", item.objectPath ?: JSONObject.NULL).put("mime", item.mime ?: JSONObject.NULL)
             .put("size", item.size ?: JSONObject.NULL).put("stage", item.stage)
             .put("createdAt", item.createdAt).put("problem", item.problem ?: JSONObject.NULL)
+            .put("voicePath", item.voicePath ?: JSONObject.NULL).put("voiceMime", item.voiceMime ?: JSONObject.NULL)
+            .put("voiceSize", item.voiceSize ?: JSONObject.NULL)
         // Written whole and then moved, so a crash mid-write never leaves half a record.
         val temp = File(file.parentFile, "meta.tmp")
         temp.writeText(o.toString())
@@ -90,7 +107,8 @@ class Queue(private val root: File) {
         fun str(k: String) = if (o.isNull(k)) null else o.getString(k)
         QueuedItem(o.getString("id"), o.getString("kind"), o.getString("note"), str("objectPath"), str("mime"),
             if (o.isNull("size")) null else o.getInt("size"), o.getInt("stage"),
-            o.getLong("createdAt"), str("problem"))
+            o.getLong("createdAt"), str("problem"),
+            str("voicePath"), str("voiceMime"), if (o.isNull("voiceSize")) null else o.optInt("voiceSize"))
     } catch (e: Exception) { null }
 }
 
@@ -130,12 +148,16 @@ class Sender(private val queue: Queue, private val api: ShelfApi, private val ow
         var item = start
         if (item.mime != null && item.objectPath == null) {
             val owner = ownerId() ?: return Outcome.SIGNED_OUT
-            item = queue.update(item.copy(objectPath = "$owner/${item.id}.${ShelfTypes.extension(item.mime)}"))
+            item = queue.update(item.copy(objectPath = "$owner/${item.id}.${ShelfTypes.extension(item.mime)}",
+                voicePath = item.voiceMime?.let { "$owner/${item.id}-voice.${ShelfTypes.extension(it)}" }))
         }
         while (true) {
             val step = when (item.stage) {
                 QueuedItem.ADD -> api.add(item)
-                QueuedItem.UPLOAD -> api.upload(item, queue.file(item))
+                // The photo, then what was said about it. A retry finds a file already there and moves on.
+                QueuedItem.UPLOAD -> api.upload(item.objectPath, item.mime, queue.file(item)).let { first ->
+                    if (first !is Step.Done || item.voicePath == null) first else api.upload(item.voicePath, item.voiceMime, queue.voice(item))
+                }
                 else -> api.describe(item)
             }
             when (step) {

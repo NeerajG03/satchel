@@ -120,11 +120,13 @@ export function Shelf() {
   const [dropping, setDropping] = useState<boolean | null>(null);
 
   const rows = found ?? items.data ?? [];
+  // A photo and a recording go together: the recording is what the photo is.
+  const photoWithVoice = Boolean(file && kindOf(file.type) === 'photo' && recorder.clip);
   const attachment: Blob | null = file ?? recorder.clip;
   const canSave = !save.busy && !recorder.recording && (note.trim().length > 0 || attachment !== null);
   useFooter(items.data ? count(items.data.length, 'thing', 'things') + ' on your Shelf' : '');
 
-  const paths = rows.map(row => row.object_path).filter((path): path is string => Boolean(path) && !urls[path!]);
+  const paths = rows.flatMap(row => [row.object_path, row.voice_path]).filter((path): path is string => Boolean(path) && !urls[path!]);
   useEffect(() => {
     if (!paths.length) return;
     stores.shelf.fileUrls(paths).then(more => setUrls(current => ({ ...current, ...more }))).catch(() => {});
@@ -163,7 +165,7 @@ export function Shelf() {
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!canSave) return;
-    const added = await save.run(() => stores.shelf.add({ note, file: attachment }));
+    const added = await save.run(() => stores.shelf.add(photoWithVoice ? { note, file, voice: recorder.clip } : { note, file: attachment }));
     if (!added) return;
     items.replace(list => [added, ...list]);
     setDropping(true);
@@ -215,7 +217,9 @@ export function Shelf() {
     save.clear();
     const fits = !chosen || Boolean(kindOf(chosen.type));
     setFileError(fits ? '' : UNSUPPORTED_FILE);
-    setFile(fits ? chosen : null); recorder.clear();
+    setFile(fits ? chosen : null);
+    // A photo keeps a recording made for it; an audio file replaces it.
+    if (!chosen || kindOf(chosen.type) !== 'photo') recorder.clear();
     if (!fits && fileInput.current) fileInput.current.value = '';
   }
 
@@ -232,6 +236,8 @@ export function Shelf() {
         : <div className="shelf-photo placeholder" aria-hidden="true" />)}
       {item.kind === 'voice' && item.object_path && urls[item.object_path] &&
         <audio controls preload="none" src={urls[item.object_path]} aria-label="Play this voice note" />}
+      {item.voice_path && urls[item.voice_path] &&
+        <audio controls preload="none" src={urls[item.voice_path]} aria-label="Play what you said about this photo" />}
       {item.note && <h2 className="title">{item.note}</h2>}
       {item.transcript && <blockquote className="transcript">“{item.transcript}”</blockquote>}
       {item.description && !item.transcript && <p className={item.note ? 'muted' : 'title'}>{item.description}</p>}
@@ -297,10 +303,13 @@ export function Shelf() {
         </label>
         {recorder.recording
           ? <Button small look="danger" onClick={recorder.stop}>Stop recording</Button>
-          : <Button small disabled={save.busy || recorder.starting} onClick={() => { setFile(null); void recorder.start(); }}>Record a voice note</Button>}
+          : <Button small disabled={save.busy || recorder.starting} onClick={() => {
+              if (file && kindOf(file.type) !== 'photo') setFile(null);
+              void recorder.start();
+            }}>{file && kindOf(file.type) === 'photo' ? 'Say what this photo is' : 'Record a voice note'}</Button>}
         {recorder.recording && <span className="fine" role="status">Recording…</span>}
         {attachment && !recorder.recording && <span className="fine" role="status">
-          {file ? file.name : 'Voice note recorded'} · <Button look="link" small
+          {photoWithVoice ? `${file!.name} with your voice note` : file ? file.name : 'Voice note recorded'} · <Button look="link" small
             onClick={() => { setFile(null); recorder.clear(); if (fileInput.current) fileInput.current.value = ''; }}>remove</Button>
         </span>}
       </div>

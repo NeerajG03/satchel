@@ -64,6 +64,22 @@ class SenderTest {
         assertEquals("/storage/v1/object/shelf/owner/${item.id}.jpg", upload.url.encodedPath)
     }
 
+    @Test fun `a photo with a voice note is one item, both files go up, the voice beside the photo`() = runTest {
+        val item = queue.addPhotoWithVoice(byteArrayOf(1, 2, 3), byteArrayOf(4, 5))
+        answer("upload", 200, 503)
+        assertFalse(sender.run())
+        // The photo again finds itself already there, then the voice goes up.
+        answer("upload", 400, 200)
+        uploadBody = "{\"statusCode\":\"409\",\"error\":\"Duplicate\"}"
+        assertTrue(sender.run())
+        assertEquals(listOf("add", "upload", "upload", "upload", "upload", "describe"), calls)
+        val requests = generateSequence { server.takeRequest() }.take(6).toList()
+        val added = org.json.JSONObject(requests[0].body!!.utf8())
+        assertEquals("owner/${item.id}-voice.m4a", added.getString("p_voice_path"))
+        assertEquals("/storage/v1/object/shelf/owner/${item.id}-voice.m4a", requests[4].url.encodedPath)
+        assertTrue(queue.pending().isEmpty())
+    }
+
     @Test fun `a lost upload is retried from the upload, and already there counts as done`() = runTest {
         queue.addFile("voice", "audio/mp4", byteArrayOf(9))
         answer("upload", 503)

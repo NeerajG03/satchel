@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <!-- No backup: the sign-in must never leave the phone, not even in a cloud copy. -->
     <application
@@ -38,8 +40,25 @@
             android:excludeFromRecents="true"
             android:taskAffinity="app.satchel.capture.sheet"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode|keyboardHidden|density"
-            android:theme="@style/Theme.Satchel.Sheet"
+            android:screenOrientation="portrait"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.Satchel.Capture"
             android:windowSoftInputMode="adjustResize" />
+
+        <!-- A second name in the app list, so Quick Tap (double-tap the back of a
+             Pixel) and launchers can open straight onto capture. -->
+        <activity-alias
+            android:name=".QuickCapture"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Satchel Capture"
+            android:targetActivity=".CaptureActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <activity
             android:name=".ShareActivity"
