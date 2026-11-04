@@ -88,9 +88,41 @@
 .shelf-section .name { font-family: var(--font-content); font-size: var(--text-h3); }
 .shelf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; align-items: start; }
 .shelf-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--paper); min-width: 0; }
-.shelf-card .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
-.shelf-card .actions .field.compact { height: var(--control-h-sm); min-height: var(--control-h-sm); padding-block: 0; }
-.shelf-card .prov { display: block; margin-top: 6px; }
+.shelf-card { display: grid; gap: 8px; }
+.shelf-card .title { margin: 0; }
+.shelf-card .transcript { margin: 0; }
+.shelf-card .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.clamped { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.more-words { justify-self: start; background: none; border: 0; padding: 4px 0; color: var(--accent); font: inherit; font-size: var(--text-fine); cursor: pointer; }
+.card-foot { display: flex; align-items: center; gap: 4px; min-height: var(--control-h-sm); }
+.card-foot .prov { flex: 1; min-width: 0; }
+/* Small keys that stay out of the way until reached for: faint at rest, clear on hover, focus or touch. */
+.icon-key { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--muted); cursor: pointer; opacity: .55; transition: opacity var(--t-hover) var(--ease), background var(--t-hover) var(--ease); }
+.icon-key svg { width: 16px; height: 16px; fill: currentColor; }
+.shelf-card:hover .icon-key, .icon-key:focus-visible, .icon-key[aria-expanded=true] { opacity: 1; }
+.icon-key:hover { background: var(--paper-3); color: var(--ink); }
+.icon-key:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+@media (hover: none) { .icon-key { opacity: .8; } }
+.card-menu { position: relative; }
+.card-menu-panel { position: absolute; right: 0; bottom: 36px; z-index: 5; display: grid; min-width: 180px; padding: 6px; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-drop); }
+.card-menu-panel button { text-align: left; background: none; border: 0; border-radius: 6px; padding: 9px 10px; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; }
+.card-menu-panel button:hover:not(:disabled) { background: var(--paper-2); }
+.card-menu-panel button:disabled { color: var(--muted); cursor: default; }
+.card-menu-panel button[aria-pressed=true]::after { content: ' ✓'; }
+.card-menu-panel button.danger { color: var(--red); border-top: 1px solid var(--line); border-radius: 0 0 6px 6px; margin-top: 4px; }
+.card-menu-panel button:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
+/* A voice note as a round key with its length; a thin line fills while it plays. */
+.voice-key { display: flex; align-items: center; gap: 10px; }
+.voice-key .key { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--hw); color: var(--hw-text); cursor: pointer; box-shadow: var(--shadow-key); flex: 0 0 auto; }
+.voice-key .key svg { width: 14px; height: 14px; fill: currentColor; }
+.voice-key.on .key { background: var(--orange); }
+.voice-key .key:focus-visible { outline: var(--focus-ring); outline-offset: 3px; }
+.voice-key .track { flex: 1; height: 2px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.voice-key .track span { display: block; height: 100%; background: var(--orange); }
+.voice-key .time { font: var(--text-prov)/1 var(--font-mono); color: var(--muted); }
+.voice-key audio { display: none; }
+.shelf-photo-wrap { position: relative; }
+.voice-key.overlay { position: absolute; left: 10px; bottom: 10px; background: color-mix(in srgb, var(--paper) 88%, transparent); padding: 4px 10px 4px 4px; border-radius: 999px; }
 .shelf-found { justify-content: space-between; align-items: center; gap: 8px; }
 /* One board, filled column by column, so a short card sits beside a tall list instead of under it. */
 .shelf-board { columns: 280px; column-gap: 12px; }
@@ -107,6 +139,9 @@
 .want-what .title { font-family: var(--font-content); font-size: 17px; line-height: 1.3; }
 .want-what .detail { font-size: var(--text-fine); color: var(--muted); }
 .want.done .title { text-decoration: line-through; color: var(--muted); }
+.want.fact { align-items: center; }
+.want.fact .btn { margin-top: 0; }
+.want.fact .title { font-family: var(--font-mono); font-size: 15px; overflow-wrap: anywhere; }
 .want-more, .want [role=alert] { grid-column: 2; display: grid; gap: 6px; padding-bottom: 8px; }
 .want-more .row { gap: 6px; flex-wrap: wrap; }
 .want-sources { list-style: none; margin: 0; padding: 0; }
@@ -115,9 +150,8 @@
 .coming-up li { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; border-top: 1px solid var(--line); padding: 9px 0; }
 .coming-up .when { font-family: var(--font-mono); font-size: var(--text-prov); color: var(--muted); }
 .coming-up .what { overflow-wrap: anywhere; }
-.shelf-item .shelf-photo { display: block; width: 100%; max-width: 100%; max-height: 280px; border-radius: 8px; border: 1px solid var(--line); object-fit: cover; margin-bottom: 10px; }
+.shelf-item .shelf-photo { display: block; width: 100%; max-width: 100%; max-height: 280px; border-radius: 8px; border: 1px solid var(--line); object-fit: cover; }
 .shelf-item .shelf-photo.placeholder { width: 240px; height: 160px; background: var(--paper-3); }
-.shelf-item audio { display: block; margin-bottom: 10px; max-width: 100%; }
 
 .profile-topics { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .profile-topics li { display: grid; grid-template-columns: minmax(0, 1fr) 160px; align-items: center; gap: 12px; }
@@ -128,6 +162,6 @@
 .suggestion .what { display: grid; gap: 2px; }
 .suggestion .row { gap: 6px; }
 .suggestion .notice, .suggestion [role=alert] { grid-column: 1 / -1; }
-.shelf-item .transcript { margin: 0 0 6px; font-family: var(--font-content); font-size: 17px; color: var(--ink); border-left: 3px solid var(--line); padding-left: 10px; }
+.shelf-item .transcript { margin: 0; font-family: var(--font-content); font-size: 17px; line-height: 1.45; color: var(--ink); }
 .profile-google { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .profile-google li { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
