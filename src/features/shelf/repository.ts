@@ -9,6 +9,7 @@ export type ShelfItem = {
   id: string; kind: ShelfKind; note: string; object_path: string | null; mime_type: string | null;
   description: string | null; status: 'waiting' | 'reading' | 'ready' | 'failed'; created_at: string;
   profile: ProfileKind | null; transcript?: string | null; sorted_at?: string | null; similarity?: number;
+  topic_id?: string | null; topic_name?: string | null;
 };
 
 export type Suggestion = {

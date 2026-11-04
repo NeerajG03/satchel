@@ -148,15 +148,19 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 
 - Rail: Shelf
 - Eyebrow: Shelf
-- H1: Drop it here, find it later.
-- Lede: A thought, a photo or a voice note. Satchel reads each one and writes down what it shows, so you can find it again by typing a few words. Only you can see your Shelf.
+- H1: Your Shelf
+- Lede: Everything you dropped, sorted by topic, beside what needs you and your week ahead. Only you can see your Shelf.
+- Bar: Profile (All · Work · Personal, with counts) · Find · Drop something / Close (the drop form opens on its own when the Shelf is empty)
+- Sections: one per topic, the biggest first, then Not in a topic yet · {n} things
+- Type: Everything · Photos · Voice notes · Notes, with counts
+- Nothing in view: Nothing here. Nothing on your Shelf fits this profile and type. Pick Everything or All to see the rest.
 - Drop: Note (optional with a photo or voice note) · Add a photo or audio file · Record a voice note · Stop recording · Recording… · Voice note recorded · remove · Photos and voice notes up to 20 MB. · Put on Shelf · Saving…
 - Find: Find something (describe it the way you remember it) · Find · Looking… · Show everything · {n} matches, closest first.
 - Item: note · photo · voice note · reading it… · not read yet · could not read this one · Try reading it again · Look for to-dos · Remove
 - A voice note shows what was said, in quotes, instead of Satchel's summary
 - After Look for to-dos: Found {n} things to do · Nothing to do in this one
 - Remove: Remove this from your Shelf? It goes for good, with its file. Nothing can bring it back. / Keep it · Remove for good
-- Empty: Your Shelf is empty. Put a note, a photo or a voice note on it above. It is read in a few seconds and you can find it by searching.
+- Empty: Your Shelf is empty. Put a note, a photo or a voice note on it above. It is read in a few seconds and sorted into a topic.
 - No match: Nothing on your Shelf fits that. Try other words, the way you would describe it to someone.
 - Footer: {n} things on your Shelf · On your Shelf · Read and on your Shelf · Removed from your Shelf
 - Errors: Satchel could not use the microphone. Allow it for this site, then try again. · The Shelf takes photos (JPEG, PNG, WebP, HEIC) and voice notes (WebM, M4A, MP3, WAV, OGG). · That file is over 20 MB, so nothing was saved. Try a smaller one. · The file did not upload, so nothing was saved. Try again. · Satchel could not read this one, so it is saved but not searchable. Try dropping it again. · Search is busy right now. Try again in a minute.
@@ -172,10 +176,21 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - Timezone: Times in your captures are read in {zone}. · Use {browser zone} instead
 - Shelf item picker: No profile · Work · Personal
 
+## Shelf · Coming up
+
+- H2: Coming up · Next 7 days · from Google
+- Row: when (Thu 10:00, or Thu, Nov 5 for an all-day event), Task · before an open task, the title (links to Google), the profile when All is picked
+- Not linked: Link a Google account to {Work or Personal} to see your calendar and open tasks here. Settings
+- Empty: Nothing on your calendar or tasks in the next seven days.
+- One account did not answer: Google did not answer for {Profile}, so it is not shown. Reload to try again.
+- Server not set up: Google is not set up on this server yet, so your week cannot be shown here.
+
 ## Shelf · Waiting for you
 
 - H2: Waiting for you
 - Lede: Found in what you dropped. Nothing is added anywhere until you say so.
+- Nothing waiting: Nothing waiting. To-dos and events Satchel finds show up here.
+- Follows the profile picked above; one with no profile yet shows under both.
 - Row: To-do · Event, then the profile and when ("by Fri, Nov 6" for a to-do, "Thu, Nov 5, 4:00 PM" for an event), the title, and from “the words it came from”
 - Actions: Add to Google (needs Google linked for that profile) · Dismiss
 - Footer: Dismissed

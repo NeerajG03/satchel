@@ -6,7 +6,7 @@ import {verifyCompanionToken} from './agent-token.mjs';
 import {personFor, readBody, send} from './shelf.mjs';
 import {publicOrigin} from './hook-handler.mjs';
 import {googleConfig, authUrl, exchangeCode, accessToken, addToGoogle, revoke, seal, open, pkce, bindingFor,
-  GoogleError} from './google.mjs';
+  GoogleError, upcoming} from './google.mjs';
 
 const PROFILES = new Set(['work', 'personal']);
 const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,7 +20,9 @@ export async function handleGoogle(req, res, {config = googleConfig(), makeClien
   if (!db) return;
   let body;
   try { body = readBody(req.body); } catch { return send(res, 400, {error: 'Satchel could not read that request.'}); }
-  if (!config) return send(res, 503, {error: 'Google is not set up on this server yet, so nothing was linked.'});
+  if (!config) return send(res, 503, {error: body.action === 'upcoming'
+    ? 'Google is not set up on this server yet, so your week cannot be shown here.'
+    : 'Google is not set up on this server yet, so nothing was linked.'});
   const profile = typeof body.profile === 'string' && PROFILES.has(body.profile) ? body.profile : null;
 
   if (body.action === 'start') {
@@ -65,6 +67,11 @@ export async function handleGoogle(req, res, {config = googleConfig(), makeClien
       catch { /* unlinked here either way; Google's own account page can remove the rest */ }
     }
     return send(res, 200, {profile, revoked: Boolean(sealed && !shared)});
+  }
+
+  if (body.action === 'upcoming') {
+    try { return send(res, 200, await upcoming(db, config, {fetchImpl})); }
+    catch { return send(res, 502, {error: 'Satchel could not read your week just now. Reload to try again.'}); }
   }
 
   if (body.action === 'add') {

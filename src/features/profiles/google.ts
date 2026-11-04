@@ -5,6 +5,8 @@ import type { ProfileKind } from './repository';
 import type { Suggestion } from '../shelf/repository';
 
 export type GoogleLink = { profile: ProfileKind; email: string; linked_at: string };
+export type Upcoming = { profile: ProfileKind; kind: 'event' | 'task'; title: string; at: string | null; day: string | null; link: string | null };
+export type Week = { items: Upcoming[]; failed: ProfileKind[]; linked: ProfileKind[] };
 const PENDING = 'satchel-google-link';
 
 export function createGoogleRepository(db: SupabaseClient) {
@@ -34,6 +36,10 @@ export function createGoogleRepository(db: SupabaseClient) {
     },
     async unlink(profile: ProfileKind): Promise<void> {
       await callApi(db, '/api/google', { action: 'unlink', profile }, 20000);
+    },
+    /** The next seven days from every linked Google account. */
+    async upcoming(): Promise<Week> {
+      return callApi(db, '/api/google', { action: 'upcoming' }, 30000);
     },
     async add(s: Suggestion, profile: ProfileKind): Promise<{ kind: 'task' | 'event'; link: string }> {
       return callApi(db, '/api/google', { action: 'add', id: s.id, profile }, 30000);

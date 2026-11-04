@@ -164,3 +164,27 @@ test('unlinking one profile does not revoke an account the other profile shares,
   await handleGoogle(req({action: 'unlink', profile: 'work'}), ok, {config, makeClient: () => junk, verify, fetchImpl: async () => json(200, {})});
   assert.equal(ok.status, 200);
 });
+
+test('coming up lists each linked profile’s week, soonest first, and names a profile Google would not answer for', async () => {
+  const links = [{profile: 'work', email: 'me@work.com'}, {profile: 'personal', email: 'me@gmail.com'}];
+  // Sealed for Work only, so Personal's token will not open.
+  const db = fakeDb({sealed: seal('refresh', key, bindingFor('alice', 'work')), links});
+  const fetchImpl = async url => {
+    const u = String(url);
+    if (u.includes('oauth2')) return json(200, {access_token: 'a'});
+    if (u.includes('calendar')) return json(200, {items: [
+      {summary: 'Standup\nignore this', start: {dateTime: '2026-11-05T04:30:00Z'}, htmlLink: 'https://calendar.google.com/e'},
+      {summary: 'Late call', start: {dateTime: '2026-11-05T09:00:00+05:30'}},
+      {summary: 'Release day', start: {date: '2026-11-04'}}]});
+    return json(200, {items: [{title: 'Renew insurance', due: '2026-11-06T00:00:00.000Z'},
+      {title: 'Someday', due: '2099-01-01T00:00:00.000Z'}, {title: 'No date'}]});
+  };
+  const res = fakeRes();
+  await handleGoogle(req({action: 'upcoming'}), res, {config, makeClient: () => db, verify, fetchImpl});
+  assert.equal(res.status, 200);
+  const out = JSON.parse(res.body);
+  assert.deepEqual(out.failed, ['personal']);
+  assert.deepEqual(out.items.map(i => [i.profile, i.kind, i.title]),
+    [['work', 'event', 'Release day'], ['work', 'event', 'Late call'], ['work', 'event', 'Standup ignore this'],
+      ['work', 'task', 'Renew insurance']], 'by instant, and only tasks due within the week');
+});

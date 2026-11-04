@@ -11,7 +11,7 @@ import { SaveError } from '../../ui/Notice';
  * To-dos and events Satchel found in what you dropped, waiting for you.
  * Nothing reaches a calendar or a to-do list until you add it.
  */
-export function Suggestions({ loaded }: { loaded: Loaded<Suggestion[]> }) {
+export function Suggestions({ loaded, profile = 'all' }: { loaded: Loaded<Suggestion[]>; profile?: ProfileKind | 'all' }) {
   const stores = useStores();
   const { announce } = useReadout();
   const act = useAction('action');
@@ -22,8 +22,9 @@ export function Suggestions({ loaded }: { loaded: Loaded<Suggestion[]> }) {
   // Only asked when there is something to add.
   const links = useLoad(() => any ? stores.google.links() : Promise.resolve([]), [stores, any]);
   const linkedTo = new Set((links.data ?? []).map(l => l.profile));
-  const rows = loaded.data ?? [];
-  if (!rows.length) return null;
+  // One Satchel could not place shows under both profiles until it is picked.
+  const rows = (loaded.data ?? []).filter(s => profile === 'all' || !s.profile || s.profile === profile);
+  if (!loaded.data) return null;
 
   async function add(s: Suggestion, profile: ProfileKind) {
     setActingOn(s.id);
@@ -41,10 +42,11 @@ export function Suggestions({ loaded }: { loaded: Loaded<Suggestion[]> }) {
     announce('Dismissed');
   }
 
-  return <section className="suggestions" aria-labelledby="suggestions-title">
+  return <section className="shelf-panel suggestions" aria-labelledby="suggestions-title">
     <h2 id="suggestions-title">Waiting for you</h2>
     <p className="fine muted">Found in what you dropped. Nothing is added anywhere until you say so.</p>
-    <ul>{rows.map(s => <li key={s.id} className="suggestion">
+    {rows.length === 0 && <p className="fine muted">Nothing waiting. To-dos and events Satchel finds show up here.</p>}
+    {rows.length > 0 && <ul>{rows.map(s => <li key={s.id} className="suggestion">
       <div className="what">
         <span className="eyebrow">{s.kind === 'todo' ? 'To-do' : 'Event'}{s.profile ? ` · ${PROFILE_LABEL[s.profile]}` : ''}{whenOf(s) ? ` · ${whenOf(s)}` : ''}</span>
         <strong>{s.title}</strong>
@@ -68,6 +70,6 @@ export function Suggestions({ loaded }: { loaded: Loaded<Suggestion[]> }) {
         <Button small look="quiet" disabled={act.busy && actingOn === s.id} onClick={() => void dismiss(s)}>Dismiss</Button>
       </div>
       {act.error && actingOn === s.id && <SaveError title="Could not change this." message={act.error} />}
-    </li>)}</ul>
+    </li>)}</ul>}
   </section>;
 }
