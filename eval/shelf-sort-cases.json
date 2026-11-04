@@ -1133,7 +1133,14 @@
    "expect": {
     "profile": "personal",
     "topic": "Goa trip",
-    "suggestions": [],
+    "suggestions": [
+     {
+      "kind": "event",
+      "title": "Flight 6E 2134 to Goa",
+      "date": "2026-11-12",
+      "time": "06:40"
+     }
+    ],
     "facts": [
      {
       "label": "Flight",

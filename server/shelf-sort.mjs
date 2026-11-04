@@ -145,7 +145,9 @@ export function settle(proposal, {item, topics = [], timezone}) {
   // and its currency only when the capture shows it: never a guess at either.
   for (const e of proposal.expenses ?? []) {
     const shop = (e.shop ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
-    if (!shop || !haystack.includes(squash(shop))) continue;
+    // Spoken, "parking at the airport" is the shop "Airport parking": every word of it has to be in the capture.
+    const said = new Set(haystack.split(' '));
+    if (!shop || !squash(shop) || !squash(shop).split(' ').every(word => said.has(word))) continue;
     const amount = Number.isFinite(e.amount) && e.amount >= 0 && amountShown(raw, e.amount) ? e.amount.toFixed(2) : null;
     const code = (e.currency ?? '').trim().toUpperCase();
     const currency = CURRENCY_MARKS[code]?.test(raw) ? code : null;

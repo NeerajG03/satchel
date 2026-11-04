@@ -459,10 +459,10 @@ private fun ListCard(name: String, lines: List<ListLine>, names: List<String>, i
             Column {
                 Row(Modifier.fillMaxWidth().clickable { openLine = if (openLine == line.id) null else line.id }
                     .padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (kind == "fact") TextButton({
+                    if (kind == "fact") IconButton({
                         clipboard.setText(androidx.compose.ui.text.AnnotatedString(line.detail ?: ""))
                         onRun { "Copied ${line.title}" }
-                    }) { Text("Copy", color = InkText) }
+                    }) { Icon(painterResource(R.drawable.ic_copy), "Copy ${line.title}", tint = Muted, modifier = Modifier.size(20.dp)) }
                     else Checkbox(line.status == "done", { on -> onRun { reader.tick(line.id, on); if (on) "${doneWord.replaceFirstChar { it.uppercase() }}: ${line.title}" else "Back on $name" } },
                         colors = CheckboxDefaults.colors(checkedColor = Ink))
                     Column(Modifier.weight(1f)) {

@@ -6,6 +6,7 @@ import type { ProfileKind } from '../profiles/repository';
 import { listsOf, moneyOf, type ShelfItem, type Want } from './repository';
 import { Button } from '../../ui/Button';
 import { SaveError } from '../../ui/Notice';
+import { CardMenu } from './CardMenu';
 
 /** What a drop said, in a line, so a list line can show where it came from. */
 const gist = (item: ShelfItem) => [item.note, item.transcript, item.description].find(t => t?.trim())?.trim().slice(0, 140) ?? 'A drop';
@@ -57,7 +58,10 @@ function ListBlock({ name, lines, names, items, wants }: { name: string; lines: 
   }
   const line = (w: Want) => <li key={w.id} className={`want ${w.status} ${kind}`}>
     {kind === 'fact'
-      ? <Button small onClick={() => void copy(w.detail ?? '', `Copied ${w.title}`)} aria-label={`Copy ${w.title}`}>Copy</Button>
+      ? <button type="button" className="icon-key" onClick={() => void copy(w.detail ?? '', `Copied ${w.title}`)} aria-label={`Copy ${w.title}`}>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="8" height="9" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M3 10.5V3.5A1.5 1.5 0 0 1 4.5 2H10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
+      </button>
       : <input type="checkbox" aria-label={w.status === 'done' ? `Not ${doneWord.toLowerCase()}: ${w.title}` : `${doneWord}: ${w.title}`}
         checked={w.status === 'done'} disabled={act.busy && actingOn === w.id}
         onChange={event => void change(w, () => stores.shelf.setWant(w.id, event.target.checked ? 'done' : 'want'),
@@ -89,11 +93,11 @@ function ListBlock({ name, lines, names, items, wants }: { name: string; lines: 
     <header>
       <h2 id={id}>{name}</h2>
       <span className="eyebrow">{kind === 'fact' ? `${open.length}` : `${open.length} ${kind === 'expense' ? 'to claim' : 'to go'}`}{done.length ? ` · ${done.length} ${doneWord.toLowerCase()}` : ''}</span>
+      {kind === 'expense' && open.some(w => w.profile === 'work') && <CardMenu label="More for Expenses">{close =>
+        <Button look="quiet" small onClick={() => { close(); void copy(open.filter(w => w.profile === 'work')
+          .map(w => [w.spent_on ?? 'date?', w.title, moneyOf(w)].join(' · ')).join('\n'), 'Work expenses copied, one per line'); }}>
+          Copy Work expenses for a claim</Button>}</CardMenu>}
     </header>
-    {kind === 'expense' && open.some(w => w.profile === 'work') && <div className="row list-block-foot">
-      <Button small onClick={() => void copy(open.filter(w => w.profile === 'work').map(w => [w.spent_on ?? 'date?', w.title, moneyOf(w)].join(' · ')).join('\n'),
-        'Work expenses copied, one per line')}>Copy Work expenses for a claim</Button>
-    </div>}
     {open.length === 0 && <p className="fine muted">{kind === 'expense' ? 'All claimed.' : 'All done.'}</p>}
     <ul className="wants">{shown.map(line)}</ul>
     <div className="row list-block-foot">

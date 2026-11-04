@@ -187,8 +187,8 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 
 ## Shelf · Expenses and Good to know
 
-- Expenses block: Expenses · {n} to claim · {n} claimed / line: shop, then amount (₹2,340.00, $23.40, or amount? when none was printed) · day · Work / tick = Claimed / All claimed. / Copy Work expenses for a claim → Work expenses copied, one per line
-- Good to know block: Good to know · {n} / line: LABEL over the value / Copy → Copied {label} / This browser would not copy. Select the text instead.
+- Expenses block: Expenses · {n} to claim · {n} claimed / line: shop, then amount (₹2,340.00, $23.40, or amount? when none was printed) · day · Work / tick = Claimed / All claimed. / ⋯ on the block: Copy Work expenses for a claim → Work expenses copied, one per line
+- Good to know block: Good to know · {n} / line: a copy key (aria: Copy {label}), LABEL over the value → Copied {label} / This browser would not copy. Select the text instead.
 - Neither moves to another list; a book never moves onto them.
 
 ## Shelf · Coming up

@@ -99,7 +99,7 @@
 /* Small keys that stay out of the way until reached for: faint at rest, clear on hover, focus or touch. */
 .icon-key { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--muted); cursor: pointer; opacity: .55; transition: opacity var(--t-hover) var(--ease), background var(--t-hover) var(--ease); }
 .icon-key svg { width: 16px; height: 16px; fill: currentColor; }
-.shelf-card:hover .icon-key, .icon-key:focus-visible, .icon-key[aria-expanded=true] { opacity: 1; }
+.shelf-card:hover .icon-key, .list-block:hover .icon-key, .icon-key:focus-visible, .icon-key[aria-expanded=true] { opacity: 1; }
 .icon-key:hover { background: var(--paper-3); color: var(--ink); }
 .icon-key:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media (hover: none) { .icon-key { opacity: .8; } }
@@ -140,7 +140,7 @@
 .want-what .detail { font-size: var(--text-fine); color: var(--muted); }
 .want.done .title { text-decoration: line-through; color: var(--muted); }
 .want.fact { align-items: center; }
-.want.fact .btn { margin-top: 0; }
+.want.fact .icon-key { margin-top: 6px; }
 .want.fact .title { font-family: var(--font-mono); font-size: 15px; overflow-wrap: anywhere; }
 .want-more, .want [role=alert] { grid-column: 2; display: grid; gap: 6px; padding-bottom: 8px; }
 .want-more .row { gap: 6px; flex-wrap: wrap; }

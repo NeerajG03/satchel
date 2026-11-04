@@ -104,7 +104,8 @@ test('a receipt keeps only a printed amount and a shown currency; a fact is neve
     expenses: [
       {shop: 'Toit', amount: 2340, currency: 'INR', date: '2026-11-04', words: 'total Rs 2,340'},
       {shop: 'Toit', amount: 2500, currency: 'USD', date: 'yesterday', words: 'guess'},
-      {shop: 'Nowhere Cafe', amount: 100, currency: 'INR', date: null, words: 'x'}],
+      {shop: 'Nowhere Cafe', amount: 100, currency: 'INR', date: null, words: 'x'},
+      {shop: 'Card Toit', amount: null, currency: null, date: null, words: 'card'}],
     facts: [
       {label: 'Parking', value: 'B2, pillar 47', words: 'Parking B2, pillar 47'},
       {label: 'Office wifi', value: 'Satchel-5G', words: 'office wifi Satchel-5G'},
@@ -115,7 +116,8 @@ test('a receipt keeps only a printed amount and a shown currency; a fact is neve
   }, {item, topics: [], timezone: 'UTC'});
   const spent = out.wants.filter(w => w.kind === 'expense');
   assert.deepEqual(spent.map(w => [w.title, w.amount, w.currency, w.date]),
-    [['Toit', '2340.00', 'INR', '2026-11-04'], ['Toit', null, null, null]], 'an unprinted amount, unshown currency and bad day are dropped; an unseen shop is gone');
+    [['Toit', '2340.00', 'INR', '2026-11-04'], ['Toit', null, null, null], ['Card Toit', null, null, null]],
+    'an unprinted amount, unshown currency and bad day are dropped; a shop whose words are not all in the capture is gone');
   assert.deepEqual(out.wants.filter(w => w.kind === 'fact').map(w => [w.title, w.detail]),
     [['Parking', 'B2, pillar 47'], ['Office wifi', 'Satchel-5G']], 'no password, card number or gate code, and nothing not in the capture');
 });
