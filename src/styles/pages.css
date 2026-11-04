@@ -130,7 +130,17 @@
 .shelf-board { columns: 280px; column-gap: 12px; }
 .shelf-board > * { break-inside: avoid; margin: 0 0 12px; width: 100%; box-sizing: border-box; }
 .list-block { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 10px; background: var(--paper-2); min-width: 0; }
-.list-block header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+/* Title and ⋯ on the first row; what is left (to go, to claim) under the title, never squeezing it. */
+.list-block header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 2px; margin-bottom: 6px; }
+.list-block header h2 { grid-column: 1; grid-row: 1; overflow-wrap: anywhere; }
+.list-block header .eyebrow { grid-column: 1 / -1; grid-row: 2; }
+.list-block header .card-menu { grid-column: 2; grid-row: 1; }
+/* A block's ⋯ sits at its top, so its menu opens downward, inside the board. */
+.list-block header .card-menu-panel { top: 36px; bottom: auto; }
+.want.expense { grid-template-columns: auto minmax(0, 1fr) auto; }
+.want.expense .amount { font: 15px/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); padding-top: 14px; white-space: nowrap; }
+.want.expense.done .amount { color: var(--muted); text-decoration: line-through; }
+.want.expense .want-more, .want.expense [role=alert] { grid-column: 2 / -1; }
 .list-block h2 { font-size: var(--text-h3); margin: 0; }
 .wants { list-style: none; margin: 0; padding: 0; }
 .want { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 10px; align-items: start; padding: 4px 0; break-inside: avoid; }
