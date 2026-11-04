@@ -88,7 +88,8 @@
 .shelf-section .name { font-family: var(--font-content); font-size: var(--text-h3); }
 .shelf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; align-items: start; }
 .shelf-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--paper); min-width: 0; }
-.shelf-card { display: grid; gap: 8px; }
+/* minmax(0, 1fr): a line that will not wrap must never widen the card past its border. */
+.shelf-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .shelf-card .title { margin: 0; }
 .shelf-card .transcript { margin: 0; }
 .shelf-card .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -96,6 +97,7 @@
 .more-words { justify-self: start; background: none; border: 0; padding: 4px 0; color: var(--accent); font: inherit; font-size: var(--text-fine); cursor: pointer; }
 .card-foot { display: flex; align-items: center; gap: 4px; min-height: var(--control-h-sm); }
 .card-foot .prov { flex: 1; min-width: 0; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-foot .prov > span + span { margin-left: .4em; }
 /* Small keys that stay out of the way until reached for: faint at rest, clear on hover, focus or touch. */
 .icon-key { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--muted); cursor: pointer; opacity: .55; transition: opacity var(--t-hover) var(--ease), background var(--t-hover) var(--ease); }
 .icon-key svg { width: 16px; height: 16px; fill: currentColor; }
