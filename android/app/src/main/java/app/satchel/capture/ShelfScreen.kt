@@ -7,6 +7,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -51,13 +53,17 @@ private object Thumbs {
 }
 
 /**
- * The Shelf on the phone: what is waiting for a yes, the week ahead, and
- * everything dropped, by topic. The big key opens capture.
+ * The Shelf on the phone, in Satchel's own look: a hardware frame (the
+ * wordmark, a status light with its word, the profile keys, and a dock with
+ * the Drop key under the thumb) around a paper sheet that holds the person's
+ * things. The sheet shows the numbers first, the lists as tiles that open
+ * their own page, what waits for a yes, the week, and the latest drops.
  */
 @Composable
 fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onClearStuck: () -> Unit,
                 onCapture: (String) -> Unit, onSignOut: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     var items by remember { mutableStateOf<List<ShelfEntry>?>(null) }
     var waiting by remember { mutableStateOf(listOf<Waiting>()) }
     var week by remember { mutableStateOf<Week?>(null) }
@@ -66,13 +72,18 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
     var loading by remember { mutableStateOf(false) }
     var profile by rememberSaveableProfile()
     var query by remember { mutableStateOf("") }
+    var lastSearch by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     var found by remember { mutableStateOf<List<ShelfEntry>?>(null) }
     var said by remember { mutableStateOf<String?>(null) }
     var lines by remember { mutableStateOf(listOf<ListLine>()) }
     var asDropped by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var openList by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     var lookedBack by remember { mutableStateOf(false) }
     val player = remember { Player() }
     DisposableEffect(Unit) { onDispose { player.stop() } }
+    androidx.activity.compose.BackHandler(enabled = openList != null || found != null) {
+        if (openList != null) openList = null else { found = null; query = "" }
+    }
 
     fun load() {
         loading = true
@@ -95,6 +106,7 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
             val paths = (items ?: emptyList()).flatMap { listOfNotNull(it.objectPath, it.voicePath) }.filter { it !in links }
             runCatching { reader.links(paths) }.onSuccess { links = links + it }
             loading = false
+            WaitingWidget.refresh(context)
             // Drops from before lists are looked at once, a few per visit, quietly.
             if (!lookedBack) {
                 lookedBack = true
@@ -104,109 +116,137 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
     }
     LaunchedEffect(Unit) { load() }
 
-    fun search() {
-        val q = query.trim()
-        if (q.isEmpty()) { found = null; return }
-        scope.launch { runCatching { reader.search(q) }.onSuccess { found = it; problem = null }.onFailure { problem = it.message } }
+    fun search(q: String = query) {
+        val text = q.trim()
+        query = text
+        if (text.isEmpty()) { found = null; return }
+        scope.launch {
+            runCatching { reader.search(text) }.onSuccess { found = it; problem = null; lastSearch = text }.onFailure { problem = it.message }
+        }
+    }
+    val runLines: (suspend () -> String) -> Unit = { act ->
+        scope.launch {
+            runCatching { act() }.onSuccess { said = it; problem = null; runCatching { reader.lines() }.onSuccess { l -> lines = l } }
+                .onFailure { problem = it.message }
+        }
     }
 
     val inProfile = { p: String? -> profile == "all" || p == null || p == profile }
     val shown = found ?: (items ?: emptyList()).filter { inProfile(it.profile) }
     val lined = lines.flatMap { it.itemIds }.toSet()
-    // One board, no topic headings: a drop's topic is on its card, as on the web.
-    val sections = mapOf("" to shown.filter { asDropped || it.id !in lined }).entries
+    val loose = shown.filter { asDropped || it.id !in lined }
+    val myLines = lines.filter { inProfile(it.profile) }
+    val names = lines.groupBy { it.list }.entries.sortedByDescending { it.value.size }.map { it.key }
+    val wait = waiting.filter { inProfile(it.profile) }
+    val coming = week?.items?.filter { profile == "all" || it.profile == profile } ?: emptyList()
+    val claim = myLines.filter { it.kind == "expense" && it.status == "want" }
+        .mapNotNull { l -> l.amount?.toBigDecimalOrNull()?.let { (l.currency ?: "") to it } }
+        .groupBy({ it.first }, { it.second }).mapValues { (_, v) -> v.fold(java.math.BigDecimal.ZERO, java.math.BigDecimal::add) }
 
-    Box(Modifier.fillMaxSize().background(Paper)) {
-        PullToRefreshBox(isRefreshing = loading, onRefresh = ::load, modifier = Modifier.fillMaxSize()) {
-            LazyColumn(
-                Modifier.fillMaxSize().statusBarsPadding(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 140.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("satchel", fontFamily = FontFamily.Cursive, fontSize = 32.sp, color = InkText)
-                        Spacer(Modifier.weight(1f))
-                        for (p in listOf("all", "work", "personal")) {
-                            val on = profile == p
-                            Text(PROFILE[p] ?: "All", color = if (on) Paper else InkText, fontSize = 14.sp,
-                                modifier = Modifier.padding(start = 4.dp).clip(RoundedCornerShape(8.dp))
-                                    .background(if (on) Ink else Paper2).clickable { profile = p }
-                                    .padding(horizontal = 12.dp, vertical = 10.dp))
-                        }
-                    }
-                }
-                item {
-                    OutlinedTextField(query, { query = it; if (it.isBlank()) found = null }, Modifier.fillMaxWidth(),
-                        placeholder = { Text("Find something, the way you remember it") }, singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { search() }),
-                        trailingIcon = { if (found != null) TextButton({ query = ""; found = null }) { Text("Clear", color = Muted) } })
-                }
-                problem?.let { item { Text(it, color = Red, fontSize = 14.sp) } }
-                said?.let { item { Text(it, color = Green, fontSize = 14.sp) } }
-                if (unsent > 0 || stuck.isNotEmpty()) item { Outbox(unsent, stuck, onClearStuck) }
+    Column(Modifier.fillMaxSize().background(Hw)) {
+        Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("satchel", fontFamily = Mark, fontSize = 32.sp, color = HwText, modifier = Modifier.weight(1f))
+            when {
+                stuck.isNotEmpty() -> Led(LedRed, "${stuck.size} stuck")
+                unsent > 0 -> Led(LedAmber, "$unsent sending")
+                problem != null -> Led(LedOff, "offline")
+                else -> Led(LedGreen, "synced")
+            }
+        }
+        if (openList == null) Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (p in listOf("all", "work", "personal"))
+                HardwareKey(PROFILE[p] ?: "All", { profile = p }, Modifier.weight(1f), selected = profile == p)
+        } else Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            HardwareKey("‹", { openList = null }, description = "Back to the Shelf")
+            Text("SHELF · LIST", style = Type.readout, color = HwMuted)
+        }
 
-                val wait = waiting.filter { inProfile(it.profile) }
-                if (found == null && wait.isNotEmpty()) item {
-                    Card("Waiting for you", "Found in what you dropped. Nothing is added until you say so.") {
-                        wait.forEach { w ->
-                            WaitingRow(w, linked = week?.linked ?: emptyList(), onAdd = { where ->
-                                scope.launch {
-                                    runCatching { reader.addToGoogle(w.id, where) }
-                                        .onSuccess { kind -> waiting = waiting - w; said = if (kind == "task") "Added to ${PROFILE[where]} Google Tasks" else "Added to ${PROFILE[where]} Google Calendar" }
-                                        .onFailure { problem = it.message }
-                                }
-                            }, onDismiss = {
-                                scope.launch { runCatching { reader.dismiss(w.id) }.onSuccess { waiting = waiting - w }.onFailure { problem = it.message } }
-                            })
-                        }
-                    }
-                }
-                val coming = week?.items?.filter { profile == "all" || it.profile == profile } ?: emptyList()
-                if (found == null && coming.isNotEmpty()) item {
-                    Card("Coming up", "Next 7 days, from Google") {
-                        coming.take(6).forEach { c ->
-                            Row(Modifier.padding(vertical = 6.dp)) {
-                                Text(whenOf(c), color = Muted, fontSize = 13.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.width(104.dp))
-                                Text((if (c.kind == "task") "Task · " else "") + c.title, color = InkText, fontSize = 15.sp, modifier = Modifier.weight(1f))
+        Box(Modifier.weight(1f).padding(horizontal = 8.dp).clip(RoundedCornerShape(14.dp)).background(Paper)) {
+            val listName = openList
+            if (listName != null) {
+                ListPage(listName, lines.filter { it.list == listName }, names, items ?: emptyList(), reader, runLines)
+                return@Box
+            }
+            PullToRefreshBox(isRefreshing = loading, onRefresh = ::load, modifier = Modifier.fillMaxSize()) {
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedTextField(query, { query = it; if (it.isBlank()) found = null }, Modifier.fillMaxWidth(),
+                                placeholder = { Text("Find it the way you remember it", style = Type.body, color = Muted) },
+                                textStyle = Type.body, singleLine = true, shape = RoundedCornerShape(8.dp),
+                                colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = Paper2, focusedContainerColor = Paper2,
+                                    unfocusedBorderColor = Line, focusedBorderColor = Accent, cursorColor = InkText),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = { search() }),
+                                trailingIcon = { if (found != null) TextButton({ query = ""; found = null }) { Text("Clear", style = Type.fine, color = Muted) } })
+                            // Never a blank search: the lists there are, and the last thing looked for.
+                            if (found == null) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                lastSearch?.let { last -> Chip("“$last”", { search(last) }, quiet = true) }
+                                names.take(4).forEach { n -> Chip(n, { openList = n }) }
                             }
                         }
-                        if (coming.size > 6) Text("and ${coming.size - 6} more", color = Muted, fontSize = 13.sp)
                     }
-                }
+                    problem?.let { item { Text(it, style = Type.fine, color = Red) } }
+                    said?.let { item { Text(it, style = Type.fine, color = Green) } }
+                    if (stuck.isNotEmpty()) item { Outbox(stuck, onClearStuck) }
 
-                val myLines = lines.filter { inProfile(it.profile) }
-                if (found == null && !asDropped) {
-                    val names = lines.groupBy { it.list }.entries.sortedByDescending { it.value.size }.map { it.key }
-                    for (name in names) {
-                        val here = myLines.filter { it.list == name }
-                        if (here.isEmpty()) continue
-                        item(key = "list-$name") {
-                            ListCard(name, here, names, items ?: emptyList(), onRun = { act ->
-                                scope.launch {
-                                    runCatching { act() }.onSuccess { said = it; problem = null; runCatching { reader.lines() }.onSuccess { l -> lines = l } }
-                                        .onFailure { problem = it.message }
+                    if (found != null) {
+                        item { Text(if (shown.isEmpty()) "Nothing on your Shelf fits that." else "${shown.size} closest first", style = Type.fine, color = Muted) }
+                    } else {
+                        // The numbers first, in figures, with their word under them.
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Figure(wait.size.toString(), if (wait.size == 1) "waiting for you" else "waiting for you", Modifier.weight(1f))
+                                coming.firstOrNull()?.let { c -> Figure(timeOf(c), c.title, Modifier.weight(1f)) }
+                                    ?: Figure(lines.count { it.status == "want" }.toString(), "on your lists", Modifier.weight(1f))
+                                if (claim.isNotEmpty()) Figure(claim.entries.joinToString(" + ") { short(it.value, it.key.ifEmpty { null }) }, "to claim", Modifier.weight(1f))
+                                else Figure((items?.size ?: 0).toString(), "on your Shelf", Modifier.weight(1f))
+                            }
+                        }
+                        if (wait.isNotEmpty()) item {
+                            Section("Waiting for you") {
+                                wait.forEach { w ->
+                                    WaitingRow(w, linked = week?.linked ?: emptyList(), onAdd = { where ->
+                                        scope.launch {
+                                            runCatching { reader.addToGoogle(w.id, where) }
+                                                .onSuccess { kind -> waiting = waiting - w; WaitingWidget.refresh(context)
+                                                    said = if (kind == "task") "Added to ${PROFILE[where]} Google Tasks" else "Added to ${PROFILE[where]} Google Calendar" }
+                                                .onFailure { problem = it.message }
+                                        }
+                                    }, onDismiss = {
+                                        scope.launch { runCatching { reader.dismiss(w.id) }.onSuccess { waiting = waiting - w; WaitingWidget.refresh(context) }
+                                            .onFailure { problem = it.message } }
+                                    })
                                 }
-                            }, reader = reader)
+                            }
+                        }
+                        if (names.isNotEmpty() && !asDropped) item {
+                            Section("Your lists", names.size.toString()) {
+                                names.chunked(2).forEach { pair ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        pair.forEach { n -> ListTile(n, myLines.filter { it.list == n }, Modifier.weight(1f)) { openList = n } }
+                                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+                        if (coming.isNotEmpty()) item { Section("Coming up", "7 DAYS") { Timeline(coming.take(5)) } }
+                        item {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (asDropped) "Everything, as dropped" else "Recent drops", style = Type.block, color = InkText, modifier = Modifier.weight(1f))
+                                TextButton({ asDropped = !asDropped }) { Text(if (asDropped) "Rearranged" else "As dropped", style = Type.fine, color = Accent) }
+                            }
+                        }
+                        if (items != null && items!!.isEmpty()) item {
+                            Text("Nothing here yet. Point at something and press Drop: a photo, what you say about it, or a note.", style = Type.body, color = Muted)
                         }
                     }
-                }
-                item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Spacer(Modifier.weight(1f))
-                        TextButton({ asDropped = !asDropped }) { Text(if (asDropped) "Rearranged" else "As dropped", color = Muted) }
-                    }
-                }
-                if (found != null) item { Text(if (shown.isEmpty()) "Nothing on your Shelf fits that." else "${shown.size} closest first",
-                    color = Muted, fontSize = 13.sp) }
-                if (items != null && items!!.isEmpty()) item {
-                    Text("Your Shelf is empty. Press Drop to put a photo, a voice note or a note on it.", color = Muted)
-                }
-                for ((name, entries) in if (found != null) listOf(mapOf("" to shown).entries.first()) else sections) {
-                    items(entries, key = { it.id }) { e ->
+                    items((if (found != null) shown else loose), key = { it.id }) { e ->
                         EntryCard(e, links, reader, player, showProfile = profile == "all",
-                            added = lines.filter { e.id in it.itemIds }.groupingBy { it.list }.eachCount(),) { act, done ->
+                            added = lines.filter { e.id in it.itemIds }.groupingBy { it.list }.eachCount()) { act, done ->
                             scope.launch {
                                 runCatching { act() }
                                     .onSuccess { message -> said = message; problem = null; done(); load() }
@@ -214,29 +254,25 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
                             }
                         }
                     }
-                }
-                item {
-                    Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Quickest way in: Settings › System › Quick Tap › Open app › Satchel Capture. Then double-tap the back of the phone, even when it is locked.",
-                            color = Muted, fontSize = 13.sp)
-                        TextButton(onSignOut) { Text(if (unsent > 0) "Sign out (removes $unsent not yet sent)" else "Sign out", color = Muted) }
+                    item {
+                        Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Quickest way in: Settings › System › Quick Tap › Open app › Satchel Capture. Then double-tap the back of the phone, even when it is locked.",
+                                style = Type.fine, color = Muted)
+                            TextButton(onSignOut, contentPadding = PaddingValues(0.dp)) {
+                                Text(if (unsent > 0) "Sign out (removes $unsent not yet sent)" else "Sign out", style = Type.fine, color = Muted)
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // A solid bar, so the keys never sit on top of an item scrolling under them.
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Paper)) {
-          HorizontalDivider(color = Line)
-          Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Button({ onCapture("note") }, Modifier.height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Paper2, contentColor = InkText)) { Text("Note", fontSize = 16.sp) }
-            Button({ onCapture("camera") }, Modifier.height(56.dp).weight(1f),
-                colors = ButtonDefaults.buttonColors(containerColor = Ink, contentColor = Paper)) {
-                Text("Drop", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-            }
-          }
+        // The dock: hardware, under the thumb. Drop is the big key, with its light.
+        Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HardwareKey("Note", { onCapture("note") }, height = 56.dp)
+            HardwareKey("Drop", { onCapture("camera") }, Modifier.weight(1f), height = 56.dp, light = Orange,
+                description = "Open capture: tap for a photo, hold to show it and say it")
         }
     }
 }
@@ -244,14 +280,65 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
 @Composable
 private fun rememberSaveableProfile() = androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("all") }
 
+/** A heading on paper and what sits under it, 12 apart; sections are 24 apart. */
 @Composable
-private fun Card(title: String, sub: String, content: @Composable ColumnScope.() -> Unit) {
-    Surface(color = Paper2, shape = RoundedCornerShape(14.dp)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, fontFamily = FontFamily.Serif, fontSize = 20.sp, color = InkText)
-            Text(sub, color = Muted, fontSize = 13.sp)
-            Spacer(Modifier.height(4.dp))
-            content()
+private fun Section(title: String, count: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(title, style = Type.block, color = InkText, modifier = Modifier.weight(1f))
+            count?.let { Text(it, style = Type.readout, color = Muted) }
+        }
+        content()
+    }
+}
+
+/** A value first, in figures, and its word under it: never the label bigger than the number. */
+@Composable
+private fun Figure(value: String, word: String, modifier: Modifier = Modifier) {
+    Column(modifier.clip(RoundedCornerShape(12.dp)).background(Paper2).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(value, style = Type.figure, color = InkText, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Text(word, style = Type.fine, color = Muted, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
+/** A list as a tile: its name, how many are left (or owed), and the first few, tapping into its page. */
+@Composable
+private fun ListTile(name: String, lines: List<ListLine>, modifier: Modifier = Modifier, onOpen: () -> Unit) {
+    val open = lines.filter { it.status == "want" }
+    val kind = lines.firstOrNull()?.kind ?: "item"
+    val owed = open.mapNotNull { l -> l.amount?.toBigDecimalOrNull()?.let { (l.currency ?: "") to it } }
+        .groupBy({ it.first }, { it.second }).mapValues { (_, v) -> v.fold(java.math.BigDecimal.ZERO, java.math.BigDecimal::add) }
+    Column(modifier.heightIn(min = 112.dp).clip(RoundedCornerShape(12.dp)).background(CardPaper).clickable(onClick = onOpen)
+        .padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(name, style = Type.block, color = InkText, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Text(when {
+            kind == "expense" && owed.isNotEmpty() -> owed.entries.joinToString(" + ") { money(it.value, it.key.ifEmpty { null }) } + " TO CLAIM"
+            kind == "fact" -> "${open.size} SAVED"
+            else -> "${open.size} TO GO"
+        }, style = Type.readout, color = Muted)
+        Text(open.take(3).joinToString(", ") { if (kind == "fact") it.title else it.title }, style = Type.fine, color = Muted,
+            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
+/** The week as a short timeline: a mark per thing, the day once, then its times. */
+@Composable
+private fun Timeline(coming: List<Coming>) {
+    var lastDay: String? = null
+    Column {
+        coming.forEach { c ->
+            val day = dayLabel(c)
+            if (day != lastDay) {
+                Text(day.uppercase(), style = Type.readout, color = Muted, modifier = Modifier.padding(top = if (lastDay == null) 0.dp else 12.dp, bottom = 4.dp))
+                lastDay = day
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(vertical = 4.dp)) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(if (c.kind == "task") Line else InkText))
+                Text(clockOf(c) ?: "all day", style = Type.readout, color = Muted, modifier = Modifier.width(64.dp))
+                Text((if (c.kind == "task") "Task · " else "") + c.title, style = Type.body, color = InkText, modifier = Modifier.weight(1f),
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
         }
     }
 }
@@ -259,35 +346,34 @@ private fun Card(title: String, sub: String, content: @Composable ColumnScope.()
 @Composable
 private fun WaitingRow(w: Waiting, linked: List<String>, onAdd: (String) -> Unit, onDismiss: () -> Unit) {
     var busy by remember(w.id) { mutableStateOf(false) }
-    Column(Modifier.padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        HorizontalDivider(color = Line)
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(CardPaper).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(listOfNotNull(if (w.kind == "todo") "TO-DO" else "EVENT", w.profile?.let { PROFILE[it]?.uppercase() }, w.when_?.let(::dayOf))
-            .joinToString(" · "), color = Muted, fontSize = 11.sp, letterSpacing = 1.sp)
-        Text(w.title, color = InkText, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            .joinToString(" · "), style = Type.readout, color = Muted)
+        Text(w.title, style = Type.block, color = InkText)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             val targets = w.profile?.let { listOf(it) } ?: listOf("work", "personal")
             for (where in targets) {
-                if (where in linked) OutlinedButton({ busy = true; onAdd(where) }, enabled = !busy) {
+                if (where in linked) Button({ busy = true; onAdd(where) }, enabled = !busy, modifier = Modifier.height(44.dp),
+                    shape = RoundedCornerShape(9.dp), colors = ButtonDefaults.buttonColors(containerColor = Hw, contentColor = HwText)) {
                     Text(when {
                         w.profile == null -> "Add to ${PROFILE[where]}"
                         w.kind == "todo" -> "Add to Tasks"
                         else -> "Add to Calendar"
-                    }, color = InkText)
-                } else Text("Link ${PROFILE[where]} Google on the web first", color = Muted, fontSize = 13.sp)
+                    }, style = Type.key)
+                } else Text("Link ${PROFILE[where]} Google on the web first", style = Type.fine, color = Muted)
             }
-            TextButton(onDismiss, enabled = !busy) { Text("Dismiss", color = Muted) }
+            TextButton(onDismiss, enabled = !busy, modifier = Modifier.height(44.dp)) { Text("Skip", style = Type.body, color = Muted) }
         }
     }
 }
 
 @Composable
-private fun Outbox(unsent: Int, stuck: List<QueuedItem>, onClear: () -> Unit) {
-    Surface(color = Paper2, shape = RoundedCornerShape(12.dp)) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (unsent > 0) Text("$unsent waiting to send. They go as soon as there is a connection.", color = InkText, fontSize = 14.sp)
-            stuck.forEach { Text("· ${it.kind}: ${it.problem}", color = Red, fontSize = 13.sp) }
-            if (stuck.isNotEmpty()) TextButton(onClear) { Text("Clear these") }
-        }
+private fun Outbox(stuck: List<QueuedItem>, onClear: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Paper2).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Led(LedRed, "${stuck.size} could not be sent", wordColor = Red)
+        stuck.forEach { Text("${it.kind}: ${it.problem}", style = Type.fine, color = InkText) }
+        TextButton(onClear, contentPadding = PaddingValues(0.dp)) { Text("Clear these", style = Type.fine, color = Accent) }
     }
 }
 
@@ -314,10 +400,10 @@ private fun EntryCard(e: ShelfEntry, links: Map<String, String>, reader: ShelfRe
                 }
             }
             if (e.kind == "voice") voice?.let { VoiceKey(it, player, "Play this voice note") }
-            if (e.note.isNotBlank()) Text(e.note, fontFamily = FontFamily.Serif, fontSize = 18.sp, color = InkText)
+            if (e.note.isNotBlank()) Text(e.note, style = Type.block, color = InkText)
             val words = e.transcript?.let { "“$it”" } ?: e.description
             words?.let {
-                Text(it, fontFamily = FontFamily.Serif, fontSize = 16.sp, lineHeight = 23.sp,
+                Text(it, fontFamily = Content, fontSize = 16.sp, lineHeight = 23.sp,
                     color = if (e.transcript == null && e.note.isNotBlank()) Muted else InkText,
                     maxLines = if (more) Int.MAX_VALUE else 4, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 if (it.length > 220) Text(if (more) "Less" else "More", color = Accent, fontSize = 13.sp,
@@ -336,7 +422,7 @@ private fun EntryCard(e: ShelfEntry, links: Map<String, String>, reader: ShelfRe
                     if (showProfile) e.profile?.let { PROFILE[it] } else null,
                     dayOf(e.createdAt)?.lowercase(),
                     when (e.status) { "ready" -> null; "failed" -> "could not read"; else -> "reading…" },
-                ).joinToString(" · "), color = Muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+                ).joinToString(" · "), color = Muted, fontSize = 13.sp, fontFamily = Mono,
                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 if (e.status == "ready" || e.status == "failed") IconButton({ editing = true }, Modifier.size(40.dp)) {
                     Icon(painterResource(R.drawable.ic_edit), if (e.note.isBlank()) "Add a note" else "Edit the note",
@@ -493,10 +579,10 @@ private fun VoiceKey(url: String, player: Player, label: String, modifier: Modif
             Box(Modifier.width(120.dp).height(2.dp).background(Line)) {
                 Box(Modifier.fillMaxWidth(share.coerceIn(0f, 1f)).fillMaxHeight().background(Orange))
             }
-            Text("%d:%02d".format(player.position / 60000, player.position / 1000 % 60), color = Muted, fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace)
-        } else if (length > 0) Text("%d:%02d".format(length / 60000, length / 1000 % 60), color = Muted, fontSize = 12.sp,
-            fontFamily = FontFamily.Monospace)
+            Text("%d:%02d".format(player.position / 60000, player.position / 1000 % 60), color = Muted, fontSize = 13.sp,
+                fontFamily = Mono)
+        } else if (length > 0) Text("%d:%02d".format(length / 60000, length / 1000 % 60), color = Muted, fontSize = 13.sp,
+            fontFamily = Mono)
     }
 }
 
@@ -510,67 +596,105 @@ private fun dayOf(value: String): String? = runCatching {
     else OffsetDateTime.parse(value).atZoneSameInstant(java.time.ZoneId.systemDefault()).format(SHORT_DAY).uppercase()
 }.getOrNull()
 
-/** One list the Shelf made: lines to go, a tick each, and a fold of the ones done. */
+/** One list on its own page: the name, how many are left in figures, a tick per line, and a fold of the done ones. */
 @Composable
-private fun ListCard(name: String, lines: List<ListLine>, names: List<String>, items: List<ShelfEntry>,
-                     onRun: (suspend () -> String) -> Unit, reader: ShelfReader) {
+private fun ListPage(name: String, lines: List<ListLine>, names: List<String>, items: List<ShelfEntry>,
+                     reader: ShelfReader, onRun: (suspend () -> String) -> Unit) {
     val open = lines.filter { it.status == "want" }
     val done = lines.filter { it.status == "done" }
     var showDone by remember(name) { mutableStateOf(false) }
     var openLine by remember(name) { mutableStateOf<String?>(null) }
     val kind = lines.firstOrNull()?.kind ?: "item"
-    val doneWord = if (kind == "expense") "claimed" else "done"
+    val doneWord = when (kind) { "expense" -> "claimed"; else -> "done" }
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
-    // An expense block says what is owed, one total per currency, not how many receipts.
-    val owed = if (kind == "expense") open.mapNotNull { l -> l.amount?.toBigDecimalOrNull()?.let { (l.currency ?: "") to it } }
-        .groupBy({ it.first }, { it.second }).mapValues { (_, v) -> v.fold(java.math.BigDecimal.ZERO, java.math.BigDecimal::add) } else emptyMap()
-    val summary = when {
-        kind == "fact" -> ""
-        owed.isNotEmpty() -> owed.entries.joinToString(" + ") { money(it.value, it.key.ifEmpty { null }) } + " to claim"
-        else -> "${open.size} ${if (kind == "expense") "to claim" else "to go"}"
-    }
-    Card(name, summary + if (done.isNotEmpty()) "${if (summary.isNotEmpty()) " · " else ""}${done.size} $doneWord" else "") {
-        (open + if (showDone) done else emptyList()).forEach { line ->
-            Column {
-                Row(Modifier.fillMaxWidth().clickable { openLine = if (openLine == line.id) null else line.id }
-                    .padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (kind == "fact") IconButton({
-                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(line.detail ?: ""))
-                        onRun { "Copied ${line.title}" }
-                    }) { Icon(painterResource(R.drawable.ic_copy), "Copy ${line.title}", tint = Muted, modifier = Modifier.size(20.dp)) }
-                    else Checkbox(line.status == "done", { on -> onRun { reader.tick(line.id, on); if (on) "${doneWord.replaceFirstChar { it.uppercase() }}: ${line.title}" else "Back on $name" } },
-                        colors = CheckboxDefaults.colors(checkedColor = Ink))
-                    Column(Modifier.weight(1f)) {
-                        if (kind == "fact") Text(line.title.uppercase(), color = Muted, fontSize = 11.sp, letterSpacing = 1.sp)
-                        Text(if (kind == "fact") line.detail ?: "" else line.title,
-                            fontFamily = if (kind == "fact") FontFamily.Monospace else FontFamily.Serif, fontSize = 17.sp,
-                            color = if (line.status == "done") Muted else InkText,
-                            textDecoration = if (line.status == "done") androidx.compose.ui.text.style.TextDecoration.LineThrough else null)
-                        if (kind == "expense") Text(listOfNotNull(line.spentOn?.let(::dayOf), if (line.profile == "work") "WORK" else null)
-                            .joinToString(" · "), color = Muted, fontSize = 13.sp)
-                        else if (kind == "item") line.detail?.let { Text(it, color = Muted, fontSize = 13.sp) }
-                    }
-                    if (kind == "expense") Text(moneyOf(line), fontFamily = FontFamily.Monospace, fontSize = 15.sp,
-                        color = if (line.status == "done") Muted else InkText, modifier = Modifier.padding(start = 8.dp))
-                }
-                if (openLine == line.id) Column(Modifier.padding(start = 48.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    line.itemIds.mapNotNull { id -> items.find { it.id == id } }.forEach { e ->
-                        Text("from “" + (listOf(e.note, e.transcript, e.description).firstOrNull { !it.isNullOrBlank() } ?: "a drop").take(120) + "”",
-                            color = Muted, fontSize = 13.sp)
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (kind == "item") names.filter { it != name && it.lowercase() !in setOf("expenses", "good to know") }.take(3).forEach { other ->
-                            Text("→ $other", color = InkText, fontSize = 13.sp, modifier = Modifier.clip(RoundedCornerShape(8.dp))
-                                .background(Paper).clickable { onRun { reader.moveLine(line.id, other); "Moved to $other" } }
-                                .padding(horizontal = 10.dp, vertical = 8.dp))
-                        }
-                        Spacer(Modifier.weight(1f))
-                        TextButton({ onRun { reader.removeLine(line.id); "Removed ${line.title}" } }) { Text("Remove", color = Red) }
-                    }
+    val owed = open.mapNotNull { l -> l.amount?.toBigDecimalOrNull()?.let { (l.currency ?: "") to it } }
+        .groupBy({ it.first }, { it.second }).mapValues { (_, v) -> v.fold(java.math.BigDecimal.ZERO, java.math.BigDecimal::add) }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 24.dp)) {
+        item {
+            Column(Modifier.padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(name, style = Type.page, color = InkText)
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(if (kind == "expense" && owed.isNotEmpty()) owed.entries.joinToString(" + ") { money(it.value, it.key.ifEmpty { null }) }
+                        else open.size.toString(), style = Type.figure, color = InkText)
+                    Text(when (kind) { "expense" -> "to claim"; "fact" -> "saved"; else -> "to go" } +
+                        if (done.isNotEmpty()) " · ${done.size} $doneWord" else "", style = Type.fine, color = Muted)
                 }
             }
         }
-        if (done.isNotEmpty()) TextButton({ showDone = !showDone }) { Text(if (showDone) "Hide done" else "Show done (${done.size})", color = Muted) }
+        if (open.isEmpty()) item { Text(if (kind == "expense") "All claimed." else "All done. New ones come from what you drop.", style = Type.body, color = Muted) }
+        items(open + if (showDone) done else emptyList(), key = { it.id }) { line ->
+            val isDone = line.status == "done"
+            Column(Modifier.fillMaxWidth().background(if (openLine == line.id) Paper2 else Paper)) {
+                Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable { openLine = if (openLine == line.id) null else line.id }
+                    .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (kind == "fact") IconButton({
+                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(line.detail ?: ""))
+                        onRun { "Copied ${line.title}" }
+                    }, Modifier.size(44.dp)) { Icon(painterResource(R.drawable.ic_copy), "Copy ${line.title}", tint = Muted, modifier = Modifier.size(20.dp)) }
+                    else Checkbox(isDone, { on -> onRun { reader.tick(line.id, on); if (on) "${doneWord.replaceFirstChar { it.uppercase() }}: ${line.title}" else "Back on $name" } },
+                        colors = CheckboxDefaults.colors(checkedColor = Hw, uncheckedColor = Muted))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (kind == "fact") Text(line.title.uppercase(), style = Type.readout, color = Muted)
+                        Text(if (kind == "fact") line.detail ?: "" else line.title,
+                            style = if (kind == "fact") Type.readout.copy(fontSize = 16.sp, letterSpacing = 0.sp) else Type.block,
+                            color = if (isDone) Muted else InkText,
+                            textDecoration = if (isDone) androidx.compose.ui.text.style.TextDecoration.LineThrough else null)
+                        if (kind == "expense") Text(listOfNotNull(line.spentOn?.let(::dayOf), if (line.profile == "work") "WORK" else null)
+                            .joinToString(" · "), style = Type.readout, color = Muted)
+                        else if (kind == "item") line.detail?.let { Text(it, style = Type.fine, color = if (isDone) Muted else Muted) }
+                    }
+                    if (kind == "expense") Text(moneyOf(line), style = Type.readout.copy(fontSize = 16.sp, letterSpacing = 0.sp),
+                        color = if (isDone) Muted else InkText)
+                }
+                if (openLine == line.id) Column(Modifier.padding(start = 56.dp, end = 8.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    line.itemIds.mapNotNull { id -> items.find { it.id == id } }.forEach { e ->
+                        Text("from “" + (listOf(e.note, e.transcript, e.description).firstOrNull { !it.isNullOrBlank() } ?: "a drop").take(120) + "”",
+                            style = Type.fine, color = Muted)
+                    }
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        if (kind == "item") names.filter { it != name && it.lowercase() !in setOf("expenses", "good to know") }.take(3).forEach { other ->
+                            Chip("→ $other", { onRun { reader.moveLine(line.id, other); "Moved to $other" } })
+                        }
+                        TextButton({ onRun { reader.removeLine(line.id); "Removed ${line.title}" } }, Modifier.height(44.dp)) { Text("Remove", style = Type.body, color = Red) }
+                    }
+                }
+                HorizontalDivider(color = Line)
+            }
+        }
+        if (done.isNotEmpty()) item {
+            TextButton({ showDone = !showDone }, Modifier.padding(top = 8.dp)) {
+                Text(if (showDone) "Hide ${doneWord}" else "${doneWord.replaceFirstChar { it.uppercase() }} · ${done.size}", style = Type.body, color = Accent)
+            }
+        }
+    }
+}
+
+/** When the first thing coming up starts, for the figure on the Shelf: a clock today, else the day. */
+private fun timeOf(c: Coming): String = runCatching {
+    c.at?.let {
+        val at = OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault())
+        if (at.toLocalDate() == LocalDate.now()) at.format(DateTimeFormatter.ofPattern("HH:mm")) else at.format(DateTimeFormatter.ofPattern("EEE"))
+    } ?: c.day?.let { LocalDate.parse(it).format(DateTimeFormatter.ofPattern("EEE")) } ?: "—"
+}.getOrDefault("—")
+
+private fun dayLabel(c: Coming): String = runCatching {
+    val day = c.at?.let { OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault()).toLocalDate() } ?: c.day?.let(LocalDate::parse)
+    when (day) { null -> "No date"; LocalDate.now() -> "Today"; LocalDate.now().plusDays(1) -> "Tomorrow"; else -> day.format(SHORT_DAY) }
+}.getOrDefault("")
+
+private fun clockOf(c: Coming): String? = runCatching {
+    c.at?.let { OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm")) }
+}.getOrNull()
+
+/** An amount short enough for a figure: ₹2.5k, $640. */
+private fun short(n: java.math.BigDecimal, currency: String?): String {
+    val symbol = runCatching { java.util.Currency.getInstance(currency!!).symbol }.getOrDefault("")
+    val v = n.toDouble()
+    return symbol + when {
+        v >= 100_000 -> "%.1fL".format(v / 100_000).replace(".0L", "L")
+        v >= 1_000 -> "%.1fk".format(v / 1_000).replace(".0k", "k")
+        else -> "%.0f".format(v)
     }
 }
 

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Small: the light and its word, the count in figures, the next title. Tap opens the app. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/waiting_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/waiting_body"
+    android:clipToOutline="true"
+    android:orientation="vertical"
+    android:padding="16dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center_vertical" android:orientation="horizontal">
+        <ImageView android:id="@+id/waiting_light" android:layout_width="8dp" android:layout_height="8dp"
+            android:src="@drawable/led_amber" android:importantForAccessibility="no" />
+        <TextView android:id="@+id/waiting_word" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginStart="8dp" android:fontFamily="@font/dm_mono" android:letterSpacing="0.08"
+            android:textSize="11sp" android:textColor="@color/waiting_muted" android:text="WAITING" android:maxLines="1" />
+    </LinearLayout>
+    <TextView android:id="@+id/waiting_count" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" android:fontFamily="@font/dm_mono" android:textSize="36sp"
+        android:textColor="@color/waiting_on_body" />
+    <TextView android:id="@+id/waiting_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:fontFamily="@font/newsreader" android:textSize="15sp" android:textColor="@color/waiting_on_body"
+        android:maxLines="2" android:ellipsize="end" />
+</LinearLayout>
