@@ -51,6 +51,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -115,7 +116,6 @@ private fun Capture(activity: ComponentActivity, mode: String, onClose: () -> Un
     val scope = rememberCoroutineScope()
     var cameraAllowed by remember { mutableStateOf(granted(context, Manifest.permission.CAMERA)) }
     var micAllowed by remember { mutableStateOf(granted(context, Manifest.permission.RECORD_AUDIO)) }
-    var voiceOnly by remember { mutableStateOf(mode == "voice") }
     var typing by remember { mutableStateOf(mode == "note") }
     var note by remember { mutableStateOf("") }
     var shot by remember { mutableStateOf<kotlinx.coroutines.Deferred<Shot?>?>(null) }
@@ -123,6 +123,8 @@ private fun Capture(activity: ComponentActivity, mode: String, onClose: () -> Un
     var recorder by remember { mutableStateOf<VoiceRecorder?>(null) }
     var locked by remember { mutableStateOf(false) }
     var drag by remember { mutableStateOf(Drag.NONE) }
+    // Talking from the voice key: no photo, and the big key steps aside.
+    var talkingOnly by remember { mutableStateOf(false) }
     var seconds by remember { mutableIntStateOf(0) }
     var level by remember { mutableIntStateOf(0) }
     var problem by remember { mutableStateOf<String?>(null) }
@@ -135,7 +137,7 @@ private fun Capture(activity: ComponentActivity, mode: String, onClose: () -> Un
         if (!it) problem = "Satchel needs the microphone to hear you. Allow it in Settings."
     }
     LaunchedEffect(Unit) { if (!cameraAllowed && mode != "note" && mode != "voice") askCamera.launch(Manifest.permission.CAMERA) }
-    LaunchedEffect(cameraAllowed, typing, voiceOnly) { if (cameraAllowed && !typing && !voiceOnly) camera.bind(activity) }
+    LaunchedEffect(cameraAllowed, typing) { if (cameraAllowed && !typing) camera.bind(activity) }
     DisposableEffect(Unit) { onDispose { recorder?.discard() } }
     LaunchedEffect(recorder) {
         seconds = 0
@@ -143,10 +145,10 @@ private fun Capture(activity: ComponentActivity, mode: String, onClose: () -> Un
         while (recorder != null) { delay(100); level = recorder?.level() ?: 0; if (++ticks % 10 == 0) seconds++ }
     }
 
-    fun reset() { shot = null; shotPicture = null; recorder?.discard(); recorder = null; locked = false; drag = Drag.NONE; note = ""; problem = null }
+    fun reset() { talkingOnly = false; shot = null; shotPicture = null; recorder?.discard(); recorder = null; locked = false; drag = Drag.NONE; note = ""; problem = null }
 
     fun snap() {
-        if (voiceOnly || !cameraAllowed) return
+        if (!cameraAllowed) return
         val pending = kotlinx.coroutines.CompletableDeferred<Shot?>()
         shot = pending
         camera.take(context) { result ->
@@ -171,6 +173,9 @@ private fun Capture(activity: ComponentActivity, mode: String, onClose: () -> Un
         return runCatching { recorder = VoiceRecorder(context).also { it.start() } }
             .onFailure { problem = "The microphone is busy. Try again in a moment." }.isSuccess
     }
+
+    // From the widget's voice key: hands-free at once.
+    LaunchedEffect(Unit) { if (mode == "voice") { talkingOnly = true; if (listen()) locked = true else talkingOnly = false } }
 
     /** Saves what is in hand, as one drop, then shows it reaching the Shelf. */
     fun save(withVoice: Boolean) {
@@ -214,10 +219,10 @@ private fun Capture(activity: ComponentActivity, mode: String, onClose: () -> Un
     Box(Modifier.fillMaxSize().background(Black)) {
         when {
             typing -> {}
-            voiceOnly || !cameraAllowed -> Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally,
+            !cameraAllowed -> Column(Modifier.align(Alignment.Center).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Led(if (recorder != null) Orange else LedOff, if (voiceOnly) "camera off" else "no camera yet", wordColor = HwText)
-                if (!cameraAllowed && !voiceOnly) HardwareKey("Use the camera", { askCamera.launch(Manifest.permission.CAMERA) })
+                Led(if (recorder != null) Orange else LedOff, "no camera yet", wordColor = HwText)
+                HardwareKey("Use the camera", { askCamera.launch(Manifest.permission.CAMERA) })
             }
             else -> camera.request?.let { CameraXViewfinder(surfaceRequest = it, modifier = Modifier.fillMaxSize()) }
         }
@@ -256,10 +261,8 @@ private fun Capture(activity: ComponentActivity, mode: String, onClose: () -> Un
                         else "listening %d:%02d".format(seconds / 60, seconds % 60), wordColor = HwText)
                     Spacer(Modifier.width(12.dp))
                     Levels(level)
-                } else Text(when {
-                    voiceOnly || !cameraAllowed -> "TAP · TALK    HOLD · TALK, LET GO TO SAVE"
-                    else -> "TAP · PHOTO    HOLD · SHOW AND TELL"
-                }, style = Type.readout, color = HwMuted)
+                } else Text(if (cameraAllowed) "TAP · PHOTO    HOLD · SHOW AND TELL" else "HOLD THE MIC · TALK",
+                    style = Type.readout, color = HwMuted)
             }
             Box(Modifier.fillMaxWidth().height(140.dp)) {
                 if (listening && !locked) {
@@ -271,11 +274,24 @@ private fun Capture(activity: ComponentActivity, mode: String, onClose: () -> Un
                 }
                 if (locked) HardwareKey("Cancel", { recorder?.discard(); recorder = null; locked = false; shot = null; shotPicture = null },
                     Modifier.align(Alignment.CenterStart))
-                if (!listening) {
-                    SideKey(if (voiceOnly) "Camera" else "Voice only", Modifier.align(Alignment.CenterStart)) { voiceOnly = !voiceOnly; problem = null }
-                    SideKey("Type", Modifier.align(Alignment.CenterEnd)) { typing = true }
-                }
-                ShutterKey(listening = listening, locked = locked, camera = !voiceOnly && cameraAllowed,
+                if (!listening) SideKey("Type", Modifier.align(Alignment.CenterStart)) { typing = true }
+                // The voice key works like the big one, without the photo: hold to talk, let go to save,
+                // slide up for hands-free, slide left to throw it away; a tap starts hands-free.
+                if (!listening || talkingOnly) ShutterKey(listening = listening && talkingOnly, locked = locked && talkingOnly, camera = false,
+                    size = 64.dp, modifier = Modifier.align(Alignment.CenterEnd),
+                    onDown = { problem = null; talkingOnly = true },
+                    onHold = { listen() },
+                    onDrag = { drag = it },
+                    onLock = { locked = true; drag = Drag.NONE },
+                    onCancel = { recorder?.discard(); recorder = null; drag = Drag.NONE; talkingOnly = false },
+                    onRelease = { save(withVoice = true); talkingOnly = false },
+                    onTap = {
+                        when {
+                            locked -> { save(withVoice = true); talkingOnly = false }
+                            recorder == null -> { if (listen()) locked = true else talkingOnly = false }
+                        }
+                    })
+                if (!talkingOnly) ShutterKey(listening = listening, locked = locked, camera = cameraAllowed,
                     modifier = Modifier.align(Alignment.Center),
                     onDown = { problem = null; snap() },
                     onHold = { listen() },
@@ -286,14 +302,16 @@ private fun Capture(activity: ComponentActivity, mode: String, onClose: () -> Un
                     onTap = {
                         when {
                             locked -> save(withVoice = true)
-                            !voiceOnly && cameraAllowed -> save(withVoice = false)
+                            cameraAllowed -> save(withVoice = false)
                             recorder == null -> { if (listen()) locked = true }
                         }
                     })
             }
             if (!listening) Text("Point at it first. The photo is taken the moment you press.", style = Type.fine, color = HwMuted)
-            else if (!locked) Text("Let go to save · photo and your words, one drop", style = Type.fine, color = HwText)
-            else Text("Tap the key to finish · saved as one drop", style = Type.fine, color = HwText)
+            else if (!locked) Text(if (talkingOnly) "Let go to save · a voice note" else "Let go to save · photo and your words, one drop",
+                style = Type.fine, color = HwText)
+            else Text(if (talkingOnly) "Tap the mic to finish · saved as a voice note" else "Tap the key to finish · saved as one drop",
+                style = Type.fine, color = HwText)
         }
     }
 }
@@ -320,7 +338,7 @@ private fun Levels(level: Int) {
  * locked, the end of talking.
  */
 @Composable
-private fun ShutterKey(listening: Boolean, locked: Boolean, camera: Boolean, modifier: Modifier = Modifier,
+private fun ShutterKey(listening: Boolean, locked: Boolean, camera: Boolean, modifier: Modifier = Modifier, size: Dp = 88.dp,
                        onDown: () -> Unit, onHold: () -> Boolean, onDrag: (Drag) -> Unit, onLock: () -> Unit,
                        onCancel: () -> Unit, onRelease: () -> Unit, onTap: () -> Unit) {
     val scope = rememberCoroutineScope()
@@ -334,19 +352,19 @@ private fun ShutterKey(listening: Boolean, locked: Boolean, camera: Boolean, mod
     val pulse = androidx.compose.animation.core.rememberInfiniteTransition(label = "pulse")
     val ring by pulse.animateFloat(1f, 1.5f, androidx.compose.animation.core.infiniteRepeatable(
         androidx.compose.animation.core.tween(1200, easing = androidx.compose.animation.core.CubicBezierEasing(.2f, .7f, .2f, 1f))), label = "ring")
-    Box(modifier.size(104.dp), contentAlignment = Alignment.Center) {
-        if (listening) Box(Modifier.size(88.dp).scale(ring).alpha((1.5f - ring) * 1f).border(3.dp, Orange, CircleShape))
+    Box(modifier.size(size + 16.dp), contentAlignment = Alignment.Center) {
+        if (listening) Box(Modifier.size(size).scale(ring).alpha((1.5f - ring) * 1f).border(3.dp, Orange, CircleShape))
         Box(
-            Modifier.size(88.dp).clip(CircleShape)
+            Modifier.size(size).clip(CircleShape)
                 .background(if (listening) (if (locked) HwKey else Orange) else HwKey)
-                .border(4.dp, if (listening) Orange else HwText, CircleShape)
-                .padding(8.dp)
+                .border(if (camera) 4.dp else 2.dp, if (listening) Orange else if (camera) HwText else HwMuted, CircleShape)
+                .padding(if (camera) 8.dp else 4.dp)
                 .semantics {
                     contentDescription = when {
                         locked -> "Finish and save"
                         listening -> "Let go to save the photo and what you said"
                         camera -> "Tap for a photo, hold to show it and say it"
-                        else -> "Hold to talk, or tap to start talking"
+                        else -> "Voice note: hold to talk and let go to save, or tap to talk hands-free"
                     }
                 }
                 .pointerInput(Unit) {
@@ -383,7 +401,7 @@ private fun ShutterKey(listening: Boolean, locked: Boolean, camera: Boolean, mod
                 locked -> Box(Modifier.size(28.dp).clip(RoundedCornerShape(4.dp)).background(Orange))
                 listening -> {}
                 camera -> Box(Modifier.fillMaxSize().clip(CircleShape).background(HwText))
-                else -> Icon(painterResource(R.drawable.ic_voice), null, tint = HwText, modifier = Modifier.size(32.dp))
+                else -> Icon(painterResource(R.drawable.ic_voice), null, tint = HwText, modifier = Modifier.size(if (size < 80.dp) 24.dp else 32.dp))
             }
         }
     }

@@ -200,7 +200,8 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
                         item {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Figure(wait.size.toString(), if (wait.size == 1) "waiting for you" else "waiting for you", Modifier.weight(1f))
-                                coming.firstOrNull()?.let { c -> Figure(timeOf(c), c.title, Modifier.weight(1f)) }
+                                // The next thing with a time still ahead: an all-day or already-started one is not "next".
+                                coming.firstOrNull { c -> c.kind == "event" && startsLater(c) }?.let { c -> Figure(timeOf(c), c.title, Modifier.weight(1f)) }
                                     ?: Figure(lines.count { it.status == "want" }.toString(), "on your lists", Modifier.weight(1f))
                                 if (claim.isNotEmpty()) Figure(claim.entries.joinToString(" + ") { short(it.value, it.key.ifEmpty { null }) }, "to claim", Modifier.weight(1f))
                                 else Figure((items?.size ?: 0).toString(), "on your Shelf", Modifier.weight(1f))
@@ -684,8 +685,15 @@ private fun dayLabel(c: Coming): String = runCatching {
 }.getOrDefault("")
 
 private fun clockOf(c: Coming): String? = runCatching {
-    c.at?.let { OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm")) }
+    c.at?.let { OffsetDateTime.parse(it).atZoneSameInstant(java.time.ZoneId.systemDefault()) }
+        // Midnight to midnight is how calendars write a day off; it reads as all day, not "00:00".
+        ?.takeUnless { it.hour == 0 && it.minute == 0 }?.format(DateTimeFormatter.ofPattern("HH:mm"))
 }.getOrNull()
+
+private fun startsLater(c: Coming): Boolean = runCatching {
+    val at = OffsetDateTime.parse(c.at ?: return false)
+    at.toInstant().isAfter(java.time.Instant.now()) && clockOf(c) != null
+}.getOrDefault(false)
 
 /** An amount short enough for a figure: ₹2.5k, $640. */
 private fun short(n: java.math.BigDecimal, currency: String?): String {
