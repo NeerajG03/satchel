@@ -272,7 +272,7 @@ private fun Capture(activity: ComponentActivity, mode: String, onClose: () -> Un
                     Text("✕ ← SLIDE TO CANCEL", style = Type.readout, color = if (drag == Drag.TOWARD_CANCEL) LedRed else HwMuted,
                         modifier = Modifier.align(Alignment.CenterStart))
                 }
-                if (locked) HardwareKey("Cancel", { recorder?.discard(); recorder = null; locked = false; shot = null; shotPicture = null },
+                if (locked) HardwareKey("Cancel", { recorder?.discard(); recorder = null; locked = false; talkingOnly = false; shot = null; shotPicture = null },
                     Modifier.align(Alignment.CenterStart))
                 if (!listening) SideKey("Type", Modifier.align(Alignment.CenterStart)) { typing = true }
                 // The voice key works like the big one, without the photo: hold to talk, let go to save,
@@ -291,9 +291,10 @@ private fun Capture(activity: ComponentActivity, mode: String, onClose: () -> Un
                             recorder == null -> { if (listen()) locked = true else talkingOnly = false }
                         }
                     })
-                if (!talkingOnly) ShutterKey(listening = listening, locked = locked, camera = cameraAllowed,
+                // Hidden only while a voice note is actually being recorded, so it can never go missing at rest.
+                if (!(listening && talkingOnly)) ShutterKey(listening = listening, locked = locked, camera = cameraAllowed,
                     modifier = Modifier.align(Alignment.Center),
-                    onDown = { problem = null; snap() },
+                    onDown = { problem = null; talkingOnly = false; snap() },
                     onHold = { listen() },
                     onDrag = { drag = it },
                     onLock = { locked = true; drag = Drag.NONE },
