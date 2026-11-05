@@ -47,6 +47,9 @@ class ShelfReader(private val http: OkHttpClient, private val token: suspend () 
             o.str("starts_at") ?: o.str("due_date"), o.optString("source"))
     }
 
+    /** Which profiles have a Google account linked, so Add is offered only where it can work. */
+    suspend fun linkedProfiles(): List<String> = rows(rpc("google_link_status", JSONObject())).map { it.getString("profile") }
+
     suspend fun dismiss(id: String) { rpc("decide_shelf_suggestion", JSONObject().put("p_id", id).put("p_status", "dismissed")) }
 
     /** Adds a suggestion to the profile's Google account. Returns "task" or "event". */

@@ -1,3 +1,4 @@
 <resources>
     <string name="widget_description">One key to drop a photo, a voice note or a note on your Shelf</string>
+    <string name="waiting_description">The next to-do Satchel found in your drops, with Add and Skip</string>
 </resources>
