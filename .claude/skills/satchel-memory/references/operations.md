@@ -91,7 +91,7 @@ SATCHEL_GITHUB_APP_*
 
 `SUPABASE_URL` is a constant in `server/http-handler.mjs`. `SUPABASE_SERVICE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are used only by local maintenance scripts and are deliberately **not** on Vercel. `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF` are only for `verify-pgvector.mjs`.
 
-Overridable without a code change: `SATCHEL_EMBEDDING_PROVIDER|MODEL|URL|KEY|DIMENSIONS|TIMEOUT_MS|BUDGET_MS|TASK_TYPE|FALLBACK_KEY|FALLBACK_URL`, `SATCHEL_ROUTER_PROVIDER|MODEL|URL|KEY|TIMEOUT_MS`, `SATCHEL_THINKING_LEVEL`, `SATCHEL_CONSOLIDATE_RETRY_MS`, `SATCHEL_CONSOLIDATE_TIMEOUT_MS`, `SATCHEL_PROMPT_LABEL|TIMEOUT_MS|TTL_MS`.
+Overridable without a code change: `SATCHEL_EMBEDDING_PROVIDER|MODEL|URL|KEY|DIMENSIONS|TIMEOUT_MS|BUDGET_MS|TASK_TYPE|FALLBACK_KEY|FALLBACK_URL`, `SATCHEL_ROUTER_PROVIDER|MODEL|URL|KEY|TIMEOUT_MS`, `SATCHEL_THINKING_LEVEL`, `SATCHEL_CONSOLIDATE_RETRY_MS`, `SATCHEL_CONSOLIDATE_TIMEOUT_MS` (one session read, 180 s), `SATCHEL_TIDY_TIMEOUT_MS` (the nightly tidy, 120 s), `SATCHEL_PROMPT_LABEL|TIMEOUT_MS|TTL_MS`.
 
 The router uses `SATCHEL_ROUTER_MODEL` (default `gemini-3.8-flash`). The pass uses `SATCHEL_CONSOLIDATE_MODEL` (default `gemini-4-argon` since 29 October, D53; before that `gemini-3.1-pro-preview`, chosen on 11 October because it made 12 changes against 2 on the same three sessions). Both read `SATCHEL_THINKING_LEVEL` (default `medium`). There is no fallback model. `SATCHEL_CONSOLIDATE_RETRY_MS` (default 120000) is how long a pass waits before asking the same model again after a 5xx or a burst limit.
 

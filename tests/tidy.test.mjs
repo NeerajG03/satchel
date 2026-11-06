@@ -2,7 +2,7 @@
 // the pass it runs in front of.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {validateTidy, buildTidyPrompt, TIDY_SCHEMA} from '../server/tidy.mjs';
+import {validateTidy, buildTidyPrompt, tidyTimeoutMs, TIDY_TIMEOUT_MS, TIDY_SCHEMA} from '../server/tidy.mjs';
 import {tidyTopics, consolidateStep} from '../server/consolidation.mjs';
 
 const topics = [
@@ -110,4 +110,11 @@ test('a job tidies once, before it reads sessions, even when none are waiting', 
   state = null;
   const again = await consolidateStep(s, {model: 'm'}, {...job, runs: out.job.runs}, {tidier: {tidy: async () => assert.fail('ran twice')}});
   assert.equal(again.job.status, 'finished');
+});
+
+test('the tidy has its own time limit, longer than one session read, and a setting for it', () => {
+  assert.equal(tidyTimeoutMs({}), TIDY_TIMEOUT_MS);
+  assert.ok(TIDY_TIMEOUT_MS > 40000);
+  assert.equal(tidyTimeoutMs({SATCHEL_CONSOLIDATE_TIMEOUT_MS: '1000'}), TIDY_TIMEOUT_MS);
+  assert.equal(tidyTimeoutMs({SATCHEL_TIDY_TIMEOUT_MS: '90000'}), 90000);
 });
