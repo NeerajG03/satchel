@@ -91,13 +91,20 @@ export function validateTidy(payload, {topics = [], memories = []} = {}) {
     named: [...fresh].filter(([slug]) => used.has(slug)).map(([slug, brief]) => ({slug, brief}))};
 }
 
+// The tidy reads every topic and memory in one call, so it grows with what
+// is stored. The 40 seconds it shared with a single session's read timed out
+// on 6 of the 16 nights from 21 October to 5 November. It has its own limit,
+// still inside the 240 second step the job gives it.
+export const TIDY_TIMEOUT_MS = 120000;
+export const tidyTimeoutMs = (env = process.env) => Number(env.SATCHEL_TIDY_TIMEOUT_MS) || TIDY_TIMEOUT_MS;
+
 export function createTidier({
   model = process.env.SATCHEL_ROUTER_MODEL ?? 'gemini-3.8-flash',
   thinking = process.env.SATCHEL_THINKING_LEVEL ?? 'medium',
   provider = process.env.SATCHEL_ROUTER_PROVIDER ?? 'google',
   baseURL = asBaseUrl(process.env.SATCHEL_ROUTER_URL),
   apiKey = process.env.SATCHEL_ROUTER_KEY ?? process.env.GEMINI_API_KEY ?? process.env.OPENROUTER_API_KEY,
-  timeoutMs = Number(process.env.SATCHEL_CONSOLIDATE_TIMEOUT_MS ?? 40000),
+  timeoutMs = tidyTimeoutMs(),
   promptResolver = tidyPrompt,
   fetchImpl = fetch,
 } = {}) {
