@@ -195,12 +195,12 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 
 ## Shelf · Coming up
 
-- H2: Coming up · Next 7 days · from Google
-- Row: when (Thu 10:00, or Thu, Nov 5 for an all-day event), Task · before an open task, the title (links to Google), the profile when All is picked
-- Not linked: Link a Google account to {Work or Personal} to see your calendar and open tasks here. Settings
+- H2: Coming up · Next 7 days
+- Row: when (Thu 10:00, or Thu, Nov 5 for an all-day event), Task · before an open task, the title (links to the calendar or list), the profile when All is picked
+- Not linked: Pick a Google calendar or to-do list for {Work or Personal} to see your week here. Settings
 - Empty: Nothing on your calendar or tasks in the next seven days.
-- One account did not answer: Google did not answer for {Profile}, so it is not shown. Reload to try again.
-- Server not set up: Google is not set up on this server yet, so your week cannot be shown here.
+- One account did not answer: A calendar or list for {Profile} did not answer, so it is not shown. Reload to try again.
+- Server not set up: Connections are not set up on this server yet, so your week cannot be shown here.
 
 ## Shelf · Waiting for you
 
@@ -209,24 +209,30 @@ The route is `/topics` (`/topics/new`, `/topics/{id}`, `/topics/{id}/delete`). O
 - Nothing waiting: Nothing waiting. To-dos and events Satchel finds show up here.
 - Follows the profile picked above; one with no profile yet shows under both.
 - Row: To-do · Event, then the profile and when ("by Fri, Nov 6" for a to-do, "Thu, Nov 5, 4:00 PM" for an event), the title, and from “the words it came from”
-- Actions: Add to Google (needs Google linked for that profile) · Dismiss
+- Actions: Add to {place} (the slot set for that profile) · Dismiss
 - Footer: Dismissed
 - Error: Could not change this.
 
-## Settings · Profiles · Google
+## Settings · Where things go
 
-- Per profile: {Work|Personal} · Google: {email} · Unlink — or — {Work|Personal} · no Google account linked · Link Google account (Opening Google…)
-- Error heading: Google was not changed.
-- Fine print: Linking lets Satchel add the to-dos and events you say yes to, and read the next week of that calendar and to-do list so it can place what you drop. Nothing is added without you.
-- Footer: {Work} is linked to {email} · {Work} is no longer linked to Google
-- Return page: Linking your Google account… · Nothing was linked. · Back to Settings
-- Errors: You said no on Google’s screen, so nothing was linked. · This link did not start in this tab, so it was not used. Start again from Settings. · Google did not give Satchel the calendar and to-do permissions. Link again and leave every box ticked. · Google is not set up on this server yet, so nothing was linked.
+- H2: Where things go
+- Lede: Each profile has a to-do list and a calendar. Pick where each one lives: Google Tasks, Google Calendar or a Notion database. Nothing is added until you say yes on the Shelf.
+- Accounts: {Google|Notion} · {email or workspace} · Disconnect (Disconnecting…) · No accounts connected yet. · Connect Google (Opening Google…) · Connect Notion (Opening Notion…)
+- Slots: {Personal|Work} · {To-dos|Calendar}, a picker: Nowhere yet · Google Tasks · {email} · Google Calendar · {email} · Notion · {workspace}. Google Tasks is offered for To-dos only.
+- A Notion slot: Files into {database} · Edit columns
+- Notion setup: Database (Pick one) · Each new page gets the title in {title column}, and what you dropped in its body. Set the rest once: · Day: Don’t fill a date / Put the day in {column} · a choice column: Leave empty / {its choices} · a person column: Leave empty / Me · a tick column: Leave as Notion sets it / Ticked / Not ticked · a many-choice column: tick any; over 12 choices, Find one of {n} · Save (Saving…) · Cancel
+- Notion shared nothing: Notion shared no databases with Satchel. Connect Notion again and tick the database on Notion’s screen.
+- Error heading: Nothing was changed. · That slot was not changed.
+- Fine print: Connecting lets Satchel add what you say yes to, and read the next week of a Google calendar and to-do list so it can place what you drop. On Notion it sees only the pages and databases you pick on Notion’s screen.
+- Footer: {Google} is connected: {label}. Now pick where things go. · {Work} {To-dos} go to {place} · {Work} {To-dos} go nowhere for now · {Google} {label} is disconnected
+- Return page: Connecting {Google|Notion}… · Nothing was connected. · Back to Settings
+- Errors: You said no on {provider}’s screen, so nothing was connected. · This did not start in this tab, so it was not used. Start again from Settings. · Google did not give Satchel the calendar and to-do permissions. Connect again and leave every box ticked. · {Provider} is not set up on this server yet, so nothing was connected. · Notion would not show that database. Share it with Satchel in Notion, then try again. · That database has no title column, so Satchel cannot file anything in it.
 
 ## Shelf · Waiting for you · Add
 
-- Buttons: Add to Tasks · Add to Calendar · Adding… · Link {Work} Google (when that profile has no account) · Which profile? (when Satchel could not place it)
-- Footer: Added to {Work} Google Tasks · Added to {Work} Google Calendar
-- Errors: Google no longer accepts this link. Unlink and link the account again in Settings. · Google did not take it this time, so nothing was added. Try again.
+- Buttons: Add to {place: Google Tasks, Google Calendar or the Notion database's name} · Adding… · Set {Work} {To-dos|Calendar} (when that slot goes nowhere) · Which profile? (when Satchel could not place it)
+- Footer: Added to {Work} {place}
+- Errors: Pick where {Work To-dos} go in Settings first. · The account behind {Work To-dos} no longer accepts Satchel. Connect it again in Settings. · It was not taken this time, so nothing was added. Try again. · A calendar needs a day. Add this one somewhere else, or dismiss it.
 
 ## Activity (developer mode)
 

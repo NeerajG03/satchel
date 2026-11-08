@@ -213,8 +213,8 @@ fun ShelfScreen(reader: ShelfReader, unsent: Int, stuck: List<QueuedItem>, onCle
                                     WaitingRow(w, linked = week?.linked ?: emptyList(), onAdd = { where ->
                                         scope.launch {
                                             runCatching { reader.addToGoogle(w.id, where) }
-                                                .onSuccess { kind -> waiting = waiting - w; WaitingWidget.refresh(context)
-                                                    said = if (kind == "task") "Added to ${PROFILE[where]} Google Tasks" else "Added to ${PROFILE[where]} Google Calendar" }
+                                                .onSuccess { place -> waiting = waiting - w; WaitingWidget.refresh(context)
+                                                    said = "Added to ${PROFILE[where]} $place" }
                                                 .onFailure { problem = it.message }
                                         }
                                     }, onDismiss = {
@@ -359,10 +359,10 @@ private fun WaitingRow(w: Waiting, linked: List<String>, onAdd: (String) -> Unit
                     shape = RoundedCornerShape(9.dp), colors = ButtonDefaults.buttonColors(containerColor = Hw, contentColor = HwText)) {
                     Text(when {
                         w.profile == null -> "Add to ${PROFILE[where]}"
-                        w.kind == "todo" -> "Add to Tasks"
+                        w.kind == "todo" -> "Add to To-dos"
                         else -> "Add to Calendar"
                     }, style = Type.key)
-                } else Text("Link ${PROFILE[where]} Google on the web first", style = Type.fine, color = Muted)
+                } else Text("Pick where ${PROFILE[where]} things go in Settings on the web first", style = Type.fine, color = Muted)
             }
             TextButton(onDismiss, enabled = !busy, modifier = Modifier.height(44.dp)) { Text("Skip", style = Type.body, color = Muted) }
         }

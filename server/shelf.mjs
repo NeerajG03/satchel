@@ -21,7 +21,7 @@ const REQUEST_MS = 52000;
 const EMBED_MS = 10000;
 const SORT_MS = 12000;
 const MIN_CALL_MS = 5000;
-const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Measured on the Shelf bench, 2 Nov: where gemini-embedding-001 at 768 did
 // best at finding the item while staying quiet when nothing fit.
 const SHELF_GATE = Number(process.env.SATCHEL_SHELF_GATE ?? 0.63);
@@ -72,7 +72,7 @@ export async function sortItem(db, sorter, {item, description, transcript, now =
   const {data: context, error} = await db.rpc('shelf_sort_context');
   if (error) throw error;
   const timezone = context?.timezone || 'UTC';
-  // The week ahead, when a Google account is linked: it helps place "the
+  // The week ahead, from every calendar and list that can be read: it helps place "the
   // standup" and keeps a suggestion from repeating what is already there.
   // Capped, so a slow calendar never costs the sort itself.
   const week = typeof calendar === 'function'

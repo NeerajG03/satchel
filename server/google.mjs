@@ -108,95 +108,63 @@ async function call(url, access, {method = 'GET', body, fetchImpl = fetch} = {})
 
 const nextDay = date => new Date(Date.parse(`${date}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
 
-/** What a suggestion becomes in Google: a task, or an event (all day when it has no time). */
-export function googleBody(s, {timezone = 'UTC', from = 'From your Satchel Shelf'} = {}) {
-  const note = `${from}: “${s.source}”`;
-  if (s.kind === 'todo') {
-    const day = s.due_date ?? (s.starts_at ? new Intl.DateTimeFormat('en-CA', {timeZone: timezone}).format(new Date(s.starts_at)) : null);
-    // Google Tasks keeps only the date of a due time, so a time goes in the notes.
-    const time = s.starts_at ? new Intl.DateTimeFormat('en-GB', {timeZone: timezone, hour: '2-digit', minute: '2-digit',
-      hourCycle: 'h23'}).format(new Date(s.starts_at)) : null;
-    return {kind: 'task', body: {title: s.title, notes: time ? `At ${time}. ${note}` : note,
-      ...(day ? {due: `${day}T00:00:00.000Z`} : {})}};
-  }
-  if (s.starts_at) return {kind: 'event', body: {summary: s.title, description: note,
-    start: {dateTime: s.starts_at, timeZone: timezone}, end: {dateTime: s.ends_at ?? s.starts_at, timeZone: timezone}}};
-  return {kind: 'event', body: {summary: s.title, description: note, start: {date: s.due_date}, end: {date: nextDay(s.due_date)}}};
+const note = s => `From your Satchel Shelf: “${s.source}”`;
+const dayIn = (at, timezone) => new Intl.DateTimeFormat('en-CA', {timeZone: timezone}).format(new Date(at));
+
+/** A to-do as a Google task. Tasks keeps only the date of a due time, so a time goes in the notes. */
+export function taskBody(s, {timezone = 'UTC'} = {}) {
+  const day = s.due_date ?? (s.starts_at ? dayIn(s.starts_at, timezone) : null);
+  const time = s.starts_at ? new Intl.DateTimeFormat('en-GB', {timeZone: timezone, hour: '2-digit', minute: '2-digit',
+    hourCycle: 'h23'}).format(new Date(s.starts_at)) : null;
+  return {title: s.title, notes: time ? `At ${time}. ${note(s)}` : note(s), ...(day ? {due: `${day}T00:00:00.000Z`} : {})};
 }
 
-export async function addToGoogle(access, suggestion, {timezone, fetchImpl = fetch} = {}) {
-  const {kind, body} = googleBody(suggestion, {timezone});
-  const made = await call(kind === 'task' ? TASKS : CALENDAR, access, {method: 'POST', body, fetchImpl});
-  return {kind, link: made.htmlLink ?? made.webViewLink ?? (kind === 'task' ? 'https://tasks.google.com/' : 'https://calendar.google.com/')};
+/** An event, or a to-do put on a calendar: timed when it has a time, all day when it has only a day. */
+export function eventBody(s, {timezone = 'UTC'} = {}) {
+  if (s.starts_at) return {summary: s.title, description: note(s),
+    start: {dateTime: s.starts_at, timeZone: timezone}, end: {dateTime: s.ends_at ?? s.starts_at, timeZone: timezone}};
+  if (!s.due_date) throw new GoogleError('A calendar needs a day', {reason: 'no_day'});
+  return {summary: s.title, description: note(s), start: {date: s.due_date}, end: {date: nextDay(s.due_date)}};
+}
+
+export async function addTask(access, s, {timezone, fetchImpl = fetch} = {}) {
+  const made = await call(TASKS, access, {method: 'POST', body: taskBody(s, {timezone}), fetchImpl});
+  return {link: made.webViewLink ?? 'https://tasks.google.com/'};
+}
+
+export async function addEvent(access, s, {timezone, fetchImpl = fetch} = {}) {
+  const made = await call(CALENDAR, access, {method: 'POST', body: eventBody(s, {timezone}), fetchImpl});
+  return {link: made.htmlLink ?? 'https://calendar.google.com/'};
 }
 
 // Titles can be written by anyone who sends an invite, so each is one short
 // line: it can never pose as another part of the prompt or the page.
 const oneLine = text => (text ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').trim().slice(0, 120) || '(no title)';
 
-/** The next seven days of one account: events by start time, then open tasks. */
-export async function fetchWeek(access, {now = new Date(), fetchImpl = fetch} = {}) {
-  const events = new URL(CALENDAR);
-  events.search = new URLSearchParams({timeMin: now.toISOString(), timeMax: new Date(now.getTime() + 7 * 86400000).toISOString(),
+/** The next seven days of one calendar, by start time. */
+export async function fetchEvents(access, {now = new Date(), fetchImpl = fetch} = {}) {
+  const url = new URL(CALENDAR);
+  url.search = new URLSearchParams({timeMin: now.toISOString(), timeMax: new Date(now.getTime() + 7 * 86400000).toISOString(),
     singleEvents: 'true', orderBy: 'startTime', maxResults: '30'}).toString();
-  const tasks = new URL(TASKS);
-  tasks.search = new URLSearchParams({showCompleted: 'false', maxResults: '20'}).toString();
-  const [e, t] = await Promise.all([call(events, access, {fetchImpl}), call(tasks, access, {fetchImpl})]);
-  return [
-    ...(e.items ?? []).map(i => ({kind: 'event', title: oneLine(i.summary), at: i.start?.dateTime ?? null,
-      day: i.start?.date ?? null, link: i.htmlLink ?? null})),
-    ...(t.items ?? []).map(i => ({kind: 'task', title: oneLine(i.title), at: null,
-      day: i.due ? i.due.slice(0, 10) : null, link: i.webViewLink ?? null})),
-  ];
+  return ((await call(url, access, {fetchImpl})).items ?? []).map(i => ({kind: 'event', title: oneLine(i.summary),
+    at: i.start?.dateTime ?? null, day: i.start?.date ?? null, link: i.htmlLink ?? null}));
 }
 
-/** The week ahead as lines the sorting call can read. */
-export async function weekAhead(access, {timezone = 'UTC', now = new Date(), fetchImpl = fetch} = {}) {
+/** Open tasks in the default list. */
+export async function fetchTasks(access, {fetchImpl = fetch} = {}) {
+  const url = new URL(TASKS);
+  url.search = new URLSearchParams({showCompleted: 'false', maxResults: '20'}).toString();
+  return ((await call(url, access, {fetchImpl})).items ?? []).map(i => ({kind: 'task', title: oneLine(i.title), at: null,
+    day: i.due ? i.due.slice(0, 10) : null, link: i.webViewLink ?? null}));
+}
+
+/** Items as lines the sorting call can read. */
+export function weekLines(items, {timezone = 'UTC'} = {}) {
   const when = item => item.at
     ? new Intl.DateTimeFormat('en-GB', {timeZone: timezone, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit',
       minute: '2-digit', hourCycle: 'h23'}).format(new Date(item.at))
     : item.day ?? '';
-  return (await fetchWeek(access, {now, fetchImpl})).map(i => i.kind === 'event'
+  return items.map(i => i.kind === 'event'
     ? `  event: ${when(i)} ${i.title}`
     : `  open task: ${i.title}${i.day ? ` (due ${i.day})` : ''}`);
-}
-
-/**
- * What is coming up across every linked profile, for the Shelf page. A
- * profile Google would not answer for is named, so the page can say so.
- */
-export async function upcoming(db, config, {fetchImpl = fetch, now = new Date()} = {}) {
-  const {data: links, error} = await db.rpc('google_link_status');
-  if (error) throw error;
-  const failed = [];
-  const end = now.getTime() + 7 * 86400000;
-  // Google keeps a task's due day as midnight UTC; a day's grace keeps today's in every zone.
-  const start = now.getTime() - 86400000;
-  const parts = await Promise.all((links ?? []).map(async link => {
-    try {
-      const {data: sealed} = await db.rpc('google_link_token', {p_profile: link.profile});
-      const access = await accessToken({...config, refreshToken: open(sealed, config.sealKey, bindingFor(db.ownerId, link.profile)), fetchImpl});
-      // Only tasks due from today to the end of the week: the panel says "next 7 days", and a task
-      // left from months ago would sit at the top of it.
-      return (await fetchWeek(access, {now, fetchImpl}))
-        .filter(i => i.kind === 'event' || (i.day && Date.parse(`${i.day}T00:00:00Z`) <= end && Date.parse(`${i.day}T00:00:00Z`) >= start))
-        .map(i => ({...i, profile: link.profile}));
-    } catch { failed.push(link.profile); return []; }
-  }));
-  // Google gives times in each calendar's own offset, so compare instants, not strings.
-  const key = i => Date.parse(i.at ?? `${i.day}T00:00:00Z`);
-  return {items: parts.flat().sort((a, b) => key(a) - key(b)), failed, linked: (links ?? []).map(l => l.profile)};
-}
-
-/** Every linked profile's week ahead, labelled, or null when none is linked. */
-export async function calendarContext(db, config, timezone, {fetchImpl = fetch, now = new Date()} = {}) {
-  const {data: links} = await db.rpc('google_link_status');
-  const parts = await Promise.all((links ?? []).map(async link => {
-    const {data: sealed} = await db.rpc('google_link_token', {p_profile: link.profile});
-    const refreshToken = open(sealed, config.sealKey, bindingFor(db.ownerId, link.profile));
-    const access = await accessToken({...config, refreshToken, fetchImpl});
-    const lines = await weekAhead(access, {timezone, now, fetchImpl});
-    return lines.length ? [`${link.profile}:`, ...lines].join('\n') : null;
-  }).map(p => p.catch(() => null)));
-  return parts.filter(Boolean).join('\n') || null;
 }

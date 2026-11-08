@@ -168,6 +168,19 @@
 .profile-topics { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .profile-topics li { display: grid; grid-template-columns: minmax(0, 1fr) 160px; align-items: center; gap: 12px; }
 .field.compact { width: auto; padding-block: 4px; font-size: 13px; }
+.slots li { grid-template-columns: minmax(0, 1fr) minmax(0, 320px); }
+.slots li > .row { gap: 6px; }
+.slots li > .row .field { min-width: 0; }
+.slots li > .fine, .slots .notion-setup { grid-column: 1 / -1; }
+.notion-setup { border-left: 2px solid var(--line); padding-left: 12px; }
+.notion-columns { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.notion-columns li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 240px); align-items: center; gap: 12px; }
+.choices { grid-column: 1 / -1; border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.choices legend { padding: 0; margin-bottom: 4px; }
+.choice { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
+@media (max-width: 560px) {
+  .slots li, .notion-columns li { grid-template-columns: minmax(0, 1fr); }
+}
 
 .suggestions ul { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 10px; }
 .suggestion { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px 12px; align-items: center; border-top: 1px solid var(--line); padding-top: 10px; }

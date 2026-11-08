@@ -4,6 +4,7 @@ import { useAction, useLoad, type Loaded } from '../../app/useLoad';
 import { useReadout } from '../../app/readout';
 import { PROFILE_LABEL, type ProfileKind } from '../profiles/repository';
 import { whenOf, type Suggestion } from './repository';
+import { SLOT_LABEL, placeName } from '../integrations/repository';
 import { Button, LinkButton } from '../../ui/Button';
 import { SaveError } from '../../ui/Notice';
 
@@ -20,18 +21,18 @@ export function Suggestions({ loaded, profile = 'all' }: { loaded: Loaded<Sugges
   const [picked, setPicked] = useState<Record<string, ProfileKind>>({});
   const any = (loaded.data ?? []).length > 0;
   // Only asked when there is something to add.
-  const links = useLoad(() => any ? stores.google.links() : Promise.resolve([]), [stores, any]);
-  const linkedTo = new Set((links.data ?? []).map(l => l.profile));
+  const slots = useLoad(() => any ? stores.integrations.destinations() : Promise.resolve([]), [stores, any]);
+  const slotFor = (s: Suggestion, where: ProfileKind) => slots.data?.find(d => d.profile === where && d.slot === s.kind);
   // One Satchel could not place shows under both profiles until it is picked.
   const rows = (loaded.data ?? []).filter(s => profile === 'all' || !s.profile || s.profile === profile);
   if (!loaded.data) return null;
 
   async function add(s: Suggestion, profile: ProfileKind) {
     setActingOn(s.id);
-    const made = await act.run(() => stores.google.add(s, profile));
+    const made = await act.run(() => stores.integrations.add(s, profile));
     if (!made) return;
     loaded.replace(list => list.filter(row => row.id !== s.id));
-    announce(made.kind === 'task' ? `Added to ${PROFILE_LABEL[profile]} Google Tasks` : `Added to ${PROFILE_LABEL[profile]} Google Calendar`);
+    announce(`Added to ${PROFILE_LABEL[profile]} ${made.place}`);
   }
 
   async function dismiss(s: Suggestion) {
@@ -62,10 +63,11 @@ export function Suggestions({ loaded, profile = 'all' }: { loaded: Loaded<Sugges
           </select></>}
         {(() => {
           const where = s.profile ?? picked[s.id];
-          if (where && !linkedTo.has(where))
-            return <LinkButton small to="/settings" title={`No Google account is linked to ${PROFILE_LABEL[where]} yet`}>Link {PROFILE_LABEL[where]} Google</LinkButton>;
-          return <Button small disabled={!where || (act.busy && actingOn === s.id)} onClick={() => where && void add(s, where)}>
-            {act.busy && actingOn === s.id ? 'Adding…' : s.kind === 'todo' ? 'Add to Tasks' : 'Add to Calendar'}</Button>;
+          const slot = where ? slotFor(s, where) : undefined;
+          if (where && slots.data && !slot)
+            return <LinkButton small to="/settings" title={`${PROFILE_LABEL[where]} ${SLOT_LABEL[s.kind]} go nowhere yet`}>Set {PROFILE_LABEL[where]} {SLOT_LABEL[s.kind]}</LinkButton>;
+          return <Button small disabled={!where || !slot || (act.busy && actingOn === s.id)} onClick={() => where && void add(s, where)}>
+            {act.busy && actingOn === s.id ? 'Adding…' : `Add to ${slot ? placeName(slot) : SLOT_LABEL[s.kind]}`}</Button>;
         })()}
         <Button small look="quiet" disabled={act.busy && actingOn === s.id} onClick={() => void dismiss(s)}>Dismiss</Button>
       </div>
