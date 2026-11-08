@@ -133,7 +133,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
 }
 
 /// The menu bar icon takes drops: a picture or voice file goes on the Shelf as it is,
-/// and text or a link becomes a note. Clicks pass through to the icon.
+/// and text or a link becomes a note.
 final class DropTarget: NSView {
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -141,7 +141,9 @@ final class DropTarget: NSView {
     }
     required init?(coder: NSCoder) { nil }
 
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    // Drags find this view by hit testing, so it stays hit-testable and hands clicks to the icon.
+    override func mouseDown(with event: NSEvent) { superview?.mouseDown(with: event) }
+    override func rightMouseDown(with event: NSEvent) { superview?.rightMouseDown(with: event) }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         guard Capture.shared.signedIn else { return [] }
