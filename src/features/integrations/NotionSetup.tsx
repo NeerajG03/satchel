@@ -139,8 +139,8 @@ function LinkFill({ column, connection, value, id, onChange }: { column: Column;
   const choices = (linked.data?.columns ?? []).filter(c => c.type === 'select' || c.type === 'status')
     .flatMap(c => c.options!.map(option => ({ column: c.name, option })));
   const key = (v: LinkTo) => JSON.stringify([v.column, v.option]);
-  if (linked.error || (linked.data === null && !linked.loading)) return <><label htmlFor={id}>{column.name}</label>
-    <span id={id} className="fine muted">Satchel can’t see the database this links to. In Notion, add Satchel to it too, then reload.</span></>;
+  if (linked.error || (linked.data === null && !linked.loading)) return <><span>{column.name}</span>
+    <span className="fine muted">Satchel can’t see the database this links to. In Notion, add Satchel to it too, then reload.</span></>;
   return <><label htmlFor={id}>{column.name}</label>
     <select id={id} className="field compact" disabled={!linked.data} value={value ? key(value) : ''}
       onChange={e => onChange(e.target.value ? (([c, o]) => ({ column: c, option: o }))(JSON.parse(e.target.value)) : null)}>
