@@ -129,7 +129,7 @@ struct PanelView: View {
 
     private var signIn: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Sign in once. Then hold left ⌥ anywhere to talk, or press ⌃⌥Space to type.")
+            Text("Sign in once. Then hold right ⌥ anywhere to talk, or press ⌃⌥Space to type.")
                 .font(Look.words).foregroundColor(.hwText)
             if let p = c.problem { Text(p).font(Look.fine).foregroundColor(.onHwRed) }
             Button("Sign in with Google") {

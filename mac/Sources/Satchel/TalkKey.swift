@@ -1,13 +1,15 @@
 import AppKit
 import ApplicationServices
 
-/// Left ⌥ on its own is the talk key: hold to talk and let go to save; double-tap for
-/// hands-free, and tap once more to finish. Left ⌥ is also half of many shortcuts, so it
+/// Right ⌥ on its own is the talk key: hold to talk and let go to save; double-tap for
+/// hands-free, and tap once more to finish. Right ⌥ is also half of many shortcuts, so it
 /// only counts while nothing else is pressed: another key, modifier or click while it is
 /// down means it was a shortcut, and anything heard is thrown away.
 final class TalkKey {
     static let shared = TalkKey()
-    private static let leftOption: UInt16 = 58
+    private static let rightOption: UInt16 = 61
+    // The two ⌥ keys share one flag; these tell them apart.
+    private static let rightDown: UInt = 0x40, leftDown: UInt = 0x20
 
     var onHold: () -> Void = {}
     var onRelease: () -> Void = {}
@@ -40,8 +42,8 @@ final class TalkKey {
 
     private func flags(_ event: NSEvent) {
         let rest = event.modifierFlags.intersection([.command, .control, .shift, .function, .capsLock])
-        if event.keyCode == Self.leftOption {
-            if event.modifierFlags.contains(.option) { pressed(alone: rest.isEmpty) } else { released() }
+        if event.keyCode == Self.rightOption {
+            if event.modifierFlags.rawValue & Self.rightDown != 0 { pressed(alone: rest.isEmpty && event.modifierFlags.rawValue & Self.leftDown == 0) } else { released() }
         } else if down != nil {
             other()
         }

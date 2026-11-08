@@ -2,7 +2,7 @@ import AppKit
 import Carbon
 import Network
 
-/// Satchel for the Mac: a menu bar light and two keys from anywhere. Hold left ⌥ to talk
+/// Satchel for the Mac: a menu bar light and two keys from anywhere. Hold right ⌥ to talk
 /// and let go to save; ⌃⌥Space opens the panel to type, paste or grab part of the screen.
 @main
 enum Main {

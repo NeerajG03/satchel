@@ -72,7 +72,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
             add("Drop something…", key: " ", modifiers: [.control, .option], #selector(drop))
             add("Pick part of the screen…", #selector(grab))
             if TalkKey.shared.allowed {
-                let hint = NSMenuItem(title: "Hold left ⌥ anywhere to talk", action: nil, keyEquivalent: "")
+                let hint = NSMenuItem(title: "Hold right ⌥ anywhere to talk", action: nil, keyEquivalent: "")
                 hint.isEnabled = false
                 menu.addItem(hint)
             } else {
