@@ -83,7 +83,7 @@ final class Capture: ObservableObject {
         guard let r = stopListening() else { return }
         guard let voice = r.stop() else {
             mode = .compose
-            say("That was too short to keep. Hold a little longer.")
+            say("Nothing was heard, so nothing was sent.")
             return
         }
         save(voice: voice)
