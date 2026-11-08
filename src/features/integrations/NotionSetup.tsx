@@ -78,6 +78,8 @@ export function NotionSetup({ profile, slot, connection, current, onCancel, onSa
               onChange={value => fill(column, value)} />}
         </li>)}
       </ul>
+      <p className="fine muted">A link column, such as Sprint, shows here only when Satchel can see the database it links to.
+        In Notion, open that database, then ••• → Connections → add Satchel, and reload.</p>
     </>}
     {save.error && <SaveError title="That slot was not changed." message={save.error} />}
     <div className="row">
