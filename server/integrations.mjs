@@ -53,7 +53,12 @@ export const PLUGINS = {
     // Which database, and how its columns are filled, kept only where it fits the live database.
     configure: async (access, raw, {fetchImpl}) => {
       if (!idPattern.test(raw?.data_source_id ?? '')) throw new NotionError('No database picked', {reason: 'no_source'});
-      return cleanSettings(await sourceSchema(access, raw.data_source_id, {fetchImpl}), raw);
+      const schema = await sourceSchema(access, raw.data_source_id, {fetchImpl});
+      // A link default is checked against the database it links to, when Satchel may read it.
+      const sources = new Set(schema.columns.filter(c => c.type === 'relation' && c.source && raw.defaults?.[c.name]).map(c => c.source));
+      const linked = new Map(await Promise.all([...sources].map(async id =>
+        [id, await sourceSchema(access, id, {fetchImpl}).catch(() => null)])));
+      return cleanSettings(schema, raw, linked);
     }},
 };
 

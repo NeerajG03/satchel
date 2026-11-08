@@ -233,7 +233,7 @@ test('the database list and its columns come from the workspace', async () => {
   });
   assert.deepEqual(out(sources).sources, [{id: sourceId, name: 'EPD Tasks'}]);
   const schema = await run({action: 'schema', id: notionId, source: sourceId}, db, async () => json(200, EPD));
-  assert.deepEqual(out(schema).columns.map(c => c.name), ['Task name', 'Due Date', 'Status', 'Assignee', 'Tags'], 'relations are left out');
+  assert.deepEqual(out(schema).columns.map(c => c.name), ['Task name', 'Due Date', 'Status', 'Assignee', 'Tags', 'Sprint']);
   const unshared = await run({action: 'schema', id: notionId, source: sourceId}, db, async () => json(404, {code: 'object_not_found'}));
   assert.equal(unshared.status, 404);
   const google = await run({action: 'sources', id: googleId}, fakeDb({connections: {[googleId]: googleConn()}}));
@@ -284,4 +284,50 @@ test('with no date column the day goes in the page body; columns that left the d
   const schema = {id: sourceId, name: 'Bare', columns: [{name: 'Name', type: 'title'}]};
   assert.deepEqual(cleanSettings(schema, ticketSettings), {data_source_id: sourceId, name: 'Bare', title: 'Name', date: null, defaults: {}});
   assert.throws(() => cleanSettings({id: sourceId, name: 'x', columns: []}, {}), e => e.reason === 'no_title');
+});
+
+test('a link column can default to the page marked Current at the moment of adding, such as the sprint', async () => {
+  const sprints = '80000000-0000-4000-8000-000000000001';
+  const withSprint = {...EPD, properties: {...EPD.properties, Sprint: {name: 'Sprint', type: 'relation', relation: {data_source_id: sprints}}}};
+  const SPRINTS = {object: 'data_source', id: sprints, title: [{plain_text: 'EPD Sprints'}], properties: {
+    'Sprint name': {name: 'Sprint name', type: 'title', title: {}},
+    'Sprint status': {name: 'Sprint status', type: 'status', status: {options: [{name: 'Current'}, {name: 'Next'}]}}}};
+  const db = fakeDb({connections: {[notionId]: notionConn()}});
+  const schemaOf = async url => json(200, String(url).includes(sprints) ? SPRINTS : withSprint);
+  const set = await run({action: 'set', profile: 'work', slot: 'todo', plugin: 'notion_database', connection: notionId, settings: {
+    data_source_id: sourceId, defaults: {Sprint: {value: {column: 'Sprint status', option: 'Current'}}}}}, db, schemaOf);
+  assert.equal(set.status, 200);
+  const settings = db.calls.find(c => c[0] === 'set_destination')[1].p_settings;
+  assert.deepEqual(settings.defaults.Sprint, {type: 'relation', value: {source: sprints, column: 'Sprint status', kind: 'status', option: 'Current'}});
+
+  const made = fakeDb({connections: {[notionId]: notionConn()}});
+  await run({action: 'set', profile: 'work', slot: 'todo', plugin: 'notion_database', connection: notionId, settings: {
+    data_source_id: sourceId, defaults: {Sprint: {value: {column: 'Sprint status', option: 'Someday'}}}}}, made, schemaOf);
+  assert.equal(made.calls.find(c => c[0] === 'set_destination')[1].p_settings.defaults.Sprint, undefined, 'a choice the sprints do not have is dropped');
+  const unshared = fakeDb({connections: {[notionId]: notionConn()}});
+  await run({action: 'set', profile: 'work', slot: 'todo', plugin: 'notion_database', connection: notionId, settings: {
+    data_source_id: sourceId, defaults: {Sprint: {value: {column: 'Sprint status', option: 'Current'}}}}}, unshared,
+  async url => String(url).includes(sprints) ? json(404, {code: 'object_not_found'}) : json(200, withSprint));
+  assert.equal(unshared.calls.find(c => c[0] === 'set_destination')[1].p_settings.defaults.Sprint, undefined, 'unreadable sprints are dropped');
+
+  const suggestion = {id, profile: 'work', kind: 'todo', title: 'T', due_date: null, starts_at: null, ends_at: null, source: 's', status: 'pending'};
+  const adding = fakeDb({suggestion, connections: {[notionId]: notionConn()},
+    slots: {'work/todo': {plugin: 'notion_database', connection_id: notionId, settings}}});
+  let page;
+  const res = await run({action: 'add', id}, adding, async (url, init) => {
+    if (String(url).endsWith(`/data_sources/${sprints}/query`)) {
+      assert.deepEqual(JSON.parse(init.body).filter, {property: 'Sprint status', status: {equals: 'Current'}});
+      return json(200, {results: [{id: 'sprint-now'}]});
+    }
+    page = JSON.parse(init.body);
+    return json(200, {url: 'https://www.notion.so/T'});
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(page.properties.Sprint, {relation: [{id: 'sprint-now'}]});
+
+  const noSprint = fakeDb({suggestion, connections: {[notionId]: notionConn()},
+    slots: {'work/todo': {plugin: 'notion_database', connection_id: notionId, settings}}});
+  const still = await run({action: 'add', id}, noSprint, async url => String(url).includes('/query')
+    ? json(404, {code: 'object_not_found'}) : json(200, {url: 'https://www.notion.so/T'}));
+  assert.equal(still.status, 200, 'a sprint that cannot be found leaves the column empty and still adds');
 });
