@@ -72,7 +72,7 @@ export async function sortItem(db, sorter, {item, description, transcript, now =
   const {data: context, error} = await db.rpc('shelf_sort_context');
   if (error) throw error;
   const timezone = context?.timezone || 'UTC';
-  // The week ahead, when a Google account is linked: it helps place "the
+  // The week ahead, from every calendar and list that can be read: it helps place "the
   // standup" and keeps a suggestion from repeating what is already there.
   // Capped, so a slow calendar never costs the sort itself.
   const week = typeof calendar === 'function'

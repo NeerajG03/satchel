@@ -16,6 +16,10 @@
       "includeFiles": "server/prompts/**",
       "maxDuration": 60
     },
+    "api/integrations.mjs": {
+      "includeFiles": "server/prompts/**",
+      "maxDuration": 30
+    },
     "api/google.mjs": {
       "includeFiles": "server/prompts/**",
       "maxDuration": 30

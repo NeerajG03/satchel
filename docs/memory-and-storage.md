@@ -121,11 +121,11 @@ An item is read once: `claim_shelf_item` lets one caller take a waiting or faile
 
 ## Profiles and Google
 
-Profiles (D54 to D57): `profiles` (two per person, work and personal, with the timezone), `topic_profiles`, and `shelf_items.profile`. Sorting writes `shelf_items.topic_id`, `transcript`, `sorted_at` and `shelf_suggestions`. `google_links` holds one Google account per profile.
+Profiles (D54 to D57): `profiles` (two per person, work and personal, with the timezone), `topic_profiles`, and `shelf_items.profile`. Sorting writes `shelf_items.topic_id`, `transcript`, `sorted_at` and `shelf_suggestions`. Integrations (D64): `connections` holds each signed-in account (a Google account, a Notion workspace) with its token sealed, and `destinations` points each profile's To-dos and Calendar slot at a plugin on one connection, with the plugin's settings. `google_links`, the one-account-per-profile table before D64, is kept read-only until the phone and web app no longer need it.
 
 | What | Who can reach it |
 |---|---|
 | Profiles, topic tags, suggestions | The owner, from a browser session only; no grants, definer routines |
-| A Google refresh token | Stored sealed with a server-only key. `google_link_token` hands the sealed text to the owner's session, which cannot open it; only `/api/google` and `/api/shelf` can |
+| A Google refresh token or a Notion token pair | Stored sealed with a server-only key, bound to the owner and the account. `connection_token` and `destination_for` hand the sealed text to the owner's session, which cannot open it; only `/api/integrations` (also served as `/api/google` for the phone) and `/api/shelf` can. A Notion refresh replaces the pair through `update_connection_token` |
 | What reaches Google | Only a suggestion the person pressed Add on, and reads of the next week of events and open tasks: while sorting, and when the Shelf page shows Coming up (D59). The page's read goes to the person's own browser only, never to a model |
 | What leaves for the model provider | While sorting, the titles of the next week's events and open tasks of each linked account go into the sorting prompt, and into its trace when tracing is on. Some of those titles are written by other people (invites). Each is one line of at most 120 characters, marked as data, and a suggestion still has to quote the person's own capture and wait for Add |

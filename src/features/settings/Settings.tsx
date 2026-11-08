@@ -7,6 +7,7 @@ import { Button } from '../../ui/Button';
 import { CheckField } from '../../ui/Field';
 import { Overnight } from './Overnight';
 import { Profiles } from '../profiles/Profiles';
+import { Integrations } from '../integrations/Integrations';
 
 export function Settings() {
   const { user, signOut, busy: authBusy } = useAuth();
@@ -25,6 +26,7 @@ export function Settings() {
         </div>
       </div>
       <Profiles />
+      <Integrations />
       <Overnight />
       <div className="settings-row">
         <h2>Developer mode</h2>

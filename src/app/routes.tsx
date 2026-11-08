@@ -13,7 +13,7 @@ import { Settings } from '../features/settings/Settings';
 import { ConsolidationCallback } from '../features/settings/ConsolidationCallback';
 import { Activity } from '../features/activity/Activity';
 import { Shelf } from '../features/shelf/Shelf';
-import { GoogleCallback } from '../features/profiles/GoogleCallback';
+import { ConnectCallback } from '../features/integrations/ConnectCallback';
 
 function AuthorizeRedirect() {
   const [params] = useSearchParams();
@@ -48,7 +48,8 @@ export const router = createBrowserRouter([
       { path: 'authorize', Component: AuthorizeRedirect },
       { path: 'settings', Component: Settings },
       { path: 'settings/consolidation', Component: ConsolidationCallback },
-      { path: 'settings/google', Component: GoogleCallback },
+      { path: 'settings/google', Component: ConnectCallback },
+      { path: 'settings/notion', Component: ConnectCallback },
       // Reachable by address whether or not developer mode is on. The switch
       // reveals the rail item; it is not a permission, and a page that 404s
       // depending on a localStorage key would be a bad thing to debug.

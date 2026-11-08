@@ -1,7 +1,7 @@
 import { useStores } from '../../app/stores';
 import { useLoad } from '../../app/useLoad';
 import { PROFILE_LABEL, type ProfileKind } from '../profiles/repository';
-import type { Upcoming } from '../profiles/google';
+import type { Upcoming } from '../integrations/repository';
 import { LinkButton } from '../../ui/Button';
 import { LoadError, Skeleton } from '../../ui/Notice';
 
@@ -15,10 +15,10 @@ function whenOf(item: Upcoming): string {
   return 'No date';
 }
 
-/** The next seven days from the person's linked Google accounts, so the Shelf sits beside their week. */
+/** The next seven days from the person's calendars and to-do lists, so the Shelf sits beside their week. */
 export function ComingUp({ profile }: { profile: ProfileKind | 'all' }) {
   const stores = useStores();
-  const week = useLoad(() => stores.google.upcoming(), [stores]);
+  const week = useLoad(() => stores.integrations.upcoming(), [stores]);
   const items = (week.data?.items ?? []).filter(i => profile === 'all' || i.profile === profile);
   const linked = week.data?.linked ?? [];
   const unlinked = profile !== 'all' && week.data && !linked.includes(profile);
@@ -26,16 +26,16 @@ export function ComingUp({ profile }: { profile: ProfileKind | 'all' }) {
   return <section className="shelf-panel" aria-labelledby="coming-up-title">
     <div className="shelf-panel-head">
       <h2 id="coming-up-title">Coming up</h2>
-      <span className="eyebrow">Next 7 days · from Google</span>
+      <span className="eyebrow">Next 7 days</span>
     </div>
     {week.loading && !week.data && <Skeleton rows={3} />}
     {week.error && <LoadError what="Your week" message={week.error} onReload={week.reload} />}
     {week.data && (linked.length === 0 || unlinked)
-      ? <p className="fine muted">Link a Google account to {unlinked ? PROFILE_LABEL[profile as ProfileKind] : 'Work or Personal'} to see
-        your calendar and open tasks here. <LinkButton look="link" small to="/settings">Settings</LinkButton></p>
+      ? <p className="fine muted">Pick a Google calendar or to-do list for {unlinked ? PROFILE_LABEL[profile as ProfileKind] : 'Work or Personal'} to see
+        your week here. <LinkButton look="link" small to="/settings">Settings</LinkButton></p>
       : week.data && items.length === 0 && <p className="fine muted">Nothing on your calendar or tasks in the next seven days.</p>}
     {(week.data?.failed ?? []).filter(p => profile === 'all' || p === profile).map(p =>
-      <p key={p} className="fine" role="status">Google did not answer for {PROFILE_LABEL[p]}, so it is not shown. Reload to try again.</p>)}
+      <p key={p} className="fine" role="status">A calendar or list for {PROFILE_LABEL[p]} did not answer, so it is not shown. Reload to try again.</p>)}
     {items.length > 0 && <ul className="coming-up">{items.map((item, n) => <li key={`${item.profile}-${n}`}>
       <span className="mono when">{whenOf(item)}</span>
       <span className="what">{item.kind === 'task' && <span className="muted">Task · </span>}

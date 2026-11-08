@@ -26,10 +26,11 @@ Use a dedicated Supabase Free project with synthetic records first. Needed from 
 
 1. Apply every file in `supabase/migrations` in filename order using Supabase migration tooling. They are one-time migrations; an existing installation applies only migrations not already recorded. This pilot previously applied early memory migrations manually in the Dashboard, so reconcile remote migration history before `supabase db push` instead of replaying them.
 2. Create a Google OAuth client (Web application). Add two redirect URIs: `https://<project-ref>.supabase.co/auth/v1/callback` for sign-in and `<site origin>/settings/google` for profile links. Enable Google in Supabase Authentication → Providers with that client ID and secret, and set the same pair as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in Vercel.
-3. Optionally, register a GitHub OAuth App with the same Supabase callback and enable GitHub there too; the sign-in page offers it as a second button. Satchel does not request repository scopes.
-4. In Supabase URL Configuration, set the Site URL to the stable deployed app origin. Allow that exact origin and `http://127.0.0.1:5173` for development. Avoid wildcard preview origins.
-5. In Vercel, import the private repository. Root is the repository root; framework is Vite. Set only the two public browser environment values, then deploy.
-6. Verify memory capture, edit, correction, topic links, agent consent and revocation, and stale revision behavior against the hosted project.
+3. Optionally, for Notion slots: create a public integration at notion.so/profile/integrations (Public, with the redirect URI `<site origin>/settings/notion` and the read content and insert content capabilities), and set its OAuth client ID and secret as `NOTION_CLIENT_ID` and `NOTION_CLIENT_SECRET` in Vercel. Without them, Connect Notion answers that Notion is not set up. A preview deployment needs `NOTION_REDIRECT_URI` set to an address Notion has registered, as with `GOOGLE_REDIRECT_URI`.
+4. Optionally, register a GitHub OAuth App with the same Supabase callback and enable GitHub there too; the sign-in page offers it as a second button. Satchel does not request repository scopes.
+5. In Supabase URL Configuration, set the Site URL to the stable deployed app origin. Allow that exact origin and `http://127.0.0.1:5173` for development. Avoid wildcard preview origins.
+6. In Vercel, import the private repository. Root is the repository root; framework is Vite. Set only the two public browser environment values, then deploy.
+7. Verify memory capture, edit, correction, topic links, agent consent and revocation, and stale revision behavior against the hosted project.
 
 Google or GitHub login is identity-only and separate from optional GitHub repository links on a topic. Website sign-in also does not authorize agent connections; the consent interface grants memory read and write separately.
 
