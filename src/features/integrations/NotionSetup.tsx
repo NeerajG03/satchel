@@ -3,6 +3,7 @@ import { useStores } from '../../app/stores';
 import { useAction, useLoad } from '../../app/useLoad';
 import { LoadError, SaveError, Skeleton } from '../../ui/Notice';
 import { Button } from '../../ui/Button';
+import { SelectField } from '../../ui/Field';
 import type { ProfileKind } from '../profiles/repository';
 import { SLOT_LABEL, type Column, type Fill, type NotionSettings, type Slot } from './repository';
 
@@ -51,13 +52,10 @@ export function NotionSetup({ profile, slot, connection, current, onCancel, onSa
     {sources.error && <LoadError what="Your Notion databases" message={sources.error} onReload={sources.reload} />}
     {sources.data && sources.data.length === 0 && <p className="fine">Notion shared no databases with Satchel. Connect Notion again
       and tick the database on Notion’s screen.</p>}
-    {sources.data && sources.data.length > 0 && <div className="f">
-      <label htmlFor={`source-${profile}-${slot}`}>Database</label>
-      <select id={`source-${profile}-${slot}`} className="field" value={source} onChange={event => choose(event.target.value)}>
-        <option value="" disabled>Pick one</option>
-        {sources.data.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-      </select>
-    </div>}
+    {sources.data && sources.data.length > 0 && <SelectField label="Database" value={source} onChange={event => choose(event.target.value)}>
+      <option value="" disabled>Pick one</option>
+      {sources.data.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+    </SelectField>}
     {source && schema.loading && !schema.data && <Skeleton rows={3} />}
     {schema.error && <LoadError what="That database" message={schema.error} onReload={schema.reload} />}
     {schema.data && <>

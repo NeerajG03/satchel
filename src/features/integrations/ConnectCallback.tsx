@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useStores } from '../../app/stores';
 import { useFooter } from '../../app/readout';
 import { LinkButton } from '../../ui/Button';
+import { Notice } from '../../ui/Notice';
 import { PROVIDER_LABEL, type Provider } from './repository';
 
 /** Where Google or Notion sends the person back after its consent screen. */
@@ -29,7 +30,6 @@ export function ConnectCallback() {
   return <>
     <div className="head"><div className="col"><span className="eyebrow">Settings · {name}</span>
       <h1>{problem ? 'Nothing was connected.' : `Connecting ${name}…`}</h1></div></div>
-    {problem && <div role="alert" className="notice"><p>{problem}</p>
-      <LinkButton to="/settings">Back to Settings</LinkButton></div>}
+    {problem && <Notice look="error" actions={<LinkButton to="/settings">Back to Settings</LinkButton>}>{problem}</Notice>}
   </>;
 }

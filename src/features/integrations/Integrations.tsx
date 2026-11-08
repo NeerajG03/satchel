@@ -44,9 +44,7 @@ export function Integrations() {
     const [plugin, connection] = value ? value.split('|') as [PluginId, string] : [null, undefined];
     if (plugin === 'notion_database') { setSetting({ profile, slot, connection: connection! }); return; }
     setSetting(null);
-    setBusy(`${profile}/${slot}`);
     const done = await act.run(async () => { await stores.integrations.setSlot(profile, slot, plugin, connection); return true; });
-    setBusy('');
     if (done) {
       loaded.reload();
       announce(plugin ? `${PROFILE_LABEL[profile]} ${SLOT_LABEL[slot]} go to ${PLUGINS.find(p => p.id === plugin)!.label}`

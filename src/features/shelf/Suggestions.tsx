@@ -29,11 +29,10 @@ export function Suggestions({ loaded, profile = 'all' }: { loaded: Loaded<Sugges
 
   async function add(s: Suggestion, profile: ProfileKind) {
     setActingOn(s.id);
-    const slot = slotFor(s, profile);
     const made = await act.run(() => stores.integrations.add(s, profile));
     if (!made) return;
     loaded.replace(list => list.filter(row => row.id !== s.id));
-    announce(`Added to ${PROFILE_LABEL[profile]} ${slot ? placeName(slot) : SLOT_LABEL[s.kind]}`);
+    announce(`Added to ${PROFILE_LABEL[profile]} ${made.place}`);
   }
 
   async function dismiss(s: Suggestion) {

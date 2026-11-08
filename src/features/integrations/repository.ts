@@ -72,6 +72,6 @@ export function createIntegrationsRepository(db: SupabaseClient) {
     /** The next seven days from every calendar and list that can be read. */
     upcoming: () => callApi<Week>(db, API, { action: 'upcoming' }, 30000),
     add: (s: Suggestion, profile: ProfileKind) =>
-      callApi<{ plugin: PluginId; link: string }>(db, API, { action: 'add', id: s.id, profile }, 30000),
+      callApi<{ plugin: PluginId; place: string; link: string }>(db, API, { action: 'add', id: s.id, profile }, 30000),
   };
 }

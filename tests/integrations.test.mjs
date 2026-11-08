@@ -56,6 +56,11 @@ function fakeDb({suggestion = null, connections = {}, slots = {}} = {}) {
     if (name === 'update_connection_token') { conn(args.p_id).token_cipher = args.p_token_cipher; return {data: null, error: null}; }
     if (name === 'remove_connection') return {data: conn(args.p_id) ? [conn(args.p_id)] : [], error: null};
     if (name === 'save_connection') return {data: notionId, error: null};
+    if (name === 'set_destination' && args.p_plugin) {
+      const c = conn(args.p_connection_id);
+      if (!c) return {data: null, error: {hint: 'satchel:gone:connection'}};
+      if (args.p_plugin.startsWith('google') !== (c.provider === 'google')) return {data: null, error: {hint: 'satchel:invalid:plugin'}};
+    }
     return {data: null, error: null};
   }};
 }
@@ -81,7 +86,7 @@ test('a Work to-do becomes a ticket in the Notion database, filled the way the p
   };
   const res = await run({action: 'add', id}, db, fetchImpl);
   assert.equal(res.status, 200);
-  assert.equal(out(res).plugin, 'notion_database');
+  assert.deepEqual([out(res).plugin, out(res).place], ['notion_database', 'EPD Tasks']);
   const [url, init] = sent[0];
   assert.equal(url, 'https://api.notion.com/v1/pages');
   assert.equal(init.headers.authorization, 'Bearer n-access');
@@ -143,6 +148,13 @@ test('an expired Notion token is refreshed once, the new pair saved sealed, and 
   const saved = db.connections[notionId].token_cipher;
   assert.doesNotMatch(saved, /n-refresh-2/);
   assert.deepEqual(JSON.parse(openFor(config, 'alice', 'notion:ws-1', saved)), {access: 'n-access-2', refresh: 'n-refresh-2'});
+
+  // Saving the new pair fails: the add still goes through on it.
+  const flaky = fakeDb({suggestion, connections: {[notionId]: notionConn()},
+    slots: {'work/todo': {plugin: 'notion_database', connection_id: notionId, settings: ticketSettings}}});
+  const rpc = flaky.rpc;
+  flaky.rpc = async (name, args) => name === 'update_connection_token' ? Promise.reject(Error('timeout')) : rpc(name, args);
+  assert.equal((await run({action: 'add', id}, flaky, fetchImpl)).status, 200);
 });
 
 test('a token stored by someone else will not open: nothing is called and the claim is released', async () => {
@@ -208,7 +220,7 @@ test('setting a Notion slot keeps only what fits the live database', async () =>
   const tasksForEvents = await run({action: 'set', profile: 'work', slot: 'event', plugin: 'google_tasks', connection: googleId}, db);
   assert.equal(tasksForEvents.status, 400);
   const wrongAccount = await run({action: 'set', profile: 'work', slot: 'event', plugin: 'google_calendar', connection: notionId}, db);
-  assert.equal(wrongAccount.status, 404);
+  assert.equal(wrongAccount.status, 400);
   const cleared = await run({action: 'set', profile: 'work', slot: 'event', plugin: null}, db);
   assert.equal(cleared.status, 200);
 });
@@ -247,9 +259,10 @@ test('coming up reads every calendar and list slot, soonest first, and names a p
     'work/todo': {plugin: 'notion_database', connection_id: notionId},
     'work/event': {plugin: 'google_calendar', connection_id: brokenId}}});
   const soon = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+  let exchanges = 0;
   const fetchImpl = async url => {
     const u = String(url);
-    if (u.includes('oauth2')) return json(200, {access_token: 'a'});
+    if (u.includes('oauth2')) { exchanges++; return json(200, {access_token: 'a'}); }
     if (u.includes('calendar')) return json(200, {items: [
       {summary: 'Standup', start: {dateTime: '2026-11-05T04:30:00Z'}}, {summary: 'Release day', start: {date: '2026-11-04'}}]});
     return json(200, {items: [{title: 'Renew insurance', due: `${soon}T00:00:00.000Z`}, {title: 'Long ago', due: '2020-07-11T00:00:00.000Z'}]});
@@ -259,6 +272,7 @@ test('coming up reads every calendar and list slot, soonest first, and names a p
   assert.deepEqual(out(res).failed, ['work']);
   assert.deepEqual(out(res).items.map(i => [i.profile, i.kind, i.title]),
     [['personal', 'event', 'Release day'], ['personal', 'event', 'Standup'], ['personal', 'task', 'Renew insurance']]);
+  assert.equal(exchanges, 1, 'one Google token for the account behind both Personal slots');
 });
 
 test('with no date column the day goes in the page body; columns that left the database are dropped', () => {

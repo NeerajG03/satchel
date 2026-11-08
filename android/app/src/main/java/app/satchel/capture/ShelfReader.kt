@@ -52,12 +52,12 @@ class ShelfReader(private val http: OkHttpClient, private val token: suspend () 
 
     suspend fun dismiss(id: String) { rpc("decide_shelf_suggestion", JSONObject().put("p_id", id).put("p_status", "dismissed")) }
 
-    /** Adds a suggestion to the profile's Google account. Returns "task" or "event". */
+    /** Adds a suggestion through the profile's slot (Google Tasks, Google Calendar or Notion). Returns where it went. */
     suspend fun addToGoogle(id: String, profile: String): String =
-        JSONObject(api("/api/google", JSONObject().put("action", "add").put("id", id).put("profile", profile))).optString("kind")
+        JSONObject(api("/api/integrations", JSONObject().put("action", "add").put("id", id).put("profile", profile))).optString("place", "your list")
 
     suspend fun week(): Week {
-        val o = JSONObject(api("/api/google", JSONObject().put("action", "upcoming")))
+        val o = JSONObject(api("/api/integrations", JSONObject().put("action", "upcoming")))
         val items = rows(o.getJSONArray("items").toString()).map {
             Coming(it.getString("profile"), it.getString("kind"), it.getString("title"), it.str("at"), it.str("day"))
         }

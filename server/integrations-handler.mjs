@@ -4,25 +4,19 @@
 import {createClient} from '@supabase/supabase-js';
 import {randomBytes} from 'node:crypto';
 import {verifyCompanionToken} from './agent-token.mjs';
-import {personFor, readBody, send} from './shelf.mjs';
+import {personFor, readBody, send, idPattern} from './shelf.mjs';
 import {publicOrigin} from './hook-handler.mjs';
 import {GoogleError} from './google.mjs';
-import {NotionError, listSources, sourceSchema, cleanSettings} from './notion.mjs';
-import {integrationsConfig, PROVIDERS, PLUGINS, SLOTS, sealTag, sealFor, openFor, withAccess, addToSlot, upcoming} from './integrations.mjs';
+import {NotionError, listSources, sourceSchema} from './notion.mjs';
+import {integrationsConfig, PROVIDERS, PLUGINS, SLOTS, sealTag, sealFor, openFor, withAccess, addToSlot, upcoming,
+  connectionById as connection} from './integrations.mjs';
 
 const PROFILES = new Set(['work', 'personal']);
 const NAMES = {google: 'Google', notion: 'Notion'};
-const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isId = value => typeof value === 'string' && idPattern.test(value);
 // One fixed address per provider, registered with it. A preview deployment's
 // own host is never registered, so it can be set to production's here.
-export const redirectUri = (req, provider) => (provider === 'google' ? process.env.GOOGLE_REDIRECT_URI : process.env.NOTION_REDIRECT_URI)
-  || `${publicOrigin(req)}/settings/${provider}`;
-
-async function connection(db, id) {
-  const {data, error} = await db.rpc('connection_token', {p_id: id});
-  return error || !data?.[0] ? null : {...data[0], connection_id: id};
-}
+export const redirectUri = (req, provider) => process.env[PROVIDERS[provider].redirectEnv] || `${publicOrigin(req)}/settings/${provider}`;
 
 export async function handleIntegrations(req, res, {config = integrationsConfig(), makeClient = createClient,
   verify = verifyCompanionToken, fetchImpl = fetch} = {}) {
@@ -103,24 +97,26 @@ export async function handleIntegrations(req, res, {config = integrationsConfig(
       return error ? send(res, 502, {error: 'Satchel could not change it. Try again.'}) : send(res, 200, {profile, slot, plugin: null});
     }
     const plugin = PLUGINS[body.plugin];
-    if (!plugin || !plugin.slots.includes(slot) || !isId(body.connection)) return send(res, 400, {error: 'That place cannot hold this. Pick another.'});
-    const account = await connection(db, body.connection);
-    if (account?.provider !== plugin.provider) return send(res, 404, {error: 'That account is no longer connected. Reload Settings.'});
+    const cannot = 'That place cannot hold this. Pick another.';
+    if (!plugin || !plugin.slots.includes(slot) || !isId(body.connection)) return send(res, 400, {error: cannot});
     let settings = {};
-    if (body.plugin === 'notion_database') {
-      if (!isId(body.settings?.data_source_id)) return send(res, 400, {error: 'Pick a Notion database first.'});
-      try {
-        const schema = await withAccess(db, config, account, access => sourceSchema(access, body.settings.data_source_id, {fetchImpl}), {fetchImpl});
-        settings = cleanSettings(schema, body.settings);
-      } catch (error) {
-        return send(res, 400, {error: error instanceof NotionError && error.reason === 'no_title'
-          ? 'That database has no title column, so Satchel cannot file anything in it.'
+    // A plugin with choices of its own reads the account to check them; the
+    // database checks the account and its provider for every plugin.
+    if (plugin.configure) {
+      const account = await connection(db, body.connection);
+      if (account?.provider !== plugin.provider) return send(res, 404, {error: 'That account is no longer connected. Reload Settings.'});
+      try { settings = await withAccess(db, config, account, access => plugin.configure(access, body.settings ?? {}, {fetchImpl}), {fetchImpl}); }
+      catch (error) {
+        return send(res, 400, {error: error.reason === 'no_source' ? 'Pick a Notion database first.'
+          : error.reason === 'no_title' ? 'That database has no title column, so Satchel cannot file anything in it.'
           : 'Notion would not show that database. Share it with Satchel in Notion, then try again.'});
       }
     }
     const {error} = await db.rpc('set_destination', {p_profile: profile, p_slot: slot, p_plugin: body.plugin,
       p_connection_id: body.connection, p_settings: settings});
-    if (error) return send(res, 502, {error: 'Satchel could not save it. Try again.'});
+    if (error) return send(res, error.hint === 'satchel:gone:connection' ? 404 : error.hint === 'satchel:invalid:plugin' ? 400 : 502,
+      {error: error.hint === 'satchel:gone:connection' ? 'That account is no longer connected. Reload Settings.'
+        : error.hint === 'satchel:invalid:plugin' ? cannot : 'Satchel could not save it. Try again.'});
     return send(res, 200, {profile, slot, plugin: body.plugin, settings});
   }
 
@@ -132,21 +128,24 @@ export async function handleIntegrations(req, res, {config = integrationsConfig(
   if (body.action === 'add') {
     if (!isId(body.id)) return send(res, 400, {error: 'Satchel could not read that request.'});
     const profile = PROFILES.has(body.profile) ? body.profile : null;
+    // The timezone is needed only at the end; asked for now so it costs no extra wait.
+    const context = db.rpc('shelf_sort_context').then(r => r.data, () => null);
     const {data: rows, error} = await db.rpc('read_shelf_suggestion', {p_id: body.id});
     const found = rows?.[0];
     if (error || !found || found.status !== 'pending') return send(res, 404, {error: 'That suggestion is gone or was already decided. Reload the Shelf.'});
     const where = profile ?? found.profile;
     if (!where) return send(res, 400, {error: 'Pick Work or Personal for this one first.'});
     const slotName = `${where === 'work' ? 'Work' : 'Personal'} ${found.kind === 'todo' ? 'To-dos' : 'Calendar'}`;
-    const {error: slotError} = await db.rpc('destination_for', {p_profile: where, p_slot: found.kind});
-    if (slotError) return send(res, 409, {error: `Pick where ${slotName} go in Settings first.`});
+    const {data: slots, error: slotError} = await db.rpc('destination_for', {p_profile: where, p_slot: found.kind});
+    const slot = slots?.[0];
+    if (slotError || !PLUGINS[slot?.plugin]) return send(res, 409, {error: `Pick where ${slotName} go in Settings first.`});
     // Claimed before the plugin is asked, so a second click or tab cannot make it twice.
     const {data: claimed, error: claimError} = await db.rpc('claim_shelf_suggestion', {p_id: found.id});
     const s = claimed?.[0];
     if (claimError || !s) return send(res, 409, {error: 'That one is already being added. Reload the Shelf.'});
-    const {data: context} = await db.rpc('shelf_sort_context');
+    const timezone = (await context)?.timezone || 'UTC';
     let made;
-    try { made = await addToSlot(db, config, s, where, {timezone: context?.timezone || 'UTC', fetchImpl}); }
+    try { made = await addToSlot(db, config, s, slot, {timezone, fetchImpl}); }
     catch (error) {
       await db.rpc('release_shelf_suggestion', {p_id: s.id});
       if (error.reason === 'no_day') return send(res, 400, {error: 'A calendar needs a day. Add this one somewhere else, or dismiss it.'});
@@ -158,8 +157,9 @@ export async function handleIntegrations(req, res, {config = integrationsConfig(
     const {error: decideError} = await db.rpc('decide_shelf_suggestion', {p_id: s.id, p_status: 'added', p_profile: where,
       p_google_link: made.link});
     // The plugin has it now; a failure here only leaves the card showing it.
-    return send(res, 200, {id: s.id, kind: made.plugin === 'google_tasks' ? 'task' : 'event', plugin: made.plugin, link: made.link,
-      recorded: !decideError});
+    // `kind` and `place` are what the phone says it was added to.
+    return send(res, 200, {id: s.id, kind: made.plugin === 'google_tasks' ? 'task' : 'event', plugin: made.plugin, place: made.place,
+      link: made.link, recorded: !decideError});
   }
 
   return send(res, 400, {error: 'Satchel could not read that request.'});

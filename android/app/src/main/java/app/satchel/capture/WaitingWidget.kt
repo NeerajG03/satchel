@@ -124,10 +124,10 @@ object WaitingWidget {
             if (next == null) return@apply
             val where = next.profile
             if (where != null && where in linked) {
-                setTextViewText(R.id.waiting_add, if (next.kind == "todo") "Add to Tasks" else "Add to Calendar")
+                setTextViewText(R.id.waiting_add, if (next.kind == "todo") "Add to To-dos" else "Add to Calendar")
                 setOnClickPendingIntent(R.id.waiting_add, action(context, ACTION_ADD, next.id, where, 21))
             } else {
-                // No profile yet, or that profile has no Google account: the app asks which, or says to link one.
+                // No profile yet, or that slot goes nowhere: the app asks which, or says to set one.
                 setTextViewText(R.id.waiting_add, "Open to add")
                 setOnClickPendingIntent(R.id.waiting_add, open)
             }
