@@ -22,6 +22,7 @@ data class ListLine(val id: String, val list: String, val title: String, val det
                     val currency: String? = null, val spentOn: String? = null)
 data class Waiting(val id: String, val kind: String, val title: String, val profile: String?, val when_: String?, val source: String)
 data class Coming(val profile: String, val kind: String, val title: String, val at: String?, val day: String?)
+data class LinkPreview(val url: String, val domain: String?, val title: String?, val image: String?)
 data class Week(val items: List<Coming>, val linked: List<String>, val failed: List<String>)
 
 /** A sentence to show the person as it is. */
@@ -120,6 +121,12 @@ class ShelfReader(private val http: OkHttpClient, private val token: suspend () 
         val text = send(Request.Builder().url("$supabase/storage/v1/object/sign/shelf").supabase()
             .post(body.toString().toRequestBody(json)))
         return rows(text).mapNotNull { o -> o.str("signedURL")?.let { o.getString("path") to "$supabase/storage/v1$it" } }.toMap()
+    }
+
+    /** A link's page title and picture, read by the server. Null when the page offers none. */
+    suspend fun preview(url: String): LinkPreview? {
+        val o = JSONObject(api("/api/shelf", JSONObject().put("action", "preview").put("url", url))).optJSONObject("preview") ?: return null
+        return LinkPreview(url, o.str("domain"), o.str("title"), o.str("image"))
     }
 
     suspend fun bytes(url: String): ByteArray = withContext(Dispatchers.IO) {

@@ -401,7 +401,11 @@ private fun EntryCard(e: ShelfEntry, links: Map<String, String>, reader: ShelfRe
                 }
             }
             if (e.kind == "voice") voice?.let { VoiceKey(it, player, "Play this voice note") }
-            if (e.note.isNotBlank()) Text(e.note, style = Type.block, color = InkText)
+            // A note's own words read at reading size; a link inside it shows as its page, not as an address.
+            val (said, found) = remember(e.note) { splitLinks(e.note) }
+            if (said.isNotBlank()) Text(said, color = InkText,
+                style = if (e.kind != "note") Type.block else if (said.length <= 80) Type.block else Type.words)
+            found.forEach { LinkCard(it, reader) }
             val words = e.transcript?.let { "“$it”" } ?: e.description
             words?.let {
                 Text(it, fontFamily = Content, fontSize = 16.sp, lineHeight = 23.sp,

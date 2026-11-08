@@ -18,6 +18,7 @@ import { ComingUp } from './ComingUp';
 import { Lists } from './Lists';
 import { VoiceKey } from './VoiceKey';
 import { CardMenu } from './CardMenu';
+import { LinkCard, splitLinks } from './LinkCard';
 
 const KIND_LABEL = { note: 'note', photo: 'photo', voice: 'voice note' } as const;
 const KIND_SHORT = { note: 'note', photo: 'photo', voice: 'voice' } as const;
@@ -281,6 +282,9 @@ export function Shelf() {
     const words = item.transcript ? `“${item.transcript}”` : item.description;
     const long = (words?.length ?? 0) > 220;
     const busy = act.busy && failedOn === item.id;
+    // A note's own words read at reading size; a link inside it shows as its page, not as an address.
+    const { words: said, links } = splitLinks(item.note);
+    const noteClass = item.kind === 'note' ? (said.length <= 80 ? 'note-words short' : 'note-words') : 'title';
     return <article className="shelf-card shelf-item" key={item.id}>
       {item.kind === 'photo' && item.object_path && <div className="shelf-photo-wrap">
         {urls[item.object_path]
@@ -289,7 +293,8 @@ export function Shelf() {
         {voice && urls[voice] && <VoiceKey overlay src={urls[voice]} label="Hear what you said about this photo" />}
       </div>}
       {item.kind === 'voice' && voice && urls[voice] && <VoiceKey src={urls[voice]} label="Play this voice note" />}
-      {item.note && <h2 className="title">{item.note}</h2>}
+      {said && <h2 className={noteClass}>{said}</h2>}
+      {links.map(link => <LinkCard key={link} url={link} />)}
       {words && <p className={`${item.transcript ? 'transcript' : item.note ? 'muted' : 'title'}${long && !expanded.has(item.id) ? ' clamped' : ''}`}>{words}</p>}
       {long && <button type="button" className="more-words" onClick={() => toggleExpanded(item.id)}>
         {expanded.has(item.id) ? 'Less' : 'More'}</button>}

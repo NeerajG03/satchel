@@ -5,6 +5,7 @@
 // reaches the Shelf, and a model call is only made for an item the person's
 // own token could read back.
 import {createClient} from '@supabase/supabase-js';
+import {fetchPreview} from './link-preview.mjs';
 import {generateText} from 'ai';
 import {SUPABASE_URL} from './identity.mjs';
 import {verifyCompanionToken, CHALLENGE} from './agent-token.mjs';
@@ -140,13 +141,17 @@ export const send = (res, status, body) => {
   res.end(JSON.stringify(body));
 };
 
-/** POST {action:'describe', id} reads one item, {action:'sort', id} sorts a read one, {action:'edit', id, note} changes its note, {action:'lists', id} finds list lines in an old one, {action:'search', q} searches. */
+/** POST {action:'describe', id} reads one item, {action:'preview', url} reads a link's preview, {action:'sort', id} sorts a read one, {action:'edit', id, note} changes its note, {action:'lists', id} finds list lines in an old one, {action:'search', q} searches. */
 export async function handleShelf(req, res, {embedder, describer, sorter = null, calendar = null, makeClient = createClient,
-  verify = verifyCompanionToken} = {}) {
+  verify = verifyCompanionToken, preview = fetchPreview} = {}) {
   const db = await personFor(req, res, makeClient, verify);
   if (!db) return;
   let body;
   try { body = readBody(req.body); } catch { return send(res, 400, {error: 'Satchel could not read that request.'}); }
+  if (body.action === 'preview') {
+    if (typeof body.url !== 'string' || body.url.length > 2048) return send(res, 400, {error: 'Satchel could not read that link.'});
+    return send(res, 200, {preview: await preview(body.url)});
+  }
   if (!embedder) return send(res, 503, {error: 'Search is not set up on this server, so nothing was read.'});
 
   if (body.action === 'search') {
