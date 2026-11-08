@@ -5,7 +5,7 @@ import { LoadError, SaveError, Skeleton } from '../../ui/Notice';
 import { Button } from '../../ui/Button';
 import { SelectField } from '../../ui/Field';
 import type { ProfileKind } from '../profiles/repository';
-import { SLOT_LABEL, type Column, type Fill, type NotionSettings, type Slot } from './repository';
+import { SLOT_LABEL, type Column, type Fill, type LinkTo, type NotionSettings, type Slot } from './repository';
 
 type Props = { profile: ProfileKind; slot: Slot; connection: string; current?: Partial<NotionSettings>;
   onCancel: () => void; onSaved: (name: string) => void };
@@ -71,8 +71,11 @@ export function NotionSetup({ profile, slot, connection, current, onCancel, onSa
           </select>
         </li>}
         {others.map(column => <li key={column.name}>
-          <ColumnFill column={column} value={fills[column.name]?.value} id={`fill-${profile}-${slot}-${column.name}`}
-            onChange={value => fill(column, value)} />
+          {column.type === 'relation'
+            ? <LinkFill column={column} connection={connection} value={fills[column.name]?.value as LinkTo | undefined}
+              id={`fill-${profile}-${slot}-${column.name}`} onChange={value => fill(column, value)} />
+            : <ColumnFill column={column} value={fills[column.name]?.value} id={`fill-${profile}-${slot}-${column.name}`}
+              onChange={value => fill(column, value)} />}
         </li>)}
       </ul>
     </>}
@@ -122,4 +125,26 @@ function ColumnFill({ column, value, id, onChange }: { column: Column; value: Fi
         onChange={e => onChange(e.target.checked ? [...picked, o] : picked.filter(p => p !== o))} /> {o}
     </label>)}
   </fieldset>;
+}
+
+/**
+ * A link to another database, filled with whichever page is marked a certain
+ * way when something is added: "the sprint whose Sprint status is Current".
+ */
+function LinkFill({ column, connection, value, id, onChange }: { column: Column; connection: string; value: LinkTo | undefined;
+  id: string; onChange: (value: LinkTo | null) => void }) {
+  const stores = useStores();
+  const linked = useLoad(() => column.source ? stores.integrations.schema(connection, column.source) : Promise.resolve(null),
+    [stores, connection, column.source]);
+  const choices = (linked.data?.columns ?? []).filter(c => c.type === 'select' || c.type === 'status')
+    .flatMap(c => c.options!.map(option => ({ column: c.name, option })));
+  const key = (v: LinkTo) => JSON.stringify([v.column, v.option]);
+  if (linked.error || (linked.data === null && !linked.loading)) return <><span>{column.name}</span>
+    <span className="fine muted">Satchel can’t see the database this links to. In Notion, add Satchel to it too, then reload.</span></>;
+  return <><label htmlFor={id}>{column.name}</label>
+    <select id={id} className="field compact" disabled={!linked.data} value={value ? key(value) : ''}
+      onChange={e => onChange(e.target.value ? (([c, o]) => ({ column: c, option: o }))(JSON.parse(e.target.value)) : null)}>
+      <option value="">{linked.loading ? 'Loading…' : 'Leave empty'}</option>
+      {choices.map(c => <option key={key(c)} value={key(c)}>The {linked.data!.name} whose {c.column} is {c.option}</option>)}
+    </select></>;
 }

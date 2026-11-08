@@ -70,7 +70,7 @@ export async function listSources(access, {fetchImpl = fetch} = {}) {
 }
 
 // The columns Satchel knows how to fill. Anything else is left for Notion's own default.
-const FILLABLE = new Set(['title', 'date', 'select', 'status', 'multi_select', 'people', 'checkbox', 'rich_text']);
+const FILLABLE = new Set(['title', 'date', 'select', 'status', 'multi_select', 'people', 'checkbox', 'rich_text', 'relation']);
 
 /** One database's columns that Satchel can fill, with the choices each allows. */
 export async function sourceSchema(access, id, {fetchImpl = fetch} = {}) {
@@ -78,6 +78,8 @@ export async function sourceSchema(access, id, {fetchImpl = fetch} = {}) {
   const columns = Object.values(out.properties ?? {}).filter(p => FILLABLE.has(p.type)).map(p => ({
     name: p.name, type: p.type,
     ...(['select', 'status', 'multi_select'].includes(p.type) ? {options: (p[p.type]?.options ?? []).map(o => o.name)} : {}),
+    // A link to another database, such as a task's sprint: which database it points at.
+    ...(p.type === 'relation' ? {source: p.relation?.data_source_id ?? null} : {}),
   }));
   return {id, name: (plain(out.title) || 'Untitled').slice(0, 120), columns};
 }
@@ -89,7 +91,7 @@ const text = value => typeof value === 'string' ? value.trim().slice(0, 2000) : 
  * column that exists, of the type it claims, with a choice it offers. A name
  * that does not fit is dropped rather than letting Notion refuse every add.
  */
-export function cleanSettings(schema, input = {}) {
+export function cleanSettings(schema, input = {}, linked = new Map()) {
   const byName = new Map(schema.columns.map(c => [c.name, c]));
   const title = schema.columns.find(c => c.type === 'title');
   if (!title) throw new NotionError('That database has no title column', {reason: 'no_title'});
@@ -106,6 +108,12 @@ export function cleanSettings(schema, input = {}) {
     } else if (column.type === 'people' && value === 'me') defaults[name] = {type: 'people', value: 'me'};
     else if (column.type === 'checkbox' && typeof value === 'boolean') defaults[name] = {type: 'checkbox', value};
     else if (column.type === 'rich_text' && text(value)) defaults[name] = {type: 'rich_text', value: text(value)};
+    else if (column.type === 'relation') {
+      // "The one whose Sprint status is Current": a choice column in the linked database, and one of its choices.
+      const by = linked.get(column.source)?.columns.find(c => c.name === value?.column && ['select', 'status'].includes(c.type));
+      if (by?.options.includes(value.option))
+        defaults[name] = {type: 'relation', value: {source: column.source, column: by.name, kind: by.type, option: value.option}};
+    }
   }
   return {data_source_id: schema.id, name: schema.name, title: title.name, date, defaults};
 }
@@ -113,7 +121,7 @@ export function cleanSettings(schema, input = {}) {
 const rich = content => [{text: {content: content.slice(0, 2000)}}];
 
 /** A to-do or event as a Notion page in the chosen database. The title goes only in the title column. */
-export function pageBody(s, settings, {userId = null, timezone = 'UTC'} = {}) {
+export function pageBody(s, settings, {userId = null, timezone = 'UTC', related = {}} = {}) {
   const properties = {[settings.title]: {title: rich(s.title)}};
   if (settings.date && (s.starts_at || s.due_date)) properties[settings.date] = {date: s.starts_at
     ? {start: s.starts_at, end: s.ends_at ?? null, time_zone: null}
@@ -124,6 +132,7 @@ export function pageBody(s, settings, {userId = null, timezone = 'UTC'} = {}) {
     else if (type === 'people' && userId) properties[name] = {people: [{object: 'user', id: userId}]};
     else if (type === 'checkbox') properties[name] = {checkbox: value};
     else if (type === 'rich_text') properties[name] = {rich_text: rich(value)};
+    else if (type === 'relation' && related[name]) properties[name] = {relation: [{id: related[name]}]};
   }
   // With no date column, the day still reaches the page, in its body.
   const when = !settings.date && (s.starts_at || s.due_date)
@@ -133,7 +142,25 @@ export function pageBody(s, settings, {userId = null, timezone = 'UTC'} = {}) {
     markdown: `${when}From your Satchel Shelf: “${s.source.replace(/[\r\n]+/g, ' ')}”`, markdown_version: 'v2'};
 }
 
+/**
+ * Finds, at the moment of adding, the page each link column should point at:
+ * today's "Current" sprint, not the one that was current when it was set up.
+ * One that cannot be found is left empty rather than stopping the add.
+ */
+export async function findLinked(access, settings, {fetchImpl = fetch} = {}) {
+  const found = {};
+  await Promise.all(Object.entries(settings.defaults ?? {}).filter(([, d]) => d.type === 'relation').map(async ([name, {value}]) => {
+    try {
+      const out = await call(`/data_sources/${encodeURIComponent(value.source)}/query`, access, {method: 'POST', fetchImpl,
+        body: {filter: {property: value.column, [value.kind]: {equals: value.option}}, page_size: 1}});
+      if (out.results?.[0]?.id) found[name] = out.results[0].id;
+    } catch { /* left empty */ }
+  }));
+  return found;
+}
+
 export async function addPage(access, s, settings, {userId, timezone, fetchImpl = fetch} = {}) {
-  const made = await call('/pages', access, {method: 'POST', body: pageBody(s, settings, {userId, timezone}), fetchImpl});
+  const related = await findLinked(access, settings, {fetchImpl});
+  const made = await call('/pages', access, {method: 'POST', body: pageBody(s, settings, {userId, timezone, related}), fetchImpl});
   return {link: made.url ?? 'https://www.notion.so/'};
 }
