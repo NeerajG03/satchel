@@ -24,7 +24,17 @@ export function isPrivateAddress(address) {
       || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 198 && (b === 18 || b === 19)) || a >= 224;
   }
   const v6 = address.toLowerCase();
-  if (v6.startsWith('::ffff:')) return isPrivateAddress(v6.slice(7));
+  // An IPv4 address inside IPv6, dotted (::ffff:127.0.0.1) or as URL parsing writes it (::ffff:7f00:1).
+  const mapped = v6.match(/^(?:0*:)*:?(?:0*:)?ffff:(?:0+:)?(.+)$/)?.[1] ?? v6.match(/^64:ff9b::(.+)$/)?.[1];
+  if (mapped) {
+    if (isIP(mapped) === 4) return isPrivateAddress(mapped);
+    const hex = mapped.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (hex) {
+      const [hi, lo] = [parseInt(hex[1], 16), parseInt(hex[2], 16)];
+      return isPrivateAddress(`${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`);
+    }
+    return true;
+  }
   return v6 === '::' || v6 === '::1' || /^f[cd]/.test(v6) || /^fe[89ab]/.test(v6) || v6.startsWith('ff');
 }
 

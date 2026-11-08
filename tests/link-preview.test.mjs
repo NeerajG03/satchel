@@ -13,7 +13,10 @@ test('a link is shown by its site alone', () => {
 
 test('the server never opens its own machine, its network or a metadata address', () => {
   for (const a of ['127.0.0.1', '10.1.2.3', '172.20.0.1', '192.168.1.1', '169.254.169.254', '100.64.0.1', '0.0.0.0',
-    '::1', '::', 'fd00::1', 'fe80::1', '::ffff:127.0.0.1']) assert.equal(isPrivateAddress(a), true, a);
+    '::1', '::', 'fd00::1', 'fe80::1', '::ffff:127.0.0.1', '::ffff:7f00:1', '::ffff:a9fe:a9fe', '64:ff9b::a00:1']) assert.equal(isPrivateAddress(a), true, a);
+  // A bracketed address in a link reaches the check in the form URL parsing writes it.
+  assert.equal(isPrivateAddress(new URL('http://[::ffff:127.0.0.1]/').hostname.replace(/^\[|\]$/g, '')), true);
+  assert.equal(isPrivateAddress('::ffff:8e fa:502e'.replace(' ', '')), false);
   for (const a of ['142.250.80.46', '31.13.71.174', '2a03:2880:f12f:83:face:b00c::25de']) assert.equal(isPrivateAddress(a), false, a);
 });
 

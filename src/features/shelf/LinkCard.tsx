@@ -30,10 +30,11 @@ function cached(url: string, load: (url: string) => Promise<LinkPreview | null>)
       return done;
     }
   } catch { /* storage may be blocked; read it fresh */ }
-  const fresh = load(url).catch(() => null).then(preview => {
+  // Only an answer is kept; a failed read is tried again on the next visit.
+  const fresh = load(url).then(preview => {
     try { localStorage.setItem(key, JSON.stringify({ at: Date.now(), preview })); } catch { /* fine without */ }
     return preview;
-  });
+  }, () => { memory.delete(url); return null; });
   memory.set(url, fresh);
   return fresh;
 }
