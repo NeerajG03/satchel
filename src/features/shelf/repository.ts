@@ -14,6 +14,10 @@ export type ShelfItem = {
   added_by?: string | null;
 };
 
+export type LinkPreview = {
+  url: string; domain: string | null; title: string | null; description: string | null; image: string | null; site: string | null;
+};
+
 export type Suggestion = {
   id: string; item_id: string; profile: ProfileKind | null; kind: 'todo' | 'event'; title: string;
   due_date: string | null; starts_at: string | null; ends_at: string | null; source: string; created_at: string;
@@ -130,6 +134,10 @@ export function createShelfRepository(db: SupabaseClient) {
     },
     async search(q: string): Promise<ShelfItem[]> {
       return (await server<{ items: ShelfItem[] }>({ action: 'search', q }, 20000)).items;
+    },
+    /** What a link shows when shared: its title and picture, read by the server. Null when the page offers none. */
+    async preview(url: string): Promise<LinkPreview | null> {
+      return (await server<{ preview: LinkPreview | null }>({ action: 'preview', url }, 10000)).preview;
     },
     /** Links that work for twelve hours, for the files on screen. */
     async fileUrls(paths: string[]): Promise<Record<string, string>> {

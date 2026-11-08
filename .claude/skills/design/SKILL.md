@@ -49,6 +49,8 @@ The Shelf is a shelf: things the person dropped, resting side by side. The rules
 - **No form controls on a card at rest.** No select, no row of buttons. Anything done now and then goes in ⋯. A confirm (Remove) opens in place.
 - **Voice is a key, never the browser's audio player.** `VoiceKey`: hardware-dark round key, orange while playing, a thin line that fills, the length in mono. One plays at a time.
 - **One board.** List blocks and loose drops share one column-filled board, so nothing short sits under something tall. Lists are blocks (tick, title, detail under it; tap the title for source, move, remove), named by Satchel, never typed in.
+- **A note is read, not headlined.** A note's own words sit at reading size (20px when short, 17px when long), never as a heading.
+- **A link is its page, never its address.** A link in a note comes out of the words and shows as a link card: the page's picture and title (read by the server from its preview tags) and only the site's name, `instagram.com ↗`. With no preview it is just the site's name.
 - **The phone app follows the same rules** in Compose: same card, same keys, same board order.
 - **Nothing pokes out of a card.** A card or block that is a grid uses `grid-template-columns: minmax(0, 1fr)`, so a line kept on one row (the bottom line) ellipses instead of widening the card. Check it by measuring, not by a scaled-down screenshot: in the browser, every child's right edge must sit inside its card at 1440, 1100 and 375 wide, with a voice note playing.
 
