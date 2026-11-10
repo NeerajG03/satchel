@@ -48,7 +48,11 @@ export function fitStatement(statement) {
   const end = Math.max(head.lastIndexOf('. '), head.lastIndexOf('! '), head.lastIndexOf('? '));
   if (end >= 80) return head.slice(0, end + 1);
   const clause = head.lastIndexOf('; ');
-  return clause >= 80 ? `${head.slice(0, clause)}.` : '';
+  if (clause < 80) return '';
+  const kept = head.slice(0, clause);
+  // A cut inside a bracket or a code span would store half a thought.
+  const open = (kept.match(/\(/g) ?? []).length !== (kept.match(/\)/g) ?? []).length;
+  return open || (kept.match(/`/g) ?? []).length % 2 ? '' : `${kept}.`;
 }
 
 export const KINDS = ['fact', 'preference', 'intent'];

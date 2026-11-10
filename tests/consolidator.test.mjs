@@ -292,6 +292,12 @@ test('one long sentence is cut at its last semicolon and closed with a full stop
   assert.ok(kept.length <= 500 && kept.startsWith(clause) && kept.endsWith('.') && !kept.includes(';.'));
 });
 
+test('a semicolon cut inside brackets is refused', () => {
+  const long = `Evals run in CI (the pipeline writes results to the backend for the frontend; ${'Satchel reads them back from GitHub and shows the checks that passed, '.repeat(7)}done)`;
+  const out = validateConsolidation({changes: [change({statement: long})]}, context);
+  assert.equal(out.changes.length, 0);
+});
+
 test('an unknown kind is refused rather than defaulted', () => {
   const out = validateConsolidation({changes: [change({kind: 'episode'})]}, context);
   assert.equal(out.dropped[0].why, 'unknown kind');
