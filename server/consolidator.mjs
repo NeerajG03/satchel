@@ -39,13 +39,20 @@ export const STATEMENT_LIMIT = 500;
 
 // The prompt does not state the limit, and a rule with its reasons runs past
 // it. Dropping the whole claim loses the rule, so keep the leading sentences
-// that fit. One unbroken sentence is still refused: cutting it mid-thought
-// would store half a claim.
+// that fit. A semicolon ends a whole clause too, so a long sentence is cut
+// there and closed with a full stop. One with neither is still refused:
+// cutting it mid-thought would store half a claim.
 export function fitStatement(statement) {
   if (statement.length <= STATEMENT_LIMIT) return statement;
   const head = statement.slice(0, STATEMENT_LIMIT + 1);
   const end = Math.max(head.lastIndexOf('. '), head.lastIndexOf('! '), head.lastIndexOf('? '));
-  return end >= 80 ? head.slice(0, end + 1) : '';
+  if (end >= 80) return head.slice(0, end + 1);
+  const clause = head.lastIndexOf('; ');
+  if (clause < 80) return '';
+  const kept = head.slice(0, clause);
+  // A cut inside a bracket or a code span would store half a thought.
+  const open = (kept.match(/\(/g) ?? []).length !== (kept.match(/\)/g) ?? []).length;
+  return open || (kept.match(/`/g) ?? []).length % 2 ? '' : `${kept}.`;
 }
 
 export const KINDS = ['fact', 'preference', 'intent'];

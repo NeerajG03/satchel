@@ -283,6 +283,21 @@ test('a long statement keeps its leading sentences, and one unbroken sentence is
   assert.equal(out.dropped[0].why, 'statement missing or too long');
 });
 
+test('one long sentence is cut at its last semicolon and closed with a full stop', () => {
+  const clause = 'Global skill evals only trigger runs and pipe the scores to the frontend on QA first';
+  const long = `${clause}; ${'each skill version stores only the latest run id, not a typed result; '.repeat(8)}done`;
+  const out = validateConsolidation({changes: [change({statement: long})]}, context);
+  assert.equal(out.changes.length, 1);
+  const kept = out.changes[0].statement;
+  assert.ok(kept.length <= 500 && kept.startsWith(clause) && kept.endsWith('.') && !kept.includes(';.'));
+});
+
+test('a semicolon cut inside brackets is refused', () => {
+  const long = `Evals run in CI (the pipeline writes results to the backend for the frontend; ${'Satchel reads them back from GitHub and shows the checks that passed, '.repeat(7)}done)`;
+  const out = validateConsolidation({changes: [change({statement: long})]}, context);
+  assert.equal(out.changes.length, 0);
+});
+
 test('an unknown kind is refused rather than defaulted', () => {
   const out = validateConsolidation({changes: [change({kind: 'episode'})]}, context);
   assert.equal(out.dropped[0].why, 'unknown kind');
