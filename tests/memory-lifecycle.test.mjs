@@ -222,7 +222,7 @@ test('retrieval records the prompt whether or not it finds anything', async () =
   assert.equal(quiet.notice, '', 'and says nothing');
 
   service.search = async () => [{id: crypto.randomUUID(), statement: 'Do not bump Go until payouts ship.',
-    band: 'said', task_id: null, score: 0.9, matched: 4, in_scope: 30}];
+    band: 'said', score: 0.9, matched: 4, in_scope: 30}];
   const found = await retrieve(service, {sessionKey: 's', prompt: 'can we bump Go'});
   assert.match(found.context, /1 shown · 4 matched · 30 in scope/,
     'the counts separate "no rule about this" from "nothing scored high enough"');
@@ -556,7 +556,7 @@ test('the user’s half is waited for, and its loss is reported without taking t
 
   service.recordTurn = async () => { throw {code: 'PT503', reason: 'the document store is unavailable'}; };
   service.search = async () => [{id: crypto.randomUUID(), statement: 'Do not bump Go until payouts ship.',
-    band: 'said', task_id: null, score: 0.9, matched: 1, in_scope: 1}];
+    band: 'said', score: 0.9, matched: 1, in_scope: 1}];
   const result = await retrieve(service, {sessionKey: 's', prompt: 'can we bump Go'});
   assert.match(result.context, /Do not bump Go until payouts ship\./,
     'a lost record must not cost the person the memory they already had');
